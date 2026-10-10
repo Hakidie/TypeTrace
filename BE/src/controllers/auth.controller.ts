@@ -3,6 +3,7 @@ import { UserModel } from '../models/user.model';
 import { comparePassword, hashPassword } from '../utils/hash';
 import { signToken } from '../utils/jwt';
 import { createUserWithOtp, issueOtpForUser, issueResetToken } from '../services/user.service';
+import { findOrCreateGoogleUser } from '../services/google-auth.service';
 
 export const register = async (req: Request, res: Response) => {
   const { email, password } = req.body as { email: string; password: string };
@@ -90,4 +91,10 @@ export const getMe = async (req: Request, res: Response) => {
   const user = await UserModel.findById(userId);
   if (!user) return res.status(404).json({ message: 'User not found' });
   return res.json(user);
+};
+
+export const googleLogin = async (req: Request, res: Response) => {
+  const { credential } = req.body as { credential: string };
+  const user = await findOrCreateGoogleUser(credential);
+  return res.json({ token: signToken({ sub: String(user._id), email: user.email }) });
 };

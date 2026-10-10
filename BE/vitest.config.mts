@@ -20,7 +20,8 @@ export default defineConfig({
       CLOUDINARY_API_KEY: 'test-key',
       CLOUDINARY_API_SECRET: 'test-secret',
       GEMINI_API_KEY: 'test-gemini-key',
-      GEMINI_MODEL: 'test-model'
+      GEMINI_MODEL: 'test-model',
+      GOOGLE_CLIENT_ID: 'test-google-client-id'
     },
     globalSetup: ['./tests/setup/download-mongod.ts'],
     setupFiles: ['./tests/setup/mock-external-services.ts', './tests/setup/in-memory-database.ts'],
