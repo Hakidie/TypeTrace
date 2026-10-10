@@ -42,7 +42,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run gen:module -- <name> --remove` | Delete a generated feature again |
 
 Optional services: without SMTP, emails (OTP and reset codes) are printed in the backend terminal in development and
-answer 503 in production; without Cloudinary, image upload answers 503; without `GEMINI_API_KEY`, the AI chat answers 503.
+answer 503 in production; without Cloudinary, image upload answers 503; without `GEMINI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden.
 Everything else keeps working. `npm run seed` refuses `NODE_ENV=production`. Behind a proxy set `TRUST_PROXY=1`.
 Tests never read `BE/.env`: their variables are in `BE/vitest.config.mts`.
 
@@ -104,9 +104,10 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 management: `FE/src/modules/admin/pages/AdminUsersPage.tsx` (search, filters, sortable table, pagination, edit dialog,
 delete, bulk delete) backed by `BE/src/routes/admin.route.ts`.
 
-**Access (base default): every signed-in account can open the admin area**, so students can try it. The lock is one line
-on each side: `requireRole('admin')` in `BE/src/routes/admin.route.ts` and `<ProtectedRoute roles={['admin']}>` around
-`AdminLayout` in `FE/src/App.tsx`. Recommend locking it before real users join. Keep the server-side checks that stop
+**Access: admins only.** The lock is one line on each side: `requireRole('admin')` in `BE/src/routes/admin.route.ts`
+(others get 403) and `<ProtectedRoute roles={['admin']}>` around `AdminLayout` in `FE/src/App.tsx` (others are sent to `/`).
+The "Admin" link in the main nav is also admins only. After login, admins land on `/admin`, everyone else on `/`. Make the first
+admin with `npm run seed` (`admin@example.com`) or by setting `role: 'admin'` in the database. Keep the server-side checks that stop
 an account from deleting itself or removing its own admin role.
 
 To add an admin page for a feature module:

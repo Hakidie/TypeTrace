@@ -125,7 +125,7 @@ export const appModules: AppModule[] = [homeModule, notesModule, profileModule];
 ```
 
 Every registered route renders inside `ProtectedRoute` + `AppLayout`. A module may also add:
-- `adminRoutes` (paths under `/admin`) and `adminNavItems`: rendered inside `AdminLayout` (sidebar). **Base default: every signed-in account can open the admin area.** To allow admins only, wrap `AdminLayout` in `<ProtectedRoute roles={['admin']}>` in `App.tsx` and use `requireRole('admin')` in `BE/src/routes/admin.route.ts`.
+- `adminRoutes` (paths under `/admin`) and `adminNavItems`: rendered inside `AdminLayout` (sidebar). **Admins only:** `AdminLayout` is wrapped in `<ProtectedRoute roles={['admin']}>` in `App.tsx` and the API uses `requireRole('admin')` in `BE/src/routes/admin.route.ts`.
 - `widgets`: components rendered on every page of `AppLayout`, for floating UI such as the chat button (`chatModule.widgets = [ChatWidget]`). A widget positions itself (`fixed bottom-4 right-4 ...`) and keeps its own state. Add `roles: ['admin']` to a route or nav item to restrict it; `ProtectedRoute roles` sends other users to `/`. Public auth pages (`/login`, `/register`, `/forgot-password`) live in `App.tsx` under `AuthLayout`. Page number lives in the URL via `usePagination()` (`?page=2`).
 
 ### 7. Forms (React Hook Form + Zod + `FormField`)
