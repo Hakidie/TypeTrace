@@ -1,9 +1,12 @@
 @import "tailwindcss";
 
+/* `dark:` classes follow the theme toggle (the `.dark` class on <html>), not the operating system. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --radius-sm: calc(var(--radius-lg) - 4px);
-  --radius-md: calc(var(--radius-lg) - 2px);
-  --radius-lg: 0.8rem;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -87,8 +90,11 @@
   --sidebar-border: hsl(223 21% 20%);
 }
 
-* {
-  border-color: var(--color-border);
+/* In the base layer so `border-*` color classes (border-input, border-transparent, ...) can override it. */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
 }
 
 body {

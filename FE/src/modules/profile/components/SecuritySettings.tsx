@@ -42,7 +42,7 @@ export const SecuritySettings = ({ user }: SecuritySettingsProps) => {
     <div className="flex items-start justify-between gap-4">
       <div className="space-y-1">
         <Label htmlFor="login-otp">Email code at login</Label>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           After your password, ask for a 6-digit code sent to {user.email}.
         </p>
       </div>

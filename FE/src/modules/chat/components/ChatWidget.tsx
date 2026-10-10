@@ -28,10 +28,10 @@ export const ChatWidget = () => {
         <section
           role="dialog"
           aria-label={chatConfig.botName}
-          className="flex h-[min(560px,calc(100vh-6rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border bg-card shadow-2xl"
+          className="flex h-[min(560px,calc(100vh-6rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden border bg-card shadow-2xl"
         >
           <header className="flex items-center gap-2 border-b px-4 py-3">
-            <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <div className="flex size-8 items-center justify-center bg-primary/10 text-primary">
               <Bot className="size-4" />
             </div>
             <p className="flex-1 font-semibold">{chatConfig.botName}</p>
@@ -47,7 +47,7 @@ export const ChatWidget = () => {
       )}
 
       <Button
-        className="size-14 rounded-full shadow-lg"
+        className="size-14 shadow-lg"
         aria-label={open ? 'Close chat' : 'Open chat'}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}

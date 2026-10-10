@@ -33,7 +33,7 @@ No email or Cloudinary account is needed to start:
 - Profile editing and avatar upload (Cloudinary)
 - Roles (`user`, `admin`) with `requireRole` on the backend and role-gated routes on the frontend
 - `notes` reference module: paginated list, search, tag filter, create / edit / delete, owner-only access, admin view of all notes
-- Admin area (`/admin`, open to every signed-in account in this base; one line on each side locks it to admins): sidebar layout, dashboard with stats, user management (search, filters, sortable
+- Admin area (`/admin`, admins only): sidebar layout, dashboard with stats, user management (search, filters, sortable
   table, pagination, edit role / verification, delete, bulk delete) built from reusable `DataTable`, `SearchInput`,
   `FilterSelect` and `StatCard` components
 - Sample AI chat bot on Google Gemini's free tier, as a floating button in the bottom-right corner that opens a chat popup: set `GEMINI_API_KEY` in `BE/.env`

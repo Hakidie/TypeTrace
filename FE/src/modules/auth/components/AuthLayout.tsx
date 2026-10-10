@@ -1,54 +1,22 @@
-import { ShieldCheck } from 'lucide-react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { cn } from '@/shared/lib/utils';
-import { ThemeToggle } from '@/shared/components/ui/theme-toggle';
+import { Outlet } from 'react-router-dom';
+import { BrandFooter } from '@/shared/components/layout/BrandFooter';
+import { BrandHeader } from '@/shared/components/layout/BrandHeader';
 
-const navItems = [
-  { to: '/login', label: 'Login' },
-  { to: '/register', label: 'Register' },
-  { to: '/forgot-password', label: 'Forgot Password' }
-];
+// Auth pages only (login, register, forgot password); the rest of the app keeps its theme.
+// Tailwind reads the `--color-*` variables, so those are the ones overridden here.
+// The card is blurred red glass; fields and the Google button are solid maroon; the card has no visible border.
+// Dark mode uses a blood-red palette: near-black red page, dark maroon fields, bright red accents.
+export const AuthLayout = () => (
+  <div className="flex min-h-screen flex-col bg-white text-foreground [--color-ring:var(--color-destructive)] [--color-background:rgb(255_255_255/0.6)] [--color-input:rgb(176_30_30/0.3)] dark:bg-[#140606] dark:[--color-background:#341414] dark:[--color-input:#341414] dark:[--color-border:#3a1616] dark:[--color-foreground:#e6d2d2] dark:[--color-muted-foreground:#a87878] dark:[--color-destructive:#b01e1e] dark:[--color-destructive-foreground:#f3dcdc]">
+    <BrandHeader to="/login" />
 
-export const AuthLayout = () => {
-  const location = useLocation();
-
-  return (
-    <main className="relative mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center p-4 md:p-8">
-      <div className="absolute right-4 top-4">
-        <ThemeToggle />
+    <main className="flex flex-1 items-center justify-center p-4">
+      {/* The page's card is the direct child: semi-transparent with a blurred backdrop. */}
+      <div className="w-full max-w-md [&>*]:border-transparent [&>*]:bg-destructive/10 [&>*]:backdrop-blur-md">
+        <Outlet />
       </div>
-      <section className="grid w-full gap-6 md:grid-cols-2">
-        <div className="hidden rounded-2xl border bg-card p-8 md:flex md:flex-col md:justify-between">
-          <div>
-            <div className="mb-5 inline-flex size-11 items-center justify-center rounded-xl bg-primary/20 text-primary">
-              <ShieldCheck className="size-6" />
-            </div>
-            <h1 className="text-3xl font-bold">MERN Auth Starter</h1>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Secure authentication base with OTP verification and clean architecture.
-            </p>
-          </div>
-          <p className="text-xs text-muted-foreground">TypeScript • React • shadcn/ui • TailwindCSS</p>
-        </div>
-
-        <div className="space-y-4">
-          <nav className="inline-flex rounded-lg border bg-muted/40 p-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  'rounded-md px-3 py-1.5 text-sm text-muted-foreground transition',
-                  location.pathname === item.to && 'bg-background text-foreground shadow-sm'
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-          <Outlet />
-        </div>
-      </section>
     </main>
-  );
-};
+
+    <BrandFooter />
+  </div>
+);

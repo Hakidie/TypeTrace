@@ -33,6 +33,8 @@ const envSchema = z
     CLOUDINARY_API_SECRET: optionalString,
     // Free key: https://aistudio.google.com/apikey
     GEMINI_API_KEY: optionalString,
+    // Optional. OAuth client ID for "Login with Google" (https://console.cloud.google.com/apis/credentials).
+    GOOGLE_CLIENT_ID: optionalString,
     GEMINI_MODEL: z.string().trim().min(1).default('gemini-3.5-flash-lite')
   })
   .superRefine((value, ctx) => {
@@ -77,6 +79,7 @@ export const parseEnv = (raw: RawEnv) => {
     cloudinaryApiKey: v.CLOUDINARY_API_KEY,
     cloudinaryApiSecret: v.CLOUDINARY_API_SECRET,
     geminiApiKey: v.GEMINI_API_KEY,
+    googleClientId: v.GOOGLE_CLIENT_ID,
     geminiModel: v.GEMINI_MODEL
   };
 };

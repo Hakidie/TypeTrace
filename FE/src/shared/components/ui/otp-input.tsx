@@ -75,7 +75,7 @@ export function OtpInput({ length = 6, value, onChange, className }: OtpInputPro
           onPaste={handlePaste}
           onFocus={(e) => e.target.select()}
           className={cn(
-            'size-11 rounded-lg border border-input bg-background text-center text-lg font-semibold',
+            'size-11 border border-input bg-background text-center text-lg font-semibold',
             'transition-all placeholder:text-muted-foreground',
             'focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30',
             'sm:size-12'

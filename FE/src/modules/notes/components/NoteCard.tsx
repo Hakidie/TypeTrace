@@ -26,14 +26,14 @@ export const NoteCard = ({ note, onEdit, onDelete, onTagClick }: NoteCardProps) 
       </div>
     </CardHeader>
     <CardContent className="flex flex-1 flex-col gap-3">
-      {note.content && <p className="line-clamp-4 whitespace-pre-line text-sm text-muted-foreground">{note.content}</p>}
+      {note.content && <p className="line-clamp-4 whitespace-pre-line text-base text-muted-foreground">{note.content}</p>}
       <div className="mt-auto flex flex-wrap items-center gap-1.5">
         {note.tags.map((tag) => (
           <button key={tag} type="button" onClick={() => onTagClick(tag)}>
             <Badge variant="secondary">#{tag}</Badge>
           </button>
         ))}
-        <span className="ml-auto text-xs text-muted-foreground">
+        <span className="ml-auto text-sm text-muted-foreground">
           {new Date(note.updatedAt).toLocaleDateString()}
         </span>
       </div>

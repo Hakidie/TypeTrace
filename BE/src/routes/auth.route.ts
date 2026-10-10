@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   forgotPassword,
+  googleLogin,
   getMe,
   login,
   register,
@@ -12,6 +13,7 @@ import { authGuard } from '../middlewares/auth.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
 import {
   forgotPasswordSchema,
+  googleLoginSchema,
   loginSchema,
   otpSchema,
   registerSchema,
@@ -26,4 +28,5 @@ authRouter.post('/login', validateBody(loginSchema), login);
 authRouter.post('/login/verify-otp', validateBody(otpSchema), verifyLoginOtp);
 authRouter.post('/forgot-password', validateBody(forgotPasswordSchema), forgotPassword);
 authRouter.post('/reset-password', validateBody(resetPasswordSchema), resetPassword);
+authRouter.post('/google', validateBody(googleLoginSchema), googleLogin);
 authRouter.get('/me', authGuard, getMe);

@@ -26,10 +26,10 @@ export const ChatPanel = ({ chat }: ChatPanelProps) => {
       <div className="flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-            <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <div className="flex size-10 items-center justify-center bg-primary/10 text-primary">
               <Bot className="size-5" />
             </div>
-            <p className="text-sm text-muted-foreground">{chatConfig.welcomeMessage}</p>
+            <p className="text-base text-muted-foreground">{chatConfig.welcomeMessage}</p>
             <div className="flex flex-col gap-2">
               {chatConfig.suggestions.map((suggestion) => (
                 <Button key={suggestion} variant="outline" size="sm" className="h-auto whitespace-normal py-1.5" onClick={() => send(suggestion)}>
@@ -43,14 +43,14 @@ export const ChatPanel = ({ chat }: ChatPanelProps) => {
         )}
 
         {isThinking && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-base text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
             {chatConfig.botName} is thinking…
           </div>
         )}
 
         {error && (
-          <div role="alert" className="space-y-2 rounded-lg border border-destructive/40 p-3 text-sm">
+          <div role="alert" className="space-y-2 border border-destructive/40 p-3 text-base">
             <p className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
               {getApiErrorMessage(error, 'The AI did not answer. Please try again.')}

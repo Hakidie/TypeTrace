@@ -11,11 +11,11 @@ interface ErrorStateProps {
 
 /** Shown when loading data failed. Pair with `query.error` and `query.refetch`. */
 export const ErrorState = ({ error, title = 'Something went wrong', onRetry }: ErrorStateProps) => (
-  <div role="alert" className="flex flex-col items-center justify-center gap-3 rounded-xl border border-destructive/40 p-10 text-center">
+  <div role="alert" className="flex flex-col items-center justify-center gap-3 border border-destructive/40 p-10 text-center">
     <AlertTriangle className="size-8 text-destructive" />
     <div>
       <p className="font-medium">{title}</p>
-      <p className="text-sm text-muted-foreground">{getApiErrorMessage(error, 'Please try again.')}</p>
+      <p className="text-base text-muted-foreground">{getApiErrorMessage(error, 'Please try again.')}</p>
     </div>
     {onRetry && (
       <Button variant="outline" size="sm" onClick={onRetry}>

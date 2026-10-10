@@ -15,5 +15,7 @@ export const authApi = {
     http.post<MessageResponse>('/auth/forgot-password', { email }).then((r) => r.data),
   resetPassword: (email: string, token: string, newPassword: string) =>
     http.post<MessageResponse>('/auth/reset-password', { email, token, newPassword }).then((r) => r.data),
+  googleLogin: (credential: string) =>
+    http.post<{ token: string }>('/auth/google', { credential }).then((r) => r.data),
   getMe: () => http.get<CurrentUser>('/auth/me').then((r) => r.data),
 };
