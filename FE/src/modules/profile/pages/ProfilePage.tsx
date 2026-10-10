@@ -28,7 +28,7 @@ export const ProfilePage = () => {
             {user?.displayName && (
               <p className="font-semibold">{user.displayName}</p>
             )}
-            <p className="text-sm text-muted-foreground">{user?.email ?? '—'}</p>
+            <p className="text-base text-muted-foreground">{user?.email ?? '—'}</p>
           </div>
         </Card>
 
@@ -48,7 +48,7 @@ export const ProfilePage = () => {
                   }}
                 />
               ) : (
-                <p className="text-sm text-muted-foreground">Loading…</p>
+                <p className="text-base text-muted-foreground">Loading…</p>
               )}
             </CardContent>
           </Card>
@@ -61,7 +61,7 @@ export const ProfilePage = () => {
               {user ? (
                 <SecuritySettings user={user} />
               ) : (
-                <p className="text-sm text-muted-foreground">Loading…</p>
+                <p className="text-base text-muted-foreground">Loading…</p>
               )}
             </CardContent>
           </Card>

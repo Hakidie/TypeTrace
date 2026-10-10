@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { KeyRound, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { authApi } from '../api/auth.api';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Button } from '@/shared/components/ui/button';
@@ -79,7 +80,7 @@ export const RegisterPage = () => {
             <button
               type="button"
               onClick={() => { setStep('register'); setOtp(''); }}
-              className="block w-full text-center text-sm text-muted-foreground transition hover:text-foreground"
+              className="block w-full text-center text-base text-muted-foreground transition hover:text-foreground"
             >
               Back to register
             </button>
@@ -97,29 +98,36 @@ export const RegisterPage = () => {
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={onRegisterSubmit}>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
               <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input id="email" className="pl-9" placeholder="name@example.com" {...register('email')} />
             </div>
-            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
               <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input id="password" className="pl-9" type="password" placeholder="At least 6 characters" {...register('password')} />
             </div>
-            {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
           </div>
 
-          <Button className="w-full" type="submit" disabled={loading}>
+          <Button className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit" disabled={loading}>
             {loading && <Loader2 className="size-4 animate-spin" />}
             Register and Send OTP
           </Button>
         </form>
+        <GoogleSignInButton />
+        <p className="mt-4 text-center text-base text-muted-foreground">
+          Already have an account?{' '}
+          <Link to="/login" className="font-medium text-foreground hover:underline">
+            Login
+          </Link>
+        </p>
       </CardContent>
     </Card>
   );

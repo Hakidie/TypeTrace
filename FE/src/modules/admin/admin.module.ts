@@ -5,8 +5,8 @@ import { AdminUsersPage } from './pages/AdminUsersPage';
 
 export const adminModule: AppModule = {
   routes: [],
-  // Link from the main app to the admin area. Add `roles: ['admin']` to show it to admins only.
-  navItems: [{ to: '/admin', label: 'Admin', icon: Shield }],
+  // Link from the main app to the admin area, shown to admins only.
+  navItems: [{ to: '/admin', label: 'Admin', icon: Shield, roles: ['admin'] }],
   adminRoutes: [
     { path: '/admin', Component: AdminDashboardPage },
     { path: '/admin/users', Component: AdminUsersPage },

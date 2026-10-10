@@ -15,11 +15,11 @@ interface StatCardProps {
 export const StatCard = ({ label, value, icon: Icon, hint, isLoading }: StatCardProps) => (
   <Card className="flex items-start justify-between gap-4 p-5">
     <div className="space-y-1">
-      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="text-base text-muted-foreground">{label}</p>
       {isLoading ? <Skeleton className="h-8 w-16" /> : <p className="text-3xl font-bold">{value ?? '—'}</p>}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
     </div>
-    <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+    <div className="flex size-10 items-center justify-center bg-primary/10 text-primary">
       <Icon className="size-5" />
     </div>
   </Card>

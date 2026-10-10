@@ -26,14 +26,14 @@ export const userColumns = ({ currentUserId, onEdit, onDelete }: UserColumnOptio
         <div className="flex items-center gap-3">
           <Avatar className="size-8">
             <AvatarImage src={user.avatarUrl} alt="" />
-            <AvatarFallback className="text-xs">{user.email.slice(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarFallback className="text-sm">{user.email.slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <p className="truncate font-medium">
               {user.displayName || '—'}
-              {user._id === currentUserId && <span className="ml-1 text-xs text-muted-foreground">(you)</span>}
+              {user._id === currentUserId && <span className="ml-1 text-sm text-muted-foreground">(you)</span>}
             </p>
-            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+            <p className="truncate text-sm text-muted-foreground">{user.email}</p>
           </div>
         </div>
       ),

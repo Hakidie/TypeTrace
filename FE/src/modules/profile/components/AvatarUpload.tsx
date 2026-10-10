@@ -48,7 +48,7 @@ export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSu
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="group relative cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Avatar className="size-24 ring-2 ring-border transition group-hover:ring-primary">
           <AvatarImage src={currentAvatarUrl} alt="Profile avatar" />
@@ -56,7 +56,7 @@ export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSu
         </Avatar>
 
         {/* Overlay */}
-        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition group-hover:opacity-100">
+        <span className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition group-hover:opacity-100">
           {uploading
             ? <Loader2 className="size-6 animate-spin text-white" />
             : <Camera className="size-6 text-white" />
@@ -64,13 +64,13 @@ export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSu
         </span>
 
         {uploading && (
-          <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
+          <span className="absolute inset-0 flex items-center justify-center bg-black/60">
             <Loader2 className="size-6 animate-spin text-white" />
           </span>
         )}
       </button>
 
-      <p className="text-xs text-muted-foreground">Click to upload (max 5MB)</p>
+      <p className="text-sm text-muted-foreground">Click to upload (max 5MB)</p>
 
       <input
         ref={inputRef}

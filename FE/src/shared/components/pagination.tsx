@@ -17,7 +17,7 @@ export const Pagination = ({ page, totalPages, onPageChange }: PaginationProps) 
         <ChevronLeft className="size-4" />
         Previous
       </Button>
-      <span className="text-sm text-muted-foreground">
+      <span className="text-base text-muted-foreground">
         Page {page} of {totalPages}
       </span>
       <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>

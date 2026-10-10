@@ -30,8 +30,8 @@ export const AppLayout = ({ navItems: allNavItems, widgets = [] }: AppLayoutProp
       <header className="sticky top-0 z-50 border-b border-border bg-card">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 text-sm font-semibold">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-primary/20 text-primary">
+          <Link to="/" className="flex items-center gap-2 text-base font-semibold">
+            <div className="flex size-7 items-center justify-center bg-primary/20 text-primary">
               <ShieldCheck className="size-4" />
             </div>
             <span className="hidden sm:inline">MERN Auth</span>
@@ -44,7 +44,7 @@ export const AppLayout = ({ navItems: allNavItems, widgets = [] }: AppLayoutProp
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-base transition-colors',
                   location.pathname === item.to
                     ? 'bg-primary/15 text-primary'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -61,7 +61,7 @@ export const AppLayout = ({ navItems: allNavItems, widgets = [] }: AppLayoutProp
             <ThemeToggle />
             <Avatar className="size-8">
               <AvatarImage src={user?.avatarUrl} alt={user?.email} />
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              <AvatarFallback className="text-sm">{initials}</AvatarFallback>
             </Avatar>
             <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-foreground">
               <LogOut className="size-4" />

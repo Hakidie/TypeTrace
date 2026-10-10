@@ -42,7 +42,7 @@ const SortIcon = ({ sort, sortKey }: { sort?: string; sortKey: string }) => {
   return <ArrowUpDown className="size-3.5 opacity-40" />;
 };
 
-const checkboxClass = 'size-4 cursor-pointer rounded border-input accent-primary disabled:cursor-not-allowed';
+const checkboxClass = 'size-4 cursor-pointer border-input accent-primary disabled:cursor-not-allowed';
 
 /**
  * Table for admin and list pages: column config, sortable headers (sorting is
@@ -87,7 +87,7 @@ export const DataTable = <T,>({
       return (
         <tr>
           <td colSpan={columnCount} className="p-6">
-            {emptyState ?? <p className="text-center text-sm text-muted-foreground">No data.</p>}
+            {emptyState ?? <p className="text-center text-base text-muted-foreground">No data.</p>}
           </td>
         </tr>
       );
@@ -120,9 +120,9 @@ export const DataTable = <T,>({
   };
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card">
-      <table className="w-full min-w-[640px] text-sm" aria-label={label} aria-busy={isLoading}>
-        <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+    <div className="overflow-x-auto border bg-card">
+      <table className="w-full min-w-[640px] text-base" aria-label={label} aria-busy={isLoading}>
+        <thead className="bg-muted/50 text-left text-sm uppercase tracking-wide text-muted-foreground">
           <tr>
             {selectable && (
               <th className="w-10 px-4 py-3">

@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { KeyRound, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { authApi } from '../api/auth.api';
-import { tokenStore } from '../store/token.store';
+import { useFinishLogin } from '../hooks/use-finish-login';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { getApiErrorBody, getApiErrorMessage } from '@/shared/api/api-error';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -29,16 +30,14 @@ export const LoginPage = () => {
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(loginSchema),
   });
-  const navigate = useNavigate();
+  const finishLogin = useFinishLogin();
 
   const onLoginSubmit = handleSubmit(async (values) => {
     setLoading(true);
     try {
       const response = await authApi.login({ email: values.email, password: values.password });
       if ('token' in response) {
-        tokenStore.set(response.token);
-        toast.success('Logged in successfully.');
-        navigate('/');
+        await finishLogin(response.token);
         return;
       }
       setEmail(values.email);
@@ -64,9 +63,7 @@ export const LoginPage = () => {
     setLoading(true);
     try {
       const response = await authApi.verifyLoginOtp(email, otp);
-      tokenStore.set(response.token);
-      toast.success('Logged in successfully.');
-      navigate('/');
+      await finishLogin(response.token);
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Invalid OTP'));
       setOtp('');
@@ -94,7 +91,7 @@ export const LoginPage = () => {
             <button
               type="button"
               onClick={() => { setStep('login'); setOtp(''); }}
-              className="block w-full text-center text-sm text-muted-foreground transition hover:text-foreground"
+              className="block w-full text-center text-base text-muted-foreground transition hover:text-foreground"
             >
               Back to login
             </button>
@@ -112,29 +109,38 @@ export const LoginPage = () => {
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={onLoginSubmit}>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
               <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input id="email" className="pl-9" placeholder="name@example.com" {...register('email')} />
             </div>
-            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
               <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input id="password" className="pl-9" type="password" placeholder="Enter your password" {...register('password')} />
             </div>
-            {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
+            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
           </div>
 
-          <Button className="w-full" type="submit" disabled={loading}>
+          <Button className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit" disabled={loading}>
             {loading && <Loader2 className="size-4 animate-spin" />}
             Sign in
           </Button>
         </form>
+        <GoogleSignInButton />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-base text-muted-foreground">
+          <Link to="/forgot-password" className="transition hover:text-foreground">
+            Forgot password?
+          </Link>
+          <Link to="/register" className="font-medium text-foreground hover:underline">
+            Register
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );

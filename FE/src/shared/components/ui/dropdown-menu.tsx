@@ -61,7 +61,7 @@ function DropdownMenuContent({ children, className, align = 'start', ...props }:
     <div
       ref={ref}
       className={cn(
-        'absolute z-50 mt-1 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
+        'absolute z-50 mt-1 min-w-[8rem] overflow-hidden border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
         align === 'end' ? 'right-0' : 'left-0',
         className
       )}
@@ -84,7 +84,7 @@ function DropdownMenuItem({ children, className, onClick, ...props }: React.HTML
     <div
       role="menuitem"
       className={cn(
-        'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground',
+        'relative flex cursor-pointer select-none items-center px-2 py-1.5 text-base outline-none transition-colors hover:bg-accent hover:text-accent-foreground',
         className
       )}
       onClick={handleClick}

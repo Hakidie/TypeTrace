@@ -32,8 +32,8 @@ export const HomePage = () => {
   return (
     <div className="space-y-8">
       {/* Hero section */}
-      <section className="rounded-2xl border bg-card p-8">
-        <p className="text-sm font-medium text-primary">Dashboard</p>
+      <section className=" border bg-card p-8">
+        <p className="text-base font-medium text-primary">Dashboard</p>
         <h1 className="mt-1 text-3xl font-bold">
           Welcome back, <span className="text-primary">{displayName}</span>
         </h1>
@@ -50,7 +50,7 @@ export const HomePage = () => {
             <Link key={action.title} to={action.to} className="group block">
               <Card className="h-full transition-colors group-hover:border-primary/50 group-hover:bg-card/80">
                 <CardHeader className="pb-3">
-                  <div className="mb-2 inline-flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <div className="mb-2 inline-flex size-10 items-center justify-center bg-primary/10 text-primary">
                     <action.icon className="size-5" />
                   </div>
                   <CardTitle className="text-base">{action.title}</CardTitle>

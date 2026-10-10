@@ -30,7 +30,7 @@ interface UserEditDialogProps {
 }
 
 const selectClass =
-  'h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
+  'h-10 w-full border border-input bg-background px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
 
 /** Details of one user plus the fields an admin may change. Mount with `key={user._id}`. */
 export const UserEditDialog = ({ user, isSelf, onClose }: UserEditDialogProps) => {

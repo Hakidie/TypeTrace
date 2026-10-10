@@ -26,8 +26,8 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
 
   const sidebar = (
     <nav aria-label="Admin" className="flex h-full flex-col gap-1 p-3">
-      <Link to={ADMIN_HOME} className="mb-4 flex items-center gap-2 px-3 py-2 text-sm font-semibold">
-        <div className="flex size-7 items-center justify-center rounded-lg bg-primary/20 text-primary">
+      <Link to={ADMIN_HOME} className="mb-4 flex items-center gap-2 px-3 py-2 text-base font-semibold">
+        <div className="flex size-7 items-center justify-center bg-primary/20 text-primary">
           <ShieldCheck className="size-4" />
         </div>
         Admin
@@ -41,7 +41,7 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
           onClick={() => setMenuOpen(false)}
           className={({ isActive }) =>
             cn(
-              'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+              'flex items-center gap-2 px-3 py-2 text-base transition-colors',
               isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             )
           }
@@ -52,7 +52,7 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
       ))}
       <Link
         to="/"
-        className="mt-auto flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="mt-auto flex items-center gap-2 px-3 py-2 text-base text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
         Back to app
@@ -94,7 +94,7 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
             <ThemeToggle />
             <Avatar className="size-8">
               <AvatarImage src={user?.avatarUrl} alt={user?.email} />
-              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+              <AvatarFallback className="text-sm">{initials}</AvatarFallback>
             </Avatar>
             <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-foreground">
               <LogOut className="size-4" />

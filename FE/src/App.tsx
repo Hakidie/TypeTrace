@@ -3,6 +3,7 @@ import { adminNavItems, adminRoutes, appWidgets, navItems, protectedRoutes } fro
 import { AdminLayout } from '@/shared/components/layout/AdminLayout';
 import { AppLayout } from '@/shared/components/layout/AppLayout';
 import { AuthLayout } from '@/modules/auth/components/AuthLayout';
+import { GuestRoute } from '@/modules/auth/components/GuestRoute';
 import { ProtectedRoute } from '@/modules/auth/components/ProtectedRoute';
 import { LoginPage } from '@/modules/auth/pages/LoginPage';
 import { RegisterPage } from '@/modules/auth/pages/RegisterPage';
@@ -13,10 +14,12 @@ function App() {
   return (
     <Routes>
       {/* Auth routes */}
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route element={<GuestRoute />}>
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        </Route>
       </Route>
       <Route path="/logout" element={<LogoutPage />} />
 
@@ -32,10 +35,8 @@ function App() {
         <Route path="/me" element={<Navigate to="/profile" replace />} />
       </Route>
 
-      {/* Admin area — sidebar layout; pages come from `adminRoutes` of each module.
-          Base project: every signed-in account may open it. To allow admins only, use
-          <ProtectedRoute roles={['admin']}> here and requireRole('admin') in BE/src/routes/admin.route.ts. */}
-      <Route element={<ProtectedRoute><AdminLayout navItems={adminNavItems} /></ProtectedRoute>}>
+      {/* Admin area — sidebar layout; pages come from `adminRoutes` of each module. Admins only (the API checks the role too). */}
+      <Route element={<ProtectedRoute roles={['admin']}><AdminLayout navItems={adminNavItems} /></ProtectedRoute>}>
         {adminRoutes.map(({ path, Component }) => (
           <Route key={path} path={path} element={<Component />} />
         ))}

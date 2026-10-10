@@ -22,11 +22,11 @@ export const FormField = ({ id, label, error, hint, children }: FormFieldProps) 
   <div className="space-y-2">
     <div className="flex items-center justify-between">
       <Label htmlFor={id}>{label}</Label>
-      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+      {hint && <span className="text-sm text-muted-foreground">{hint}</span>}
     </div>
     {children}
     {error && (
-      <p id={`${id}-error`} role="alert" className="text-xs text-destructive">
+      <p id={`${id}-error`} role="alert" className="text-sm text-destructive">
         {error}
       </p>
     )}

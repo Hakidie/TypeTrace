@@ -18,7 +18,7 @@ describe('cn', () => {
 
   it('lets the last conflicting Tailwind utility win', () => {
     expect(cn('p-2', 'p-4')).toBe('p-4');
-    expect(cn('text-sm text-red-500', 'text-lg')).toBe('text-red-500 text-lg');
+    expect(cn('text-base text-red-500', 'text-lg')).toBe('text-red-500 text-lg');
   });
 });
 

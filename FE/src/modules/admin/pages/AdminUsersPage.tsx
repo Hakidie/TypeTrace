@@ -121,7 +121,7 @@ export const AdminUsersPage = () => {
           />
           {users.data && (
             <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-              <p className="text-sm text-muted-foreground">{users.data.total} users</p>
+              <p className="text-base text-muted-foreground">{users.data.total} users</p>
               <Pagination
                 page={users.data.page}
                 totalPages={users.data.totalPages}
