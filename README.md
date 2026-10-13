@@ -5,13 +5,14 @@ A starter for student projects: authentication, profile, image upload, and a com
 
 - `BE/` — Node.js + Express 5 + MongoDB (Mongoose) + Zod
 - `FE/` — React 19 + Vite + TanStack Query + shadcn/ui + Tailwind CSS 4
+- `shared/` — `@typetrace/shared`, code used by both apps (rules, constants, pure functions)
 
 Hướng dẫn tiếng Việt cho học sinh: **[docs/vibe-coding-guide.md](docs/vibe-coding-guide.md)**.
 Instructions for AI agents: **[AGENTS.md](AGENTS.md)**.
 
 ## Quick start
 
-Requires Node.js 22+ and Docker (or any MongoDB, e.g. Atlas: set `MONGO_URI` in `BE/.env`).
+Requires Node.js 22.12+ and Docker (or any MongoDB, e.g. Atlas: set `MONGO_URI` in `BE/.env`).
 
 ```bash
 npm run setup          # install dependencies, create BE/.env and FE/.env
@@ -52,15 +53,20 @@ Then change the example fields (`title`, `content`, `tags`). Step-by-step instru
 
 | Script | Description |
 |---|---|
-| `npm run setup` | Install dependencies for root, `BE` and `FE`; create `.env` files from the examples |
-| `npm run dev` | Run backend and frontend together |
+| `npm run setup` | Install dependencies of all workspaces (`shared`, `BE`, `FE`) with one `npm install`; create `.env` files from the examples |
+| `npm run dev` | Run backend and frontend together (and rebuild `shared/` on change) |
 | `npm run seed` | Create demo accounts (safe to run again) |
-| `npm test` | Backend tests (Vitest + in-memory MongoDB), then frontend tests (Vitest + Testing Library) |
+| `npm test` | Shared package tests, backend tests (Vitest + in-memory MongoDB), then frontend tests (Vitest + Testing Library) |
 | `npm run lint` | ESLint on the frontend |
 | `npm run build` | Typecheck and build both apps |
 | `npm run gen:module -- <name>` | Scaffold a feature from the `notes` module |
 
 Each app also has its own scripts (`cd BE && npm run dev`, `cd FE && npm run test:watch`, ...).
+
+The repository is an npm workspace with a single `package-lock.json` at the root. Add a dependency to one app with
+`npm install <package> -w BE` (or `-w FE`). Code needed by both apps goes in `shared/`: see
+[AGENTS.md](AGENTS.md#shared-code-be--fe). On Vercel, keep each project's Root Directory (`BE` or `FE`) and keep
+the Root Directory setting that lets the build use files outside it (on by default), so it can read `shared/` and the root lockfile.
 
 ## Project layout
 
@@ -68,6 +74,7 @@ Each app also has its own scripts (`cd BE && npm run dev`, `cd FE && npm run tes
 AGENTS.md                  conventions for AI agents (CLAUDE.md imports it)
 .agents/workflows/         Antigravity workflows: /new-module, /check
 docs/vibe-coding-guide.md  student guide (Vietnamese)
+shared/                    @typetrace/shared: code used by both BE and FE (src/, tests/, built to dist/)
 scripts/                   setup and module generator
 BE/src/                    config, models, validators, services, controllers, routes, middlewares, utils
 BE/tests/                  unit and integration tests

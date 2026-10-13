@@ -57,6 +57,11 @@ src/
 
 **Rule**: default to the feature module. Promote to `shared/` only when a second module needs it.
 
+**Needed by the backend too?** Then it goes in the repository package `@typetrace/shared` (folder `shared/` next to
+`FE/` and `BE/`), not in `src/shared/`: limits such as `PASSWORD_MIN_LENGTH`, the typing-screen word rules
+(`completedWords`, `isSameWord`), later API schemas. Only code without DOM, React or Node.js APIs. Rules:
+"Shared code (BE + FE)" in `AGENTS.md`.
+
 ## Naming Conventions
 
 - Folders & non-component files: `kebab-case` — `notes.api.ts`, `use-notes.ts`, `note.types.ts`, `form-field.tsx`.
@@ -68,6 +73,7 @@ src/
 ## Path Aliases
 
 Use `@/` for all `src`-relative imports. Relative imports are fine inside one module (`../hooks/use-notes`).
+Code shared with the backend is a package: `import { PASSWORD_MIN_LENGTH } from '@typetrace/shared'` (not `@/shared`).
 
 ## Core Patterns
 

@@ -1,4 +1,5 @@
-// One-time setup: installs dependencies for the root, BE and FE, and creates
+// One-time setup: installs the dependencies of every workspace (shared, BE, FE) with a single
+// `npm install` at the root, which also builds shared/ (root `postinstall`), and creates
 // BE/.env and FE/.env from their examples when they do not exist yet.
 import { execSync } from 'node:child_process';
 import { copyFileSync, existsSync } from 'node:fs';
@@ -7,10 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-for (const dir of ['.', 'BE', 'FE']) {
-  console.log(`\n> npm install (${dir})`);
-  execSync('npm install', { cwd: join(root, dir), stdio: 'inherit' });
-}
+console.log('\n> npm install (shared, BE, FE)');
+execSync('npm install', { cwd: root, stdio: 'inherit' });
 
 for (const dir of ['BE', 'FE']) {
   const target = join(root, dir, '.env');

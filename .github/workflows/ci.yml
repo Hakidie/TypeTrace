@@ -11,6 +11,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  shared:
+    name: Shared package (shared)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shared
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+        working-directory: .
+
+      - name: Test
+        run: npm test
+
+      - name: Typecheck
+        run: npm run build
+
   backend:
     name: Backend (BE)
     runs-on: ubuntu-latest
@@ -24,7 +48,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: BE/package-lock.json
+          cache-dependency-path: package-lock.json
 
       # Integration tests spin up a real mongod via mongodb-memory-server, which
       # downloads the binary on first run. Caching it keeps later runs fast.
@@ -34,9 +58,11 @@ jobs:
           path: ~/.cache/mongodb-binaries
           # Tied to the lockfile: a mongodb-memory-server upgrade changes the mongod
           # version, and a fixed key would keep restoring the old binary forever.
-          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('BE/package-lock.json') }}
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
+      # Installs every workspace (shared, BE, FE) from the root lockfile; postinstall builds shared/.
       - run: npm ci
+        working-directory: .
 
       - name: Test
         run: npm test
@@ -57,9 +83,10 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: FE/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
+        working-directory: .
 
       - name: Lint
         run: npm run lint
@@ -80,9 +107,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: |
-            BE/package-lock.json
-            FE/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Cache mongod binary
         uses: actions/cache@v4
@@ -90,10 +115,9 @@ jobs:
           path: ~/.cache/mongodb-binaries
           # Tied to the lockfile: a mongodb-memory-server upgrade changes the mongod
           # version, and a fixed key would keep restoring the old binary forever.
-          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('BE/package-lock.json') }}
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - run: npm ci --prefix BE
-      - run: npm ci --prefix FE
+      - run: npm ci
 
       # A multi-word name exercises every renaming rule (identifiers, paths, UI text).
       - name: Generate a sample module

@@ -2,11 +2,20 @@
   "name": "mern-student-base",
   "private": true,
   "description": "Run both apps from the repository root.",
+  "workspaces": [
+    "shared",
+    "BE",
+    "FE"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "setup": "node scripts/setup.mjs",
-    "dev": "concurrently -k -n BE,FE -c blue,magenta \"npm run dev --prefix BE\" \"npm run dev --prefix FE\"",
+    "postinstall": "npm run build --prefix shared",
+    "dev": "concurrently -k -n SH,BE,FE -c green,blue,magenta \"npm run dev --prefix shared\" \"npm run dev --prefix BE\" \"npm run dev --prefix FE\"",
     "seed": "npm run seed --prefix BE",
-    "test": "npm test --prefix BE && npm test --prefix FE",
+    "test": "npm run build --prefix shared && npm test --prefix shared && npm test --prefix BE && npm test --prefix FE",
     "lint": "npm run lint --prefix FE",
     "build": "npm run build --prefix BE && npm run build --prefix FE",
     "gen:module": "node scripts/gen-module.mjs"

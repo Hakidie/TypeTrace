@@ -1,0 +1,28 @@
+{
+  "name": "@typetrace/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Code used by both the backend (BE) and the frontend (FE): rules, constants, pure functions.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch --preserveWatchOutput",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2",
+    "vitest": "^5.0.0"
+  }
+}

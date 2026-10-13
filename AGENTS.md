@@ -22,24 +22,27 @@ and [FE/docs/architecture.md](FE/docs/architecture.md). When this file and your 
 
 ## Project
 
-A MERN starter for students. Two apps in one repository, each with its own `package.json`:
+A MERN starter for students. Two apps and one shared package in one repository (npm workspaces, one root
+`package-lock.json`, Node.js 22.12+):
 
 - `BE/` — Express 5 + TypeScript + MongoDB (Mongoose 9) + Zod 4. JWT auth with optional email OTP.
 - `FE/` — React 19 + Vite + TypeScript + TanStack Query 5 + React Hook Form + Zod + shadcn/ui + Tailwind CSS 4.
+- `shared/` — package `@typetrace/shared`: code used by both apps (see "Shared code (BE + FE)").
 
 ## Commands (run from the repository root)
 
 | Command | What it does |
 |---|---|
-| `npm run setup` | Install all dependencies, create `BE/.env` and `FE/.env` from the examples |
+| `npm run setup` | Install all dependencies (one `npm install` at the root, which also builds `shared/`), create `BE/.env` and `FE/.env` from the examples |
 | `docker compose up -d` | Start a local MongoDB on port 27017 |
 | `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234` |
-| `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together |
-| `npm test` | Run backend and frontend tests |
+| `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together, and rebuild `shared/` on change |
+| `npm test` | Run shared, backend and frontend tests |
 | `npm run lint` | Lint the frontend |
 | `npm run build` | Typecheck and build both apps |
 | `npm run gen:module -- <name>` | Scaffold a new feature (BE + FE + tests) from the `notes` module |
 | `npm run gen:module -- <name> --remove` | Delete a generated feature again |
+| `npm install <package> -w BE` (or `-w FE`, `-w shared`) | Add a dependency to one workspace. Never create `BE/package-lock.json` or `FE/package-lock.json` |
 
 Optional services: without SMTP, emails (OTP and reset codes) are printed in the backend terminal in development and
 answer 503 in production; without Cloudinary, image upload answers 503; without `GEMINI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden.
@@ -62,6 +65,23 @@ Tests never read `BE/.env`: their variables are in `BE/vitest.config.mts`.
 5. Run `npm test`, `npm run lint` and `npm run build`. All must pass.
 
 Reference for anything not covered here: `BE/src/{models,validators,services,controllers,routes}/note.*` and `FE/src/modules/notes/`.
+
+## Shared code (BE + FE)
+
+`shared/` is the package `@typetrace/shared`. Put code there when **both** apps need the same rule, so they cannot drift
+apart: limits and constants (`PASSWORD_MIN_LENGTH`), pure functions (word rules of the typing screen in `words.ts`),
+and later Zod schemas or types of API payloads.
+
+- Import it as `import { PASSWORD_MIN_LENGTH } from '@typetrace/shared'`, never from a file inside `shared/`.
+  Export new code from `shared/src/index.ts`. Relative imports inside `shared/src` end in `.js` (NodeNext).
+- Only code that runs in the browser **and** in Node.js: no DOM, no Node.js APIs, no React, Express, Mongoose,
+  `process.env` or secrets. `shared/` never imports from `BE/` or `FE/`. No `enum` (use `as const` objects).
+- It is built to `shared/dist` (ES modules + types) by `npm install`, `npm run dev` (watch), `npm test` and each app's
+  `prebuild`. If BE or FE does not see a change, run `npm run build --prefix shared`.
+- Tests live in `shared/tests/` (Vitest) and run with `npm test`.
+- Not the same as `FE/src/shared/` (`@/shared/...`), which holds UI and helpers shared **inside** the frontend only.
+- To share a Zod schema, add `zod` to `peerDependencies` and `devDependencies` of `shared/package.json` with the same
+  version range as BE and FE, so the workspace keeps a single copy of Zod.
 
 ## Backend rules
 
@@ -90,7 +110,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   a key factory, `useQuery` for reads, `useMutation` + `invalidateQueries` for writes. No `useEffect` + `useState` fetching.
 - The signed-in user: `useCurrentUser()`; after changing it, `useSetCurrentUser()` or invalidate `currentUserKey`.
 - Mutations without `onError` show the backend message as a toast automatically. Add `onError` only for custom handling.
-- Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
+- Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema;
+  limits used on both sides come from `@typetrace/shared` (e.g. `PASSWORD_MIN_LENGTH`).
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog`, `Pagination`,
   `StatCard` (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),

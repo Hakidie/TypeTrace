@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { PASSWORD_MIN_LENGTH } from '@typetrace/shared';
 import { KeyRound, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { authApi } from '../api/auth.api';
@@ -18,7 +19,7 @@ const requestSchema = z.object({
 const resetSchema = z.object({
   email: z.string().optional(),
   token: z.string().min(1, 'Token is required'),
-  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+  newPassword: z.string().min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`),
 });
 
 type RequestValues = z.infer<typeof requestSchema>;
@@ -94,7 +95,7 @@ export const ForgotPasswordPage = () => {
               <Label htmlFor="newPassword">New Password</Label>
               <div className="relative">
                 <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="newPassword" className="pl-9" type="password" placeholder="At least 6 characters" {...resetForm.register('newPassword')} />
+                <Input id="newPassword" className="pl-9" type="password" placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`} {...resetForm.register('newPassword')} />
               </div>
               {resetForm.formState.errors.newPassword && (
                 <p className="text-sm text-destructive">{resetForm.formState.errors.newPassword.message}</p>

@@ -1,3 +1,4 @@
+import { PASSWORD_MIN_LENGTH } from '@typetrace/shared';
 import { describe, expect, it } from 'vitest';
 import {
   forgotPasswordSchema,
@@ -16,8 +17,10 @@ describe('registerSchema', () => {
     expect(registerSchema.safeParse({ email, password: 'secret1' }).success).toBe(false);
   });
 
-  it('rejects a password shorter than 6 characters', () => {
-    expect(registerSchema.safeParse({ email: 'a@b.com', password: '12345' }).success).toBe(false);
+  it('rejects a password shorter than PASSWORD_MIN_LENGTH (shared with the frontend forms)', () => {
+    const password = 'x'.repeat(PASSWORD_MIN_LENGTH);
+    expect(registerSchema.safeParse({ email: 'a@b.com', password }).success).toBe(true);
+    expect(registerSchema.safeParse({ email: 'a@b.com', password: password.slice(1) }).success).toBe(false);
   });
 
   it('rejects missing fields', () => {

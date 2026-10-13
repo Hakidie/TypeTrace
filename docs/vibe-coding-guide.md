@@ -4,10 +4,10 @@ Tài liệu này dành cho học sinh dùng **Google Antigravity** (hoặc công
 
 ## 1. Chạy project lần đầu
 
-Cần cài sẵn Node.js 22+ và Docker Desktop (hoặc có sẵn một MongoDB, ví dụ MongoDB Atlas).
+Cần cài sẵn Node.js 22.12+ và Docker Desktop (hoặc có sẵn một MongoDB, ví dụ MongoDB Atlas).
 
 ```bash
-npm run setup          # cài thư viện cho cả BE và FE, tạo file .env
+npm run setup          # cài thư viện cho shared, BE và FE (một lần ở thư mục gốc), tạo file .env
 docker compose up -d   # bật MongoDB ở cổng 27017
 npm run seed           # tạo tài khoản mẫu
 npm run dev            # chạy BE (cổng 5003) và FE (cổng 5173) cùng lúc
@@ -20,6 +20,9 @@ Mở http://localhost:5173 và đăng nhập bằng `demo@example.com` / `demo12
 - Mặc định đăng nhập **không** hỏi mã OTP. Muốn bật thì vào trang **Profile → Security → Email code at login**.
 
 Dùng MongoDB Atlas thay cho Docker: sửa `MONGO_URI` trong `BE/.env`.
+
+Cài thêm thư viện cho một app: chạy ở thư mục gốc `npm install <tên-thư-viện> -w BE` (hoặc `-w FE`). Code mà cả BE và FE
+cùng cần (ví dụ độ dài mật khẩu tối thiểu) đặt trong thư mục `shared/` và import bằng `@typetrace/shared`.
 
 ## 2. AI đọc quy ước ở đâu?
 

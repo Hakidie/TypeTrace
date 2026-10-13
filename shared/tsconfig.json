@@ -1,0 +1,25 @@
+{
+  // Builds src/ to dist/ (ES modules + .d.ts). The backend (CommonJS) loads it with require(),
+  // which needs Node.js 22.12+; the frontend (Vite) imports it as ESM.
+  "compilerOptions": {
+    "target": "ES2022",
+    // No DOM and no Node.js types: code here must run in the browser and on the server.
+    "lib": ["ES2022"],
+    "types": [],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    // Lets "Go to definition" in BE/FE jump to src/ instead of dist/.
+    "declarationMap": true,
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}

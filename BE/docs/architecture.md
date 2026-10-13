@@ -13,6 +13,8 @@
 - **Email**: Nodemailer (SMTP), printed to the console when SMTP is not configured
 - **Security**: helmet, CORS locked to `CLIENT_URL`, rate limits · **Logging**: morgan
 - **Dev**: `tsx watch` · **Build**: `tsc` → `build/` · **Start**: `node build/server.js` · **Test**: Vitest + supertest + mongodb-memory-server
+- **Shared with the frontend**: `@typetrace/shared` (repository folder `shared/`, ES modules). The CommonJS build loads it
+  with `require()`, which needs Node.js 22.12+. `prebuild` rebuilds it. Rules: "Shared code (BE + FE)" in `AGENTS.md`.
 
 ## Layered (Clean) Architecture
 
@@ -49,6 +51,7 @@ src/
 ├── config/              # env.ts (Zod-validated), db.ts, cloudinary.ts (isCloudinaryConfigured)
 ├── models/              # user.model.ts, note.model.ts
 ├── validators/          # common.validator.ts (idParamsSchema, objectIdSchema, booleanQuerySchema), <name>.validator.ts
+│                        # limits shared with FE forms come from @typetrace/shared (e.g. PASSWORD_MIN_LENGTH)
 ├── services/            # <name>.service.ts, email.service.ts, cloudinary.service.ts
 ├── controllers/         # <name>.controller.ts
 ├── routes/              # <name>.route.ts — export <name>Router

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { PASSWORD_MIN_LENGTH } from '@typetrace/shared';
 import { Link, useNavigate } from 'react-router-dom';
 import { KeyRound, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,7 +17,7 @@ import { OtpInput } from '@/shared/components/ui/otp-input';
 
 const registerSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`),
 });
 
 type FormValues = z.infer<typeof registerSchema>;
@@ -111,7 +112,7 @@ export const RegisterPage = () => {
             <Label htmlFor="password">Password</Label>
             <div className="relative">
               <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input id="password" className="pl-9" type="password" placeholder="At least 6 characters" {...register('password')} />
+              <Input id="password" className="pl-9" type="password" placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`} {...register('password')} />
             </div>
             {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
           </div>
