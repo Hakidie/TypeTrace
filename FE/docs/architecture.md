@@ -33,6 +33,7 @@ src/
 │   ├── chat/                # sample AI chat: chat.module.ts (widget), chat.config.ts (texts), hooks/use-chat.ts,
 │   │                        # components/ (ChatWidget = floating button + popup, ChatPanel, ChatComposer)
 │   ├── home/                # home.module.ts, pages/HomePage
+│   ├── input-lab/           # spike: records IME input events at /lab/input (docs/spikes/ime-input-events.md)
 │   ├── notes/               # REFERENCE MODULE: api/, hooks/, components/, pages/, types/, notes.module.ts
 │   └── profile/             # profile.module.ts, api/, components/ (AvatarUpload, ProfileEditForm, SecuritySettings), pages/
 ├── shared/

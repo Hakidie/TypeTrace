@@ -74,6 +74,7 @@ the Root Directory setting that lets the build use files outside it (on by defau
 AGENTS.md                  conventions for AI agents (CLAUDE.md imports it)
 .agents/workflows/         Antigravity workflows: /new-module, /check
 docs/vibe-coding-guide.md  student guide (Vietnamese)
+docs/spikes/               technical spikes, e.g. how Vietnamese IMEs send input events
 shared/                    @typetrace/shared: code used by both BE and FE (src/, tests/, built to dist/)
 scripts/                   setup and module generator
 BE/src/                    config, models, validators, services, controllers, routes, middlewares, utils
