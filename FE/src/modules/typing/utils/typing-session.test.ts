@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accuracyOf, checkWords, splitTyped, summarizeErrors } from './typing-session';
+import { accuracyOf, checkWords, formatDuration, splitTyped, statsFromCounts, summarizeErrors } from './typing-session';
 
 describe('splitTyped', () => {
   it('keeps words followed by a space as done and the rest as current', () => {
@@ -36,5 +36,26 @@ describe('summarizeErrors and accuracyOf', () => {
   it('gives the share of correct words', () => {
     expect(accuracyOf(results)).toBe(33);
     expect(accuracyOf([])).toBe(100);
+  });
+});
+
+describe('formatDuration', () => {
+  it('shows minutes and padded seconds', () => {
+    expect(formatDuration(5)).toBe('0:05');
+    expect(formatDuration(65)).toBe('1:05');
+    expect(formatDuration(600)).toBe('10:00');
+  });
+});
+
+describe('statsFromCounts', () => {
+  it('keeps only the error types that had a chance', () => {
+    const errorCounts = { BASE_LETTER: 1, D_MISSING: 0, MARK_WRONG: 0, TONE_WRONG: 2, HOI_NGA_CONFUSION: 0 };
+    const opportunityCounts = { BASE_LETTER: 5, D_MISSING: 0, MARK_WRONG: 0, TONE_WRONG: 5, HOI_NGA_CONFUSION: 1 };
+
+    expect(statsFromCounts(errorCounts, opportunityCounts)).toEqual([
+      { type: 'BASE_LETTER', count: 1, chances: 5 },
+      { type: 'TONE_WRONG', count: 2, chances: 5 },
+      { type: 'HOI_NGA_CONFUSION', count: 0, chances: 1 },
+    ]);
   });
 });

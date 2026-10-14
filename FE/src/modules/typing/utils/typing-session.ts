@@ -1,4 +1,5 @@
 import { classifyWord, tagWord, WordError, type WordErrorType } from '@/shared/lib/vietnamese-errors';
+import type { ErrorCounts } from '../types/typing.types';
 
 export interface WordResult {
   index: number;
@@ -47,3 +48,13 @@ export const summarizeErrors = (results: WordResult[]): ErrorStat[] =>
 /** Share of finished words typed without any error, 0-100. */
 export const accuracyOf = (results: WordResult[]): number =>
   results.length === 0 ? 100 : Math.round((results.filter((r) => r.errors.length === 0).length / results.length) * 100);
+
+/** "1:05" for 65 seconds. */
+export const formatDuration = (totalSeconds: number) =>
+  `${Math.floor(totalSeconds / 60)}:${String(Math.floor(totalSeconds % 60)).padStart(2, '0')}`;
+
+/** Turns the counts saved by the server into the rows of the error-rate list. Types that never had a chance are left out. */
+export const statsFromCounts = (errorCounts: ErrorCounts, opportunityCounts: ErrorCounts): ErrorStat[] =>
+  Object.values(WordError)
+    .map((type) => ({ type, count: errorCounts[type], chances: opportunityCounts[type] }))
+    .filter((stat) => stat.chances > 0);

@@ -47,7 +47,7 @@ src/
 ├── app.ts               # helmet, cors, json, morgan, rate limits, routers, 404, error handler
 ├── server.ts            # connectDb() → listen; graceful shutdown on SIGINT/SIGTERM
 ├── config/              # env.ts (Zod-validated), db.ts, cloudinary.ts (isCloudinaryConfigured)
-├── models/              # user.model.ts, note.model.ts
+├── models/              # user.model.ts, note.model.ts, typing-session.model.ts
 ├── validators/          # common.validator.ts (idParamsSchema, objectIdSchema, booleanQuerySchema), <name>.validator.ts
 ├── services/            # <name>.service.ts, email.service.ts, cloudinary.service.ts
 ├── controllers/         # <name>.controller.ts
@@ -113,7 +113,14 @@ export const updateNote = async (actor: Actor, id: string, input: UpdateNoteInpu
 Extend `paginationQuerySchema` (`page`, `limit ≤ 100`, `sort` like `-createdAt`) and declare the sortable fields with `sort: sortSchema(['createdAt', 'title'])` (anything else answers 400 — never list private fields). Return `paginate(Model, filter, query)` → `{ items, page, limit, total, totalPages }`. Ties are broken by `_id`, so pages never overlap. Escape user text before building a `RegExp` (see `note.service.ts`).
 
 ### 7b. Admin endpoints (`routes/admin.route.ts`)
-All under `/api/admin`. **Guarded by `adminRouter.use(authGuard, requireRole('admin'))`: admins only, other accounts get 403.** Endpoints: `GET /stats`, `GET /users` (search `q`, filters `role`, `verified`, allowlisted `sort`, pagination), `GET|PATCH|DELETE /users/:id`, `POST /users/bulk-delete` (`{ ids }`, `bulkIdsSchema`). Deleting a user also deletes their notes and avatar. The signed-in account can never remove its own admin role or delete itself (checked in `admin-user.service.ts`, keep it). Yes/no filters use `optionalBooleanQuerySchema` (missing = no filter).
+All under `/api/admin`. **Guarded by `adminRouter.use(authGuard, requireRole('admin'))`: admins only, other accounts get 403.** Endpoints: `GET /stats`, `GET /users` (search `q`, filters `role`, `verified`, allowlisted `sort`, pagination), `GET|PATCH|DELETE /users/:id`, `POST /users/bulk-delete` (`{ ids }`, `bulkIdsSchema`). Deleting a user also deletes their notes, typing sessions and avatar. The signed-in account can never remove its own admin role or delete itself (checked in `admin-user.service.ts`, keep it). Yes/no filters use `optionalBooleanQuerySchema` (missing = no filter).
+
+### 7c. Typing sessions (`/api/sessions`)
+A learner types a passage from `config/passages.ts`. Files: `typing-session.{model,validator,service,controller,route}.ts`; word grading uses `utils/vietnamese-errors.ts`. Always owner-only: another user's session answers 404, even for admins.
+- `POST /` `{ mode?, passageId? }` → 201. Copies the passage words into the session (`targetWords`) and turns the learner's older `in_progress` session into `abandoned`.
+- `PATCH /:id/begin` → the learner pressed the first key: stores `beganAt` once (a second call keeps the first time; not in progress → 409). The timer starts here, not when the session was created.
+- `PATCH /:id/complete` `{ typedWords }` → the server grades again with `classifyWord`, computes `wpm` (correct words per minute, duration measured by the server from `beganAt`, or from `startedAt` if `begin` was never called), `accuracy`, `errorCounts`, `opportunityCounts` and `isCounted` (at least 20 words and at most 200 WPM). It ignores any total the client sends. Not in progress → 409; more words than the passage → 400.
+- `PATCH /:id/abandon` (409 if not in progress), `GET /:id`, `GET /` (history, `status` filter, `sort` by `createdAt|wpm|accuracy`, pagination).
 
 ### 8. Errors (`utils/app-error.ts` + `errorMiddleware`)
 Throw `badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict` or `new AppError(status, message, details?)`. The error middleware also maps: malformed JSON body → 400, JSON body over 100 kB → 413, `ZodError` → 400, Multer file too large → 413, other Multer errors → 400, invalid ObjectId → 400, Mongoose validation → 400, duplicate key → 409. Anything else → `500 { message: 'Internal server error' }` (stack logged on the server, included in the body only in development). Unknown routes → `404 { message: 'Route not found: ...' }`.

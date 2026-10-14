@@ -1,9 +1,10 @@
-import { ArrowLeft, LogOut, Menu, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, Keyboard, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import type { NavItem } from '@/app/module.types';
 import { useCurrentUser, useLogout } from '@/modules/auth/hooks/use-current-user';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
+import { BrandFooter } from '@/shared/components/layout/BrandFooter';
 import { Button } from '@/shared/components/ui/button';
 import { ThemeToggle } from '@/shared/components/ui/theme-toggle';
 import { cn } from '@/shared/lib/utils';
@@ -27,8 +28,8 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
   const sidebar = (
     <nav aria-label="Admin" className="flex h-full flex-col gap-1 p-3">
       <Link to={ADMIN_HOME} className="mb-4 flex items-center gap-2 px-3 py-2 text-base font-semibold">
-        <div className="flex size-7 items-center justify-center bg-primary/20 text-primary">
-          <ShieldCheck className="size-4" />
+        <div className="flex size-7 items-center justify-center bg-destructive text-destructive-foreground">
+          <Keyboard className="size-4" />
         </div>
         Admin
       </Link>
@@ -106,6 +107,8 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
           <Outlet />
         </main>
+
+        <BrandFooter />
       </div>
     </div>
   );
