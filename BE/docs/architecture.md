@@ -26,7 +26,7 @@ HTTP request
   → services/       queries, ownership rules, side effects (email, cloudinary)
   → models/         Mongoose schemas
   → config/         env, db, cloudinary clients
-  → utils/          app-error, pagination, jwt, hash, otp
+  → utils/          app-error, pagination, jwt, hash, otp, vietnamese-errors
 ```
 
 | Layer | Owns | Must NOT |
@@ -53,7 +53,7 @@ src/
 ├── controllers/         # <name>.controller.ts
 ├── routes/              # <name>.route.ts — export <name>Router
 ├── middlewares/         # auth, role, validate, upload, not-found, error
-├── utils/               # app-error.ts, pagination.ts, jwt.ts, hash.ts, otp.ts
+├── utils/               # app-error.ts, pagination.ts, jwt.ts, hash.ts, otp.ts, vietnamese-errors.ts (word error classifier, copy of the FE file)
 ├── scripts/seed.ts      # demo accounts (npm run seed)
 └── types/express.d.ts   # req.user
 ```
