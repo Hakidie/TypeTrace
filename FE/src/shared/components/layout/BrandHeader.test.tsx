@@ -10,4 +10,17 @@ describe('BrandHeader', () => {
     expect(screen.getByRole('link', { name: 'TypeTrace' })).toHaveAttribute('href', '/login');
     expect(screen.getByRole('button', { name: 'Extra' })).toBeInTheDocument();
   });
+
+  it('puts the navigation in the center and the controls on the right, after the theme toggle', () => {
+    renderWithProviders(
+      <BrandHeader nav={<nav aria-label="Main">links</nav>}>
+        <button>Extra</button>
+      </BrandHeader>,
+    );
+
+    const header = screen.getByRole('banner');
+    const [, center, right] = Array.from(header.children);
+    expect(center).toContainElement(screen.getByRole('navigation', { name: 'Main' }));
+    expect(right.lastElementChild).toBe(screen.getByRole('button', { name: 'Extra' }));
+  });
 });

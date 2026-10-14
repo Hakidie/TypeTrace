@@ -28,6 +28,15 @@ beforeEach(() => {
 });
 
 describe('AppLayout', () => {
+  it('uses the TypeTrace header and footer', async () => {
+    getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
+    renderLayout();
+
+    expect(await screen.findByText('TypeTrace')).toBeInTheDocument();
+    expect(screen.getByText(/All rights reserved/)).toBeInTheDocument();
+    expect(screen.queryByText('MERN Auth')).not.toBeInTheDocument();
+  });
+
   it('hides links meant for other roles', async () => {
     getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
     renderLayout();
