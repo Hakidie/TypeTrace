@@ -1,48 +1,89 @@
 import userEvent from '@testing-library/user-event';
-import { screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { TypingPage } from './TypingPage';
 
+const start = vi.fn();
+const begin = vi.fn();
+const complete = vi.fn();
+
+vi.mock('../api/typing.api', () => ({
+  typingApi: {
+    start: (input: unknown) => start(input),
+    begin: (id: string) => begin(id),
+    complete: (id: string, typedWords: string[]) => complete(id, typedWords),
+  },
+}));
+
+const session = {
+  _id: 's1',
+  mode: 'practice',
+  status: 'in_progress',
+  targetWords: ['Tiếng', 'Việt'],
+  startedAt: new Date().toISOString(),
+};
+
+const renderPage = () =>
+  renderWithProviders(<TypingPage />, { route: '/typing', otherRoutes: { '/typing/result/s1': 'result page' } });
+
+beforeEach(() => {
+  start.mockReset().mockResolvedValue(session);
+  begin.mockReset().mockResolvedValue(session);
+  complete.mockReset().mockResolvedValue({ ...session, status: 'completed' });
+});
+
 describe('TypingPage', () => {
-  it('starts with no mistakes and nothing checked', () => {
-    renderWithProviders(<TypingPage />);
+  it('starts a session when the page opens and shows the passage, without a start button', async () => {
+    renderPage();
 
-    expect(screen.getByText('No mistakes yet')).toBeInTheDocument();
-    expect(screen.getByText('Finish a word to see the rates.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /restart/i })).toBeDisabled();
+    expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Passage to type')).toHaveTextContent('Tiếng');
+    expect(screen.queryByRole('button', { name: /start typing/i })).not.toBeInTheDocument();
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith({});
   });
 
-  it('checks a word when space is pressed and names the error', async () => {
+  it('tells the server about the first key only once the learner types', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<TypingPage />);
+    renderPage();
+    const area = await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(begin).not.toHaveBeenCalled();
 
-    await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'Tiếng Viet ');
+    await user.type(area, 'Ti');
 
-    expect(
-      screen.getByText('Wrong vowel mark (â ê ô ă ơ ư), Wrong tone', { selector: 'td' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Viet', { selector: 'td' })).toBeInTheDocument();
-    expect(screen.getByText('50%')).toBeInTheDocument();
+    await waitFor(() => expect(begin).toHaveBeenCalledTimes(1));
+    expect(begin).toHaveBeenCalledWith('s1');
   });
 
-  it('does not check the word that is still being typed', async () => {
+  it('shows an error with a retry when the session cannot be started', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<TypingPage />);
+    start.mockRejectedValueOnce(new Error('down'));
+    renderPage();
 
-    await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'Tiếng Viet');
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /try again|retry/i }));
 
-    expect(screen.getByText('No mistakes yet')).toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
   });
 
-  it('clears the text on Restart', async () => {
+  it('sends only the typed words when finished, then opens the result', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<TypingPage />);
-    const area = screen.getByRole('textbox', { name: 'Typing area' });
+    renderPage();
 
-    await user.type(area, 'Tiếng ');
+    await user.type(await screen.findByRole('textbox', { name: 'Typing area' }), 'Tiếng Viet ');
+
+    await waitFor(() => expect(complete).toHaveBeenCalledWith('s1', ['Tiếng', 'Viet']));
+    expect(await screen.findByText('result page')).toBeInTheDocument();
+  });
+
+  it('starts a new session on Restart', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox');
+
     await user.click(screen.getByRole('button', { name: /restart/i }));
 
-    expect(area).toHaveValue('');
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
   });
 });

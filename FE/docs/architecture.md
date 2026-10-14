@@ -34,14 +34,14 @@ src/
 │   │                        # components/ (ChatWidget = floating button + popup, ChatPanel, ChatComposer)
 │   ├── home/                # home.module.ts, pages/HomePage
 │   ├── notes/               # REFERENCE MODULE: api/, hooks/, components/, pages/, types/, notes.module.ts
-│   ├── typing/              # /typing: type a passage, each word is checked with classifyWord (shared/lib/vietnamese-errors.ts)
+│   ├── typing/              # /typing (TypingPage, TypingArea) and /typing/result/:id: a session is started when the page opens (no start button), the timer starts at the first key (`PATCH /api/sessions/:id/begin`) and the backend grades it (/api/sessions); the page uses the login/register look (`shared/lib/red-glass-theme.ts`, also used by `AuthLayout`) and shows only the passage: an invisible textarea sits over it and the typed text appears in the passage (grey = not reached, white = typed or right, red = wrong word after the space); TypingArea grades only committed IME text with classifyWord (shared/lib/vietnamese-errors.ts)
 │   └── profile/             # profile.module.ts, api/, components/ (AvatarUpload, ProfileEditForm, SecuritySettings), pages/
 ├── shared/
 │   ├── api/                 # http.ts (axios), query-client.ts, api-error.ts, types.ts (Paginated<T>)
 │   ├── components/          # page-header, empty-state, error-state, loading-state, confirm-dialog,
 │   │   │                    # form-field, pagination
 │   │   ├── data-table/      # DataTable, SearchInput, FilterSelect, TableToolbar (list and admin pages)
-│   │   ├── layout/          # AppLayout (top navigation + module widgets), AdminLayout (sidebar, /admin)
+│   │   ├── layout/          # AppLayout (BrandHeader with the navigation, BrandFooter, module widgets), AdminLayout (sidebar + BrandFooter, /admin)
 │   │   └── ui/              # shadcn/ui primitives (button, input, dialog, switch, ...)
 │   ├── hooks/               # use-debounce, use-pagination
 │   └── lib/                 # utils.ts (cn(), theme helpers), vietnamese-errors.ts (classifyWord, tagWord: per-word error types; pure TS so it can be copied to the BE)
@@ -127,7 +127,7 @@ export const appModules: AppModule[] = [homeModule, notesModule, profileModule];
 
 Every registered route renders inside `ProtectedRoute` + `AppLayout`. A module may also add:
 - `adminRoutes` (paths under `/admin`) and `adminNavItems`: rendered inside `AdminLayout` (sidebar). **Admins only:** `AdminLayout` is wrapped in `<ProtectedRoute roles={['admin']}>` in `App.tsx` and the API uses `requireRole('admin')` in `BE/src/routes/admin.route.ts`.
-- `widgets`: components rendered on every page of `AppLayout`, for floating UI such as the chat button (`chatModule.widgets = [ChatWidget]`). A widget positions itself (`fixed bottom-4 right-4 ...`) and keeps its own state. Add `roles: ['admin']` to a route or nav item to restrict it; `ProtectedRoute roles` sends other users to `/`. Public auth pages (`/login`, `/register`, `/forgot-password`) live in `App.tsx` under `AuthLayout`. Page number lives in the URL via `usePagination()` (`?page=2`).
+- `widgets`: components rendered on every page of `AppLayout`, for floating UI such as the chat button (`chatModule.widgets = [ChatWidget]`). A widget positions itself (`fixed bottom-8 left-1/2 -translate-x-1/2 ...`) and keeps its own state. Add `roles: ['admin']` to a route or nav item to restrict it; `ProtectedRoute roles` sends other users to `/`. Public auth pages (`/login`, `/register`, `/forgot-password`) live in `App.tsx` under `AuthLayout`. Page number lives in the URL via `usePagination()` (`?page=2`).
 
 ### 7. Forms (React Hook Form + Zod + `FormField`)
 
@@ -193,3 +193,7 @@ Use `PageHeader` for the title row, `Pagination` under lists, `ConfirmDialog` be
 - ❌ Don't read/write the auth token outside `tokenStore`.
 - ❌ Don't hardcode hex colors — use theme tokens.
 - ❌ Don't put feature code in `shared/`.
+
+## Design
+
+Every page uses the TypeTrace look of the login pages: `BrandHeader` and `BrandFooter` (`AppLayout` and `AdminLayout` include them), the blood-red palette defined once in `src/index.css` (dark: near-black red page, maroon cards, red accents; light: white with a red `primary`), and square corners. New features get this for free by using theme tokens (`bg-card`, `text-primary`, `bg-destructive`, ...). Never add other accent colors or raw hex values in components. A page that wants the translucent red glass card (login, register, typing) puts `redGlassTheme` on its wrapper and `redGlassCard` on the wrapper of the card (`src/shared/lib/red-glass-theme.ts`).

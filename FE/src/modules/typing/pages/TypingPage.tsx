@@ -1,64 +1,63 @@
-import { CheckCircle2, Keyboard, RotateCcw } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { PageHeader } from '@/shared/components/page-header';
-import { StatCard } from '@/shared/components/stat-card';
+import { RotateCcw } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ErrorState } from '@/shared/components/error-state';
+import { LoadingState } from '@/shared/components/loading-state';
 import { Button } from '@/shared/components/ui/button';
-import { Card } from '@/shared/components/ui/card';
-import { Textarea } from '@/shared/components/ui/textarea';
-import { PassageView } from '../components/PassageView';
-import { ResultsPanel } from '../components/ResultsPanel';
-import { typingPassage } from '../typing.config';
-import { accuracyOf, checkWords, splitTyped, summarizeErrors, toWords } from '../utils/typing-session';
+import { redGlassTheme } from '@/shared/lib/red-glass-theme';
+import { TypingArea } from '../components/TypingArea';
+import { useBeginSession, useCompleteSession, useStartSession } from '../hooks/use-typing';
 
-const targetWords = toWords(typingPassage);
-
+// Same look as the login and register pages (shared/lib/red-glass-theme.ts). The passage shows as soon as the page
+// opens; the timer starts at the first key (TypingArea tells the server through `begin`).
 export const TypingPage = () => {
-  const [text, setText] = useState('');
+  const navigate = useNavigate();
+  const start = useStartSession();
+  const begin = useBeginSession();
+  const complete = useCompleteSession();
+  const session = start.data;
 
-  const { done } = useMemo(() => splitTyped(text), [text]);
-  const results = useMemo(() => checkWords(targetWords, done), [done]);
-  const stats = useMemo(() => summarizeErrors(results), [results]);
-  const isFinished = results.length >= targetWords.length;
+  // A new session when the page opens (once, even when React runs effects twice in development).
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current) return;
+    opened.current = true;
+    start.mutate({});
+  }, [start]);
+
+  const finish = (typedWords: string[]) => {
+    if (!session) return;
+    complete.mutate(
+      { id: session._id, typedWords },
+      { onSuccess: (done) => navigate(`/typing/result/${done._id}`) },
+    );
+  };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Typing"
-        description="Type the passage with your Vietnamese input method. A word is checked when you press space."
-        actions={
-          <Button variant="outline" onClick={() => setText('')} disabled={text === ''}>
-            <RotateCcw className="size-4" /> Restart
-          </Button>
-        }
-      />
-
-      <Card className="space-y-4 p-5">
-        <PassageView words={targetWords} results={results} />
-        <Textarea
-          aria-label="Typing area"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          onPaste={(event) => event.preventDefault()}
-          onDrop={(event) => event.preventDefault()}
-          disabled={isFinished}
-          spellCheck={false}
-          autoComplete="off"
-          rows={4}
-          placeholder="Start typing here…"
+    <div className={`flex flex-1 flex-col gap-4 p-4 pb-0 md:p-8 md:pb-0 ${redGlassTheme}`}>
+      {session ? (
+        <TypingArea
+          key={session._id}
+          targetWords={session.targetWords}
+          disabled={complete.isPending}
+          onStart={() => begin.mutate(session._id)}
+          onFinish={finish}
+          actions={
+            <Button
+              variant="ghost"
+              className="h-auto gap-2 px-4 py-2 text-[1.125rem] text-muted-foreground"
+              onClick={() => start.mutate({})}
+              disabled={start.isPending || complete.isPending}
+            >
+              <RotateCcw className="size-5" /> Restart
+            </Button>
+          }
         />
-        {isFinished && (
-          <p className="flex items-center gap-2 font-medium text-primary">
-            <CheckCircle2 className="size-5" /> Finished. Press Restart to try again.
-          </p>
-        )}
-      </Card>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard label="Words checked" value={`${results.length} / ${targetWords.length}`} icon={Keyboard} />
-        <StatCard label="Accuracy" value={`${accuracyOf(results)}%`} icon={CheckCircle2} hint="Words typed without any error" />
-      </div>
-
-      <ResultsPanel results={results} stats={stats} />
+      ) : (
+        <div className="mx-auto my-auto w-full max-w-7xl">
+          {start.isError ? <ErrorState error={start.error} onRetry={() => start.mutate({})} /> : <LoadingState rows={2} />}
+        </div>
+      )}
     </div>
   );
 };

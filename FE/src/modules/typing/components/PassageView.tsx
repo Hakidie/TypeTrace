@@ -1,26 +1,55 @@
-import { cn } from '@/shared/lib/utils';
 import type { WordResult } from '../utils/typing-session';
 
 interface PassageViewProps {
   words: string[];
   results: WordResult[];
+  /**
+   * The text typed so far for the word being typed. Pass it (even empty) while the learner is typing: the word then
+   * shows what was typed, the rest of the target in grey, and a caret.
+   */
+  current?: string;
 }
 
-/** The passage word by word: finished words are coloured, the next word to type is highlighted. */
-export const PassageView = ({ words, results }: PassageViewProps) => (
-  <p className="flex flex-wrap gap-x-2 gap-y-1 text-xl leading-relaxed" aria-label="Passage to type">
+const Caret = () => <span aria-hidden className="mx-px inline-block h-8 w-0.5 animate-pulse bg-destructive align-middle" />;
+
+/**
+ * The passage word by word, with the learner's typing shown in it. Words not reached yet are grey. The word being typed
+ * is highlighted: the whole target stays as a grey placeholder and what was typed is white on top of it. A finished word is white when
+ * correct; when wrong it shows what was typed in red (hover for the target). Words are graded per word, after the space,
+ * by the classifier: an input method rewrites letters while it composes, so nothing is judged earlier.
+ */
+export const PassageView = ({ words, results, current }: PassageViewProps) => (
+  <p className="flex flex-wrap gap-x-3 gap-y-2 text-[2rem] leading-snug" aria-label="Passage to type">
     {words.map((word, index) => {
       const result = results[index];
+      if (result && result.errors.length > 0) {
+        return (
+          <span key={index} title={`Should be: ${word}`} className="text-destructive underline decoration-wavy underline-offset-4">
+            {result.typed}
+          </span>
+        );
+      }
+      if (result) {
+        return (
+          <span key={index} className="text-foreground">
+            {word}
+          </span>
+        );
+      }
+      if (current !== undefined && index === results.length) {
+        return (
+          <span key={index} className="inline-grid bg-destructive/15">
+            {/* The whole target word, marks included, is the grey placeholder; what was typed lies on top of it. */}
+            <span className="col-start-1 row-start-1 text-muted-foreground/60">{word}</span>
+            <span className="col-start-1 row-start-1 text-foreground">
+              {current}
+              <Caret />
+            </span>
+          </span>
+        );
+      }
       return (
-        <span
-          key={index}
-          className={cn(
-            index === results.length && 'bg-primary/10 text-primary underline underline-offset-4',
-            result && result.errors.length === 0 && 'text-muted-foreground',
-            result && result.errors.length > 0 && 'text-destructive line-through',
-            !result && index !== results.length && 'text-foreground',
-          )}
-        >
+        <span key={index} className="text-muted-foreground">
           {word}
         </span>
       );
