@@ -34,6 +34,7 @@ src/
 │   │                        # components/ (ChatWidget = floating button + popup, ChatPanel, ChatComposer)
 │   ├── home/                # home.module.ts, pages/HomePage
 │   ├── notes/               # REFERENCE MODULE: api/, hooks/, components/, pages/, types/, notes.module.ts
+│   ├── typing/              # /typing: type a passage, each word is checked with classifyWord (shared/lib/vietnamese-errors.ts)
 │   └── profile/             # profile.module.ts, api/, components/ (AvatarUpload, ProfileEditForm, SecuritySettings), pages/
 ├── shared/
 │   ├── api/                 # http.ts (axios), query-client.ts, api-error.ts, types.ts (Paginated<T>)
@@ -43,7 +44,7 @@ src/
 │   │   ├── layout/          # AppLayout (top navigation + module widgets), AdminLayout (sidebar, /admin)
 │   │   └── ui/              # shadcn/ui primitives (button, input, dialog, switch, ...)
 │   ├── hooks/               # use-debounce, use-pagination
-│   └── lib/utils.ts         # cn(), theme helpers
+│   └── lib/                 # utils.ts (cn(), theme helpers), vietnamese-errors.ts (classifyWord, tagWord: per-word error types; pure TS so it can be copied to the BE)
 └── test/                    # setup.ts, render-with-providers.tsx
 ```
 
