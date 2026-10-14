@@ -40,13 +40,13 @@
   --foreground: hsl(222 47% 11%);
   --card: hsl(0 0% 100%);
   --card-foreground: hsl(222 47% 11%);
-  --primary: hsl(262 83% 58%);
+  --primary: hsl(0 70% 45%);
   --primary-foreground: hsl(0 0% 100%);
   --muted: hsl(210 40% 96%);
   --muted-foreground: hsl(215 16% 47%);
   --border: hsl(214 32% 91%);
   --input: hsl(214 32% 91%);
-  --ring: hsl(262 83% 58%);
+  --ring: hsl(0 70% 45%);
   --destructive: hsl(0 84% 60%);
   --destructive-foreground: hsl(0 0% 100%);
   --accent: hsl(210 40% 96%);
@@ -62,32 +62,32 @@
   --sidebar-border: hsl(214 32% 91%);
 }
 
-/* Dark theme */
+/* Dark theme: the blood-red palette of the login pages (near-black red page, dark maroon cards, red accents). */
 .dark {
-  --background: hsl(222 47% 11%);
-  --foreground: hsl(210 40% 98%);
-  --card: hsl(224 40% 14%);
-  --card-foreground: hsl(210 40% 98%);
-  --primary: hsl(262 83% 58%);
-  --primary-foreground: hsl(210 40% 98%);
-  --muted: hsl(223 25% 20%);
-  --muted-foreground: hsl(215 20% 75%);
-  --border: hsl(223 21% 26%);
-  --input: hsl(223 21% 26%);
-  --ring: hsl(262 83% 58%);
-  --destructive: hsl(0 84% 60%);
-  --destructive-foreground: hsl(210 40% 98%);
-  --accent: hsl(223 25% 20%);
-  --accent-foreground: hsl(210 40% 98%);
-  --popover: hsl(224 40% 14%);
-  --popover-foreground: hsl(210 40% 98%);
-  --secondary: hsl(223 25% 20%);
-  --secondary-foreground: hsl(210 40% 98%);
-  --sidebar: hsl(224 40% 10%);
-  --sidebar-foreground: hsl(210 40% 98%);
-  --sidebar-accent: hsl(223 25% 16%);
-  --sidebar-accent-foreground: hsl(210 40% 98%);
-  --sidebar-border: hsl(223 21% 20%);
+  --background: #140606;
+  --foreground: #e6d2d2;
+  --card: #341414;
+  --card-foreground: #e6d2d2;
+  --primary: #b01e1e;
+  --primary-foreground: #f3dcdc;
+  --muted: #2a1010;
+  --muted-foreground: #a87878;
+  --border: #3a1616;
+  --input: #341414;
+  --ring: #b01e1e;
+  --destructive: #b01e1e;
+  --destructive-foreground: #f3dcdc;
+  --accent: #2a1010;
+  --accent-foreground: #e6d2d2;
+  --popover: #341414;
+  --popover-foreground: #e6d2d2;
+  --secondary: #2a1010;
+  --secondary-foreground: #e6d2d2;
+  --sidebar: #100505;
+  --sidebar-foreground: #e6d2d2;
+  --sidebar-accent: #2a1010;
+  --sidebar-accent-foreground: #e6d2d2;
+  --sidebar-border: #3a1616;
 }
 
 /* In the base layer so `border-*` color classes (border-input, border-transparent, ...) can override it. */

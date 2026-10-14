@@ -95,6 +95,11 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog`, `Pagination`,
   `StatCard` (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
   shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams` (`shared/hooks/`).
+- Design: the TypeTrace look of the login pages applies to every page, now and for new features. Header and footer are
+  `BrandHeader` / `BrandFooter` (`shared/components/layout/`; `AppLayout` and `AdminLayout` already use them, so pages
+  inside them get both). Colors are only the theme tokens in `FE/src/index.css` (blood-red dark palette, red `primary`): do
+  not add purple, blue or other accents. A page that wants the red glass card (login, typing) uses `redGlassTheme` and
+  `redGlassCard` from `shared/lib/red-glass-theme.ts`. Square corners (radius 0), no per-page color schemes.
 - Styling: Tailwind theme tokens (`bg-background`, `text-muted-foreground`, ...), never raw hex colors. Layouts must work on phones.
 - Imports use the `@/` alias. Components and pages are `PascalCase.tsx` named exports; other files are `kebab-case.ts`.
 
