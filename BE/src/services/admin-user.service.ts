@@ -1,5 +1,6 @@
 import type { QueryFilter } from 'mongoose';
 import { NoteModel } from '../models/note.model';
+import { TypingSessionModel } from '../models/typing-session.model';
 import { UserDocument, UserModel } from '../models/user.model';
 import { badRequest, forbidden, notFound } from '../utils/app-error';
 import { deleteImage } from './cloudinary.service';
@@ -50,12 +51,13 @@ export const updateUser = async (actorId: string, id: string, input: AdminUpdate
   return user;
 };
 
-/** Deletes users with their notes and avatars. Admins cannot delete themselves. */
+/** Deletes users with their notes, typing sessions and avatars. Admins cannot delete themselves. */
 export const deleteUsers = async (actorId: string, ids: string[]) => {
   if (ids.includes(actorId)) throw badRequest('You cannot delete your own account here');
   const withAvatar = await UserModel.find({ _id: { $in: ids }, avatarPublicId: { $exists: true } }).select('avatarPublicId');
   const { deletedCount } = await UserModel.deleteMany({ _id: { $in: ids } });
   await NoteModel.deleteMany({ owner: { $in: ids } });
+  await TypingSessionModel.deleteMany({ owner: { $in: ids } });
   // Best effort: a failed image cleanup must not undo the delete.
   await Promise.all(withAvatar.map((user) => deleteImage(user.avatarPublicId!).catch(() => undefined)));
   return deletedCount;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NoteModel } from '../../src/models/note.model';
+import { TypingSessionModel } from '../../src/models/typing-session.model';
 import { UserModel } from '../../src/models/user.model';
 import { api } from '../helpers/api';
 import { cloudinaryRecorder } from '../helpers/cloudinary-recorder';
@@ -122,17 +123,19 @@ describe('PATCH /api/admin/users/:id', () => {
 });
 
 describe('deleting users', () => {
-  it('deletes a user together with their notes and avatar', async () => {
+  it('deletes a user together with their notes, typing sessions and avatar', async () => {
     const { auth } = await signInAdmin();
     const user = await createUser({ email: 'lan@example.com' });
     await UserModel.updateOne({ _id: user._id }, { avatarPublicId: 'avatars/lan' });
     await NoteModel.create({ title: 'n', owner: user._id });
+    await TypingSessionModel.create({ owner: user._id, passageId: 'basic-1', targetWords: ['a'] });
 
     const response = await api().delete(`/api/admin/users/${user._id}`).set('Authorization', auth);
 
     expect(response.status).toBe(204);
     expect(await UserModel.exists({ _id: user._id })).toBeNull();
     expect(await NoteModel.countDocuments()).toBe(0);
+    expect(await TypingSessionModel.countDocuments()).toBe(0);
     expect(cloudinaryRecorder.destroyed).toEqual(['avatars/lan']);
   });
 
