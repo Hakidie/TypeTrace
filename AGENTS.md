@@ -35,6 +35,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `docker compose up -d` | Start a local MongoDB on port 27017 |
 | `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234` |
 | `npm run import:words` | Add the starter word list (`BE/src/data/words.ts`) to the word bank with error tags; safe to run many times |
+| `npm run import:passages` | Add the starter passages (`BE/src/data/passages.ts`, source recorded, owner TypeTrace) to the passage bank; safe to run many times |
 | `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together |
 | `npm test` | Run backend and frontend tests |
 | `npm run lint` | Lint the frontend |
