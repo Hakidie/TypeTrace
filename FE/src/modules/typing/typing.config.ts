@@ -7,3 +7,6 @@ export const errorLabels: Record<WordErrorType, string> = {
   TONE_WRONG: 'Wrong tone',
   HOI_NGA_CONFUSION: 'Hỏi / ngã confusion',
 };
+
+/** A session lasts at most 3 minutes (the server enforces it too: `MAX_SESSION_MS` in the backend). */
+export const SESSION_TIME_LIMIT_SECONDS = 180;

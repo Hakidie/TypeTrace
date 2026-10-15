@@ -1,8 +1,9 @@
 import { CheckCircle2 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, CompositionEvent, KeyboardEvent, ReactNode } from 'react';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { useElapsedSeconds } from '../hooks/use-elapsed';
+import { SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 import { checkWords, formatDuration, splitTyped } from '../utils/typing-session';
 import { PassageView } from './PassageView';
 
@@ -27,6 +28,8 @@ interface TypingAreaProps {
   /** Called once, when the first key is pressed: the timer starts then. */
   onStart?: () => void;
   onFinish: (typedWords: string[]) => void;
+  /** Called once when time runs out and no word was finished, so there is nothing to grade. */
+  onTimeUp?: () => void;
   /** Shown under the card, at its right, e.g. a Restart button. */
   actions?: ReactNode;
 }
@@ -38,16 +41,20 @@ interface TypingAreaProps {
  * fcitx and similar can hold text back), keystrokes and the half-written text are ignored (conclusion of US2.0,
  * docs/ime-findings.md). Pasting and dropping text are blocked.
  */
-export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, actions }: TypingAreaProps) => {
+export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, onTimeUp, actions }: TypingAreaProps) => {
   const [text, setText] = useState('');
   const [committed, setCommitted] = useState('');
-  const [isFinished, setIsFinished] = useState(false);
+  const [lastWordDone, setLastWordDone] = useState(false);
   // Text the input method is still composing (e.g. "tiê" before it is committed); empty when nothing is composing.
   const [preedit, setPreedit] = useState('');
   const composing = useRef(false);
   // The timer starts at the first key, not when the page opens.
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  const seconds = useElapsedSeconds(startedAt, !isFinished && !disabled);
+  const seconds = useElapsedSeconds(startedAt, !lastWordDone && !disabled);
+
+  const timeIsUp = seconds >= SESSION_TIME_LIMIT_SECONDS;
+  const isFinished = lastWordDone || timeIsUp;
+  const expired = useRef(false);
 
   const start = () => {
     if (startedAt !== null) return;
@@ -58,11 +65,20 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, a
   const { done } = useMemo(() => splitTyped(committed), [committed]);
   const results = useMemo(() => checkWords(targetWords, done), [targetWords, done]);
 
+  // At 3:00 the session ends with the words finished so far (the server enforces the same limit).
+  useEffect(() => {
+    if (!timeIsUp || lastWordDone || expired.current) return;
+    expired.current = true;
+    const typedWords = splitTyped(committed).done.slice(0, targetWords.length);
+    if (typedWords.length > 0) onFinish(typedWords);
+    else onTimeUp?.();
+  }, [timeIsUp, lastWordDone, committed, targetWords.length, onFinish, onTimeUp]);
+
   const commit = (value: string) => {
     setCommitted(value);
     const typedWords = splitTyped(value).done;
     if (!isFinished && typedWords.length >= targetWords.length) {
-      setIsFinished(true);
+      setLastWordDone(true);
       onFinish(typedWords.slice(0, targetWords.length));
     }
   };
@@ -135,7 +151,7 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, a
             <CheckCircle2 className="size-5" /> Finished
           </span>
         ) : (
-          <span aria-label="Elapsed time" className={statusFrame}>{formatDuration(seconds)}</span>
+          <span aria-label="Elapsed time" className={statusFrame}>{formatDuration(Math.min(seconds, SESSION_TIME_LIMIT_SECONDS))}</span>
         )}
       </div>
     </>

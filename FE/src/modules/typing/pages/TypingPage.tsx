@@ -42,6 +42,7 @@ export const TypingPage = () => {
           disabled={complete.isPending}
           onStart={() => begin.mutate(session._id)}
           onFinish={finish}
+          onTimeUp={() => start.mutate({})}
           actions={
             <Button
               variant="ghost"
