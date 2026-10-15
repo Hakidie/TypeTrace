@@ -113,6 +113,40 @@ describe('PATCH /api/sessions/:id/complete', () => {
     expect(response.body.isCounted).toBe(false);
   });
 
+  it('keeps the words and error counts of a session that is not counted', async () => {
+    const auth = bearerFor(await createUser({}));
+    const { body: session } = await startSession(auth);
+    await TypingSessionModel.findByIdAndUpdate(session._id, { startedAt: new Date(Date.now() - 120_000) });
+
+    await complete(auth, session._id, session.targetWords.slice(0, 5));
+
+    const saved = await TypingSessionModel.findById(session._id);
+    expect(saved).toMatchObject({ status: 'completed', isCounted: false });
+    expect(saved!.words).toHaveLength(5);
+    expect(saved!.wpm).toBeGreaterThan(0);
+  });
+
+  it('counts exactly 20 words and not 19 at the same normal speed', async () => {
+    const auth = bearerFor(await createUser({}));
+    const run = async (wordCount: number) => {
+      const { body: session } = await startSession(auth);
+      await TypingSessionModel.findByIdAndUpdate(session._id, { startedAt: new Date(Date.now() - 120_000) });
+      return (await complete(auth, session._id, session.targetWords.slice(0, wordCount))).body;
+    };
+
+    expect((await run(19)).isCounted).toBe(false);
+    expect((await run(20)).isCounted).toBe(true);
+  });
+
+  it('requires authentication', async () => {
+    const auth = bearerFor(await createUser({}));
+    const { body: session } = await startSession(auth);
+
+    const response = await api().patch(`/api/sessions/${session._id}/complete`).send({ typedWords: ['a'] });
+
+    expect(response.status).toBe(401);
+  });
+
   it('rejects more words than the passage, empty input and a finished session', async () => {
     const auth = bearerFor(await createUser({}));
     const { body: session } = await startSession(auth);
@@ -130,6 +164,7 @@ describe('PATCH /api/sessions/:id/complete', () => {
     const { body: session } = await startSession(owner);
 
     expect((await complete(stranger, session._id, session.targetWords)).status).toBe(404);
+    expect((await TypingSessionModel.findById(session._id))!.status).toBe('in_progress'); // untouched
 
     await startSession(owner); // abandons the first one
     expect((await complete(owner, session._id, session.targetWords)).status).toBe(409);
@@ -185,6 +220,17 @@ describe('abandon, read and history', () => {
     expect(first.status).toBe(200);
     expect(first.body.status).toBe('abandoned');
     expect(second.status).toBe(409);
+  });
+
+  it("does not let another learner abandon someone else's session", async () => {
+    const owner = bearerFor(await createUser({ email: 'owner@example.com' }));
+    const stranger = bearerFor(await createUser({ email: 'stranger@example.com' }));
+    const { body: session } = await startSession(owner);
+
+    const response = await api().patch(`/api/sessions/${session._id}/abandon`).set('Authorization', stranger);
+
+    expect(response.status).toBe(404);
+    expect((await TypingSessionModel.findById(session._id))!.status).toBe('in_progress');
   });
 
   it('reads one session, and answers 404 to other users, even admins', async () => {
