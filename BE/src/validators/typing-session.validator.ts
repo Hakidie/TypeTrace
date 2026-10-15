@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { sessionModes, sessionStatuses } from '../models/typing-session.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
+import { objectIdSchema } from './common.validator';
 
 export const createSessionSchema = z.object({
   mode: z.enum(sessionModes).default('practice'),
-  /** Missing = the default passage. */
-  passageId: z.string().trim().min(1).max(50).optional()
+  /** Missing = a random passage (the placement passage in `placement` mode). */
+  passageId: objectIdSchema.optional()
 });
 
 /** Only the typed words are trusted: score, WPM and accuracy are always computed by the server. */

@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { passages } from '../../src/config/passages';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { PASSAGE_LIST } from '../../src/data/passages';
+import { PassageModel } from '../../src/models/passage.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
+import { seedPassages } from '../../src/services/passage-seed.service';
 import { api } from '../helpers/api';
 import { bearerFor, createUser } from '../helpers/user-factory';
 
@@ -10,19 +12,79 @@ const startSession = (authorization: string, body: Record<string, unknown> = {})
 const complete = (authorization: string, id: string, typedWords: string[]) =>
   api().patch(`/api/sessions/${id}/complete`).set('Authorization', authorization).send({ typedWords });
 
-const targetWordsOf = (passageId: string) => passages.find((p) => p.id === passageId)!.text.split(/\s+/);
+// Typing picks its passage from the database, which the tests start empty: load the starter passages first.
+beforeEach(async () => {
+  await seedPassages(PASSAGE_LIST);
+});
+
+/** Starts a session on the passage with this title, so a test does not depend on the random pick. */
+const startOn = async (authorization: string, title: string) =>
+  (await startSession(authorization, { passageId: String((await PassageModel.findOne({ title }))!._id) })).body;
+
+const wordsOfPassage = async (passageId: string) => (await PassageModel.findById(passageId))!.content.split(/\s+/);
 
 describe('POST /api/sessions', () => {
-  it('starts an in-progress session with a copy of the passage words', async () => {
+  it('starts an in-progress session with a copy of a passage from the database', async () => {
     const user = await createUser({});
 
     const response = await startSession(bearerFor(user));
 
     expect(response.status).toBe(201);
-    expect(response.body).toMatchObject({ status: 'in_progress', mode: 'practice', passageId: 'basic-1', isCounted: false });
+    expect(response.body).toMatchObject({ status: 'in_progress', mode: 'practice', isCounted: false });
     expect(response.body.owner).toBe(String(user._id));
-    expect(response.body.targetWords).toEqual(targetWordsOf('basic-1'));
+    expect(response.body.targetWords).toEqual(await wordsOfPassage(response.body.passageId));
     expect(response.body).not.toHaveProperty('__v');
+  });
+
+  it('picks a random active, public practice passage and never the placement or a hidden one', async () => {
+    await PassageModel.updateOne({ title: 'Hà Nội vào thu' }, { status: 'inactive' });
+    await PassageModel.create({ title: 'Riêng tư', content: 'Của riêng tôi.', source: 'Tự viết', visibility: 'private' });
+    const auth = bearerFor(await createUser({}));
+    const allowed = await PassageModel.find({ status: 'active', visibility: 'public', isPlacement: false });
+    expect(allowed.length).toBeGreaterThan(1);
+
+    const seen = new Set<string>();
+    for (let i = 0; i < 40; i += 1) seen.add((await startSession(auth)).body.passageId);
+
+    const allowedIds = allowed.map((passage) => String(passage._id));
+    expect([...seen].every((id) => allowedIds.includes(id))).toBe(true);
+    expect(seen.size).toBeGreaterThan(1); // not always the same passage
+  });
+
+  it('uses the placement passage in placement mode', async () => {
+    const auth = bearerFor(await createUser({}));
+    const placement = (await PassageModel.findOne({ isPlacement: true }))!;
+
+    const response = await startSession(auth, { mode: 'placement' });
+
+    expect(response.body).toMatchObject({ mode: 'placement', passageId: String(placement._id) });
+  });
+
+  it('uses the passage asked for, if it is active and public (or the learner own)', async () => {
+    const me = await createUser({});
+    const auth = bearerFor(me);
+    const chosen = (await PassageModel.findOne({ title: 'Bữa cơm gia đình' }))!;
+    const mine = await PassageModel.create({
+      title: 'Của tôi', content: 'Đây là bài của tôi.', source: 'Tự viết', visibility: 'private', owner: me._id
+    });
+    const theirs = await PassageModel.create({
+      title: 'Của họ', content: 'Bài của người khác.', source: 'Tự viết', visibility: 'private', owner: (await createUser({ email: 'x@example.com' }))._id
+    });
+
+    expect((await startSession(auth, { passageId: String(chosen._id) })).body.passageId).toBe(String(chosen._id));
+    expect((await startSession(auth, { passageId: String(mine._id) })).status).toBe(201);
+    expect((await startSession(auth, { passageId: String(theirs._id) })).status).toBe(400);
+
+    await PassageModel.updateOne({ _id: chosen._id }, { status: 'inactive' });
+    expect((await startSession(auth, { passageId: String(chosen._id) })).status).toBe(400);
+  });
+
+  it('answers 404 when there is no passage to type', async () => {
+    await PassageModel.deleteMany({});
+    const auth = bearerFor(await createUser({}));
+
+    expect((await startSession(auth)).status).toBe(404);
+    expect((await startSession(auth, { mode: 'placement' })).status).toBe(404);
   });
 
   it('moves the previous in-progress session to abandoned', async () => {
@@ -47,6 +109,7 @@ describe('POST /api/sessions', () => {
     const auth = bearerFor(await createUser({}));
 
     expect((await startSession(auth, { passageId: 'nope' })).status).toBe(400);
+    expect((await startSession(auth, { passageId: '0'.repeat(24) })).status).toBe(400); // valid id, no such passage
     expect((await startSession(auth, { mode: 'ranked' })).status).toBe(400);
     expect((await api().post('/api/sessions')).status).toBe(401);
   });
@@ -55,7 +118,7 @@ describe('POST /api/sessions', () => {
 describe('PATCH /api/sessions/:id/complete', () => {
   it('grades the typed words again and ignores totals sent by the client', async () => {
     const auth = bearerFor(await createUser({}));
-    const { body: session } = await startSession(auth);
+    const session = await startOn(auth, 'Tiếng Việt rất đẹp');
     const typed = [...session.targetWords];
     typed[5] = 'truong'; // trường typed without the horn marks and the tone
 
@@ -82,7 +145,7 @@ describe('PATCH /api/sessions/:id/complete', () => {
 
   it('counts a session of at least 20 words at a normal speed', async () => {
     const auth = bearerFor(await createUser({}));
-    const { body: session } = await startSession(auth);
+    const session = await startOn(auth, 'Tiếng Việt rất đẹp');
     // Backdate the start so the speed stays realistic: 23 correct words in 2 minutes.
     await TypingSessionModel.findByIdAndUpdate(session._id, { startedAt: new Date(Date.now() - 120_000) });
 
@@ -136,6 +199,30 @@ describe('PATCH /api/sessions/:id/complete', () => {
 
     expect((await run(19)).isCounted).toBe(false);
     expect((await run(20)).isCounted).toBe(true);
+  });
+
+  it('stops the clock at 3 minutes when the request only arrived a little late', async () => {
+    const auth = bearerFor(await createUser({}));
+    const { body: session } = await startSession(auth);
+    await TypingSessionModel.findByIdAndUpdate(session._id, { startedAt: new Date(Date.now() - 182_000) });
+
+    const response = await complete(auth, session._id, session.targetWords);
+
+    expect(response.body.durationMs).toBe(180_000);
+    expect(response.body.isCounted).toBe(true);
+  });
+
+  it('saves a session that ran past 3 minutes but does not count it', async () => {
+    const auth = bearerFor(await createUser({}));
+    const { body: session } = await startSession(auth);
+    await TypingSessionModel.findByIdAndUpdate(session._id, { startedAt: new Date(Date.now() - 240_000) });
+
+    const response = await complete(auth, session._id, session.targetWords);
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('completed');
+    expect(response.body.durationMs).toBeGreaterThan(180_000);
+    expect(response.body.isCounted).toBe(false);
   });
 
   it('requires authentication', async () => {

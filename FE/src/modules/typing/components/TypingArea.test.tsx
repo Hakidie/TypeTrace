@@ -194,3 +194,50 @@ describe('TypingArea timer', () => {
     }
   });
 });
+
+describe('TypingArea time limit', () => {
+  it('shows only the elapsed time, without the limit', () => {
+    render(<TypingArea targetWords={words} onFinish={vi.fn()} />);
+
+    expect(screen.getByLabelText('Elapsed time')).toHaveTextContent(/^0:00$/);
+  });
+
+  it('ends at 3:00 with the words finished so far', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onFinish = vi.fn();
+      const onTimeUp = vi.fn();
+      render(<TypingArea targetWords={words} onFinish={onFinish} onTimeUp={onTimeUp} />);
+
+      await user.type(screen.getByRole('textbox', { name: 'Typing area' }), `${words[0]} ${words[1]} `);
+      expect(onFinish).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(180_000);
+
+      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]]));
+      expect(onFinish).toHaveBeenCalledTimes(1);
+      expect(onTimeUp).not.toHaveBeenCalled();
+      expect(screen.getByRole('textbox', { name: 'Typing area' })).toBeDisabled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('tells the page when time is up and no word was finished', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onFinish = vi.fn();
+      const onTimeUp = vi.fn();
+      render(<TypingArea targetWords={words} onFinish={onFinish} onTimeUp={onTimeUp} />);
+
+      await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'Ti');
+      vi.advanceTimersByTime(180_000);
+
+      await waitFor(() => expect(onTimeUp).toHaveBeenCalledTimes(1));
+      expect(onFinish).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

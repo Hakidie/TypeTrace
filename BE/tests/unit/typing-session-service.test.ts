@@ -3,6 +3,8 @@ import {
   computeWpm,
   isSessionCounted,
   MAX_COUNTED_WPM,
+  MAX_SESSION_MS,
+  SESSION_GRACE_MS,
   MIN_COUNTED_WORDS
 } from '../../src/services/typing-session.service';
 
@@ -15,6 +17,18 @@ describe('isSessionCounted', () => {
   it('counts up to exactly 200 WPM and rejects anything above', () => {
     expect(isSessionCounted(30, MAX_COUNTED_WPM)).toBe(true);
     expect(isSessionCounted(30, MAX_COUNTED_WPM + 0.1)).toBe(false);
+  });
+});
+
+describe('isSessionCounted time limit', () => {
+  it('counts a session up to the limit plus the grace and rejects a longer one', () => {
+    expect(isSessionCounted(30, 50, MAX_SESSION_MS)).toBe(true);
+    expect(isSessionCounted(30, 50, MAX_SESSION_MS + SESSION_GRACE_MS)).toBe(true);
+    expect(isSessionCounted(30, 50, MAX_SESSION_MS + SESSION_GRACE_MS + 1)).toBe(false);
+  });
+
+  it('is 3 minutes', () => {
+    expect(MAX_SESSION_MS).toBe(180_000);
   });
 });
 
