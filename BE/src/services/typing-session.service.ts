@@ -1,10 +1,10 @@
-import { Types } from 'mongoose';
 import { PassageModel, splitWords } from '../models/passage.model';
 import { ErrorCounts, SessionWord, TypingSessionModel } from '../models/typing-session.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
 import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
+import { samplePassage } from './passage.service';
 
 /** Sessions with fewer words, or faster than this, are saved but kept out of the error profile (ASSUMPTION). */
 export const MIN_COUNTED_WORDS = 20;
@@ -51,8 +51,8 @@ export const isSessionCounted = (wordCount: number, wpm: number, durationMs = 0)
   wordCount >= MIN_COUNTED_WORDS && wpm <= MAX_COUNTED_WPM && durationMs <= MAX_SESSION_MS + SESSION_GRACE_MS;
 
 /**
- * The passage a session types. With a `passageId` it is that passage; for the placement test it is the placement
- * passage; otherwise it is a random active, public practice passage. Hidden passages are never used.
+ * The passage a session types. With a `passageId` it is that passage; for the placement test it is a random
+ * placement passage; otherwise it is a random public practice passage. Hidden (inactive) passages are never used.
  */
 const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInput) => {
   if (passageId) {
@@ -65,15 +65,11 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
     return passage;
   }
   if (mode === 'placement') {
-    const placement = await PassageModel.findOne({ isPlacement: true, status: 'active' });
+    const placement = await samplePassage({ isPlacement: true });
     if (!placement) throw notFound('No placement passage');
     return placement;
   }
-  const [random] = await PassageModel.aggregate<{ _id: Types.ObjectId; content: string }>([
-    { $match: { status: 'active', visibility: 'public', isPlacement: false } },
-    { $sample: { size: 1 } },
-    { $project: { content: 1 } }
-  ]);
+  const random = await samplePassage({ visibility: 'public', isPlacement: false });
   if (!random) throw notFound('No passage available');
   return random;
 };

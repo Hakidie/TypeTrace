@@ -50,13 +50,15 @@ describe('the starter passages', () => {
     expect(new Set(PASSAGE_LIST.map((passage) => passage.title)).size).toBe(PASSAGE_LIST.length);
   });
 
-  it('have exactly one placement passage with at least 20 opportunities for every error type', async () => {
+  it('have at least 3 placement passages, each with at least 20 opportunities for every error type', async () => {
     await seedPassages(PASSAGE_LIST);
 
     const placement = await PassageModel.find({ isPlacement: true });
-    expect(placement).toHaveLength(1);
-    for (const type of Object.values(WordError)) {
-      expect(placement[0].tagCounts[type], type).toBeGreaterThanOrEqual(20);
+    expect(placement.length).toBeGreaterThanOrEqual(3);
+    for (const passage of placement) {
+      for (const type of Object.values(WordError)) {
+        expect(passage.tagCounts[type], `${passage.title}: ${type}`).toBeGreaterThanOrEqual(20);
+      }
     }
   });
 
