@@ -26,6 +26,11 @@ describe('AdminLayout', () => {
     expect(nav.querySelector('a[aria-current="page"]')).toHaveTextContent('Users');
   });
 
+  it('shows the title of the current page in the header', () => {
+    renderLayout('/admin/users');
+    expect(screen.getByRole('heading', { level: 1, name: 'Users' })).toBeInTheDocument();
+  });
+
   it('opens and closes the menu on small screens', () => {
     renderLayout('/admin');
     expect(screen.getAllByRole('navigation', { name: 'Admin' })).toHaveLength(1);

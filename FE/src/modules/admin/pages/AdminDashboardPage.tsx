@@ -2,7 +2,6 @@ import { BadgeCheck, NotebookText, ShieldCheck, UserPlus, Users } from 'lucide-r
 import { Link } from 'react-router-dom';
 import { DataTable } from '@/shared/components/data-table';
 import { ErrorState } from '@/shared/components/error-state';
-import { PageHeader } from '@/shared/components/page-header';
 import { StatCard } from '@/shared/components/stat-card';
 import { Button } from '@/shared/components/ui/button';
 import { userColumns } from '../components/user-columns';
@@ -16,7 +15,7 @@ export const AdminDashboardPage = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Overview of the app." />
+      <p className="text-base text-muted-foreground">Overview of the app.</p>
 
       {stats.isError ? (
         <ErrorState error={stats.error} onRetry={() => void stats.refetch()} />

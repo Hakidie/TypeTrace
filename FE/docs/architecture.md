@@ -34,14 +34,16 @@ src/
 │   │                        # components/ (ChatWidget = floating button + popup, ChatPanel, ChatComposer)
 │   ├── home/                # home.module.ts, pages/HomePage
 │   ├── notes/               # REFERENCE MODULE: api/, hooks/, components/, pages/, types/, notes.module.ts
+│   ├── passages/            # admin passage bank (/admin/passages): passages.module.ts, api/ (GET/POST /api/admin/passages, backend is SCRUM-90), hooks/use-passages.ts, components/ (PassageForm, PassageCard), pages/AdminPassagesPage (a "New passage" Panel and a "Passages" Panel with a 3-column card grid)
+│   ├── settings/            # admin settings: settings.module.ts (adminRoutes + adminNavItems "Settings"), pages/AdminSettingsPage (/admin/settings)
 │   ├── typing/              # /typing (TypingPage, TypingArea) and /typing/result/:id: a session is started when the page opens (no start button), the timer starts at the first key (`PATCH /api/sessions/:id/begin`) and a session ends at 3:00 (`SESSION_TIME_LIMIT_SECONDS`), sending the words finished so far (nothing finished = a new session starts) and the backend grades it (/api/sessions); the page uses the login/register look (`shared/lib/red-glass-theme.ts`, also used by `AuthLayout`) and shows only the passage: an invisible textarea sits over it and the typed text appears in the passage (grey = not reached, white = typed or right, red = wrong word after the space); TypingArea grades only committed IME text with classifyWord (shared/lib/vietnamese-errors.ts)
 │   └── profile/             # profile.module.ts, api/, components/ (AvatarUpload, ProfileEditForm, SecuritySettings), pages/
 ├── shared/
 │   ├── api/                 # http.ts (axios), query-client.ts, api-error.ts, types.ts (Paginated<T>)
-│   ├── components/          # page-header, empty-state, error-state, loading-state, confirm-dialog,
+│   ├── components/          # panel, page-header, empty-state, error-state, loading-state, confirm-dialog,
 │   │   │                    # form-field, pagination
 │   │   ├── data-table/      # DataTable, SearchInput, FilterSelect, TableToolbar (list and admin pages)
-│   │   ├── layout/          # AppLayout (BrandHeader with the navigation, BrandFooter, module widgets), AdminLayout (sidebar + BrandFooter, /admin)
+│   │   ├── layout/          # AppLayout (BrandHeader with the navigation, BrandFooter, module widgets), AdminLayout (AdminSidebar with its own logo header and Logout footer, no BrandHeader/BrandFooter, /admin)
 │   │   └── ui/              # shadcn/ui primitives (button, input, dialog, switch, ...)
 │   ├── hooks/               # use-debounce, use-pagination
 │   └── lib/                 # utils.ts (cn(), theme helpers), vietnamese-errors.ts (classifyWord, tagWord: per-word error types; pure TS so it can be copied to the BE)
@@ -152,7 +154,7 @@ if (query.isPending) return <LoadingState />;
 if (query.isError) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
 if (query.data.items.length === 0) return <EmptyState title="No notes yet" action={...} />;
 ```
-Use `PageHeader` for the title row, `Pagination` under lists, `ConfirmDialog` before deleting, `useDebounce` for search boxes.
+Use `Panel` (title, description, actions) for every block of content in a page, `PageHeader` for the title row of a non-admin page (admin pages get their title from `AdminLayout`), `Pagination` under lists, `ConfirmDialog` before deleting, `useDebounce` for search boxes.
 
 ### 9. Tables and admin pages
 `DataTable` takes a column config (`{ id, header, cell, sortKey? }`), rows and `getRowId`. Sorting is done by the backend: pass `sort` + `onSortChange` (headers cycle `field` → `-field`). Pass `selectedIds` + `onSelectedIdsChange` for checkboxes and bulk actions; `isRowSelectable` disables rows. Put `SearchInput` (debounced) and `FilterSelect` (`''` = all) in a `TableToolbar`. `useListParams({ sort })` keeps `q`, filters, `sort` and `page` in the URL and resets the page when a filter changes. `AdminUsersPage` shows all of it together.
@@ -196,4 +198,4 @@ Use `PageHeader` for the title row, `Pagination` under lists, `ConfirmDialog` be
 
 ## Design
 
-Every page uses the TypeTrace look of the login pages: `BrandHeader` and `BrandFooter` (`AppLayout` and `AdminLayout` include them), the blood-red palette defined once in `src/index.css` (dark: near-black red page, maroon cards, red accents; light: white with a red `primary`), and square corners. New features get this for free by using theme tokens (`bg-card`, `text-primary`, `bg-destructive`, ...). Never add other accent colors or raw hex values in components. A page that wants the translucent red glass card (login, register, typing) puts `redGlassTheme` on its wrapper and `redGlassCard` on the wrapper of the card (`src/shared/lib/red-glass-theme.ts`).
+Every page uses the TypeTrace look of the login pages: `BrandHeader` and `BrandFooter` (`AppLayout` includes them; `AdminLayout` does not: its `AdminSidebar` has its own logo header and Logout footer), the blood-red palette defined once in `src/index.css` (dark: near-black red page, maroon cards, red accents; light: white with a red `primary`), and square corners. New features get this for free by using theme tokens (`bg-card`, `text-primary`, `bg-destructive`, ...). Never add other accent colors or raw hex values in components. A page that wants the translucent red glass card (login, register, typing) puts `redGlassTheme` on its wrapper and `redGlassCard` on the wrapper of the card (`src/shared/lib/red-glass-theme.ts`).
