@@ -1,5 +1,6 @@
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { GuestRoute } from './GuestRoute';
@@ -34,5 +35,18 @@ describe('GuestRoute', () => {
     getMe.mockResolvedValue({ role: 'admin' });
     renderAt();
     expect(await screen.findByText('admin page')).toBeInTheDocument();
+  });
+
+  it('leaves a login made on the page alone: the login opens the next page itself', async () => {
+    const { queryClient } = renderAt();
+
+    // What useFinishLogin does before it navigates. A redirect from here would race its navigation, and win.
+    await act(async () => {
+      tokenStore.set('jwt-new');
+      queryClient.setQueryData(currentUserKey, { role: 'user' });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(screen.queryByText('home page')).not.toBeInTheDocument();
   });
 });

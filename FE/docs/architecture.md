@@ -36,7 +36,7 @@ src/
 │   ├── notes/               # REFERENCE MODULE: api/, hooks/, components/, pages/, types/, notes.module.ts
 │   ├── passages/            # admin passage bank (/admin/passages): passages.module.ts, api/ (GET/POST /api/admin/passages, backend is SCRUM-90), hooks/use-passages.ts, components/ (PassageForm, PassageCard), pages/AdminPassagesPage (a "New passage" Panel and a "Passages" Panel with a 3-column card grid)
 │   ├── settings/            # admin settings: settings.module.ts (adminRoutes + adminNavItems "Settings"), pages/AdminSettingsPage (/admin/settings)
-│   ├── typing/              # /typing (TypingPage, TypingArea) and /typing/result/:id: a session is started when the page opens (no start button), the timer starts at the first key (`PATCH /api/sessions/:id/begin`) and a session ends at 3:00 (`SESSION_TIME_LIMIT_SECONDS`), sending the words finished so far (nothing finished = a new session starts) and the backend grades it (/api/sessions); the page uses the login/register look (`shared/lib/red-glass-theme.ts`, also used by `AuthLayout`) and shows only the passage: an invisible textarea sits over it and the typed text appears in the passage (grey = not reached, white = typed or right, red = wrong word after the space); TypingArea grades only committed IME text with classifyWord (shared/lib/vietnamese-errors.ts)
+│   ├── typing/              # /placement (PlacementIntroPage: the placement test intro opened after login, Start = /typing?mode=placement, Skip = /typing), /typing (TypingPage, TypingArea) and /typing/result/:id: a session is started when the page opens (no start button; `?mode=placement` types the placement passage), the timer starts at the first key (`PATCH /api/sessions/:id/begin`) and a session ends at 3:00 (`SESSION_TIME_LIMIT_SECONDS`), sending the words finished so far (nothing finished = a new session starts) and the backend grades it (/api/sessions); the page uses the login/register look (`shared/lib/red-glass-theme.ts`, also used by `AuthLayout`) and shows only the passage: an invisible textarea sits over it and the typed text appears in the passage (grey = not reached, white = typed or right, red = wrong word after the space); TypingArea grades only committed IME text with classifyWord (shared/lib/vietnamese-errors.ts)
 │   └── profile/             # profile.module.ts, api/, components/ (AvatarUpload, ProfileEditForm, SecuritySettings), pages/
 ├── shared/
 │   ├── api/                 # http.ts (axios), query-client.ts, api-error.ts, types.ts (Paginated<T>)
@@ -109,6 +109,11 @@ export const useCreateNote = () => {
 - `useCurrentUser()` — the signed-in user, fetched once and shared (`currentUserKey = ['me']`).
 - `useSetCurrentUser()` — store a user returned by a mutation; or invalidate `currentUserKey`.
 - `useLogout()` — clears token and cache, opens `/login` (the `/logout` route does the same).
+- `useFinishLogin()` — stores the token after any login (password, emailed code, Google) and opens `afterLoginPathFor(role)`
+  (`utils/home-path.ts`): `/admin` for admins, the placement test intro `/placement` for everyone else. The register page
+  signs the new account in itself once its email code is verified, so registering lands there too. `GuestRoute` sends a
+  user who is already signed in when a login/register page opens to `homePathFor(role)` (`/admin` or `/`). It ignores a
+  login made on the page: redirecting from there too would race `useFinishLogin`'s navigation and win.
 A 401 from any request redirects to `/logout` (http interceptor), so cached data of one user never carries over to the next. Other failures (server down) keep the user signed in.
 
 ### 5. Auth token (`modules/auth/store/token.store.ts`)

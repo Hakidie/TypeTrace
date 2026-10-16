@@ -47,7 +47,7 @@ src/
 ├── app.ts               # helmet, cors, json, morgan, rate limits, routers, 404, error handler
 ├── server.ts            # connectDb() → listen; graceful shutdown on SIGINT/SIGTERM
 ├── config/              # env.ts (Zod-validated), db.ts, cloudinary.ts (isCloudinaryConfigured)
-├── models/              # user.model.ts, note.model.ts, typing-session.model.ts
+├── models/              # user.model.ts, note.model.ts, typing-session.model.ts, passage.model.ts, word.model.ts
 ├── validators/          # common.validator.ts (idParamsSchema, objectIdSchema, booleanQuerySchema), <name>.validator.ts
 ├── services/            # <name>.service.ts, email.service.ts, cloudinary.service.ts
 ├── controllers/         # <name>.controller.ts
@@ -119,10 +119,13 @@ All under `/api/admin`. **Guarded by `adminRouter.use(authGuard, requireRole('ad
 
 ### 7c. Typing sessions (`/api/sessions`)
 A learner types a passage from the `Passage` collection (`passage.model.ts`, filled by `npm run import:passages`). Files: `typing-session.{model,validator,service,controller,route}.ts`; word grading uses `utils/vietnamese-errors.ts`. Always owner-only: another user's session answers 404, even for admins.
-- `POST /` `{ mode?, passageId? }` → 201. Picks the passage: the one in `passageId` (must be published and public, or the learner's own; else 400), the placement passage in `placement` mode, otherwise a random published public practice passage (404 if there is none). Copies the passage words into the session (`targetWords`) and turns the learner's older `in_progress` session into `abandoned`.
+- `POST /` `{ mode?, passageId? }` → 201. Picks the passage: the one in `passageId` (must be published and public, or the learner's own; else 400), a random published placement passage (`isPlacement`) in `placement` mode, otherwise a random published public practice passage (404 if there is none of the kind asked for). Copies the passage words into the session (`targetWords`) and turns the learner's older `in_progress` session into `abandoned`.
 - `PATCH /:id/begin` → the learner pressed the first key: stores `beganAt` once (a second call keeps the first time; not in progress → 409). The timer starts here, not when the session was created.
 - `PATCH /:id/complete` `{ typedWords }` → the server grades again with `classifyWord`, computes `wpm` (correct words per minute, duration measured by the server from `beganAt`, or from `startedAt` if `begin` was never called), `accuracy`, `errorCounts`, `opportunityCounts` and `isCounted` (at least 20 words, at most 200 WPM, and not longer than 3 minutes). A session lasts at most 3 minutes (`MAX_SESSION_MS`): a request that arrives within 5 seconds of the limit gets `durationMs` capped at 3:00; a later one is saved with its real duration but not counted. It ignores any total the client sends. Not in progress → 409; more words than the passage → 400.
 - `PATCH /:id/abandon` (409 if not in progress), `GET /:id`, `GET /` (history, `status` filter, `sort` by `createdAt|wpm|accuracy`, pagination).
+
+### 7d. Placement test (`/api/placement`)
+Signed-in accounts only (`placementRouter.use(authGuard, requireRole('user', 'admin'))`). `GET /` → one of the published placement passages (`isPlacement: true`) at random, with public fields only: `{ _id, title, content, source, ownerName, wordCount }`, never `owner`. 404 `No placement passage` when there is none. The pick is `getPlacementPassage()` in `services/passage.service.ts`; its `samplePassage(match, fields)` also picks the passage of a new typing session.
 
 ### 8. Errors (`utils/app-error.ts` + `errorMiddleware`)
 Throw `badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict` or `new AppError(status, message, details?)`. The error middleware also maps: malformed JSON body → 400, JSON body over 100 kB → 413, `ZodError` → 400, Multer file too large → 413, other Multer errors → 400, invalid ObjectId → 400, Mongoose validation → 400, duplicate key → 409. Anything else → `500 { message: 'Internal server error' }` (stack logged on the server, included in the body only in development). Unknown routes → `404 { message: 'Route not found: ...' }`.

@@ -1,5 +1,6 @@
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor } from '@testing-library/react';
+import { Link } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { TypingPage } from './TypingPage';
@@ -41,7 +42,39 @@ describe('TypingPage', () => {
     expect(screen.getByLabelText('Passage to type')).toHaveTextContent('Tiếng');
     expect(screen.queryByRole('button', { name: /start typing/i })).not.toBeInTheDocument();
     expect(start).toHaveBeenCalledTimes(1);
-    expect(start).toHaveBeenCalledWith({});
+    expect(start).toHaveBeenCalledWith({ mode: 'practice' });
+  });
+
+  it('types the placement passage when opened from the placement intro, also after Restart', async () => {
+    const user = userEvent.setup();
+    start.mockResolvedValue({ ...session, mode: 'placement' });
+    renderWithProviders(<TypingPage />, { route: '/typing?mode=placement' });
+
+    expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith({ mode: 'placement' });
+
+    await user.click(screen.getByRole('button', { name: /restart/i }));
+
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(start).toHaveBeenLastCalledWith({ mode: 'placement' });
+  });
+
+  it('starts a practice session when the learner leaves the placement test for normal practice', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <Link to="/typing">Typing</Link>
+        <TypingPage />
+      </>,
+      { route: '/typing?mode=placement' },
+    );
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(screen.getByRole('link', { name: 'Typing' }));
+
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(start).toHaveBeenLastCalledWith({ mode: 'practice' });
   });
 
   it('tells the server about the first key only once the learner types', async () => {

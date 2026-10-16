@@ -10,6 +10,7 @@ import { adminRouter } from './routes/admin.route';
 import { authRouter } from './routes/auth.route';
 import { chatRouter } from './routes/chat.route';
 import { noteRouter } from './routes/note.route';
+import { placementRouter } from './routes/placement.route';
 import { profileRouter } from './routes/profile.route';
 import { typingSessionRouter } from './routes/typing-session.route';
 
@@ -47,5 +48,6 @@ app.use('/api/chat', chatRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/notes', noteRouter);
 app.use('/api/sessions', typingSessionRouter);
+app.use('/api/placement', placementRouter);
 app.use(notFoundHandler);
 app.use(errorMiddleware);
