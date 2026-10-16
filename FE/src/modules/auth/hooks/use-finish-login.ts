@@ -2,10 +2,10 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { authApi } from '../api/auth.api';
 import { tokenStore } from '../store/token.store';
-import { homePathFor } from '../utils/home-path';
+import { afterLoginPathFor } from '../utils/home-path';
 import { useSetCurrentUser } from './use-current-user';
 
-/** Returns a function that stores the token, then opens the home page that belongs to the user's role. */
+/** Returns a function that stores the token, then opens the page that follows login for the user's role. */
 export const useFinishLogin = () => {
   const navigate = useNavigate();
   const setCurrentUser = useSetCurrentUser();
@@ -16,7 +16,7 @@ export const useFinishLogin = () => {
       const user = await authApi.getMe();
       setCurrentUser(user);
       toast.success('Logged in successfully.');
-      navigate(homePathFor(user.role), { replace: true });
+      navigate(afterLoginPathFor(user.role), { replace: true });
     } catch (error) {
       tokenStore.clear();
       throw error;
