@@ -8,7 +8,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { useCreatePassage, useSetPassageStatus, useUpdatePassage } from '../hooks/use-passages';
-import type { Passage, PassageStatus } from '../types/passage.types';
+import { nextPassageStatus, type Passage, type PassageStatus } from '../types/passage.types';
 
 // Mirrors the limits of the Passage model (BE/src/models/passage.model.ts).
 const schema = z.object({
@@ -30,9 +30,6 @@ const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-
 const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false };
 
 const CONTENT_MAX = 5000;
-
-/** The one status a passage may move to from each status (the same life cycle as the backend). */
-const nextStatus: Partial<Record<PassageStatus, PassageStatus>> = { draft: 'published', published: 'archived', archived: 'published' };
 
 const CONTENT_PLACEHOLDER = 'Hà Nội vào thu, gió heo may se lạnh, hoa sữa thơm nồng trên từng con phố nhỏ.';
 
@@ -71,30 +68,26 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
 
   // The status button flips between the saved status and the next one; the change is saved with the form.
   const [status, setStatusChoice] = useState<PassageStatus>(passage?.status ?? 'draft');
-  const next = passage ? nextStatus[passage.status] : undefined;
-  // A placement passage can never be archived.
-  const blocked = next === 'archived' && passage?.isPlacement;
+  const next = passage ? nextPassageStatus[passage.status] : undefined;
 
-  /** Saves the passage, then moves it to the chosen status; `publish` chooses `published` (a new passage first becomes a draft). */
-  const save = (publish: boolean) =>
-    handleSubmit(async (input) => {
-      const saved = passage
-        ? await updatePassage.mutateAsync({ id: passage._id, input })
-        : await createPassage.mutateAsync(input);
-      const target = publish ? 'published' : status;
-      if (target !== saved.status) await setStatus.mutateAsync({ id: saved._id, status: target });
-      if (passage) {
-        onDone?.();
-        return;
-      }
-      reset(emptyValues);
-    });
+  /** Saves the passage, then moves it to the status chosen with the status button (a new passage stays a draft). */
+  const save = handleSubmit(async (input) => {
+    const saved = passage
+      ? await updatePassage.mutateAsync({ id: passage._id, input })
+      : await createPassage.mutateAsync(input);
+    if (status !== saved.status) await setStatus.mutateAsync({ id: saved._id, status });
+    if (passage) {
+      onDone?.();
+      return;
+    }
+    reset(emptyValues);
+  });
 
   // `.catch` keeps a failed request from becoming an unhandled rejection; the toast already explains it.
-  const submit = (publish: boolean) => (event?: BaseSyntheticEvent) => void save(publish)(event).catch(() => undefined);
+  const submit = (event?: BaseSyntheticEvent) => void save(event).catch(() => undefined);
 
   return (
-    <form className="space-y-4" onSubmit={submit(false)}>
+    <form className="space-y-4" onSubmit={submit}>
       <div className="flex flex-col gap-4 md:flex-row md:justify-between">
         <div className="min-w-0 max-w-full space-y-2 md:max-w-[calc(50%-0.5rem)]">
           <Input className={cn(fieldClass, metaFieldClass)} aria-label="Title" placeholder="Mùa thu Hà Nội" {...register('title')} />
@@ -139,7 +132,7 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
                 role="switch"
                 aria-checked={field.value}
                 aria-label="Placement passage"
-                title="Used for the placement test. It cannot be archived."
+                title="Used for the placement test."
                 onClick={() => field.onChange(!field.value)}
                 className={cn(
                   'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -156,14 +149,8 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
             <button
               type="button"
               aria-label={`Status: ${status}`}
-              disabled={!next || blocked}
-              title={
-                blocked
-                  ? 'A placement passage cannot be archived.'
-                  : next
-                    ? `Click to change to ${status === passage.status ? next : passage.status}`
-                    : undefined
-              }
+              disabled={!next}
+              title={next ? `Click to change to ${status === passage.status ? next : passage.status}` : undefined}
               onClick={() => setStatusChoice(status === passage.status ? next! : passage.status)}
               className={cn(
                 'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed',
@@ -183,12 +170,6 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
             {isPending && <Loader2 className="size-4 animate-spin" />}
             {passage ? 'Update passage' : 'Add passage'}
           </Button>
-          {/* Saves and publishes at once. Not shown for a passage that is already published. */}
-          {status !== 'published' && (
-            <Button type="button" variant="outline" disabled={isPending} onClick={submit(true)}>
-              Publish
-            </Button>
-          )}
         </div>
       </div>
     </form>

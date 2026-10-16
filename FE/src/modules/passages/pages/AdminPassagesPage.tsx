@@ -8,7 +8,7 @@ import { Panel } from '@/shared/components/panel';
 import { usePagination } from '@/shared/hooks/use-pagination';
 import { PassageCard } from '../components/PassageCard';
 import { PassageForm } from '../components/PassageForm';
-import { usePassages, useSetPassageStatus } from '../hooks/use-passages';
+import { usePassages } from '../hooks/use-passages';
 import type { Passage } from '../types/passage.types';
 
 const PAGE_SIZE = 9;
@@ -35,7 +35,6 @@ const panelTitleClass = 'w-fit bg-primary/15 px-3 py-1.5 text-[1.5rem] text-prim
 export const AdminPassagesPage = () => {
   const { page, setPage } = usePagination();
   const [editing, setEditing] = useState<Passage | null>(null);
-  const setStatus = useSetPassageStatus();
   const formPanelRef = useRef<HTMLDivElement>(null);
   const passages = usePassages({ page, limit: PAGE_SIZE, sort: '-createdAt' });
 
@@ -59,8 +58,6 @@ export const AdminPassagesPage = () => {
               key={passage._id}
               passage={passage}
               onEdit={startEditing}
-              onArchive={(item) => setStatus.mutate({ id: item._id, status: 'archived' })}
-              archivePending={setStatus.isPending}
             />
           ))}
         </div>

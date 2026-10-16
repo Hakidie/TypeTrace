@@ -38,9 +38,6 @@ export const createPassage = (actorId: string, input: CreatePassageInput) =>
 
 export const updatePassage = async (id: string, input: UpdatePassageInput) => {
   const passage = await getPassage(id);
-  if (input.isPlacement && passage.status === 'archived') {
-    throw conflict('An archived passage cannot be the placement passage');
-  }
   // save() (not findByIdAndUpdate) so the counts are computed again when the content changes.
   passage.set(input);
   return passage.save();
@@ -52,7 +49,6 @@ export const setPassageStatus = async (id: string, status: PassageStatus) => {
   if (!(nextStatuses[passage.status] ?? []).includes(status)) {
     throw conflict(`A ${passage.status} passage cannot become ${status}`);
   }
-  if (status === 'archived' && passage.isPlacement) throw conflict('The placement passage cannot be archived');
   passage.status = status;
   return passage.save();
 };

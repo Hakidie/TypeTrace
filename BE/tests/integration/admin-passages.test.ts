@@ -165,21 +165,6 @@ describe('PATCH /api/admin/passages/:id', () => {
     expect((await patch({ title: '' })).status).toBe(400);
     expect((await api().patch('/api/admin/passages/64b7f0c2a1b2c3d4e5f60718').set('Authorization', auth).send({ title: 'x' })).status).toBe(404);
   });
-
-  it('does not make an archived passage the placement passage', async () => {
-    const { auth } = await signInAdmin();
-    const passage = await createPassage(auth);
-    await setStatus(auth, passage._id, 'published');
-    await setStatus(auth, passage._id, 'archived');
-
-    const response = await api()
-      .patch(`/api/admin/passages/${passage._id}`)
-      .set('Authorization', auth)
-      .send({ isPlacement: true });
-
-    expect(response.status).toBe(409);
-    expect((await PassageModel.findById(passage._id))!.isPlacement).toBe(false);
-  });
 });
 
 describe('PATCH /api/admin/passages/:id/status', () => {
@@ -206,16 +191,20 @@ describe('PATCH /api/admin/passages/:id/status', () => {
     expect((await PassageModel.findById(passage._id))!.status).toBe('archived');
   });
 
-  it('never archives the placement passage', async () => {
+  it('lets an admin archive a placement passage and publish it again', async () => {
     const { auth } = await signInAdmin();
     const passage = await createPassage(auth, { ...input, isPlacement: true });
     await setStatus(auth, passage._id, 'published');
 
-    const response = await setStatus(auth, passage._id, 'archived');
+    const archived = await setStatus(auth, passage._id, 'archived');
+    const edited = await api()
+      .patch(`/api/admin/passages/${passage._id}`)
+      .set('Authorization', auth)
+      .send({ isPlacement: true, title: 'Đổi tên' });
 
-    expect(response.status).toBe(409);
-    expect(response.body.message).toMatch(/placement/);
-    expect((await PassageModel.findById(passage._id))!.status).toBe('published');
+    expect(archived.body).toMatchObject({ status: 'archived', isPlacement: true });
+    expect(edited.status).toBe(200);
+    expect((await setStatus(auth, passage._id, 'published')).body.status).toBe('published');
   });
 
   it('answers 409, not a crash, for a passage saved with an old status', async () => {

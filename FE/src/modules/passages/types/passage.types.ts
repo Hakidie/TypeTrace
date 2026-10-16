@@ -1,6 +1,13 @@
 /** Life cycle from SCRUM-32: a new passage is `draft`; `draft → published → archived` and `archived → published`. */
 export type PassageStatus = 'draft' | 'published' | 'archived';
 
+/** The one status a passage may move to from each status (the same life cycle as the backend). */
+export const nextPassageStatus: Partial<Record<PassageStatus, PassageStatus>> = {
+  draft: 'published',
+  published: 'archived',
+  archived: 'published',
+};
+
 export interface Passage {
   _id: string;
   title: string;
@@ -10,7 +17,7 @@ export interface Passage {
   /** Author shown to everyone: `TypeTrace` for the system and admins. */
   ownerName: string;
   status: PassageStatus;
-  /** The passage of the placement test: it cannot be archived. */
+  /** A passage of the placement test. */
   isPlacement: boolean;
   /** Counted by the backend when the passage is saved. */
   wordCount: number;

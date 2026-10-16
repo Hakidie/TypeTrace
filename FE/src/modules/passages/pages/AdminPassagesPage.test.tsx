@@ -175,70 +175,18 @@ describe('AdminPassagesPage', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it('archives a published passage with the Archive chip, and drafts have none', async () => {
-    list.mockResolvedValue(page([{ ...passage, status: 'published' }, { ...passage, _id: 'p2', title: 'Biển', status: 'draft' }]));
-    setStatus.mockResolvedValue({ ...passage, status: 'archived' });
+  it('only shows the status on the card: it is changed in the edit form', async () => {
+    list.mockResolvedValue(page([{ ...passage, status: 'published' }]));
     renderPage();
     await screen.findByText('Mùa thu Hà Nội');
 
-    expect(screen.queryByRole('button', { name: 'Archive Biển' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Publish / })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Archive Mùa thu Hà Nội' }));
-
-    await waitFor(() => expect(setStatus).toHaveBeenCalledWith('p1', 'archived'));
+    // The example card and the passage of the list both show `published`.
+    expect(screen.getAllByText('published')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /status/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /archive/i })).not.toBeInTheDocument();
   });
 
-  it('does not let a placement passage be archived', async () => {
-    list.mockResolvedValue(page([{ ...passage, status: 'published', isPlacement: true }]));
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
-
-    expect(screen.getByRole('button', { name: 'Archive Mùa thu Hà Nội' })).toBeDisabled();
-  });
-
-  it('adds a passage and publishes it with the Publish button of the form', async () => {
-    create.mockResolvedValue({ ...passage, _id: 'p9' });
-    setStatus.mockResolvedValue({ ...passage, _id: 'p9', status: 'published' });
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
-
-    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Biển' } });
-    fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'TypeTrace' } });
-    fireEvent.change(screen.getByLabelText('Content'), { target: { value: 'Biển xanh bao la.' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
-
-    await waitFor(() => expect(setStatus).toHaveBeenCalledWith('p9', 'published'));
-    expect(create).toHaveBeenCalledWith({ title: 'Biển', source: 'TypeTrace', content: 'Biển xanh bao la.', isPlacement: false });
-    await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue(''));
-  });
-
-  it('does not publish an invalid form', async () => {
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
-
-    expect(await screen.findByText('Title is required')).toBeInTheDocument();
-    expect(create).not.toHaveBeenCalled();
-    expect(setStatus).not.toHaveBeenCalled();
-  });
-
-  it('publishes an archived passage from the edit form, and a published one has no Publish button', async () => {
-    list.mockResolvedValue(page([{ ...passage, status: 'archived' }]));
-    update.mockResolvedValue({ ...passage, status: 'archived' });
-    setStatus.mockResolvedValue({ ...passage, status: 'published' });
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Edit Mùa thu Hà Nội' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
-
-    await waitFor(() => expect(setStatus).toHaveBeenCalledWith('p1', 'published'));
-    expect(update).toHaveBeenCalled();
-    expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
-  });
-
-  it('shows no Publish button when editing a published passage', async () => {
+  it('shows the status of the passage in the edit form', async () => {
     list.mockResolvedValue(page([{ ...passage, status: 'published' }]));
     renderPage();
     await screen.findByText('Mùa thu Hà Nội');
@@ -295,12 +243,19 @@ describe('AdminPassagesPage', () => {
     expect(screen.getByRole('button', { name: 'Status: published' })).toBeInTheDocument();
   });
 
-  it('does not let the status button archive a placement passage', async () => {
+  it('lets an admin archive a placement passage with the status button', async () => {
     list.mockResolvedValue(page([{ ...passage, status: 'published', isPlacement: true }]));
+    update.mockResolvedValue({ ...passage, status: 'published', isPlacement: true });
+    setStatus.mockResolvedValue({ ...passage, status: 'archived' });
     renderPage();
     await screen.findByText('Mùa thu Hà Nội');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Mùa thu Hà Nội' }));
 
-    expect(screen.getByRole('button', { name: 'Status: published' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Status: published' }));
+    expect(screen.getByRole('button', { name: 'Status: archived' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Update passage' }));
+
+    await waitFor(() => expect(setStatus).toHaveBeenCalledWith('p1', 'archived'));
+    expect(update).toHaveBeenCalledWith('p1', expect.objectContaining({ isPlacement: true }));
   });
 });
