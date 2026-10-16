@@ -10,12 +10,10 @@ interface EmptyStateProps {
   action?: ReactNode;
 }
 
-/** Shown when a list has no items. */
+/** Shown when a list has no items. Like `ErrorState` (red icon, centered text) but without the border, so it fits inside a panel that already has one. */
 export const EmptyState = ({ title, description, icon: Icon = Inbox, action }: EmptyStateProps) => (
-  <div className="flex flex-col items-center justify-center gap-3 border border-dashed p-10 text-center">
-    <div className="flex size-12 items-center justify-center bg-muted text-muted-foreground">
-      <Icon className="size-6" />
-    </div>
+  <div className="flex flex-col items-center justify-center gap-3 p-10 text-center">
+    <Icon className="size-8 text-destructive" />
     <div>
       <p className="font-medium">{title}</p>
       {description && <p className="text-base text-muted-foreground">{description}</p>}

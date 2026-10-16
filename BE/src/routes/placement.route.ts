@@ -8,5 +8,5 @@ export const placementRouter = Router();
 // Signed-in accounts only, like the typing sessions.
 placementRouter.use(authGuard, requireRole('user', 'admin'));
 
-/** A random active placement passage (`isPlacement`), public fields only; 404 when there is none. */
+/** A random published placement passage (`isPlacement`), public fields only; 404 when there is none. */
 placementRouter.get('/', getPlacementPassage);

@@ -35,7 +35,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `docker compose up -d` | Start a local MongoDB on port 27017 |
 | `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234` |
 | `npm run import:words` | Add the starter word list (`BE/src/data/words.ts`) to the word bank with error tags; safe to run many times |
-| `npm run import:passages` | Add the starter passages (`BE/src/data/passages.ts`, source recorded, owner TypeTrace) to the passage bank; safe to run many times |
+| `npm run import:passages` | Add the starter passages (`BE/src/data/passages.ts`, source recorded, owner TypeTrace) to the passage bank as published passages; safe to run many times |
 | `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together |
 | `npm test` | Run backend and frontend tests |
 | `npm run lint` | Lint the frontend |
@@ -95,10 +95,10 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog`, `Pagination`,
-  `StatCard` (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
+  `StatCard`, `Panel` (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
   shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams` (`shared/hooks/`).
 - Design: the TypeTrace look of the login pages applies to every page, now and for new features. Header and footer are
-  `BrandHeader` / `BrandFooter` (`shared/components/layout/`; `AppLayout` and `AdminLayout` already use them, so pages
+  `BrandHeader` / `BrandFooter` (`shared/components/layout/`; `AppLayout` already uses them, so pages
   inside them get both). Colors are only the theme tokens in `FE/src/index.css` (blood-red dark palette, red `primary`): do
   not add purple, blue or other accents. A page that wants the red glass card (login, typing) uses `redGlassTheme` and
   `redGlassCard` from `shared/lib/red-glass-theme.ts`. Square corners (radius 0), no per-page color schemes.
@@ -107,7 +107,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 
 ## Admin area
 
-`/admin` has its own sidebar layout (`FE/src/shared/components/layout/AdminLayout.tsx`). The reference admin page is user
+`/admin` has its own sidebar layout (`FE/src/shared/components/layout/AdminLayout.tsx`): no BrandHeader/BrandFooter, the sidebar (`AdminSidebar.tsx`) has the logo on top and the user + Logout at the bottom. The reference admin page is user
 management: `FE/src/modules/admin/pages/AdminUsersPage.tsx` (search, filters, sortable table, pagination, edit dialog,
 delete, bulk delete) backed by `BE/src/routes/admin.route.ts`.
 

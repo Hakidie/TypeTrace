@@ -36,11 +36,11 @@ describe('POST /api/sessions', () => {
     expect(response.body).not.toHaveProperty('__v');
   });
 
-  it('picks a random active, public practice passage and never the placement or a hidden one', async () => {
-    await PassageModel.updateOne({ title: 'Hà Nội vào thu' }, { status: 'inactive' });
+  it('picks a random published, public practice passage and never the placement or a hidden one', async () => {
+    await PassageModel.updateOne({ title: 'Hà Nội vào thu' }, { status: 'archived' });
     await PassageModel.create({ title: 'Riêng tư', content: 'Của riêng tôi.', source: 'Tự viết', visibility: 'private' });
     const auth = bearerFor(await createUser({}));
-    const allowed = await PassageModel.find({ status: 'active', visibility: 'public', isPlacement: false });
+    const allowed = await PassageModel.find({ status: 'published', visibility: 'public', isPlacement: false });
     expect(allowed.length).toBeGreaterThan(1);
 
     const seen = new Set<string>();
@@ -51,10 +51,10 @@ describe('POST /api/sessions', () => {
     expect(seen.size).toBeGreaterThan(1); // not always the same passage
   });
 
-  it('picks a random active placement passage in placement mode, never a practice or hidden one', async () => {
-    await PassageModel.updateOne({ title: 'Bài kiểm tra đầu vào' }, { status: 'inactive' });
+  it('picks a random published placement passage in placement mode, never a practice or hidden one', async () => {
+    await PassageModel.updateOne({ title: 'Bài kiểm tra đầu vào' }, { status: 'archived' });
     const auth = bearerFor(await createUser({}));
-    const allowed = await PassageModel.find({ isPlacement: true, status: 'active' });
+    const allowed = await PassageModel.find({ isPlacement: true, status: 'published' });
     expect(allowed.length).toBeGreaterThan(1);
 
     const seen = new Set<string>();
@@ -69,22 +69,22 @@ describe('POST /api/sessions', () => {
     expect(seen.size).toBeGreaterThan(1); // not always the same passage
   });
 
-  it('uses the passage asked for, if it is active and public (or the learner own)', async () => {
+  it('uses the passage asked for, if it is published and public (or the learner own)', async () => {
     const me = await createUser({});
     const auth = bearerFor(me);
     const chosen = (await PassageModel.findOne({ title: 'Bữa cơm gia đình' }))!;
     const mine = await PassageModel.create({
-      title: 'Của tôi', content: 'Đây là bài của tôi.', source: 'Tự viết', visibility: 'private', owner: me._id
+      title: 'Của tôi', content: 'Đây là bài của tôi.', source: 'Tự viết', visibility: 'private', status: 'published', owner: me._id
     });
     const theirs = await PassageModel.create({
-      title: 'Của họ', content: 'Bài của người khác.', source: 'Tự viết', visibility: 'private', owner: (await createUser({ email: 'x@example.com' }))._id
+      title: 'Của họ', content: 'Bài của người khác.', source: 'Tự viết', visibility: 'private', status: 'published', owner: (await createUser({ email: 'x@example.com' }))._id
     });
 
     expect((await startSession(auth, { passageId: String(chosen._id) })).body.passageId).toBe(String(chosen._id));
     expect((await startSession(auth, { passageId: String(mine._id) })).status).toBe(201);
     expect((await startSession(auth, { passageId: String(theirs._id) })).status).toBe(400);
 
-    await PassageModel.updateOne({ _id: chosen._id }, { status: 'inactive' });
+    await PassageModel.updateOne({ _id: chosen._id }, { status: 'archived' });
     expect((await startSession(auth, { passageId: String(chosen._id) })).status).toBe(400);
   });
 

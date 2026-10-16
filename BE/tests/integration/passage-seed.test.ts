@@ -12,7 +12,7 @@ describe('seedPassages', () => {
 
     expect(result).toEqual({ added: 1, skipped: 0 });
     const saved = await PassageModel.findOne({ title: 'Một đoạn' });
-    expect(saved).toMatchObject({ source: 'Tự viết', ownerName: 'TypeTrace', wordCount: 5, isPlacement: false });
+    expect(saved).toMatchObject({ source: 'Tự viết', ownerName: 'TypeTrace', wordCount: 5, isPlacement: false, status: 'published' });
     expect(saved!.owner).toBeUndefined();
     expect(saved!.tagCounts.D_MISSING).toBe(2);
   });
@@ -27,14 +27,25 @@ describe('seedPassages', () => {
 
   it('does not overwrite a passage that was edited or hidden', async () => {
     await seedPassages([sample]);
-    await PassageModel.updateOne({ title: sample.title }, { status: 'inactive', source: 'Nguồn mới' });
+    await PassageModel.updateOne({ title: sample.title }, { status: 'archived', source: 'Nguồn mới' });
 
     await seedPassages([sample]);
 
     expect(await PassageModel.findOne({ title: sample.title })).toMatchObject({
-      status: 'inactive',
+      status: 'archived',
       source: 'Nguồn mới'
     });
+  });
+
+  it('moves passages saved with the old active/inactive statuses to published/archived', async () => {
+    await seedPassages([sample, { ...sample, title: 'Đoạn khác' }]);
+    await PassageModel.collection.updateOne({ title: sample.title }, { $set: { status: 'active' } });
+    await PassageModel.collection.updateOne({ title: 'Đoạn khác' }, { $set: { status: 'inactive' } });
+
+    await seedPassages([sample, { ...sample, title: 'Đoạn khác' }]);
+
+    expect((await PassageModel.findOne({ title: sample.title }))!.status).toBe('published');
+    expect((await PassageModel.findOne({ title: 'Đoạn khác' }))!.status).toBe('archived');
   });
 
   it('refuses a passage without a source and adds nothing', async () => {

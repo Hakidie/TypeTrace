@@ -3,7 +3,7 @@ import mongoose, { Schema, Types } from 'mongoose';
 import { tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 
 export const passageVisibilities = ['public', 'private'] as const;
-export const passageStatuses = ['active', 'inactive'] as const;
+export const passageStatuses = ['draft', 'published', 'archived'] as const;
 
 export type PassageVisibility = (typeof passageVisibilities)[number];
 export type PassageStatus = (typeof passageStatuses)[number];
@@ -21,7 +21,7 @@ export interface PassageDocument extends mongoose.Document {
   /** Shown to everyone as the author: `TypeTrace` for the system and admins, the learner's name otherwise. */
   ownerName: string;
   visibility: PassageVisibility;
-  /** An `inactive` passage is never offered for practice. */
+  /** Life cycle: `draft → published → archived`, and `archived → published`. Only `published` passages are offered for practice. */
   status: PassageStatus;
   /**
    * A passage of the placement test (US2.3); a placement session picks one at random. It needs enough opportunities
@@ -71,7 +71,7 @@ const passageSchema = new Schema<PassageDocument>(
     owner: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     ownerName: { type: String, trim: true, maxlength: 120, default: SYSTEM_OWNER_NAME },
     visibility: { type: String, enum: passageVisibilities, default: 'public' },
-    status: { type: String, enum: passageStatuses, default: 'active' },
+    status: { type: String, enum: passageStatuses, default: 'draft' },
     isPlacement: { type: Boolean, default: false },
     tagCounts: { type: new Schema(tagCountsDefinition, { _id: false }), default: () => ({}) },
     wordCount: { type: Number, default: 0 }
@@ -92,7 +92,7 @@ passageSchema.pre('validate', function () {
   if (this.isNew || this.isModified('content')) Object.assign(this, computePassageStats(this.content));
 });
 
-// Matches the practice list: active passages by visibility, newest first, and "pick a placement passage".
+// Matches the practice list: published passages by visibility, newest first, and "pick a placement passage".
 passageSchema.index({ status: 1, visibility: 1, createdAt: -1 });
 passageSchema.index({ isPlacement: 1, status: 1 });
 

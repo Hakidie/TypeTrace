@@ -5,10 +5,10 @@ import { createUser } from '../helpers/user-factory';
 const base = { title: 'Buổi sáng', content: 'Đường về nhà rất đẹp.', source: 'Tự viết cho TypeTrace' };
 
 describe('PassageModel', () => {
-  it('fills the defaults: public, active, not a placement passage', async () => {
+  it('fills the defaults: public, draft, not a placement passage', async () => {
     const passage = await PassageModel.create(base);
 
-    expect(passage).toMatchObject({ visibility: 'public', status: 'active', isPlacement: false });
+    expect(passage).toMatchObject({ visibility: 'public', status: 'draft', isPlacement: false });
     expect(passage.owner).toBeUndefined();
   });
 

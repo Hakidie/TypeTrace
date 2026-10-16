@@ -15,7 +15,7 @@ export interface PublicPassage {
 const publicFields = { title: 1, content: 1, source: 1, ownerName: 1, wordCount: 1 } as const;
 
 /**
- * A random active passage that also matches `match`; `undefined` when there is none. `aggregate()` skips `toJSON`, so
+ * A random published passage that also matches `match`; `undefined` when there is none. `aggregate()` skips `toJSON`, so
  * `fields` must list public fields only. The default is what a typing session needs.
  */
 export const samplePassage = async <T = { _id: Types.ObjectId; content: string }>(
@@ -23,14 +23,14 @@ export const samplePassage = async <T = { _id: Types.ObjectId; content: string }
   fields: Record<string, 1> = { content: 1 }
 ) => {
   const [random] = await PassageModel.aggregate<T>([
-    { $match: { status: 'active', ...match } },
+    { $match: { status: 'published', ...match } },
     { $sample: { size: 1 } },
     { $project: fields }
   ]);
   return random;
 };
 
-/** The passage of the placement test: one of the active placement passages (`isPlacement`), at random. */
+/** The passage of the placement test: one of the published placement passages (`isPlacement`), at random. */
 export const getPlacementPassage = async () => {
   const passage = await samplePassage<PublicPassage>({ isPlacement: true }, publicFields);
   if (!passage) throw notFound('No placement passage');

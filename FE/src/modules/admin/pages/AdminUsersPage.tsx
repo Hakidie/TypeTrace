@@ -6,7 +6,6 @@ import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { DataTable, FilterSelect, SearchInput, TableToolbar } from '@/shared/components/data-table';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
-import { PageHeader } from '@/shared/components/page-header';
 import { Pagination } from '@/shared/components/pagination';
 import { Button } from '@/shared/components/ui/button';
 import { useListParams } from '@/shared/hooks/use-list-params';
@@ -69,7 +68,7 @@ export const AdminUsersPage = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Users" description="Search, edit and remove accounts." />
+      <p className="text-base text-muted-foreground">Search, edit and remove accounts.</p>
 
       <TableToolbar
         actions={

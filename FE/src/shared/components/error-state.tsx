@@ -9,9 +9,9 @@ interface ErrorStateProps {
   onRetry?: () => void;
 }
 
-/** Shown when loading data failed. Pair with `query.error` and `query.refetch`. */
+/** Shown when loading data failed (no border of its own, like `EmptyState`, so it fits inside a panel). Pair with `query.error` and `query.refetch`. */
 export const ErrorState = ({ error, title = 'Something went wrong', onRetry }: ErrorStateProps) => (
-  <div role="alert" className="flex flex-col items-center justify-center gap-3 border border-destructive/40 p-10 text-center">
+  <div role="alert" className="flex flex-col items-center justify-center gap-3 p-10 text-center">
     <AlertTriangle className="size-8 text-destructive" />
     <div>
       <p className="font-medium">{title}</p>

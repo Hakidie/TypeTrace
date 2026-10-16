@@ -17,12 +17,12 @@ describe('GET /api/placement', () => {
     expect((await api().get('/api/placement')).status).toBe(401);
   });
 
-  it('returns one active placement passage with its public fields only', async () => {
+  it('returns one published placement passage with its public fields only', async () => {
     const response = await getPlacement(bearerFor(await createUser({})));
 
     expect(response.status).toBe(200);
     const passage = (await PassageModel.findById(response.body._id))!;
-    expect(passage).toMatchObject({ isPlacement: true, status: 'active' });
+    expect(passage).toMatchObject({ isPlacement: true, status: 'published' });
     expect(response.body).toEqual({
       _id: String(passage._id),
       title: passage.title,
@@ -33,10 +33,10 @@ describe('GET /api/placement', () => {
     });
   });
 
-  it('picks at random among the active placement passages, never a practice or hidden one', async () => {
-    await PassageModel.updateOne({ title: 'Bài kiểm tra đầu vào' }, { status: 'inactive' });
+  it('picks at random among the published placement passages, never a practice or hidden one', async () => {
+    await PassageModel.updateOne({ title: 'Bài kiểm tra đầu vào' }, { status: 'archived' });
     const auth = bearerFor(await createUser({}));
-    const allowedIds = (await PassageModel.find({ isPlacement: true, status: 'active' })).map((p) => String(p._id));
+    const allowedIds = (await PassageModel.find({ isPlacement: true, status: 'published' })).map((p) => String(p._id));
     expect(allowedIds.length).toBeGreaterThan(1);
 
     const seen = new Set<string>();
@@ -47,10 +47,10 @@ describe('GET /api/placement', () => {
   });
 
   it('never shows who created a placement passage', async () => {
-    await PassageModel.updateMany({ isPlacement: true }, { status: 'inactive' });
+    await PassageModel.updateMany({ isPlacement: true }, { status: 'archived' });
     const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
     await PassageModel.create({
-      title: 'Bài của admin', content: 'Đây là đoạn văn.', source: 'Tự viết', isPlacement: true, owner: admin._id
+      title: 'Bài của admin', content: 'Đây là đoạn văn.', source: 'Tự viết', isPlacement: true, status: 'published', owner: admin._id
     });
 
     const response = await getPlacement(bearerFor(await createUser({})));
@@ -59,8 +59,8 @@ describe('GET /api/placement', () => {
     expect(response.body).not.toHaveProperty('owner');
   });
 
-  it('answers 404 when there is no active placement passage', async () => {
-    await PassageModel.updateMany({ isPlacement: true }, { status: 'inactive' });
+  it('answers 404 when there is no published placement passage', async () => {
+    await PassageModel.updateMany({ isPlacement: true }, { status: 'archived' });
 
     const response = await getPlacement(bearerFor(await createUser({})));
 
