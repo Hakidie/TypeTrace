@@ -52,25 +52,25 @@ export const isSessionCounted = (wordCount: number, wpm: number, durationMs = 0)
 
 /**
  * The passage a session types. With a `passageId` it is that passage; for the placement test it is the placement
- * passage; otherwise it is a random active, public practice passage. Hidden passages are never used.
+ * passage; otherwise it is a random published, public practice passage. Hidden passages are never used.
  */
 const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInput) => {
   if (passageId) {
     const passage = await PassageModel.findOne({
       _id: passageId,
-      status: 'active',
+      status: 'published',
       $or: [{ visibility: 'public' }, { owner: userId }]
     });
     if (!passage) throw badRequest('Unknown passage');
     return passage;
   }
   if (mode === 'placement') {
-    const placement = await PassageModel.findOne({ isPlacement: true, status: 'active' });
+    const placement = await PassageModel.findOne({ isPlacement: true, status: 'published' });
     if (!placement) throw notFound('No placement passage');
     return placement;
   }
   const [random] = await PassageModel.aggregate<{ _id: Types.ObjectId; content: string }>([
-    { $match: { status: 'active', visibility: 'public', isPlacement: false } },
+    { $match: { status: 'published', visibility: 'public', isPlacement: false } },
     { $sample: { size: 1 } },
     { $project: { content: 1 } }
   ]);
