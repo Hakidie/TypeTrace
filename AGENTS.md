@@ -113,7 +113,9 @@ delete, bulk delete) backed by `BE/src/routes/admin.route.ts`.
 
 **Access: admins only.** The lock is one line on each side: `requireRole('admin')` in `BE/src/routes/admin.route.ts`
 (others get 403) and `<ProtectedRoute roles={['admin']}>` around `AdminLayout` in `FE/src/App.tsx` (others are sent to `/`).
-The "Admin" link in the main nav is also admins only. After login, admins land on `/admin`, everyone else on `/`. Make the first
+The "Admin" link in the main nav is also admins only. After login or registration, admins land on `/admin`; everyone else first
+sees the placement test intro `/placement` (`afterLoginPathFor` in `FE/src/modules/auth/utils/home-path.ts`; Start opens
+`/typing?mode=placement`, Skip opens `/typing`). Make the first
 admin with `npm run seed` (`admin@example.com`) or by setting `role: 'admin'` in the database. Keep the server-side checks that stop
 an account from deleting itself or removing its own admin role.
 

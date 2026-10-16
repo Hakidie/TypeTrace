@@ -23,7 +23,10 @@ export interface PassageDocument extends mongoose.Document {
   visibility: PassageVisibility;
   /** An `inactive` passage is never offered for practice. */
   status: PassageStatus;
-  /** The passage of the placement test (US2.3). It needs enough opportunities for every error type. */
+  /**
+   * A passage of the placement test (US2.3); a placement session picks one at random. It needs enough opportunities
+   * for every error type.
+   */
   isPlacement: boolean;
   /** Filled from `content` on save, do not set it by hand. */
   tagCounts: TagCounts;
@@ -89,7 +92,7 @@ passageSchema.pre('validate', function () {
   if (this.isNew || this.isModified('content')) Object.assign(this, computePassageStats(this.content));
 });
 
-// Matches the practice list: active passages by visibility, newest first, and "find the placement passage".
+// Matches the practice list: active passages by visibility, newest first, and "pick a placement passage".
 passageSchema.index({ status: 1, visibility: 1, createdAt: -1 });
 passageSchema.index({ isPlacement: 1, status: 1 });
 

@@ -7,6 +7,7 @@ import { KeyRound, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { authApi } from '../api/auth.api';
+import { useFinishLogin } from '../hooks/use-finish-login';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -26,10 +27,23 @@ export const RegisterPage = () => {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, getValues, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(registerSchema),
   });
   const navigate = useNavigate();
+  const finishLogin = useFinishLogin();
+
+  /** Signs the new account in with the password just entered; false when that did not work. */
+  const signIn = async () => {
+    try {
+      const response = await authApi.login({ email, password: getValues('password') });
+      if (!('token' in response)) return false;
+      await finishLogin(response.token);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   const onRegisterSubmit = handleSubmit(async (values) => {
     setLoading(true);
@@ -51,6 +65,9 @@ export const RegisterPage = () => {
     setLoading(true);
     try {
       await authApi.verifyRegisterOtp(email, otp);
+      // Verified: sign in right away, so a new learner lands where every login does (the placement test intro).
+      // If that fails, the account is still verified and the login page opens instead.
+      if (await signIn()) return;
       toast.success('Account verified! You can login now.');
       navigate('/login');
     } catch (error) {

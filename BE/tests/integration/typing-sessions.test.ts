@@ -51,13 +51,22 @@ describe('POST /api/sessions', () => {
     expect(seen.size).toBeGreaterThan(1); // not always the same passage
   });
 
-  it('uses the placement passage in placement mode', async () => {
+  it('picks a random active placement passage in placement mode, never a practice or hidden one', async () => {
+    await PassageModel.updateOne({ title: 'Bài kiểm tra đầu vào' }, { status: 'inactive' });
     const auth = bearerFor(await createUser({}));
-    const placement = (await PassageModel.findOne({ isPlacement: true }))!;
+    const allowed = await PassageModel.find({ isPlacement: true, status: 'active' });
+    expect(allowed.length).toBeGreaterThan(1);
 
-    const response = await startSession(auth, { mode: 'placement' });
+    const seen = new Set<string>();
+    for (let i = 0; i < 30; i += 1) {
+      const response = await startSession(auth, { mode: 'placement' });
+      expect(response.body.mode).toBe('placement');
+      seen.add(response.body.passageId);
+    }
 
-    expect(response.body).toMatchObject({ mode: 'placement', passageId: String(placement._id) });
+    const allowedIds = allowed.map((passage) => String(passage._id));
+    expect([...seen].every((id) => allowedIds.includes(id))).toBe(true);
+    expect(seen.size).toBeGreaterThan(1); // not always the same passage
   });
 
   it('uses the passage asked for, if it is active and public (or the learner own)', async () => {
