@@ -7,7 +7,7 @@ import {
   setPassageStatus,
   updatePassage
 } from '../controllers/admin-passage.controller';
-import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, updateUser } from '../controllers/admin.controller';
+import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, setUserStatus, updateUser } from '../controllers/admin.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
@@ -17,7 +17,7 @@ import {
   setPassageStatusSchema,
   updatePassageSchema
 } from '../validators/admin-passage.validator';
-import { adminUpdateUserSchema, listUsersQuerySchema } from '../validators/admin-user.validator';
+import { adminUpdateUserSchema, listUsersQuerySchema, setUserStatusSchema } from '../validators/admin-user.validator';
 import { bulkIdsSchema, idParamsSchema } from '../validators/common.validator';
 
 export const adminRouter = Router();
@@ -30,6 +30,7 @@ adminRouter.get('/users', validate({ query: listUsersQuerySchema }), listUsers);
 adminRouter.post('/users/bulk-delete', validate({ body: bulkIdsSchema }), bulkDeleteUsers);
 adminRouter.get('/users/:id', validate({ params: idParamsSchema }), getUser);
 adminRouter.patch('/users/:id', validate({ params: idParamsSchema, body: adminUpdateUserSchema }), updateUser);
+adminRouter.patch('/users/:id/status', validate({ params: idParamsSchema, body: setUserStatusSchema }), setUserStatus);
 adminRouter.delete('/users/:id', validate({ params: idParamsSchema }), deleteUser);
 
 adminRouter.get('/passages', validate({ query: listPassagesQuerySchema }), listPassages);

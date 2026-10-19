@@ -1,4 +1,4 @@
-import { UserModel, UserRole } from '../../src/models/user.model';
+import { UserModel, UserRole, UserStatus } from '../../src/models/user.model';
 import { hashPassword } from '../../src/utils/hash';
 import { signToken } from '../../src/utils/jwt';
 
@@ -11,6 +11,7 @@ interface UserOverrides {
   displayName?: string;
   avatarUrl?: string;
   role?: UserRole;
+  status?: UserStatus;
   loginOtpEnabled?: boolean;
 }
 
@@ -24,6 +25,7 @@ export const createUser = async (overrides: UserOverrides = {}) => {
     displayName: overrides.displayName,
     avatarUrl: overrides.avatarUrl,
     role: overrides.role,
+    status: overrides.status,
     loginOtpEnabled: overrides.loginOtpEnabled
   });
 };

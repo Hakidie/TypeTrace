@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { toast } from 'sonner';
 import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
 import { adminApi } from '../api/admin.api';
-import type { AdminUpdateUserInput, AdminUserListParams } from '../types/admin.types';
+import type { AdminUpdateUserInput, AdminUserListParams, UserStatus } from '../types/admin.types';
 
 /** Cache keys. Invalidating `adminKeys.all` refreshes every admin query. */
 export const adminKeys = {
@@ -31,6 +31,17 @@ export const useUpdateUser = () => {
       toast.success('User updated.');
       // The admin may have edited their own account.
       void queryClient.invalidateQueries({ queryKey: currentUserKey });
+      return queryClient.invalidateQueries({ queryKey: adminKeys.all });
+    },
+  });
+};
+
+export const useSetUserStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: UserStatus }) => adminApi.setUserStatus(id, status),
+    onSuccess: (_user, { status }) => {
+      toast.success(status === 'locked' ? 'User disabled.' : 'User enabled.');
       return queryClient.invalidateQueries({ queryKey: adminKeys.all });
     },
   });

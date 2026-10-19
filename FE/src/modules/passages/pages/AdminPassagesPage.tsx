@@ -6,6 +6,7 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { usePagination } from '@/shared/hooks/use-pagination';
+import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { PassageCard } from '../components/PassageCard';
 import { PassageForm } from '../components/PassageForm';
 import { usePassages } from '../hooks/use-passages';
@@ -26,11 +27,6 @@ const EXAMPLE_PASSAGE: Passage = {
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
-
-// Panel titles look like the Source field: red tint, red text, 1.5rem.
-// The content of a panel sits in a frame: the normal border color, the thin red of the empty and error states (`destructive/40`) while hovered.
-const panelBodyClass = 'border border-border p-3 transition-colors hover:border-destructive/40';
-const panelTitleClass = 'w-fit bg-primary/15 px-3 py-1.5 text-[1.5rem] text-primary';
 
 export const AdminPassagesPage = () => {
   const { page, setPage } = usePagination();

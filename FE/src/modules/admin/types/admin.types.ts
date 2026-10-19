@@ -1,4 +1,4 @@
-import type { UserRole } from '@/modules/auth/types/auth.types';
+import type { CurrentUser, UserRole } from '@/modules/auth/types/auth.types';
 
 export interface AdminStats {
   users: number;
@@ -6,6 +6,30 @@ export interface AdminStats {
   verified: number;
   newUsersThisWeek: number;
   notes: number;
+}
+
+export type UserStatus = 'active' | 'locked';
+
+export interface UserTypingStats {
+  /** Average words per minute. */
+  wpm: number;
+  /** 0 to 100. */
+  accuracy: number;
+}
+
+export interface UserLoginDay {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  sessions: number;
+}
+
+/** A user of the admin list with the typing activity the backend adds. */
+export interface AdminUser extends CurrentUser {
+  /** A locked account cannot log in. Missing counts as active. */
+  status?: UserStatus;
+  /** Absent until the user completed a typing session. */
+  stats?: UserTypingStats;
+  logins?: UserLoginDay[];
 }
 
 export interface AdminUserListParams {

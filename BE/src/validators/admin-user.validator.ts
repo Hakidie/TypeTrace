@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { USER_ROLES } from '../models/user.model';
+import { USER_ROLES, USER_STATUSES } from '../models/user.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { optionalBooleanQuerySchema } from './common.validator';
 
@@ -8,6 +8,7 @@ export const listUsersQuerySchema = paginationQuerySchema.extend({
   q: z.string().trim().max(100).optional(),
   role: z.enum(USER_ROLES).optional(),
   verified: optionalBooleanQuerySchema,
+  status: z.enum(USER_STATUSES).optional(),
   sort: sortSchema(['createdAt', 'email', 'displayName', 'role'])
 });
 
@@ -21,5 +22,8 @@ export const adminUpdateUserSchema = z
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Send at least one field to update');
 
+export const setUserStatusSchema = z.object({ status: z.enum(USER_STATUSES) });
+
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>;
+export type SetUserStatusInput = z.infer<typeof setUserStatusSchema>;

@@ -7,14 +7,14 @@ import { AdminUsersPage } from './AdminUsersPage';
 const listUsers = vi.fn();
 const updateUser = vi.fn();
 const deleteUser = vi.fn();
-const bulkDeleteUsers = vi.fn();
+const setUserStatus = vi.fn();
 
 vi.mock('../api/admin.api', () => ({
   adminApi: {
     listUsers: (params: unknown) => listUsers(params),
     updateUser: (id: string, input: unknown) => updateUser(id, input),
     deleteUser: (id: string) => deleteUser(id),
-    bulkDeleteUsers: (ids: string[]) => bulkDeleteUsers(ids),
+    setUserStatus: (id: string, status: string) => setUserStatus(id, status),
   },
 }));
 
@@ -49,77 +49,141 @@ beforeEach(() => {
   listUsers.mockReset().mockResolvedValue(page([admin, lan, minh]));
   updateUser.mockReset();
   deleteUser.mockReset();
-  bulkDeleteUsers.mockReset();
+  setUserStatus.mockReset();
 });
+
+// Opens the kebab menu of a user card and picks one of its entries.
+const pickAction = async (email: string, action: 'Edit' | 'Disable' | 'Enable' | 'Delete') => {
+  const cards = await screen.findByLabelText('User cards');
+  fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${email}` }));
+  fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
+};
 
 describe('AdminUsersPage', () => {
   it('lists users with role and verification badges', async () => {
     renderPage();
-    expect(await screen.findByText('lan@example.com')).toBeInTheDocument();
-    const table = screen.getByRole('table', { name: 'Users' });
-    expect(within(table).getByText('Unverified')).toBeInTheDocument();
-    expect(within(table).getAllByText('Verified')).toHaveLength(2);
-    expect(screen.getByText('3 users')).toBeInTheDocument();
+    expect(await screen.findAllByText('lan@example.com')).toHaveLength(1);
+    const cards = screen.getByLabelText('User cards');
+    expect(within(cards).getByText('Unverified')).toBeInTheDocument();
+    expect(within(cards).getAllByText('Verified')).toHaveLength(2);
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.getByText('3 accounts in total')).toBeInTheDocument();
     expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 10, sort: '-createdAt' }));
+  });
+
+  it('shows each user as a card with the typing stats from the backend', async () => {
+    listUsers.mockResolvedValue(page([user('u1', 'lan@example.com', { stats: { wpm: 64, accuracy: 96.4 }, logins: [] }), minh]));
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    expect(within(cards).getByText('64')).toBeInTheDocument();
+    expect(within(cards).getByText('96.4%')).toBeInTheDocument();
+    expect(within(cards).getAllByText('—')).toHaveLength(2);
+  });
+
+  it('edits a user from the kebab menu of the card', async () => {
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
+    fireEvent.click(within(cards).getByRole('menuitem', { name: 'Edit' }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('deletes a user from the kebab menu after confirmation, but not the signed-in admin', async () => {
+    deleteUser.mockResolvedValue(undefined);
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for admin@example.com' }));
+    expect(within(cards).queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
+
+    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
+    fireEvent.click(within(cards).getByRole('menuitem', { name: 'Delete' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(deleteUser).not.toHaveBeenCalled();
+    expect(within(dialog).getByText('Delete this user?')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleteUser).toHaveBeenCalledWith('u2'));
+  });
+
+  it('shows an Active or Locked tag on each card', async () => {
+    listUsers.mockResolvedValue(page([lan, user('u3', 'tran@example.com', { status: 'locked' })]));
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    expect(within(cards).getAllByText('Active')).toHaveLength(1);
+    expect(within(cards).getAllByText('Locked')).toHaveLength(1);
+  });
+
+  it('disables a user from the kebab menu and enables a locked one again', async () => {
+    setUserStatus.mockResolvedValue(minh);
+    listUsers.mockResolvedValue(page([admin, minh, user('u3', 'tran@example.com', { status: 'locked' })]));
+    renderPage();
+
+    await pickAction('minh@example.com', 'Disable');
+    await waitFor(() => expect(setUserStatus).toHaveBeenCalledWith('u2', 'locked'));
+
+    await pickAction('tran@example.com', 'Enable');
+    await waitFor(() => expect(setUserStatus).toHaveBeenCalledWith('u3', 'active'));
+  });
+
+  it('offers no Disable for an admin', async () => {
+    listUsers.mockResolvedValue(page([admin, user('a2', 'boss@example.com', { role: 'admin' })]));
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    for (const email of ['admin@example.com', 'boss@example.com']) {
+      fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${email}` }));
+      expect(within(cards).queryByRole('menuitem', { name: 'Disable' })).not.toBeInTheDocument();
+    }
   });
 
   it('applies filters and sorting from the URL and sends them to the API', async () => {
     renderPage('/admin/users?role=admin&verified=false&sort=email&q=lan');
-    await screen.findByText('lan@example.com');
+    await screen.findAllByText('lan@example.com');
     expect(listUsers).toHaveBeenCalledWith(
       expect.objectContaining({ role: 'admin', verified: 'false', sort: 'email', q: 'lan' }),
     );
   });
 
-  it('changes a filter and sorts by a column', async () => {
+  it('changes a filter from the toolbar', async () => {
     renderPage();
-    await screen.findByText('lan@example.com');
+    await screen.findAllByText('lan@example.com');
 
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'admin' } });
+    fireEvent.click(screen.getByRole('button', { name: /Filter/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Role' })).getByRole('menuitemradio', { name: 'Admin' }));
     await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ role: 'admin' })));
-
-    fireEvent.click(screen.getByRole('button', { name: /Joined/ }));
-    await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'createdAt' })));
   });
 
-  it('does not let the admin select or delete their own account', async () => {
+  it('pages through the users, 10 per page, from the Users panel', async () => {
+    listUsers.mockResolvedValue({ items: [admin, lan, minh], page: 1, limit: 10, total: 25, totalPages: 3 });
     renderPage();
-    await screen.findByText('lan@example.com');
-    expect(screen.getByLabelText('Select row a1')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Delete admin@example.com' })).toBeDisabled();
+    await screen.findAllByText('lan@example.com');
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, limit: 10 })));
   });
 
-  it('deletes one user after confirmation', async () => {
-    deleteUser.mockResolvedValue(undefined);
+  it('sorts from the toolbar of the Users panel', async () => {
     renderPage();
+    await screen.findAllByText('lan@example.com');
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete lan@example.com' }));
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Delete this user?')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Email A–Z' }));
 
-    await waitFor(() => expect(deleteUser).toHaveBeenCalledWith('u1'));
-  });
-
-  it('bulk deletes the selected users', async () => {
-    bulkDeleteUsers.mockResolvedValue({ deleted: 2 });
-    renderPage();
-    await screen.findByText('lan@example.com');
-
-    fireEvent.click(screen.getByLabelText('Select all rows'));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete selected (2)' }));
-    const dialog = await screen.findByRole('dialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
-
-    await waitFor(() => expect(bulkDeleteUsers).toHaveBeenCalledWith(['u1', 'u2']));
-    await waitFor(() => expect(screen.queryByRole('button', { name: /Delete selected/ })).not.toBeInTheDocument());
+    await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'email' })));
   });
 
   it('edits a user', async () => {
     updateUser.mockResolvedValue({ ...minh, role: 'admin', isEmailVerified: true });
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit minh@example.com' }));
+    await pickAction('minh@example.com', 'Edit');
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Role'), { target: { value: 'admin' } });
     fireEvent.click(within(dialog).getByRole('switch', { name: 'Email verified' }));
@@ -140,7 +204,7 @@ describe('AdminUsersPage', () => {
     updateUser.mockResolvedValue({ ...admin, displayName: 'Boss' });
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit admin@example.com' }));
+    await pickAction('admin@example.com', 'Edit');
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByLabelText('Role')).toBeDisabled();
     fireEvent.change(within(dialog).getByLabelText('Display name'), { target: { value: 'Boss' } });
