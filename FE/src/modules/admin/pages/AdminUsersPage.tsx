@@ -1,19 +1,18 @@
-import { Trash2, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
-import { DataTable, FilterSelect, SearchInput, TableToolbar } from '@/shared/components/data-table';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
+import { ListToolbar } from '@/shared/components/list-toolbar';
+import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
-import { Button } from '@/shared/components/ui/button';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { UserEditDialog } from '../components/UserEditDialog';
 import { UserRow } from '../components/UserRow';
-import { userColumns } from '../components/user-columns';
 import { useAdminUsers, useDeleteUsers } from '../hooks/use-admin';
 import type { AdminUserListParams } from '../types/admin.types';
 
@@ -24,14 +23,25 @@ const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin' },
 ];
 
+const SORT_OPTIONS = [
+  { value: '-createdAt', label: 'Newest' },
+  { value: 'createdAt', label: 'Oldest' },
+  { value: 'displayName', label: 'Name A–Z' },
+  { value: '-displayName', label: 'Name Z–A' },
+  { value: 'email', label: 'Email A–Z' },
+  { value: '-email', label: 'Email Z–A' },
+  { value: 'role', label: 'Role A–Z' },
+];
+
 const VERIFIED_OPTIONS = [
   { value: 'true', label: 'Verified' },
   { value: 'false', label: 'Unverified' },
 ];
 
 /**
- * Reference admin page for one resource: search, filters, sortable table,
- * pagination, edit dialog, delete and bulk delete. Copy it for other resources.
+ * Reference admin page for one resource: a toolbar (search, sort, filters), a list of
+ * cards with a kebab menu (edit, delete), pagination and a confirmation before deleting.
+ * Copy it for other resources.
  */
 export const AdminUsersPage = () => {
   const { data: currentUser } = useCurrentUser();
@@ -42,113 +52,68 @@ export const AdminUsersPage = () => {
   const users = useAdminUsers({ page: list.page, limit: PAGE_SIZE, q: list.q, role, verified, sort: list.sort });
   const deleteUsers = useDeleteUsers();
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editing, setEditing] = useState<CurrentUser>();
-  // Ids waiting for delete confirmation (one user or the selection).
-  const [pendingDelete, setPendingDelete] = useState<string[]>([]);
-
-  // Selection belongs to the rows on screen: clear it whenever the view changes.
-  const changeList = (key: string, value: string) => {
-    setSelectedIds([]);
-    list.set(key, value);
-  };
-
-  const columns = userColumns({
-    currentUserId: currentUser?._id,
-    onEdit: setEditing,
-    onDelete: (user) => setPendingDelete([user._id]),
-  });
+  // Id of the user waiting for delete confirmation.
+  const [pendingDelete, setPendingDelete] = useState<string>();
 
   const confirmDelete = () =>
-    deleteUsers.mutate(pendingDelete, {
-      onSuccess: () => {
-        setSelectedIds((ids) => ids.filter((id) => !pendingDelete.includes(id)));
-        setPendingDelete([]);
-      },
-    });
+    deleteUsers.mutate([pendingDelete!], { onSuccess: () => setPendingDelete(undefined) });
 
   const isFiltered = Boolean(list.q || role || verified);
+
+  const renderList = () => {
+    if (users.isPending) return <LoadingState rows={3} />;
+    if (users.isError) return <ErrorState error={users.error} onRetry={() => void users.refetch()} />;
+    if (users.data.items.length === 0) {
+      return (
+        <EmptyState
+          icon={Users}
+          title={isFiltered ? 'No matching users' : 'No users yet'}
+          description={isFiltered ? 'Try another search or filter.' : undefined}
+        />
+      );
+    }
+    return (
+      <>
+        <div className="space-y-2" aria-label="User cards">
+          {users.data.items.map((user) => (
+            <UserRow
+              key={user._id}
+              user={user}
+              stats={user.stats}
+              logins={user.logins}
+              onEdit={setEditing}
+              // The backend refuses to delete your own account, so the entry is left out for it.
+              onDelete={user._id === currentUser?._id ? undefined : (target) => setPendingDelete(target._id)}
+            />
+          ))}
+        </div>
+        <Pagination page={users.data.page} totalPages={users.data.totalPages} onPageChange={list.setPage} variant="toolbar" />
+      </>
+    );
+  };
 
   return (
     <div className="space-y-6">
       <Panel title="Users" bare titleClassName={panelTitleClass} className={panelBodyClass}>
         <div className="space-y-3">
-          <p className="text-base text-muted-foreground">
-            {users.data ? `${users.data.total} accounts in total` : 'Loading accounts…'}
-          </p>
-          {users.data && (
-            <div className="space-y-2" aria-label="User cards">
-              {users.data.items.map((user) => (
-                <UserRow key={user._id} user={user} stats={user.stats} logins={user.logins} onEdit={setEditing} />
-              ))}
-            </div>
-          )}
+          <ListToolbar
+            search={{
+              label: 'Search users',
+              placeholder: 'Search email or name…',
+              defaultValue: list.q,
+              onSearch: (value) => list.set('q', value),
+            }}
+            sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
+            summary={users.data ? `${users.data.total} accounts in total` : 'Loading accounts…'}
+            filters={[
+              { label: 'Role', value: role ?? '', options: ROLE_OPTIONS, onChange: (value) => list.set('role', value) },
+              { label: 'Email', value: verified ?? '', options: VERIFIED_OPTIONS, onChange: (value) => list.set('verified', value) },
+            ]}
+          />
+          {renderList()}
         </div>
       </Panel>
-
-      <TableToolbar
-        actions={
-          selectedIds.length > 0 && (
-            <Button variant="destructive" onClick={() => setPendingDelete(selectedIds)}>
-              <Trash2 className="size-4" />
-              Delete selected ({selectedIds.length})
-            </Button>
-          )
-        }
-      >
-        <SearchInput
-          label="Search users"
-          placeholder="Search email or name…"
-          defaultValue={list.q}
-          onSearch={(value) => changeList('q', value)}
-        />
-        <FilterSelect label="Role" value={role ?? ''} options={ROLE_OPTIONS} onChange={(value) => changeList('role', value)} />
-        <FilterSelect
-          label="Email"
-          value={verified ?? ''}
-          options={VERIFIED_OPTIONS}
-          onChange={(value) => changeList('verified', value)}
-        />
-      </TableToolbar>
-
-      {users.isError ? (
-        <ErrorState error={users.error} onRetry={() => void users.refetch()} />
-      ) : (
-        <>
-          <DataTable
-            label="Users"
-            columns={columns}
-            rows={users.data?.items ?? []}
-            getRowId={(user) => user._id}
-            isLoading={users.isPending}
-            sort={list.sort}
-            onSortChange={(sort) => changeList('sort', sort)}
-            selectedIds={selectedIds}
-            onSelectedIdsChange={setSelectedIds}
-            isRowSelectable={(user) => user._id !== currentUser?._id}
-            emptyState={
-              <EmptyState
-                icon={Users}
-                title={isFiltered ? 'No matching users' : 'No users yet'}
-                description={isFiltered ? 'Try another search or filter.' : undefined}
-              />
-            }
-          />
-          {users.data && (
-            <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-              <p className="text-base text-muted-foreground">{users.data.total} users</p>
-              <Pagination
-                page={users.data.page}
-                totalPages={users.data.totalPages}
-                onPageChange={(page) => {
-                  setSelectedIds([]);
-                  list.setPage(page);
-                }}
-              />
-            </div>
-          )}
-        </>
-      )}
 
       {editing && (
         <UserEditDialog
@@ -160,10 +125,10 @@ export const AdminUsersPage = () => {
       )}
 
       <ConfirmDialog
-        open={pendingDelete.length > 0}
-        onOpenChange={(open) => !open && setPendingDelete([])}
-        title={pendingDelete.length === 1 ? 'Delete this user?' : `Delete ${pendingDelete.length} users?`}
-        description="Their notes and avatar are deleted too. This cannot be undone."
+        open={pendingDelete !== undefined}
+        onOpenChange={(open) => !open && setPendingDelete(undefined)}
+        title="Delete this user?"
+        description="The account is deleted for good, with their notes, typing sessions and avatar. This cannot be undone."
         confirmLabel="Delete"
         destructive
         pending={deleteUsers.isPending}

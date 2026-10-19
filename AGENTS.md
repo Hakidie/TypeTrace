@@ -95,21 +95,22 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog`, `Pagination`,
-  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` (a two-tier red list item with slots, see `UserRow`), `ActivityHeatmap` (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
+  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` (a two-tier red list item with slots, see `UserRow`), `ActivityHeatmap`, `ListToolbar` (search + Sort and Filter menu buttons + actions above a list) (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
   shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams` (`shared/hooks/`).
 - Design: the TypeTrace look of the login pages applies to every page, now and for new features. Header and footer are
   `BrandHeader` / `BrandFooter` (`shared/components/layout/`; `AppLayout` already uses them, so pages
   inside them get both). Colors are only the theme tokens in `FE/src/index.css` (blood-red dark palette, red `primary`): do
   not add purple, blue or other accents. A page that wants the red glass card (login, typing) uses `redGlassTheme` and
   `redGlassCard` from `shared/lib/red-glass-theme.ts`. Square corners (radius 0), no per-page color schemes.
+- Menus: every dropdown menu (`shared/components/ui/dropdown-menu.tsx`) has the `Panel` look: see-through page background with blur, panel border with the soft red hover, muted option text.
 - Styling: Tailwind theme tokens (`bg-background`, `text-muted-foreground`, ...), never raw hex colors. Layouts must work on phones.
 - Imports use the `@/` alias. Components and pages are `PascalCase.tsx` named exports; other files are `kebab-case.ts`.
 
 ## Admin area
 
 `/admin` has its own sidebar layout (`FE/src/shared/components/layout/AdminLayout.tsx`): no BrandHeader/BrandFooter, the sidebar (`AdminSidebar.tsx`) has the logo on top and the user + Logout at the bottom. The reference admin page is user
-management: `FE/src/modules/admin/pages/AdminUsersPage.tsx` (search, filters, sortable table, pagination, edit dialog,
-delete, bulk delete) backed by `BE/src/routes/admin.route.ts`.
+management: `FE/src/modules/admin/pages/AdminUsersPage.tsx` (a `ListToolbar` with search, sort and filters, a list of `UserRow` cards with an edit/delete kebab menu,
+pagination, edit dialog, delete with confirmation) backed by `BE/src/routes/admin.route.ts`.
 
 **Access: admins only.** The lock is one line on each side: `requireRole('admin')` in `BE/src/routes/admin.route.ts`
 (others get 403) and `<ProtectedRoute roles={['admin']}>` around `AdminLayout` in `FE/src/App.tsx` (others are sent to `/`).
@@ -124,8 +125,8 @@ To add an admin page for a feature module:
 1. Backend: endpoints under `/api/admin/...` in `admin.route.ts`. Lists use `validate({ query })` with `sortSchema`,
    `optionalBooleanQuerySchema` for yes/no filters, and `paginate`. Bulk actions take `bulkIdsSchema` (`{ ids }`).
 2. Frontend: in the module's `<feature>.module.ts` add `adminRoutes: [{ path: '/admin/<plural>', Component }]` and
-   `adminNavItems: [{ to: '/admin/<plural>', label, icon }]`. Build the page like `AdminUsersPage`: `TableToolbar` with
-   `SearchInput` + `FilterSelect`, `DataTable` with column config, `Pagination`, `ConfirmDialog`, and `useListParams`
+   `adminNavItems: [{ to: '/admin/<plural>', label, icon }]`. Build the page like `AdminUsersPage`: a `ListToolbar` (search, sort, filters),
+   a list of `ListRow` cards (or a `DataTable` with column config for plain tables), `Pagination` (`variant="toolbar"` = right-aligned, styled like the `ListToolbar` buttons), `ConfirmDialog`, and `useListParams`
    to keep search, filters, sort and page in the URL.
 
 ## AI chat bot (Google Gemini, free tier)

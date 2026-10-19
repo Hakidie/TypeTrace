@@ -28,4 +28,16 @@ describe('SearchInput', () => {
     expect(onSearch).toHaveBeenCalledWith('');
     expect(screen.getByLabelText('Search')).toHaveValue('');
   });
+
+  it('with searchOn="enter" searches only when Enter is pressed', () => {
+    const onSearch = vi.fn();
+    render(<SearchInput searchOn="enter" onSearch={onSearch} />);
+
+    fireEvent.change(screen.getByLabelText('Search'), { target: { value: ' lan ' } });
+    act(() => vi.advanceTimersByTime(1000));
+    expect(onSearch).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(screen.getByLabelText('Search'), { key: 'Enter' });
+    expect(onSearch).toHaveBeenCalledWith('lan');
+  });
 });

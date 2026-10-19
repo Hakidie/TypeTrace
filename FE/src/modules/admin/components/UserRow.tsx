@@ -1,3 +1,4 @@
+import { Pencil, Trash2 } from 'lucide-react';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { ActivityHeatmap, HEATMAP_DAYS } from '@/shared/components/activity-heatmap';
 import { ListRow, ListRowMenu } from '@/shared/components/list-row';
@@ -14,6 +15,8 @@ interface UserRowProps {
   logins?: UserLoginDay[];
   /** Adds an "Edit" entry to the kebab menu. */
   onEdit?: (user: CurrentUser) => void;
+  /** Adds a "Delete" entry to the kebab menu. The caller asks for confirmation. */
+  onDelete?: (user: CurrentUser) => void;
 }
 
 const Stat = ({ label, value }: { label: string; value: string }) => (
@@ -23,7 +26,7 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-export const UserRow = ({ user, stats, logins, onEdit }: UserRowProps) => {
+export const UserRow = ({ user, stats, logins, onEdit, onDelete }: UserRowProps) => {
   const name = user.displayName || user.email;
 
   return (
@@ -50,7 +53,18 @@ export const UserRow = ({ user, stats, logins, onEdit }: UserRowProps) => {
       extra={<ActivityHeatmap days={logins} since={user.createdAt} label={`Logins in the last ${HEATMAP_DAYS} days`} />}
       action={
         <ListRowMenu label={`Actions for ${user.email}`}>
-          {onEdit && <DropdownMenuItem onClick={() => onEdit(user)}>Edit</DropdownMenuItem>}
+          {onEdit && (
+            <DropdownMenuItem className="gap-2" onClick={() => onEdit(user)}>
+              <Pencil className="size-4" />
+              Edit
+            </DropdownMenuItem>
+          )}
+          {onDelete && (
+            <DropdownMenuItem className="gap-2 text-destructive" onClick={() => onDelete(user)}>
+              <Trash2 className="size-4" />
+              Delete
+            </DropdownMenuItem>
+          )}
         </ListRowMenu>
       }
       tags={
