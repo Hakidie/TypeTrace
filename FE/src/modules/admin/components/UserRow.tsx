@@ -1,11 +1,11 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Ban, CircleCheck, Pencil, Trash2 } from 'lucide-react';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { ActivityHeatmap, HEATMAP_DAYS } from '@/shared/components/activity-heatmap';
 import { ListRow, ListRowMenu } from '@/shared/components/list-row';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Badge } from '@/shared/components/ui/badge';
 import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
-import type { UserLoginDay, UserTypingStats } from '../types/admin.types';
+import type { UserLoginDay, UserStatus, UserTypingStats } from '../types/admin.types';
 
 interface UserRowProps {
   user: CurrentUser;
@@ -15,6 +15,10 @@ interface UserRowProps {
   logins?: UserLoginDay[];
   /** Adds an "Edit" entry to the kebab menu. */
   onEdit?: (user: CurrentUser) => void;
+  /** Locked or active; missing counts as active. Shown as a tag. */
+  status?: UserStatus;
+  /** Adds a "Disable" entry (or "Enable" when the user is locked) to the kebab menu. */
+  onToggleStatus?: (user: CurrentUser) => void;
   /** Adds a "Delete" entry to the kebab menu. The caller asks for confirmation. */
   onDelete?: (user: CurrentUser) => void;
 }
@@ -26,7 +30,7 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-export const UserRow = ({ user, stats, logins, onEdit, onDelete }: UserRowProps) => {
+export const UserRow = ({ user, stats, logins, status = 'active', onEdit, onToggleStatus, onDelete }: UserRowProps) => {
   const name = user.displayName || user.email;
 
   return (
@@ -59,6 +63,12 @@ export const UserRow = ({ user, stats, logins, onEdit, onDelete }: UserRowProps)
               Edit
             </DropdownMenuItem>
           )}
+          {onToggleStatus && (
+            <DropdownMenuItem className="gap-2" onClick={() => onToggleStatus(user)}>
+              {status === 'locked' ? <CircleCheck className="size-4" /> : <Ban className="size-4" />}
+              {status === 'locked' ? 'Enable' : 'Disable'}
+            </DropdownMenuItem>
+          )}
           {onDelete && (
             <DropdownMenuItem className="gap-2 text-destructive" onClick={() => onDelete(user)}>
               <Trash2 className="size-4" />
@@ -69,6 +79,9 @@ export const UserRow = ({ user, stats, logins, onEdit, onDelete }: UserRowProps)
       }
       tags={
         <>
+          <Badge variant={status === 'locked' ? 'outline' : 'default'} className={status === 'locked' ? 'border-primary text-primary' : undefined}>
+            {status === 'locked' ? 'Locked' : 'Active'}
+          </Badge>
           <Badge>{user.isEmailVerified ? 'Verified' : 'Unverified'}</Badge>
           <Badge className="capitalize">{user.role}</Badge>
         </>

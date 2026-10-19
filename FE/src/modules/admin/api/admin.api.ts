@@ -1,7 +1,7 @@
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { http } from '@/shared/api/http';
 import type { Paginated } from '@/shared/api/types';
-import type { AdminStats, AdminUpdateUserInput, AdminUser, AdminUserListParams } from '../types/admin.types';
+import type { AdminStats, AdminUpdateUserInput, AdminUser, AdminUserListParams, UserStatus } from '../types/admin.types';
 
 /** Drops empty values so the URL stays clean (`?role=` is never sent). */
 const cleanParams = (params: object) =>
@@ -14,6 +14,8 @@ export const adminApi = {
     http.get<Paginated<AdminUser>>('/admin/users', { params: cleanParams(params) }).then((r) => r.data),
   updateUser: (id: string, input: AdminUpdateUserInput) =>
     http.patch<CurrentUser>(`/admin/users/${id}`, input).then((r) => r.data),
+  setUserStatus: (id: string, status: UserStatus) =>
+    http.patch<AdminUser>(`/admin/users/${id}/status`, { status }).then((r) => r.data),
   deleteUser: (id: string) => http.delete(`/admin/users/${id}`).then(() => undefined),
   bulkDeleteUsers: (ids: string[]) =>
     http.post<{ deleted: number }>('/admin/users/bulk-delete', { ids }).then((r) => r.data),

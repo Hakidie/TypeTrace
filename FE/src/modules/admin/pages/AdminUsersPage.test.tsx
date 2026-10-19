@@ -7,12 +7,14 @@ import { AdminUsersPage } from './AdminUsersPage';
 const listUsers = vi.fn();
 const updateUser = vi.fn();
 const deleteUser = vi.fn();
+const setUserStatus = vi.fn();
 
 vi.mock('../api/admin.api', () => ({
   adminApi: {
     listUsers: (params: unknown) => listUsers(params),
     updateUser: (id: string, input: unknown) => updateUser(id, input),
     deleteUser: (id: string) => deleteUser(id),
+    setUserStatus: (id: string, status: string) => setUserStatus(id, status),
   },
 }));
 
@@ -47,10 +49,11 @@ beforeEach(() => {
   listUsers.mockReset().mockResolvedValue(page([admin, lan, minh]));
   updateUser.mockReset();
   deleteUser.mockReset();
+  setUserStatus.mockReset();
 });
 
 // Opens the kebab menu of a user card and picks one of its entries.
-const pickAction = async (email: string, action: 'Edit' | 'Delete') => {
+const pickAction = async (email: string, action: 'Edit' | 'Disable' | 'Enable' | 'Delete') => {
   const cards = await screen.findByLabelText('User cards');
   fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${email}` }));
   fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
@@ -104,6 +107,38 @@ describe('AdminUsersPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(deleteUser).toHaveBeenCalledWith('u2'));
+  });
+
+  it('shows an Active or Locked tag on each card', async () => {
+    listUsers.mockResolvedValue(page([lan, user('u3', 'tran@example.com', { status: 'locked' })]));
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    expect(within(cards).getAllByText('Active')).toHaveLength(1);
+    expect(within(cards).getAllByText('Locked')).toHaveLength(1);
+  });
+
+  it('disables a user from the kebab menu and enables a locked one again', async () => {
+    setUserStatus.mockResolvedValue(minh);
+    listUsers.mockResolvedValue(page([admin, minh, user('u3', 'tran@example.com', { status: 'locked' })]));
+    renderPage();
+
+    await pickAction('minh@example.com', 'Disable');
+    await waitFor(() => expect(setUserStatus).toHaveBeenCalledWith('u2', 'locked'));
+
+    await pickAction('tran@example.com', 'Enable');
+    await waitFor(() => expect(setUserStatus).toHaveBeenCalledWith('u3', 'active'));
+  });
+
+  it('offers no Disable for an admin', async () => {
+    listUsers.mockResolvedValue(page([admin, user('a2', 'boss@example.com', { role: 'admin' })]));
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    for (const email of ['admin@example.com', 'boss@example.com']) {
+      fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${email}` }));
+      expect(within(cards).queryByRole('menuitem', { name: 'Disable' })).not.toBeInTheDocument();
+    }
   });
 
   it('applies filters and sorting from the URL and sends them to the API', async () => {

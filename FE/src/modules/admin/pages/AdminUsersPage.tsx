@@ -13,7 +13,7 @@ import { useListParams } from '@/shared/hooks/use-list-params';
 import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { UserEditDialog } from '../components/UserEditDialog';
 import { UserRow } from '../components/UserRow';
-import { useAdminUsers, useDeleteUsers } from '../hooks/use-admin';
+import { useAdminUsers, useDeleteUsers, useSetUserStatus } from '../hooks/use-admin';
 import type { AdminUserListParams } from '../types/admin.types';
 
 const PAGE_SIZE = 10;
@@ -51,6 +51,7 @@ export const AdminUsersPage = () => {
 
   const users = useAdminUsers({ page: list.page, limit: PAGE_SIZE, q: list.q, role, verified, sort: list.sort });
   const deleteUsers = useDeleteUsers();
+  const setStatus = useSetUserStatus();
 
   const [editing, setEditing] = useState<CurrentUser>();
   // Id of the user waiting for delete confirmation.
@@ -82,7 +83,14 @@ export const AdminUsersPage = () => {
               user={user}
               stats={user.stats}
               logins={user.logins}
+              status={user.status}
               onEdit={setEditing}
+              // Admins cannot be disabled (the backend refuses), but a locked one can always be enabled again.
+              onToggleStatus={
+                user.status !== 'locked' && (user.role === 'admin' || user._id === currentUser?._id)
+                  ? undefined
+                  : (target) => setStatus.mutate({ id: target._id, status: user.status === 'locked' ? 'active' : 'locked' })
+              }
               // The backend refuses to delete your own account, so the entry is left out for it.
               onDelete={user._id === currentUser?._id ? undefined : (target) => setPendingDelete(target._id)}
             />

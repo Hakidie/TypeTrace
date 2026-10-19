@@ -8,6 +8,8 @@ export interface AdminStats {
   notes: number;
 }
 
+export type UserStatus = 'active' | 'locked';
+
 export interface UserTypingStats {
   /** Average words per minute. */
   wpm: number;
@@ -23,6 +25,8 @@ export interface UserLoginDay {
 
 /** A user of the admin list with the typing activity the backend adds. */
 export interface AdminUser extends CurrentUser {
+  /** A locked account cannot log in. Missing counts as active. */
+  status?: UserStatus;
   /** Absent until the user completed a typing session. */
   stats?: UserTypingStats;
   logins?: UserLoginDay[];
