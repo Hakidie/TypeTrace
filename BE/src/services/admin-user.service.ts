@@ -5,7 +5,7 @@ import { UserDocument, UserModel } from '../models/user.model';
 import { badRequest, forbidden, notFound } from '../utils/app-error';
 import { deleteImage } from './cloudinary.service';
 import { paginate } from '../utils/pagination';
-import { AdminUpdateUserInput, ListUsersQuery } from '../validators/admin-user.validator';
+import { AdminUpdateUserInput, ListUsersQuery, SetUserStatusInput } from '../validators/admin-user.validator';
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -49,9 +49,10 @@ const loadActivity = async (ids: unknown[]) => {
 };
 
 /** The users page, each user with `stats` (absent until a session is completed) and `logins` (sessions per day). */
-export const listUsers = async ({ q, role, verified, ...pagination }: ListUsersQuery) => {
+export const listUsers = async ({ q, role, verified, status, ...pagination }: ListUsersQuery) => {
   const filter: QueryFilter<UserDocument> = {};
   if (role) filter.role = role;
+  if (status) filter.status = status;
   if (verified !== undefined) filter.isEmailVerified = verified;
   if (q) {
     const pattern = new RegExp(escapeRegex(q), 'i');
@@ -85,6 +86,20 @@ export const updateUser = async (actorId: string, id: string, input: AdminUpdate
   }
   const user = await UserModel.findByIdAndUpdate(id, input, { returnDocument: 'after', runValidators: true });
   if (!user) throw notFound('User not found');
+  return user;
+};
+
+/** Locks or unlocks an account. Admins cannot lock themselves or other admins. */
+export const setUserStatus = async (actorId: string, id: string, { status }: SetUserStatusInput) => {
+  const user = await UserModel.findById(id);
+  if (!user) throw notFound('User not found');
+  if (status === 'locked') {
+    if (id === actorId) throw badRequest('You cannot lock your own account');
+    if (user.role === 'admin') throw forbidden('Admin accounts cannot be locked');
+  }
+  user.status = status;
+  user.lockedAt = status === 'locked' ? new Date() : undefined;
+  await user.save();
   return user;
 };
 

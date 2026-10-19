@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { UserModel } from '../models/user.model';
+import { forbidden } from '../utils/app-error';
 import { comparePassword, hashPassword } from '../utils/hash';
 import { signToken } from '../utils/jwt';
 import { createUserWithOtp, issueOtpForUser, issueResetToken } from '../services/user.service';
@@ -33,6 +34,8 @@ export const login = async (req: Request, res: Response) => {
   if (!user || !(await comparePassword(password, user.password))) {
     return res.status(401).json({ message: 'Invalid email or password' });
   }
+
+  if (user.status === 'locked') throw forbidden('Your account is locked');
 
   if (!user.isEmailVerified) {
     return res.status(403).json({ message: 'Please verify your email first using register OTP' });
@@ -96,5 +99,6 @@ export const getMe = async (req: Request, res: Response) => {
 export const googleLogin = async (req: Request, res: Response) => {
   const { credential } = req.body as { credential: string };
   const user = await findOrCreateGoogleUser(credential);
+  if (user.status === 'locked') throw forbidden('Your account is locked');
   return res.json({ token: signToken({ sub: String(user._id), email: user.email }) });
 };
