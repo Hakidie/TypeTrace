@@ -55,7 +55,7 @@ beforeEach(() => {
 describe('AdminUsersPage', () => {
   it('lists users with role and verification badges', async () => {
     renderPage();
-    expect(await screen.findByText('lan@example.com')).toBeInTheDocument();
+    expect(await screen.findAllByText('lan@example.com')).toHaveLength(2);
     const table = screen.getByRole('table', { name: 'Users' });
     expect(within(table).getByText('Unverified')).toBeInTheDocument();
     expect(within(table).getAllByText('Verified')).toHaveLength(2);
@@ -63,9 +63,29 @@ describe('AdminUsersPage', () => {
     expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 10, sort: '-createdAt' }));
   });
 
+  it('shows each user as a card with the typing stats from the backend', async () => {
+    listUsers.mockResolvedValue(page([user('u1', 'lan@example.com', { stats: { wpm: 64, accuracy: 96.4 }, logins: [] }), minh]));
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    expect(within(cards).getByText('64')).toBeInTheDocument();
+    expect(within(cards).getByText('96.4%')).toBeInTheDocument();
+    expect(within(cards).getAllByText('—')).toHaveLength(2);
+  });
+
+  it('edits a user from the kebab menu of the card', async () => {
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
+    fireEvent.click(within(cards).getByRole('menuitem', { name: 'Edit' }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
   it('applies filters and sorting from the URL and sends them to the API', async () => {
     renderPage('/admin/users?role=admin&verified=false&sort=email&q=lan');
-    await screen.findByText('lan@example.com');
+    await screen.findAllByText('lan@example.com');
     expect(listUsers).toHaveBeenCalledWith(
       expect.objectContaining({ role: 'admin', verified: 'false', sort: 'email', q: 'lan' }),
     );
@@ -73,7 +93,7 @@ describe('AdminUsersPage', () => {
 
   it('changes a filter and sorts by a column', async () => {
     renderPage();
-    await screen.findByText('lan@example.com');
+    await screen.findAllByText('lan@example.com');
 
     fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'admin' } });
     await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ role: 'admin' })));
@@ -84,7 +104,7 @@ describe('AdminUsersPage', () => {
 
   it('does not let the admin select or delete their own account', async () => {
     renderPage();
-    await screen.findByText('lan@example.com');
+    await screen.findAllByText('lan@example.com');
     expect(screen.getByLabelText('Select row a1')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Delete admin@example.com' })).toBeDisabled();
   });
@@ -104,7 +124,7 @@ describe('AdminUsersPage', () => {
   it('bulk deletes the selected users', async () => {
     bulkDeleteUsers.mockResolvedValue({ deleted: 2 });
     renderPage();
-    await screen.findByText('lan@example.com');
+    await screen.findAllByText('lan@example.com');
 
     fireEvent.click(screen.getByLabelText('Select all rows'));
     fireEvent.click(screen.getByRole('button', { name: 'Delete selected (2)' }));

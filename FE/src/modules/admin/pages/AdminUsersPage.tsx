@@ -7,9 +7,12 @@ import { DataTable, FilterSelect, SearchInput, TableToolbar } from '@/shared/com
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { Pagination } from '@/shared/components/pagination';
+import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { UserEditDialog } from '../components/UserEditDialog';
+import { UserRow } from '../components/UserRow';
 import { userColumns } from '../components/user-columns';
 import { useAdminUsers, useDeleteUsers } from '../hooks/use-admin';
 import type { AdminUserListParams } from '../types/admin.types';
@@ -68,7 +71,20 @@ export const AdminUsersPage = () => {
 
   return (
     <div className="space-y-6">
-      <p className="text-base text-muted-foreground">Search, edit and remove accounts.</p>
+      <Panel title="Users" bare titleClassName={panelTitleClass} className={panelBodyClass}>
+        <div className="space-y-3">
+          <p className="text-base text-muted-foreground">
+            {users.data ? `${users.data.total} accounts in total` : 'Loading accounts…'}
+          </p>
+          {users.data && (
+            <div className="space-y-2" aria-label="User cards">
+              {users.data.items.map((user) => (
+                <UserRow key={user._id} user={user} stats={user.stats} logins={user.logins} onEdit={setEditing} />
+              ))}
+            </div>
+          )}
+        </div>
+      </Panel>
 
       <TableToolbar
         actions={

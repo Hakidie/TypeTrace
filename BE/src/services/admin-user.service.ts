@@ -24,7 +24,32 @@ export const getAdminStats = async () => {
   return { users, admins, verified, newUsersThisWeek, notes };
 };
 
-export const listUsers = ({ q, role, verified, ...pagination }: ListUsersQuery) => {
+/** Days shown in the login heatmap of the admin user list (the frontend draws the same number of cells). */
+export const HEATMAP_DAYS = 336;
+
+/** Typing activity of the given users: average speed and accuracy of their completed sessions, and sessions per day. */
+const loadActivity = async (ids: unknown[]) => {
+  const since = new Date(Date.now() - HEATMAP_DAYS * DAY_MS);
+  const [averages, days] = await Promise.all([
+    TypingSessionModel.aggregate<{ _id: unknown; wpm: number; accuracy: number }>([
+      { $match: { owner: { $in: ids }, status: 'completed', wpm: { $exists: true } } },
+      { $group: { _id: '$owner', wpm: { $avg: '$wpm' }, accuracy: { $avg: '$accuracy' } } }
+    ]),
+    TypingSessionModel.aggregate<{ _id: { owner: unknown; date: string }; sessions: number }>([
+      { $match: { owner: { $in: ids }, startedAt: { $gte: since } } },
+      {
+        $group: {
+          _id: { owner: '$owner', date: { $dateToString: { format: '%Y-%m-%d', date: '$startedAt' } } },
+          sessions: { $sum: 1 }
+        }
+      }
+    ])
+  ]);
+  return { averages, days };
+};
+
+/** The users page, each user with `stats` (absent until a session is completed) and `logins` (sessions per day). */
+export const listUsers = async ({ q, role, verified, ...pagination }: ListUsersQuery) => {
   const filter: QueryFilter<UserDocument> = {};
   if (role) filter.role = role;
   if (verified !== undefined) filter.isEmailVerified = verified;
@@ -32,7 +57,19 @@ export const listUsers = ({ q, role, verified, ...pagination }: ListUsersQuery) 
     const pattern = new RegExp(escapeRegex(q), 'i');
     filter.$or = [{ email: pattern }, { displayName: pattern }];
   }
-  return paginate(UserModel, filter, pagination);
+  const page = await paginate(UserModel, filter, pagination);
+  const { averages, days } = await loadActivity(page.items.map((user) => user._id));
+
+  const items = page.items.map((user) => {
+    const id = String(user._id);
+    const average = averages.find((row) => String(row._id) === id);
+    return {
+      ...user.toJSON(),
+      ...(average && { stats: { wpm: Math.round(average.wpm * 10) / 10, accuracy: Math.round(average.accuracy * 10) / 10 } }),
+      logins: days.filter((row) => String(row._id.owner) === id).map((row) => ({ date: row._id.date, sessions: row.sessions }))
+    };
+  });
+  return { ...page, items };
 };
 
 export const getUser = async (id: string) => {

@@ -160,6 +160,7 @@ if (query.isError) return <ErrorState error={query.error} onRetry={() => void qu
 if (query.data.items.length === 0) return <EmptyState title="No notes yet" action={...} />;
 ```
 Use `Panel` (title, description, actions) for every block of content in a page, `PageHeader` for the title row of a non-admin page (admin pages get their title from `AdminLayout`), `Pagination` under lists, `ConfirmDialog` before deleting, `useDebounce` for search boxes.
+A list of people or items in the red card look uses `ListRow` (slots `identity`, `center`, `extra`, `action`, `tags`, `meta`) with `ListRowMenu` for the kebab button and `ActivityHeatmap` for a 48-week activity grid; `modules/admin/components/UserRow.tsx` is the reference.
 
 ### 9. Tables and admin pages
 `DataTable` takes a column config (`{ id, header, cell, sortKey? }`), rows and `getRowId`. Sorting is done by the backend: pass `sort` + `onSortChange` (headers cycle `field` → `-field`). Pass `selectedIds` + `onSelectedIdsChange` for checkboxes and bulk actions; `isRowSelectable` disables rows. Put `SearchInput` (debounced) and `FilterSelect` (`''` = all) in a `TableToolbar`. `useListParams({ sort })` keeps `q`, filters, `sort` and `page` in the URL and resets the page when a filter changes. `AdminUsersPage` shows all of it together.

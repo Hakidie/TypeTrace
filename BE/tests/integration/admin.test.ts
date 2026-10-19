@@ -58,6 +58,31 @@ describe('GET /api/admin/users', () => {
     }
   });
 
+  it('adds the average speed, accuracy and sessions per day of each user', async () => {
+    const { auth } = await signInAdmin();
+    const lan = await createUser({ email: 'lan@example.com' });
+    const base = { owner: lan._id, passageId: 'p1', targetWords: ['a'] };
+    await TypingSessionModel.create({ ...base, status: 'completed', wpm: 40, accuracy: 90 });
+    await TypingSessionModel.create({ ...base, status: 'completed', wpm: 60, accuracy: 100 });
+    await TypingSessionModel.create({ ...base, status: 'in_progress' });
+    await TypingSessionModel.create({ ...base, status: 'completed', wpm: 99, accuracy: 99, startedAt: new Date('2020-01-01') });
+
+    const response = await api().get('/api/admin/users?q=lan').set('Authorization', auth);
+
+    const [user] = response.body.items;
+    expect(user.stats).toEqual({ wpm: 66.3, accuracy: 96.3 });
+    expect(user.logins).toEqual([{ date: new Date().toISOString().slice(0, 10), sessions: 3 }]);
+  });
+
+  it('has no stats for a user who never completed a session', async () => {
+    const { auth } = await signInAdmin();
+
+    const response = await api().get('/api/admin/users').set('Authorization', auth);
+
+    expect(response.body.items[0]).not.toHaveProperty('stats');
+    expect(response.body.items[0].logins).toEqual([]);
+  });
+
   it('searches email and display name, filters by role and verified, and sorts', async () => {
     const { auth } = await signInAdmin();
     await createUser({ email: 'lan@example.com', displayName: 'Nguyen Lan' });
