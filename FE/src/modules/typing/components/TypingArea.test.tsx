@@ -164,6 +164,7 @@ describe('TypingArea layout', () => {
     expect(card).not.toContainElement(screen.getByRole('button', { name: 'Restart' }));
     expect(card).not.toContainElement(screen.getByText('Words 0 / 3'));
     expect(card).not.toContainElement(screen.getByLabelText('Elapsed time'));
+    expect(screen.getByLabelText('Elapsed time')).toHaveClass('justify-self-center');
   });
 });
 

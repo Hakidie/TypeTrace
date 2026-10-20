@@ -127,4 +127,13 @@ describe('ChatWidget', () => {
     expect(screen.queryByText('Chào bạn!')).not.toBeInTheDocument();
     expect(screen.getByText(chatConfig.welcomeMessage)).toBeInTheDocument();
   });
+
+  it('floats at the bottom center, and at the bottom right on the typing page', () => {
+    const { unmount } = renderWithProviders(<ChatWidget />, { route: '/notes' });
+    expect(screen.getByRole('button', { name: 'Open chat' }).parentElement).toHaveClass('left-1/2');
+    unmount();
+
+    renderWithProviders(<ChatWidget />, { route: '/typing' });
+    expect(screen.getByRole('button', { name: 'Open chat' }).parentElement).toHaveClass('right-4');
+  });
 });

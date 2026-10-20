@@ -23,4 +23,9 @@ describe('BrandHeader', () => {
     expect(center).toContainElement(screen.getByRole('navigation', { name: 'Main' }));
     expect(right.lastElementChild).toBe(screen.getByRole('button', { name: 'Extra' }));
   });
+
+  it('can hide the theme toggle', () => {
+    renderWithProviders(<BrandHeader themeToggle={false}>x</BrandHeader>);
+    expect(screen.queryByRole('button', { name: /Switch theme/ })).not.toBeInTheDocument();
+  });
 });

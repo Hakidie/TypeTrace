@@ -1,18 +1,21 @@
 import { Bot, MessageCircle, SquarePen, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/button';
+import { cn } from '@/shared/lib/utils';
 import { chatConfig } from '../chat.config';
 import { useChat } from '../hooks/use-chat';
 import { ChatPanel } from './ChatPanel';
 
 /**
- * Floating chat: a framed button at the bottom center (same frame and height as the typing page's word count and timer) that opens a small
+ * Floating chat: a framed button at the bottom center (at the bottom right on the typing page, where the timer takes the center; same frame and height as the typing page's word count and timer) that opens a small
  * chat popup above it. Closing the popup keeps the conversation. Shown on every
  * page of the app through `widgets` in chat.module.ts.
  */
 export const ChatWidget = () => {
   const [open, setOpen] = useState(false);
   const chat = useChat();
+  const onTypingPage = useLocation().pathname === '/typing';
 
   // Escape closes the popup.
   useEffect(() => {
@@ -23,7 +26,12 @@ export const ChatWidget = () => {
   }, [open]);
 
   return (
-    <div className="fixed bottom-8 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-3">
+    <div
+      className={cn(
+        'fixed bottom-8 z-50 flex flex-col gap-3',
+        onTypingPage ? 'right-4 items-end md:right-8' : 'left-1/2 -translate-x-1/2 items-center',
+      )}
+    >
       {open && (
         <section
           role="dialog"
