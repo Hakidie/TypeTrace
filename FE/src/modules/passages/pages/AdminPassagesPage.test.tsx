@@ -53,20 +53,12 @@ describe('AdminPassagesPage', () => {
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 9 }));
   });
 
-  it('always shows an example card', async () => {
-    list.mockResolvedValue(page([]));
-    renderPage();
-
-    expect(screen.getByText('Phố cổ buổi sớm')).toBeInTheDocument();
-    expect(screen.getByText('Placement')).toBeInTheDocument();
-    expect(await screen.findByText('No passages yet')).toBeInTheDocument();
-  });
-
-  it('shows an empty state', async () => {
+  it('shows an empty state without any example card', async () => {
     list.mockResolvedValue(page([]));
     renderPage();
 
     expect(await screen.findByText('No passages yet')).toBeInTheDocument();
+    expect(screen.queryByText('Phố cổ buổi sớm')).not.toBeInTheDocument();
   });
 
   it('shows the backend error with a retry button', async () => {
@@ -180,8 +172,7 @@ describe('AdminPassagesPage', () => {
     renderPage();
     await screen.findByText('Mùa thu Hà Nội');
 
-    // The example card and the passage of the list both show `published`.
-    expect(screen.getAllByText('published')).toHaveLength(2);
+    expect(screen.getByText('published')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /status/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /archive/i })).not.toBeInTheDocument();
   });

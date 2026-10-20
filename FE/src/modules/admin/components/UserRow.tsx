@@ -26,7 +26,7 @@ interface UserRowProps {
 
 const Stat = ({ label, value }: { label: string; value: string }) => (
   <div className="flex h-[61px] flex-col text-right">
-    <span className="text-sm font-semibold leading-none tracking-widest text-primary/70">{label}</span>
+    <span className="text-base font-semibold leading-none tracking-widest text-primary/70">{label}</span>
     <span className="flex flex-1 items-end justify-end text-3xl font-black leading-none text-primary">{value}</span>
   </div>
 );
@@ -52,7 +52,7 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
       center={<ActivityHeatmap days={sessions} since={user.createdAt} label={`Completed sessions in the last ${HEATMAP_DAYS} days`} />}
       extra={
         <div className="flex w-full justify-between gap-4 xl:w-72">
-          <Stat label="Streak" value={sessions ? `${String(currentStreak(sessions)).padStart(3, '0')}D` : '—'} />
+          <Stat label="STREAK" value={sessions ? `${String(currentStreak(sessions)).padStart(3, '0')}D` : '—'} />
           <Stat label="ACC" value={stats ? `${stats.accuracy.toFixed(1)}%` : '000%'} />
           <Stat label="WPM" value={stats ? String(Math.round(stats.wpm)) : '0000'} />
         </div>

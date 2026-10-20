@@ -14,20 +14,6 @@ import type { Passage } from '../types/passage.types';
 
 const PAGE_SIZE = 9;
 
-// A fixed sample card so the layout is visible before real passages exist. It is not stored anywhere.
-const EXAMPLE_PASSAGE: Passage = {
-  _id: 'example',
-  title: 'Phố cổ buổi sớm',
-  content: 'Sương còn đọng trên mái ngói rêu phong, tiếng rao hàng vang lên khe khẽ giữa con phố nhỏ. Người ta đi chậm lại để nghe thành phố thức dậy.',
-  source: 'Wikipedia',
-  ownerName: 'TypeTrace',
-  status: 'published',
-  isPlacement: true,
-  wordCount: 28,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
-};
-
 export const AdminPassagesPage = () => {
   const { page, setPage } = usePagination();
   const [editing, setEditing] = useState<Passage | null>(null);
@@ -72,9 +58,6 @@ export const AdminPassagesPage = () => {
       </div>
       <Panel title="Passages" bare titleClassName={panelTitleClass} className={panelBodyClass}>
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Example passage">
-            <PassageCard passage={EXAMPLE_PASSAGE} />
-          </div>
           {renderList()}
         </div>
       </Panel>
