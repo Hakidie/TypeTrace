@@ -141,17 +141,17 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, o
         {actions && <div className="flex justify-end">{actions}</div>}
       </div>
 
-      {/* Bottom corners of the page: words typed on the left, the timer on the right. Full screen width, not the card's. */}
-      <div className="relative left-1/2 flex w-screen -translate-x-1/2 items-center justify-between px-4 text-[1.125rem] md:px-8">
-        <span className={statusFrame}>
+      {/* Bottom of the page: words typed on the left, the timer in the center (the chat button floats at the right). Full screen width, not the card's. */}
+      <div className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-3 items-center px-4 text-[1.125rem] md:px-8">
+        <span className={`${statusFrame} justify-self-start`}>
           Words {Math.min(results.length, targetWords.length)} / {targetWords.length}
         </span>
         {isFinished ? (
-          <span className={`${statusFrame} flex items-center gap-2 font-medium`}>
+          <span className={`${statusFrame} flex items-center gap-2 justify-self-center font-medium`}>
             <CheckCircle2 className="size-5" /> Finished
           </span>
         ) : (
-          <span aria-label="Elapsed time" className={statusFrame}>{formatDuration(Math.min(seconds, SESSION_TIME_LIMIT_SECONDS))}</span>
+          <span aria-label="Elapsed time" className={`${statusFrame} justify-self-center`}>{formatDuration(Math.min(seconds, SESSION_TIME_LIMIT_SECONDS))}</span>
         )}
       </div>
     </>

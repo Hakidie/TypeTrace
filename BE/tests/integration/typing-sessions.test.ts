@@ -33,6 +33,7 @@ describe('POST /api/sessions', () => {
     expect(response.body).toMatchObject({ status: 'in_progress', mode: 'practice', isCounted: false });
     expect(response.body.owner).toBe(String(user._id));
     expect(response.body.targetWords).toEqual(await wordsOfPassage(response.body.passageId));
+    expect(response.body.passageTitle).toBe((await PassageModel.findById(response.body.passageId))?.title);
     expect(response.body).not.toHaveProperty('__v');
   });
 

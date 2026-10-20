@@ -1,5 +1,5 @@
 import userEvent from '@testing-library/user-event';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { Link } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
@@ -118,5 +118,41 @@ describe('TypingPage', () => {
     await user.click(screen.getByRole('button', { name: /restart/i }));
 
     await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+  });
+
+  it('has Practice, Placement and Rank tabs and shows the name of the passage', async () => {
+    start.mockResolvedValue({ ...session, passageTitle: 'Mùa thu Hà Nội' });
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Rank']);
+    expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Rank' })).toBeDisabled();
+    expect(screen.getByText('Mùa thu Hà Nội')).toBeInTheDocument();
+  });
+
+  it('starts a placement session when the Placement tab is picked', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(screen.getByRole('radio', { name: 'Placement' }));
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
+    expect(screen.getByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('has 1m, 2m and 3m time tabs on the right of the passage name, 3m selected', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    const time = screen.getByRole('radiogroup', { name: 'Time' });
+    expect(within(time).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['1m', '2m', '3m']);
+    expect(within(time).getByRole('radio', { name: '3m' })).toHaveAttribute('aria-checked', 'true');
+
+    await user.click(within(time).getByRole('radio', { name: '1m' }));
+
+    expect(within(time).getByRole('radio', { name: '1m' })).toHaveAttribute('aria-checked', 'true');
   });
 });

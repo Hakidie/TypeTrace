@@ -23,6 +23,8 @@ export interface TypingSessionDocument extends mongoose.Document {
   owner: Types.ObjectId;
   mode: SessionMode;
   passageId: string;
+  /** Copy of the passage title taken when the session started (sessions from before this field have none). */
+  passageTitle?: string;
   /** Copy of the passage words taken when the session started. */
   targetWords: string[];
   status: SessionStatus;
@@ -60,6 +62,7 @@ const typingSessionSchema = new Schema<TypingSessionDocument>(
     owner: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     mode: { type: String, enum: sessionModes, default: 'practice' },
     passageId: { type: String, required: true },
+    passageTitle: String,
     targetWords: { type: [String], required: true },
     status: { type: String, enum: sessionStatuses, default: 'in_progress' },
     words: { type: [wordSchema], default: [] },

@@ -1,12 +1,10 @@
 import type { ComponentType } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
 import type { NavItem } from '@/app/module.types';
 import { BrandFooter } from '@/shared/components/layout/BrandFooter';
 import { BrandHeader } from '@/shared/components/layout/BrandHeader';
-import { useCurrentUser, useLogout } from '@/modules/auth/hooks/use-current-user';
-import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
-import { Button } from '@/shared/components/ui/button';
+import { UserMenu } from '@/shared/components/layout/UserMenu';
+import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { cn } from '@/shared/lib/utils';
 
 interface AppLayoutProps {
@@ -20,17 +18,15 @@ export const AppLayout = ({ navItems: allNavItems, widgets = [] }: AppLayoutProp
   // into a redirect to /logout. Other failures (server down) keep the user signed in.
   const { data: user } = useCurrentUser();
   const location = useLocation();
-  const handleLogout = useLogout();
 
   const navItems = allNavItems.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
 
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? '??';
-
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-background">
-      {/* The same header and footer as the login pages: logo, navigation in the center, then theme toggle, Logout and the user. */}
-      <div className="sticky top-0 z-50 bg-background">
+      {/* The same header and footer as the login pages: logo, navigation in the center, then the user menu (Theme, Logout). */}
+      <div className="sticky top-0 z-50 bg-background/75 backdrop-blur-xs">
         <BrandHeader
+          themeToggle={false}
           nav={
             <nav className="flex items-center gap-1">
               {navItems.map((item) => (
@@ -51,14 +47,7 @@ export const AppLayout = ({ navItems: allNavItems, widgets = [] }: AppLayoutProp
             </nav>
           }
         >
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-foreground">
-            <LogOut className="size-4" />
-            <span className="hidden sm:inline">Logout</span>
-          </Button>
-          <Avatar className="size-8">
-            <AvatarImage src={user?.avatarUrl} alt={user?.email} />
-            <AvatarFallback className="bg-primary/15 text-sm text-primary">{initials}</AvatarFallback>
-          </Avatar>
+          <UserMenu user={user} />
         </BrandHeader>
       </div>
 

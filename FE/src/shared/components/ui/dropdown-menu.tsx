@@ -62,7 +62,7 @@ function DropdownMenuContent({ children, className, align = 'start', ...props }:
       ref={ref}
       className={cn(
         // Same look as `Panel`: page background (see-through, blurred) and the soft red border on hover.
-        'absolute z-50 mt-1 min-w-[8rem] overflow-hidden border border-border bg-background/80 p-1 text-popover-foreground shadow-md backdrop-blur-md transition-colors hover:border-destructive/40 animate-in fade-in-0 zoom-in-95',
+        'absolute z-50 mt-1 min-w-[8rem] overflow-hidden border border-border bg-background/75 p-1 text-popover-foreground shadow-md backdrop-blur-xs transition-colors hover:border-destructive/40 animate-in fade-in-0 zoom-in-95',
         align === 'end' ? 'right-0' : 'left-0',
         className
       )}

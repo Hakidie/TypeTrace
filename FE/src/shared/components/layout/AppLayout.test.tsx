@@ -70,11 +70,36 @@ describe('AppLayout', () => {
     expect(await screen.findByText('floating widget')).toBeInTheDocument();
   });
 
-  it('logs out from the header button', async () => {
+  it('opens the account menu from the avatar button with Theme and Logout', async () => {
+    getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
+    renderLayout();
+    await screen.findByText('A@');
+    expect(screen.queryByRole('menuitem', { name: /logout/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+
+    expect(screen.getByRole('menuitem', { name: /Theme:/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /logout/i })).toBeInTheDocument();
+  });
+
+  it('changes the theme from the account menu', async () => {
+    localStorage.setItem('theme', 'light');
+    getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
+    renderLayout();
+    fireEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Theme: Light' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    expect(screen.getByRole('menuitem', { name: 'Theme: Dark' })).toBeInTheDocument();
+  });
+
+  it('logs out from the account menu', async () => {
     getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
     renderLayout();
 
-    fireEvent.click(await screen.findByRole('button', { name: /logout/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /logout/i }));
 
     expect(await screen.findByText('login page')).toBeInTheDocument();
     expect(tokenStore.get()).toBeNull();

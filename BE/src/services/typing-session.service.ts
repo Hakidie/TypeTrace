@@ -1,3 +1,4 @@
+import type { Types } from 'mongoose';
 import { PassageModel, splitWords } from '../models/passage.model';
 import { ErrorCounts, SessionWord, TypingSessionModel } from '../models/typing-session.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
@@ -54,6 +55,9 @@ export const isSessionCounted = (wordCount: number, wpm: number, durationMs = 0)
  * The passage a session types. With a `passageId` it is that passage; for the placement test it is a random
  * placement passage; otherwise it is a random public practice passage. Only published passages are used.
  */
+type PickedPassage = { _id: Types.ObjectId; title: string; content: string };
+const pickedFields = { title: 1, content: 1 } as const;
+
 const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInput) => {
   if (passageId) {
     const passage = await PassageModel.findOne({
@@ -65,11 +69,11 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
     return passage;
   }
   if (mode === 'placement') {
-    const placement = await samplePassage({ isPlacement: true });
+    const placement = await samplePassage<PickedPassage>({ isPlacement: true }, pickedFields);
     if (!placement) throw notFound('No placement passage');
     return placement;
   }
-  const random = await samplePassage({ visibility: 'public', isPlacement: false });
+  const random = await samplePassage<PickedPassage>({ visibility: 'public', isPlacement: false }, pickedFields);
   if (!random) throw notFound('No passage available');
   return random;
 };
@@ -83,6 +87,7 @@ export const startSession = async (userId: string, input: CreateSessionInput) =>
     owner: userId,
     mode: input.mode,
     passageId: String(passage._id),
+    passageTitle: passage.title,
     targetWords: splitWords(passage.content)
   });
 };

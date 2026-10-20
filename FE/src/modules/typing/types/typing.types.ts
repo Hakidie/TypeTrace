@@ -21,6 +21,8 @@ export interface TypingSession {
   owner: string;
   mode: SessionMode;
   passageId: string;
+  /** Title of the passage; missing on sessions from before it was stored. */
+  passageTitle?: string;
   targetWords: string[];
   status: SessionStatus;
   words: SessionWord[];

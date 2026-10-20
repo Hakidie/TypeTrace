@@ -43,7 +43,7 @@ src/
 │   ├── components/          # panel, page-header, empty-state, error-state, loading-state, confirm-dialog,
 │   │   │                    # form-field, pagination
 │   │   ├── data-table/      # DataTable, SearchInput, FilterSelect, TableToolbar (list and admin pages)
-│   │   ├── layout/          # AppLayout (BrandHeader with the navigation, BrandFooter, module widgets), AdminLayout (AdminSidebar with its own logo header and Logout footer, no BrandHeader/BrandFooter, /admin)
+│   │   ├── layout/          # AppLayout (BrandHeader with the navigation and the avatar `UserMenu` with Theme and Logout, BrandFooter, module widgets), AdminLayout (AdminSidebar with its own logo header and Logout footer, no BrandHeader/BrandFooter, /admin)
 │   │   └── ui/              # shadcn/ui primitives (button, input, dialog, switch, ...)
 │   ├── hooks/               # use-debounce, use-pagination
 │   └── lib/                 # utils.ts (cn(), theme helpers), vietnamese-errors.ts (classifyWord, tagWord: per-word error types; pure TS so it can be copied to the BE)
