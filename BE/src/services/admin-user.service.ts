@@ -25,7 +25,7 @@ export const getAdminStats = async () => {
 };
 
 /** Days shown in the activity heatmap of the admin user list (the frontend draws the same number of cells). */
-export const HEATMAP_DAYS = 336;
+export const HEATMAP_DAYS = 364;
 
 /** Typing activity of the given users: average speed and accuracy of their completed sessions, and completed sessions per day. */
 const loadActivity = async (ids: unknown[]) => {

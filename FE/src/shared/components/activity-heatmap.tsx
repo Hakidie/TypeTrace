@@ -6,9 +6,11 @@ export interface ActivityDay {
   sessions: number;
 }
 
-const WEEKS = 48;
+const BLOCKS = 4;
+const WEEKS_PER_BLOCK = 13;
+const BLOCK_DAYS = WEEKS_PER_BLOCK * 7;
 /** How many days the heatmap shows, today included. Keep it equal to `HEATMAP_DAYS` in `BE/src/services/admin-user.service.ts`. */
-export const HEATMAP_DAYS = WEEKS * 7;
+export const HEATMAP_DAYS = BLOCKS * BLOCK_DAYS;
 
 // Cells, from no activity to the most: the red of the Passages card in five steps.
 const HEAT_CLASSES = ['bg-primary/10', 'bg-primary/30', 'bg-primary/50', 'bg-primary/75', 'bg-primary'];
@@ -28,11 +30,11 @@ interface ActivityHeatmapProps {
   days?: ActivityDay[];
   /** Days before this date count as no activity. */
   since?: string;
-  /** Accessible name, e.g. "Completed sessions in the last 336 days". */
+  /** Accessible name, e.g. "Completed sessions in the last 364 days". */
   label: string;
 }
 
-/** A GitHub-style grid: 48 weeks of 7 days, oldest on the left, today at the bottom right. Cells and gaps make it 61px high. */
+/** A GitHub-style grid: 52 weeks of 7 days in 4 blocks of 13 weeks (about a quarter each), oldest on the left, today at the bottom right. Cells and gaps make it 61px high. */
 export const ActivityHeatmap = ({ days, since, label }: ActivityHeatmapProps) => {
   const sessionsByDay = new Map((days ?? []).map((day) => [day.date, day.sessions]));
   const first = since ? dayKey(new Date(since)) : '';
@@ -48,9 +50,13 @@ export const ActivityHeatmap = ({ days, since, label }: ActivityHeatmapProps) =>
   });
 
   return (
-    <div className="grid auto-cols-fr grid-flow-col grid-rows-7 gap-0.5" role="img" aria-label={label}>
-      {cells.map((cell) => (
-        <span key={cell.key} title={cell.title} className={cn('h-[7px]', HEAT_CLASSES[cell.level])} />
+    <div className="flex gap-1.5" role="img" aria-label={label}>
+      {Array.from({ length: BLOCKS }, (_, block) => (
+        <div key={block} className="grid flex-1 auto-cols-fr grid-flow-col grid-rows-7 gap-0.5">
+          {cells.slice(block * BLOCK_DAYS, (block + 1) * BLOCK_DAYS).map((cell) => (
+            <span key={cell.key} title={cell.title} className={cn('h-[7px]', HEAT_CLASSES[cell.level])} />
+          ))}
+        </div>
       ))}
     </div>
   );

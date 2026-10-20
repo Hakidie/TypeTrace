@@ -117,7 +117,7 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, o
           <CardContent className="space-y-4 pt-6">
             {/* The real input is an invisible textarea laid over the passage: clicks focus it, and what is typed shows in the passage. */}
             <div className="relative">
-              <PassageView words={targetWords} results={results} current={isFinished ? undefined : current} />
+              <PassageView words={targetWords} results={results} current={isFinished ? undefined : current} maxRows={3} />
               <textarea
                 aria-label="Typing area"
                 className="absolute inset-0 size-full cursor-text resize-none opacity-0"
