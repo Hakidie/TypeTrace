@@ -5,14 +5,14 @@ import { ListRow, ListRowMenu } from '@/shared/components/list-row';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Badge } from '@/shared/components/ui/badge';
 import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
-import type { UserLoginDay, UserStatus, UserTypingStats } from '../types/admin.types';
+import type { UserSessionDay, UserStatus, UserTypingStats } from '../types/admin.types';
 
 interface UserRowProps {
   user: CurrentUser;
   /** Average speed and accuracy. Shown as "—" until the backend sends them. */
   stats?: UserTypingStats;
   /** Sessions per day. Without it the heatmap stays empty. */
-  logins?: UserLoginDay[];
+  sessions?: UserSessionDay[];
   /** Adds an "Edit" entry to the kebab menu. */
   onEdit?: (user: CurrentUser) => void;
   /** Locked or active; missing counts as active. Shown as a tag. */
@@ -30,7 +30,7 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-export const UserRow = ({ user, stats, logins, status = 'active', onEdit, onToggleStatus, onDelete }: UserRowProps) => {
+export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onToggleStatus, onDelete }: UserRowProps) => {
   const name = user.displayName || user.email;
 
   return (
@@ -54,7 +54,7 @@ export const UserRow = ({ user, stats, logins, status = 'active', onEdit, onTogg
           <Stat label="ACC" value={stats ? `${stats.accuracy.toFixed(1)}%` : '—'} />
         </div>
       }
-      extra={<ActivityHeatmap days={logins} since={user.createdAt} label={`Logins in the last ${HEATMAP_DAYS} days`} />}
+      extra={<ActivityHeatmap days={sessions} since={user.createdAt} label={`Completed sessions in the last ${HEATMAP_DAYS} days`} />}
       action={
         <ListRowMenu label={`Actions for ${user.email}`}>
           {onEdit && (
