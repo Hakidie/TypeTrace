@@ -17,7 +17,10 @@ const navItems = [
 const renderLayout = (route: string) =>
   renderWithProviders(<AdminLayout navItems={navItems} />, { route, path: '/admin/*', otherRoutes: { '/login': 'login page' } });
 
-beforeEach(() => tokenStore.set('jwt-value'));
+beforeEach(() => {
+  tokenStore.set('jwt-value');
+  localStorage.clear();
+});
 
 describe('AdminLayout', () => {
   it('highlights only the current section', () => {
@@ -29,6 +32,14 @@ describe('AdminLayout', () => {
   it('shows the title of the current page in the header', () => {
     renderLayout('/admin/users');
     expect(screen.getByRole('heading', { level: 1, name: 'Users' })).toBeInTheDocument();
+  });
+
+  it('narrows the sidebar to icons when the compact setting is on', () => {
+    localStorage.setItem('sidebarMode', 'compact');
+    renderLayout('/admin');
+    const sidebar = screen.getAllByRole('navigation', { name: 'Admin' })[0];
+    expect(sidebar.closest('aside')).toHaveClass('w-16');
+    expect(screen.getAllByText('Users')[0]).toHaveClass('sr-only');
   });
 
   it('opens and closes the menu on small screens', () => {

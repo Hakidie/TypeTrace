@@ -34,6 +34,17 @@ describe('AdminSidebar', () => {
     expect(onNavigate).toHaveBeenCalled();
   });
 
+  it('shows only icons when compact, keeping the names for screen readers', () => {
+    renderWithProviders(<AdminSidebar navItems={navItems} compact />, { route: '/admin', path: '/admin/*' });
+    const link = screen.getByRole('link', { name: 'Users' });
+    expect(link).toHaveAttribute('title', 'Users');
+    expect(link.querySelector('svg')).toHaveClass('size-5');
+    expect(screen.getByText('Users')).toHaveClass('sr-only');
+    const logout = screen.getByRole('button', { name: /logout/i });
+    expect(logout).toHaveAttribute('title', 'Logout');
+    expect(logout).toHaveClass('px-0');
+  });
+
   it('shows the logo, the signed-in admin, and logs out', async () => {
     renderSidebar('/admin');
     expect(screen.getByRole('link', { name: 'TypeTrace' })).toHaveAttribute('href', '/admin');
