@@ -27,7 +27,7 @@ vi.mock('sonner', () => ({
 const renderPage = () =>
   renderWithProviders(<RegisterPage />, {
     route: '/register',
-    otherRoutes: { '/login': 'login page', '/placement': 'placement intro' },
+    otherRoutes: { '/login': 'login page', '/typing': 'typing page' },
   });
 
 /** Fills the form, then types the emailed code. */
@@ -52,12 +52,12 @@ beforeEach(() => {
 });
 
 describe('RegisterPage', () => {
-  it('signs the new account in after the emailed code and opens the placement test intro', async () => {
+  it('signs the new account in after the emailed code and opens the typing page', async () => {
     renderPage();
 
     await registerAndVerify();
 
-    expect(await screen.findByText('placement intro')).toBeInTheDocument();
+    expect(await screen.findByText('typing page')).toBeInTheDocument();
     expect(register).toHaveBeenCalledWith({ email: 'new@b.com', password: 'secret123' });
     expect(verifyRegisterOtp).toHaveBeenCalledWith('new@b.com', '123456');
     expect(login).toHaveBeenCalledWith({ email: 'new@b.com', password: 'secret123' });

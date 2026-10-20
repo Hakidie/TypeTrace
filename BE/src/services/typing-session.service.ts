@@ -5,7 +5,7 @@ import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
 import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
-import { samplePassage } from './passage.service';
+import { learnerPassageFilter, samplePassage } from './passage.service';
 
 /** Sessions with fewer words, or faster than this, are saved but kept out of the error profile (ASSUMPTION). */
 export const MIN_COUNTED_WORDS = 20;
@@ -52,7 +52,7 @@ export const isSessionCounted = (wordCount: number, wpm: number, durationMs = 0)
   wordCount >= MIN_COUNTED_WORDS && wpm <= MAX_COUNTED_WPM && durationMs <= MAX_SESSION_MS + SESSION_GRACE_MS;
 
 /**
- * The passage a session types. With a `passageId` it is that passage; for the placement test it is a random
+ * The passage a session types. With a `passageId` it is that passage, if it belongs to the mode (see `learnerPassageFilter`); for the placement test it is a random
  * placement passage; otherwise it is a random public practice passage. Only published passages are used.
  */
 type PickedPassage = { _id: Types.ObjectId; title: string; content: string };
@@ -60,11 +60,7 @@ const pickedFields = { title: 1, content: 1 } as const;
 
 const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInput) => {
   if (passageId) {
-    const passage = await PassageModel.findOne({
-      _id: passageId,
-      status: 'published',
-      $or: [{ visibility: 'public' }, { owner: userId }]
-    });
+    const passage = await PassageModel.findOne({ _id: passageId, ...learnerPassageFilter(userId, mode) });
     if (!passage) throw badRequest('Unknown passage');
     return passage;
   }

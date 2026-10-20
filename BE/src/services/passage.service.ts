@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { PassageModel } from '../models/passage.model';
+import type { SessionMode } from '../models/typing-session.model';
 import { notFound } from '../utils/app-error';
 
 /** What a learner may see of a passage. Never `owner`: only admins may know who created a passage. */
@@ -36,3 +37,23 @@ export const getPlacementPassage = async () => {
   if (!passage) throw notFound('No placement passage');
   return passage;
 };
+
+/** One entry of the passage dropdown on the Typing page: no text, no owner. */
+export interface PassageOption {
+  _id: Types.ObjectId;
+  title: string;
+  wordCount: number;
+}
+
+/**
+ * What a learner may pick for a `mode`: published passages only, placement passages for the test and practice ones otherwise.
+ * Both are public; in practice the learner's own passages come on top. Drafts and other people's private passages never match.
+ */
+export const learnerPassageFilter = (userId: string, mode: SessionMode) =>
+  mode === 'placement'
+    ? { status: 'published' as const, isPlacement: true, visibility: 'public' as const }
+    : { status: 'published' as const, isPlacement: false, $or: [{ visibility: 'public' as const }, { owner: userId }] };
+
+/** The passages a learner can choose from for `mode`, by title (Vietnamese order). `.lean()` skips `toJSON`, so the public fields are listed. */
+export const listPassageOptions = (userId: string, mode: SessionMode) =>
+  PassageModel.find(learnerPassageFilter(userId, mode)).select('title wordCount').sort({ title: 1 }).collation({ locale: 'vi' }).limit(200).lean<PassageOption[]>();

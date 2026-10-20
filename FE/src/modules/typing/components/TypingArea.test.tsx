@@ -246,4 +246,23 @@ describe('TypingArea time limit', () => {
       vi.useRealTimers();
     }
   });
+
+  it('ends at the time limit the page asks for, which can be shorter than 3:00', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onFinish = vi.fn();
+      render(<TypingArea targetWords={words} onFinish={onFinish} timeLimitSeconds={10} />);
+
+      await user.type(screen.getByRole('textbox', { name: 'Typing area' }), `${words[0]} ${words[1]} `);
+      vi.advanceTimersByTime(9_000);
+      expect(onFinish).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1_000);
+
+      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]]));
+      expect(onFinish).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

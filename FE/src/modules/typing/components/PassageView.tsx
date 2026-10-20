@@ -17,6 +17,10 @@ interface PassageViewProps {
 const LINE_REM = 2.75;
 const GAP_REM = 0.5;
 
+// The words fade in one after the other when the passage appears (`.word-reveal` in index.css). The delay stops growing
+// after 40 words: later words are not on screen yet.
+const revealStyle = (index: number) => ({ animationDelay: `${Math.min(index, 40) * 30}ms` });
+
 const Caret = () => <span aria-hidden className="mx-px inline-block h-8 w-0.5 animate-pulse bg-destructive align-middle" />;
 
 /**
@@ -49,21 +53,21 @@ export const PassageView = ({ words, results, current, maxRows }: PassageViewPro
         const result = results[index];
         if (result && result.errors.length > 0) {
           return (
-            <span key={index} title={`Should be: ${word}`} className="text-destructive underline decoration-wavy underline-offset-4">
+            <span key={index} title={`Should be: ${word}`} style={revealStyle(index)} className="word-reveal text-destructive underline decoration-wavy underline-offset-4">
               {result.typed}
             </span>
           );
         }
         if (result) {
           return (
-            <span key={index} className="text-foreground">
+            <span key={index} style={revealStyle(index)} className="word-reveal text-foreground">
               {word}
             </span>
           );
         }
         if (current !== undefined && index === results.length) {
           return (
-            <span key={index} ref={currentRef} className="inline-grid bg-destructive/15">
+            <span key={index} ref={currentRef} style={revealStyle(index)} className="word-reveal inline-grid bg-destructive/15">
               {/* The whole target word, marks included, is the grey placeholder; what was typed lies on top of it. */}
               <span className="col-start-1 row-start-1 text-muted-foreground/60">{word}</span>
               <span className="col-start-1 row-start-1 text-foreground">
@@ -74,7 +78,7 @@ export const PassageView = ({ words, results, current, maxRows }: PassageViewPro
           );
         }
         return (
-          <span key={index} className="text-muted-foreground">
+          <span key={index} style={revealStyle(index)} className="word-reveal text-muted-foreground">
             {word}
           </span>
         );

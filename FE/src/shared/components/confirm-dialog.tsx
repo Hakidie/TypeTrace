@@ -20,6 +20,8 @@ interface ConfirmDialogProps {
   /** Disables the buttons and shows a spinner while the action runs. */
   pending?: boolean;
   onConfirm: () => void;
+  /** Where the focus goes when the dialog closes: call `event.preventDefault()` and focus something else (the default is the element that was focused before). */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /** "Are you sure?" dialog. Close it from `onConfirm` once the action succeeds. */
@@ -32,9 +34,10 @@ export const ConfirmDialog = ({
   destructive = false,
   pending = false,
   onConfirm,
+  onCloseAutoFocus,
 }: ConfirmDialogProps) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent>
+    <DialogContent onCloseAutoFocus={onCloseAutoFocus}>
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         {description && <DialogDescription>{description}</DialogDescription>}

@@ -28,6 +28,8 @@ interface TypingAreaProps {
   /** Called once, when the first key is pressed: the timer starts then. */
   onStart?: () => void;
   onFinish: (typedWords: string[]) => void;
+  /** How long the session lasts; the page lets the learner choose less than the 3 minute maximum. */
+  timeLimitSeconds?: number;
   /** Called once when time runs out and no word was finished, so there is nothing to grade. */
   onTimeUp?: () => void;
   /** Shown under the card, at its right, e.g. a Restart button. */
@@ -41,7 +43,31 @@ interface TypingAreaProps {
  * fcitx and similar can hold text back), keystrokes and the half-written text are ignored (conclusion of US2.0,
  * docs/ime-findings.md). Pasting and dropping text are blocked.
  */
-export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, onTimeUp, actions }: TypingAreaProps) => {
+interface TypingStatusProps {
+  /** Words finished so far. */
+  typed: number;
+  total: number;
+  seconds: number;
+  finished: boolean;
+}
+
+/** Bottom of the page: words typed on the left, the timer in the center (the chat button floats at the right). Full screen width, not the card's. The page shows it with zeros while the next session loads, so it never disappears. */
+export const TypingStatus = ({ typed, total, seconds, finished }: TypingStatusProps) => (
+  <div className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-3 items-center px-4 text-[1.125rem] md:px-8">
+    <span className={`${statusFrame} justify-self-start`}>
+      Words {Math.min(typed, total)} / {total}
+    </span>
+    {finished ? (
+      <span className={`${statusFrame} flex items-center gap-2 justify-self-center font-medium`}>
+        <CheckCircle2 className="size-5" /> Finished
+      </span>
+    ) : (
+      <span aria-label="Elapsed time" className={`${statusFrame} justify-self-center`}>{formatDuration(seconds)}</span>
+    )}
+  </div>
+);
+
+export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, onTimeUp, timeLimitSeconds = SESSION_TIME_LIMIT_SECONDS, actions }: TypingAreaProps) => {
   const [text, setText] = useState('');
   const [committed, setCommitted] = useState('');
   const [lastWordDone, setLastWordDone] = useState(false);
@@ -52,7 +78,7 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, o
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const seconds = useElapsedSeconds(startedAt, !lastWordDone && !disabled);
 
-  const timeIsUp = seconds >= SESSION_TIME_LIMIT_SECONDS;
+  const timeIsUp = seconds >= timeLimitSeconds;
   const isFinished = lastWordDone || timeIsUp;
   const expired = useRef(false);
 
@@ -65,7 +91,7 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, o
   const { done } = useMemo(() => splitTyped(committed), [committed]);
   const results = useMemo(() => checkWords(targetWords, done), [targetWords, done]);
 
-  // At 3:00 the session ends with the words finished so far (the server enforces the same limit).
+  // When the time limit is reached (3:00 at most) the session ends with the words finished so far (the server enforces the same limit).
   useEffect(() => {
     if (!timeIsUp || lastWordDone || expired.current) return;
     expired.current = true;
@@ -141,19 +167,7 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, o
         {actions && <div className="flex justify-end">{actions}</div>}
       </div>
 
-      {/* Bottom of the page: words typed on the left, the timer in the center (the chat button floats at the right). Full screen width, not the card's. */}
-      <div className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-3 items-center px-4 text-[1.125rem] md:px-8">
-        <span className={`${statusFrame} justify-self-start`}>
-          Words {Math.min(results.length, targetWords.length)} / {targetWords.length}
-        </span>
-        {isFinished ? (
-          <span className={`${statusFrame} flex items-center gap-2 justify-self-center font-medium`}>
-            <CheckCircle2 className="size-5" /> Finished
-          </span>
-        ) : (
-          <span aria-label="Elapsed time" className={`${statusFrame} justify-self-center`}>{formatDuration(Math.min(seconds, SESSION_TIME_LIMIT_SECONDS))}</span>
-        )}
-      </div>
+      <TypingStatus typed={results.length} total={targetWords.length} seconds={Math.min(seconds, timeLimitSeconds)} finished={isFinished} />
     </>
   );
 };

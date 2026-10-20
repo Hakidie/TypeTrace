@@ -44,3 +44,10 @@ export interface StartSessionInput {
   mode?: SessionMode;
   passageId?: string;
 }
+
+/** One entry of the passage dropdown (`GET /api/passages`): no text. */
+export interface PassageOption {
+  _id: string;
+  title: string;
+  wordCount: number;
+}
