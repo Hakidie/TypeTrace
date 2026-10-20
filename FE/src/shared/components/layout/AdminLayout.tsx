@@ -4,6 +4,8 @@ import { Outlet, useLocation } from 'react-router-dom';
 import type { NavItem } from '@/app/module.types';
 import { AdminSidebar } from '@/shared/components/layout/AdminSidebar';
 import { Button } from '@/shared/components/ui/button';
+import { useSidebarMode } from '@/shared/hooks/use-sidebar-mode';
+import { cn } from '@/shared/lib/utils';
 
 interface AdminLayoutProps {
   navItems: NavItem[];
@@ -16,6 +18,7 @@ interface AdminLayoutProps {
 export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
+  const compact = useSidebarMode().mode === 'compact';
   // Title = label of the nav item for this page (the longest matching path wins, so /admin is not every page).
   const title = navItems
     .filter((item) => pathname === item.to || pathname.startsWith(`${item.to}/`))
@@ -23,10 +26,10 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar: fixed full-height column on large screens */}
-      <aside className="hidden w-60 shrink-0 border-r bg-background lg:block">
+      {/* Sidebar: fixed full-height column on large screens (icons only when compact; the drawer is always full) */}
+      <aside className={cn('hidden shrink-0 border-r bg-background lg:block', compact ? 'w-16' : 'w-60')}>
         <div className="sticky top-0 h-screen">
-          <AdminSidebar navItems={navItems} />
+          <AdminSidebar navItems={navItems} compact={compact} />
         </div>
       </aside>
 
@@ -54,7 +57,7 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
           <Button variant="ghost" size="sm" className="lg:hidden" aria-label="Open menu" onClick={() => setMenuOpen(true)}>
             <Menu className="size-5" />
           </Button>
-          <h1 className="truncate text-xl font-bold">{title}</h1>
+          <h1 className="truncate text-xl font-bold text-muted-foreground">{title}</h1>
         </header>
         <main className="w-full min-w-0 flex-1 p-4">
           <Outlet />

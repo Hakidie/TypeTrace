@@ -72,7 +72,7 @@ describe('AdminUsersPage', () => {
   });
 
   it('shows each user as a card with the typing stats from the backend', async () => {
-    listUsers.mockResolvedValue(page([user('u1', 'lan@example.com', { stats: { wpm: 64, accuracy: 96.4 }, logins: [] }), minh]));
+    listUsers.mockResolvedValue(page([user('u1', 'lan@example.com', { stats: { wpm: 64, accuracy: 96.4 }, sessions: [] }), minh]));
     renderPage();
 
     const cards = await screen.findByLabelText('User cards');

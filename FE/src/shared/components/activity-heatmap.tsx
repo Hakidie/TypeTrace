@@ -28,7 +28,7 @@ interface ActivityHeatmapProps {
   days?: ActivityDay[];
   /** Days before this date count as no activity. */
   since?: string;
-  /** Accessible name, e.g. "Logins in the last 336 days". */
+  /** Accessible name, e.g. "Completed sessions in the last 336 days". */
   label: string;
 }
 

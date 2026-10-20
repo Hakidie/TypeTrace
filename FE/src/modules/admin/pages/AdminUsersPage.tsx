@@ -82,7 +82,7 @@ export const AdminUsersPage = () => {
               key={user._id}
               user={user}
               stats={user.stats}
-              logins={user.logins}
+              sessions={user.sessions}
               status={user.status}
               onEdit={setEditing}
               // Admins cannot be disabled (the backend refuses), but a locked one can always be enabled again.

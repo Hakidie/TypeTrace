@@ -17,7 +17,7 @@ export interface UserTypingStats {
   accuracy: number;
 }
 
-export interface UserLoginDay {
+export interface UserSessionDay {
   /** `YYYY-MM-DD`. */
   date: string;
   sessions: number;
@@ -29,7 +29,7 @@ export interface AdminUser extends CurrentUser {
   status?: UserStatus;
   /** Absent until the user completed a typing session. */
   stats?: UserTypingStats;
-  logins?: UserLoginDay[];
+  sessions?: UserSessionDay[];
 }
 
 export interface AdminUserListParams {
