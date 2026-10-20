@@ -1,14 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { typingApi } from '../api/typing.api';
+import type { SessionMode } from '../types/typing.types';
 
 /** Cache keys. Invalidating `typingKeys.all` refreshes every typing query. */
 export const typingKeys = {
   all: ['typing'] as const,
+  passages: (mode: SessionMode) => [...typingKeys.all, 'passages', mode] as const,
   detail: (id: string) => [...typingKeys.all, 'session', id] as const,
 };
 
 export const useSession = (id: string) =>
   useQuery({ queryKey: typingKeys.detail(id), queryFn: () => typingApi.get(id) });
+
+/** The passages to choose from for a mode. */
+export const usePassageOptions = (mode: SessionMode) =>
+  useQuery({ queryKey: typingKeys.passages(mode), queryFn: () => typingApi.passages(mode) });
 
 // Mutations: no `onError` — the shared query client toasts the backend message.
 

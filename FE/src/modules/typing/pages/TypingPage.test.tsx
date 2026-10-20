@@ -8,12 +8,14 @@ import { TypingPage } from './TypingPage';
 const start = vi.fn();
 const begin = vi.fn();
 const complete = vi.fn();
+const passages = vi.fn();
 
 vi.mock('../api/typing.api', () => ({
   typingApi: {
     start: (input: unknown) => start(input),
     begin: (id: string) => begin(id),
     complete: (id: string, typedWords: string[]) => complete(id, typedWords),
+    passages: (mode: string) => passages(mode),
   },
 }));
 
@@ -32,6 +34,10 @@ beforeEach(() => {
   start.mockReset().mockResolvedValue(session);
   begin.mockReset().mockResolvedValue(session);
   complete.mockReset().mockResolvedValue({ ...session, status: 'completed' });
+  passages.mockReset().mockResolvedValue([
+    { _id: 'p1', title: 'Hà Nội vào thu', wordCount: 40 },
+    { _id: 'p2', title: 'Bữa cơm gia đình', wordCount: 35 },
+  ]);
 });
 
 describe('TypingPage', () => {
@@ -131,28 +137,192 @@ describe('TypingPage', () => {
     expect(screen.getByText('Mùa thu Hà Nội')).toBeInTheDocument();
   });
 
-  it('starts a placement session when the Placement tab is picked', async () => {
+  it('asks first when the Placement tab is picked, and starts the placement session on Start', async () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByRole('textbox', { name: 'Typing area' });
 
     await user.click(screen.getByRole('radio', { name: 'Placement' }));
 
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/all-time average WPM and accuracy/i);
+    expect(start).toHaveBeenCalledTimes(1); // nothing changed yet
+
+    await user.click(within(dialog).getByRole('button', { name: 'Start' }));
+
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
     expect(screen.getByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
-  it('has 1m, 2m and 3m time tabs on the right of the passage name, 3m selected', async () => {
+  it('stays in practice when the placement question is cancelled', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(screen.getByRole('radio', { name: 'Placement' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives the focus back to the typing area after the placement question is cancelled or started', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const area = await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(area).toHaveFocus();
+
+    await user.click(screen.getByRole('radio', { name: 'Placement' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Typing area' })).toHaveFocus());
+
+    await user.click(screen.getByRole('radio', { name: 'Placement' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
+
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Typing area' })).toHaveFocus());
+    await user.keyboard('T');
+    expect(screen.getByRole('textbox', { name: 'Typing area' })).toHaveValue('T');
+  });
+
+  it('lets the learner type in placement mode after picking a specific practice passage first', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p1' }));
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    start.mockImplementation(() => new Promise((resolve) => setTimeout(() => resolve({ ...session, mode: 'placement', _id: 's2' }), 150)));
+    await user.click(screen.getByRole('radio', { name: 'Placement' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Typing area' })).toHaveFocus());
+    await user.keyboard('T');
+    expect(screen.getByRole('textbox', { name: 'Typing area' })).toHaveValue('T');
+  });
+
+  it('goes back to Random when the mode changes after a passage was picked', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).not.toHaveClass('text-primary'));
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(screen.getByRole('radio', { name: 'Placement' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
+    expect(passages).toHaveBeenCalledWith('practice');
+  });
+
+  it('keeps the word count and the clock on screen while a new session loads', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    start.mockImplementation(() => new Promise(() => {}));
+    await user.click(screen.getByRole('button', { name: /restart/i }));
+
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument());
+    expect(screen.getByText(/Words 0 \/ 0/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Elapsed time')).toHaveTextContent('0:00');
+  });
+
+  it('has 10, 20 and 30 second tabs on the right of the passage name, 20 selected, and a button that switches to minutes', async () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByRole('textbox', { name: 'Typing area' });
 
     const time = screen.getByRole('radiogroup', { name: 'Time' });
-    expect(within(time).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['1m', '2m', '3m']);
-    expect(within(time).getByRole('radio', { name: '3m' })).toHaveAttribute('aria-checked', 'true');
+    const unit = screen.getByRole('button', { name: /seconds and minutes/i });
+    expect(within(time).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['10', '20', '30']);
+    expect(unit).toHaveTextContent('Sec');
+    expect(within(time).getByRole('radio', { name: '20' })).toHaveAttribute('aria-checked', 'true');
 
-    await user.click(within(time).getByRole('radio', { name: '1m' }));
+    await user.click(within(time).getByRole('radio', { name: '10' }));
+    expect(within(time).getByRole('radio', { name: '10' })).toHaveAttribute('aria-checked', 'true');
 
-    expect(within(time).getByRole('radio', { name: '1m' })).toHaveAttribute('aria-checked', 'true');
+    await user.click(unit);
+
+    expect(unit).toHaveTextContent('Min');
+    expect(within(time).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['01', '02', '03']);
+    expect(within(time).getByRole('radio', { name: '01' })).toHaveAttribute('aria-checked', 'true');
+
+    await user.click(unit);
+    expect(within(time).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['10', '20', '30']);
+  });
+
+  it('keeps the same session and passage when the time choice changes', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    const time = screen.getByRole('radiogroup', { name: 'Time' });
+
+    await user.click(within(time).getByRole('radio', { name: '10' }));
+    expect(within(time).getByRole('radio', { name: '10' })).toHaveAttribute('aria-checked', 'true');
+
+    await user.click(screen.getByRole('button', { name: /seconds and minutes/i }));
+    expect(within(screen.getByRole('radiogroup', { name: 'Time' })).getByRole('radio', { name: '01' })).toHaveAttribute('aria-checked', 'true');
+
+    expect(screen.getByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the focus in the typing area when the time choice changes, so the learner can go on typing', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const area = await screen.findByRole('textbox', { name: 'Typing area' });
+    await user.type(area, 'Ti');
+
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Time' })).getByRole('radio', { name: '10' }));
+    await user.click(screen.getByRole('button', { name: /seconds and minutes/i }));
+
+    expect(area).toHaveFocus();
+    await user.keyboard('ế');
+    expect(area).toHaveValue('Tiế');
+  });
+
+  it('types the passage picked in the name menu, then goes back to a random one with Random', async () => {
+    const user = userEvent.setup();
+    start.mockResolvedValueOnce({ ...session, passageTitle: 'Bữa cơm gia đình' });
+    renderPage();
+    expect(await screen.findByRole('button', { name: 'Choose passage' })).toHaveTextContent('Bữa cơm gia đình');
+    expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary');
+
+    start.mockResolvedValueOnce({ ...session, passageTitle: 'Hà Nội vào thu' });
+    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
+
+    expect(passages).toHaveBeenCalledWith('practice');
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p1' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveTextContent('Hà Nội vào thu'));
+    expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveClass('text-primary');
+    expect(screen.getByRole('button', { name: 'Random' })).not.toHaveClass('text-primary');
+
+    // Restart keeps the picked passage.
+    await user.click(screen.getByRole('button', { name: /restart/i }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p1' }));
+
+    await user.click(screen.getByRole('button', { name: 'Random' }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: undefined }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
+  });
+
+  it('shows an error in the name menu when the passages cannot be loaded', async () => {
+    const user = userEvent.setup();
+    passages.mockRejectedValue(new Error('boom'));
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Choose passage' }));
+
+    expect(await screen.findByText('Could not load passages')).toBeInTheDocument();
   });
 });

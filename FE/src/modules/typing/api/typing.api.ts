@@ -1,5 +1,5 @@
 import { http } from '@/shared/api/http';
-import type { StartSessionInput, TypingSession } from '../types/typing.types';
+import type { PassageOption, SessionMode, StartSessionInput, TypingSession } from '../types/typing.types';
 
 /** Every function resolves with the response body (not the Axios response). */
 export const typingApi = {
@@ -10,5 +10,8 @@ export const typingApi = {
   /** Sends only the typed words: the server grades them and measures the time itself. */
   complete: (id: string, typedWords: string[]) =>
     http.patch<TypingSession>(`/sessions/${id}/complete`, { typedWords }).then((r) => r.data),
+  /** The passages the learner can choose for a mode (published, public, and their own in practice). */
+  passages: (mode: SessionMode) =>
+    http.get<{ items: PassageOption[] }>('/passages', { params: { mode } }).then((r) => r.data.items),
   abandon: (id: string) => http.patch<TypingSession>(`/sessions/${id}/abandon`).then((r) => r.data),
 };

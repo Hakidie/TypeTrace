@@ -1,6 +1,6 @@
 import type { AppModule } from '@/app/module.types';
-import { HomePage } from './pages/HomePage';
+import { HomeRedirect } from './pages/HomeRedirect';
 
 export const homeModule: AppModule = {
-  routes: [{ path: '/', Component: HomePage }],
+  routes: [{ path: '/', Component: HomeRedirect }],
 };
