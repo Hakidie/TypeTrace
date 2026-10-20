@@ -35,11 +35,11 @@ interface ListToolbarProps {
   actions?: ReactNode;
 }
 
-// Same look as an outline `Button`; the dropdown trigger is itself a button, so it cannot wrap one.
-const controlClass = 'inline-flex h-10 items-center gap-2 whitespace-nowrap border border-transparent bg-background px-4 text-base font-medium text-muted-foreground';
+// A 2px line in the page background color on the left of each control splits the toolbar into parts. Same look as an outline `Button`; the dropdown trigger is itself a button, so it cannot wrap one.
+const controlClass = 'inline-flex h-10 items-center gap-2 whitespace-nowrap border-l-2 border-background bg-transparent px-4 text-base font-medium text-muted-foreground';
 const buttonClass = cn(controlClass, 'transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring');
 // Like the tag badges: filled with the theme red-orange while the button holds a non-default choice.
-const activeClass = 'border-transparent bg-primary text-primary-foreground hover:bg-primary hover:opacity-90';
+const activeClass = 'bg-primary text-primary-foreground hover:bg-primary hover:opacity-90';
 
 const MenuOption = ({ selected, onSelect, children }: { selected: boolean; onSelect: () => void; children: ReactNode }) => (
   <DropdownMenuItem role="menuitemradio" aria-checked={selected} className="gap-2" onClick={onSelect}>
@@ -66,9 +66,9 @@ export const ListToolbar = ({ search, sort, filters = [], summary, actions }: Li
   const sortChanged = sort !== undefined && sort.value !== sort.options[0]?.value;
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      {search && <SearchInput {...search} searchOn="enter" className="sm:max-w-none sm:flex-1 [&_input]:border-transparent" />}
-      <div className="flex flex-wrap items-center gap-3 sm:ml-auto sm:justify-end">
+    <div className="flex flex-col bg-primary/15 sm:flex-row sm:items-center">
+      {search && <SearchInput {...search} searchOn="enter" className="sm:max-w-none sm:flex-1 [&_input]:border-transparent [&_input]:bg-transparent" />}
+      <div className="flex flex-wrap items-center sm:ml-auto sm:justify-end">
         {summary && <p className={controlClass}>{summary}</p>}
         {sort && (
           <DropdownMenu>
@@ -114,7 +114,7 @@ export const ListToolbar = ({ search, sort, filters = [], summary, actions }: Li
           </DropdownMenu>
         )}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 items-center gap-2 border-l-2 border-background px-3">{actions}</div>}
     </div>
   );
 };

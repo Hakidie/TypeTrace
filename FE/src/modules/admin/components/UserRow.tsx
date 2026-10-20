@@ -5,11 +5,12 @@ import { ListRow, ListRowMenu } from '@/shared/components/list-row';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Badge } from '@/shared/components/ui/badge';
 import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
+import { currentStreak } from '@/shared/lib/streak';
 import type { UserSessionDay, UserStatus, UserTypingStats } from '../types/admin.types';
 
 interface UserRowProps {
   user: CurrentUser;
-  /** Average speed and accuracy. Shown as "—" until the backend sends them. */
+  /** Average speed and accuracy. Shown as "0000" and "000%" until the backend sends them. */
   stats?: UserTypingStats;
   /** Sessions per day. Without it the heatmap stays empty. */
   sessions?: UserSessionDay[];
@@ -24,9 +25,9 @@ interface UserRowProps {
 }
 
 const Stat = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-baseline justify-between gap-3">
-    <span className="text-sm font-semibold tracking-widest text-primary/70">{label}</span>
-    <span className="text-lg font-black leading-none text-primary">{value}</span>
+  <div className="flex h-[61px] flex-col text-right">
+    <span className="text-base font-semibold leading-none tracking-widest text-primary/70">{label}</span>
+    <span className="flex flex-1 items-end justify-end text-3xl font-black leading-none text-primary">{value}</span>
   </div>
 );
 
@@ -43,18 +44,19 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
             <AvatarFallback className="bg-primary/25 text-xl font-black text-primary">{name.slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <p className="truncate text-xl font-extrabold text-primary/80">{name}</p>
-            <p className="truncate text-base text-muted-foreground">{user.email}</p>
+            <p className="truncate text-2xl font-extrabold text-primary/80">{name}</p>
+            <p className="truncate text-lg text-muted-foreground">{user.email}</p>
           </div>
         </div>
       }
-      center={
-        <div className="space-y-1">
-          <Stat label="WPM" value={stats ? String(Math.round(stats.wpm)) : '—'} />
-          <Stat label="ACC" value={stats ? `${stats.accuracy.toFixed(1)}%` : '—'} />
+      center={<ActivityHeatmap days={sessions} since={user.createdAt} label={`Completed sessions in the last ${HEATMAP_DAYS} days`} />}
+      extra={
+        <div className="flex w-full justify-between gap-4 xl:w-72">
+          <Stat label="STREAK" value={sessions ? `${String(currentStreak(sessions)).padStart(3, '0')}D` : '—'} />
+          <Stat label="ACC" value={stats ? `${stats.accuracy.toFixed(1)}%` : '000%'} />
+          <Stat label="WPM" value={stats ? String(Math.round(stats.wpm)) : '0000'} />
         </div>
       }
-      extra={<ActivityHeatmap days={sessions} since={user.createdAt} label={`Completed sessions in the last ${HEATMAP_DAYS} days`} />}
       action={
         <ListRowMenu label={`Actions for ${user.email}`}>
           {onEdit && (

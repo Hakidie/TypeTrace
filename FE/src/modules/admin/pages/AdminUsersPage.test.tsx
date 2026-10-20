@@ -78,7 +78,10 @@ describe('AdminUsersPage', () => {
     const cards = await screen.findByLabelText('User cards');
     expect(within(cards).getByText('64')).toBeInTheDocument();
     expect(within(cards).getByText('96.4%')).toBeInTheDocument();
-    expect(within(cards).getAllByText('—')).toHaveLength(2);
+    expect(within(cards).getByText('000D')).toBeInTheDocument();
+    expect(within(cards).getByText('0000')).toBeInTheDocument();
+    expect(within(cards).getByText('000%')).toBeInTheDocument();
+    expect(within(cards).getAllByText('—')).toHaveLength(1);
   });
 
   it('edits a user from the kebab menu of the card', async () => {

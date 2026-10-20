@@ -150,6 +150,11 @@ describe('TypingArea composition', () => {
 });
 
 describe('TypingArea layout', () => {
+  it('shows only 3 lines of the passage (3 x 44px and 2 gaps of 8px)', () => {
+    render(<TypingArea targetWords={words} onFinish={vi.fn()} />);
+    expect(passage()).toHaveStyle({ height: '148px' });
+  });
+
   it('shows the actions, the word count and the timer outside of the card', () => {
     render(<TypingArea targetWords={words} onFinish={vi.fn()} actions={<button>Restart</button>} />);
 
