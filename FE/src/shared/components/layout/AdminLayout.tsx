@@ -2,6 +2,7 @@ import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import type { NavItem } from '@/app/module.types';
+import { useThemeSync } from '@/modules/settings/hooks/use-theme-mode';
 import { AdminSidebar } from '@/shared/components/layout/AdminSidebar';
 import { Button } from '@/shared/components/ui/button';
 import { useSidebarMode } from '@/shared/hooks/use-sidebar-mode';
@@ -17,6 +18,7 @@ interface AdminLayoutProps {
  */
 export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  useThemeSync();
   const { pathname } = useLocation();
   const compact = useSidebarMode().mode === 'compact';
   // Title = label of the nav item for this page (the longest matching path wins, so /admin is not every page).

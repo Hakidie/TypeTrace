@@ -8,7 +8,7 @@ interface BrandHeaderProps {
   to?: string;
   /** Navigation shown in the center of the header. */
   nav?: ReactNode;
-  /** Show the theme toggle (default). The signed-in layout hides it: Theme is in the user menu. */
+  /** Show the theme toggle (default). The signed-in layout hides it: Mode is in the user menu. */
   themeToggle?: boolean;
   /** Extra controls shown on the right, after the theme toggle (e.g. Logout and the avatar). */
   children?: ReactNode;

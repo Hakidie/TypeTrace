@@ -10,7 +10,8 @@
     "test:watch": "vitest",
     "seed": "tsx src/scripts/seed.ts",
     "import:words": "tsx src/scripts/import-words.ts",
-    "import:passages": "tsx src/scripts/import-passages.ts"
+    "import:passages": "tsx src/scripts/import-passages.ts",
+    "import:themes": "tsx src/scripts/import-themes.ts"
   },
   "keywords": [],
   "author": "",

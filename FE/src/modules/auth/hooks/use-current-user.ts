@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { themeDraftStore } from '@/modules/settings/store/theme-draft.store';
+import { clearAppliedTheme } from '@/shared/lib/theme';
 import { authApi } from '../api/auth.api';
 import { tokenStore } from '../store/token.store';
 import type { CurrentUser } from '../types/auth.types';
@@ -30,6 +32,8 @@ export const useLogout = () => {
   return useCallback(() => {
     tokenStore.clear();
     queryClient.clear();
+    themeDraftStore.clear();
+    clearAppliedTheme();
     navigate('/login', { replace: true });
   }, [queryClient, navigate]);
 };

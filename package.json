@@ -8,6 +8,7 @@
     "seed": "npm run seed --prefix BE",
     "import:words": "npm run import:words --prefix BE",
     "import:passages": "npm run import:passages --prefix BE",
+    "import:themes": "npm run import:themes --prefix BE",
     "test": "npm test --prefix BE && npm test --prefix FE",
     "lint": "npm run lint --prefix FE",
     "build": "npm run build --prefix BE && npm run build --prefix FE",

@@ -1,7 +1,8 @@
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
+import type { Theme, ThemeInput } from '@/modules/settings/types/theme.types';
 import { http } from '@/shared/api/http';
 import type { Paginated } from '@/shared/api/types';
-import type { AdminStats, AdminUpdateUserInput, AdminUser, AdminUserListParams, UserStatus } from '../types/admin.types';
+import type { AdminStats, AdminThemeInput, AdminThemeListParams, AdminUpdateUserInput, AdminUser, AdminUserListParams, UserStatus } from '../types/admin.types';
 
 /** Drops empty values so the URL stays clean (`?role=` is never sent). */
 const cleanParams = (params: object) =>
@@ -19,4 +20,9 @@ export const adminApi = {
   deleteUser: (id: string) => http.delete(`/admin/users/${id}`).then(() => undefined),
   bulkDeleteUsers: (ids: string[]) =>
     http.post<{ deleted: number }>('/admin/users/bulk-delete', { ids }).then((r) => r.data),
+  listThemes: (params: AdminThemeListParams = {}) =>
+    http.get<Paginated<Theme>>('/admin/themes', { params: cleanParams(params) }).then((r) => r.data),
+  createTheme: (input: AdminThemeInput) => http.post<Theme>('/admin/themes', input).then((r) => r.data),
+  updateTheme: (id: string, input: Partial<ThemeInput>) => http.patch<Theme>(`/admin/themes/${id}`, input).then((r) => r.data),
+  deleteTheme: (id: string) => http.delete(`/admin/themes/${id}`).then(() => undefined),
 };

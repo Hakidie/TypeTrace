@@ -1,4 +1,6 @@
 import type { CurrentUser, UserRole } from '@/modules/auth/types/auth.types';
+import type { ThemeInput } from '@/modules/settings/types/theme.types';
+import type { ThemeMode } from '@/shared/lib/theme';
 
 export interface AdminStats {
   users: number;
@@ -47,4 +49,18 @@ export interface AdminUpdateUserInput {
   role?: UserRole;
   isEmailVerified?: boolean;
   loginOtpEnabled?: boolean;
+}
+
+export interface AdminThemeListParams {
+  page?: number;
+  limit?: number;
+  q?: string;
+  /** `'true'` = dark themes, `'false'` = light themes, `''` = both. */
+  isDark?: 'true' | 'false' | '';
+  sort?: string;
+}
+
+/** A new TypeTrace theme: the name and colors of any theme, plus the mode it is for. */
+export interface AdminThemeInput extends ThemeInput {
+  mode: ThemeMode;
 }

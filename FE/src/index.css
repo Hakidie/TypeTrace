@@ -34,60 +34,76 @@
   --color-sidebar-border: var(--sidebar-border);
 }
 
-/* Light theme (default) */
+/*
+ * Every theme is 4 colors: --theme-background, --theme-text, --theme-muted, --theme-accent.
+ * All the other tokens (card, border, sidebar, ...) are derived from them with color-mix,
+ * so a custom theme only has to override these 4 variables on <html>.
+ */
+
+/* Light mode with no theme chosen: Sand. */
 :root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(222 47% 11%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(222 47% 11%);
-  --primary: hsl(0 70% 45%);
-  --primary-foreground: hsl(0 0% 100%);
-  --muted: hsl(210 40% 96%);
-  --muted-foreground: hsl(215 16% 47%);
-  --border: hsl(214 32% 91%);
-  --input: hsl(214 32% 91%);
-  --ring: hsl(0 70% 45%);
-  --destructive: hsl(0 84% 60%);
-  --destructive-foreground: hsl(0 0% 100%);
-  --accent: hsl(210 40% 96%);
-  --accent-foreground: hsl(222 47% 11%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(222 47% 11%);
-  --secondary: hsl(210 40% 96%);
-  --secondary-foreground: hsl(222 47% 11%);
-  --sidebar: hsl(0 0% 98%);
-  --sidebar-foreground: hsl(222 47% 11%);
-  --sidebar-accent: hsl(210 40% 96%);
-  --sidebar-accent-foreground: hsl(222 47% 11%);
-  --sidebar-border: hsl(214 32% 91%);
+  --theme-background: #f4ead8;
+  --theme-text: #3a2f20;
+  --theme-muted: #8a7358;
+  --theme-accent: #b4631a;
+
+  --background: var(--theme-background);
+  --foreground: var(--theme-text);
+  --card: var(--theme-background);
+  --card-foreground: var(--theme-text);
+  --primary: var(--theme-accent);
+  --primary-foreground: var(--theme-background);
+  --muted: color-mix(in srgb, var(--theme-background) 96%, var(--theme-text));
+  --muted-foreground: var(--theme-muted);
+  --border: color-mix(in srgb, var(--theme-background) 90%, var(--theme-text));
+  --input: var(--border);
+  --ring: var(--theme-accent);
+  --destructive: var(--theme-accent);
+  --destructive-foreground: var(--theme-background);
+  --accent: var(--muted);
+  --accent-foreground: var(--theme-text);
+  --popover: var(--theme-background);
+  --popover-foreground: var(--theme-text);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--theme-text);
+  --sidebar: color-mix(in srgb, var(--theme-background) 98%, var(--theme-text));
+  --sidebar-foreground: var(--theme-text);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--theme-text);
+  --sidebar-border: var(--border);
 }
 
-/* Dark theme: the blood-red palette of the login pages (near-black red page, dark maroon cards, red accents). */
+/* Dark mode with no theme chosen: Blood red, the palette of the login pages (near-black red page, dark maroon cards, red accents). */
 .dark {
-  --background: #140606;
-  --foreground: #e6d2d2;
-  --card: #341414;
-  --card-foreground: #e6d2d2;
-  --primary: #b01e1e;
-  --primary-foreground: #f3dcdc;
-  --muted: #2a1010;
-  --muted-foreground: #a87878;
-  --border: #3a1616;
-  --input: #341414;
-  --ring: #b01e1e;
-  --destructive: #b01e1e;
-  --destructive-foreground: #f3dcdc;
-  --accent: #2a1010;
-  --accent-foreground: #e6d2d2;
-  --popover: #341414;
-  --popover-foreground: #e6d2d2;
-  --secondary: #2a1010;
-  --secondary-foreground: #e6d2d2;
-  --sidebar: #100505;
-  --sidebar-foreground: #e6d2d2;
-  --sidebar-accent: #2a1010;
-  --sidebar-accent-foreground: #e6d2d2;
-  --sidebar-border: #3a1616;
+  --theme-background: #140606;
+  --theme-text: #e6d2d2;
+  --theme-muted: #a87878;
+  --theme-accent: #b82121;
+
+  --background: var(--theme-background);
+  --foreground: var(--theme-text);
+  --card: color-mix(in srgb, color-mix(in srgb, var(--theme-background) 88%, var(--theme-accent)) 95%, var(--theme-text));
+  --card-foreground: var(--theme-text);
+  --primary: var(--theme-accent);
+  --primary-foreground: color-mix(in srgb, var(--theme-text) 85%, white);
+  --muted: color-mix(in srgb, var(--theme-background) 86%, var(--theme-accent));
+  --muted-foreground: var(--theme-muted);
+  --border: color-mix(in srgb, var(--theme-background) 74%, var(--theme-accent));
+  --input: var(--card);
+  --ring: var(--theme-accent);
+  --destructive: var(--theme-accent);
+  --destructive-foreground: var(--primary-foreground);
+  --accent: var(--muted);
+  --accent-foreground: var(--theme-text);
+  --popover: var(--card);
+  --popover-foreground: var(--theme-text);
+  --secondary: var(--muted);
+  --secondary-foreground: var(--theme-text);
+  --sidebar: color-mix(in srgb, var(--theme-background) 80%, black);
+  --sidebar-foreground: var(--theme-text);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--theme-text);
+  --sidebar-border: var(--border);
 }
 
 /* In the base layer so `border-*` color classes (border-input, border-transparent, ...) can override it. */

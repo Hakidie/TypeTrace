@@ -1,4 +1,4 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema, Types } from 'mongoose';
 
 export const USER_ROLES = ['user', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -26,6 +26,12 @@ export interface UserDocument extends mongoose.Document {
   avatarUrl?: string;
   avatarPublicId?: string;
   phone?: string;
+  /** The mode in use and the theme chosen for each mode (`null` = the built-in fallback of that mode). */
+  settings: {
+    mode: 'dark' | 'light';
+    darkTheme: Types.ObjectId | null;
+    lightTheme: Types.ObjectId | null;
+  };
 }
 
 /** Fields that must never leave the server. Stripped from every JSON response. */
@@ -55,7 +61,18 @@ const userSchema = new Schema<UserDocument>(
     bio: { type: String, maxlength: 200 },
     avatarUrl: { type: String },
     avatarPublicId: { type: String },
-    phone: { type: String, trim: true }
+    phone: { type: String, trim: true },
+    settings: {
+      type: new Schema(
+        {
+          mode: { type: String, enum: ['dark', 'light'], default: 'dark' },
+          darkTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null },
+          lightTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null }
+        },
+        { _id: false }
+      ),
+      default: () => ({})
+    }
   },
   {
     timestamps: true,

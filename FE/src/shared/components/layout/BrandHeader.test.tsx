@@ -11,7 +11,7 @@ describe('BrandHeader', () => {
     expect(screen.getByRole('button', { name: 'Extra' })).toBeInTheDocument();
   });
 
-  it('puts the navigation in the center and the controls on the right, after the theme toggle', () => {
+  it('puts the navigation in the center and the controls on the right, after the mode toggle', () => {
     renderWithProviders(
       <BrandHeader nav={<nav aria-label="Main">links</nav>}>
         <button>Extra</button>
@@ -24,8 +24,8 @@ describe('BrandHeader', () => {
     expect(right.lastElementChild).toBe(screen.getByRole('button', { name: 'Extra' }));
   });
 
-  it('can hide the theme toggle', () => {
+  it('can hide the mode toggle', () => {
     renderWithProviders(<BrandHeader themeToggle={false}>x</BrandHeader>);
-    expect(screen.queryByRole('button', { name: /Switch theme/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Switch mode/ })).not.toBeInTheDocument();
   });
 });

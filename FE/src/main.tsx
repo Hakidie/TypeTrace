@@ -6,9 +6,9 @@ import './index.css';
 import App from './App';
 import { queryClient } from '@/shared/api/query-client';
 import { Toaster } from '@/shared/components/ui/sonner';
-import { applyTheme, getTheme } from '@/shared/lib/utils';
+import { applyStoredTheme } from '@/shared/lib/theme';
 
-applyTheme(getTheme());
+applyStoredTheme();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
