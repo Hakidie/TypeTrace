@@ -13,6 +13,7 @@ import { noteRouter } from './routes/note.route';
 import { passageRouter } from './routes/passage.route';
 import { placementRouter } from './routes/placement.route';
 import { profileRouter } from './routes/profile.route';
+import { themeRouter } from './routes/theme.route';
 import { typingSessionRouter } from './routes/typing-session.route';
 
 export const app = express();
@@ -51,5 +52,6 @@ app.use('/api/notes', noteRouter);
 app.use('/api/sessions', typingSessionRouter);
 app.use('/api/placement', placementRouter);
 app.use('/api/passages', passageRouter);
+app.use('/api/themes', themeRouter);
 app.use(notFoundHandler);
 app.use(errorMiddleware);
