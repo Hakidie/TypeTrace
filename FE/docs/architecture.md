@@ -20,7 +20,7 @@ Code is organized by **feature module**, not by file type. Each module is self-c
 
 ```
 src/
-├── main.tsx                 # QueryClientProvider + BrowserRouter + App + Toaster; applyTheme()
+├── main.tsx                 # QueryClientProvider + BrowserRouter + App + Toaster; applyStoredTheme()
 ├── App.tsx                  # auth routes + protected shell; feature routes come from app/modules.ts
 ├── app/
 │   ├── module.types.ts      # AppModule, ModuleRoute, NavItem
@@ -35,7 +35,7 @@ src/
 │   ├── home/                # home.module.ts: `/` redirects to `/typing` (pages/HomeRedirect)
 │   ├── notes/               # REFERENCE MODULE: api/, hooks/, components/, pages/, types/, notes.module.ts
 │   ├── passages/            # admin passage bank (/admin/passages): passages.module.ts, api/ (GET/POST /api/admin/passages, backend is SCRUM-90), hooks/use-passages.ts, components/ (PassageForm, PassageCard), pages/AdminPassagesPage (a "New passage" Panel and a "Passages" Panel with a 3-column card grid)
-│   ├── settings/            # admin settings: settings.module.ts (adminRoutes + adminNavItems "Settings"), pages/AdminSettingsPage (/admin/settings)
+│   ├── settings/            # /settings (SettingsPage: Light/Dark mode tabs, the themes of the mode in use in one grid (the built-in palette, TypeTrace themes, then the user's own), a "+ Custom theme" last card that turns into a live editor `ThemeEditor`, Edit and Delete buttons on hover for the user's own themes only (delete asks for confirmation); data from `hooks/use-themes.ts`: `GET/POST/PATCH/DELETE /api/themes`, `GET/PATCH /api/themes/active`) and /admin/settings (AdminSettingsPage: mode tabs and the compact sidebar); `lib/theme-rules.ts` has the rules a theme must meet (same as `BE/src/utils/theme-colors.ts`: keep them in sync); `hooks/use-theme-mode.ts` has `useThemeMode` (Light/Dark, used by the user menu, the header toggle and the tabs) and `useThemeSync` (mounted by `AppLayout` and `AdminLayout`: applies the signed-in user's mode and chosen theme)
 │   ├── typing/              # /typing (TypingPage, TypingArea; the Placement tab asks for confirmation in a modal first, then opens `?mode=placement`) and /typing/result/:id: a session is started when the page opens (no start button; `?mode=placement` types the placement passage), the passage name is a menu (`usePassageOptions`, `GET /api/passages?mode=`) to pick a specific passage, the Random button goes back to a random one, and Restart / time up keep the pick (switching the mode resets it to Random); the timer starts at the first key (`PATCH /api/sessions/:id/begin`) and a session ends at 3:00 (`SESSION_TIME_LIMIT_SECONDS`), sending the words finished so far (nothing finished = a new session starts) and the backend grades it (/api/sessions); the page uses the login/register look (`shared/lib/red-glass-theme.ts`, also used by `AuthLayout`) and shows only the passage: an invisible textarea sits over it and the typed text appears in the passage (grey = not reached, white = typed or right, red = wrong word after the space); TypingArea grades only committed IME text with classifyWord (shared/lib/vietnamese-errors.ts)
 │   └── profile/             # profile.module.ts, api/, components/ (AvatarUpload, ProfileEditForm, SecuritySettings), pages/
 ├── shared/
@@ -46,7 +46,7 @@ src/
 │   │   ├── layout/          # AppLayout (BrandHeader with the navigation and the avatar `UserMenu` with Theme and Logout, BrandFooter, module widgets), AdminLayout (AdminSidebar with its own logo header and Logout footer, no BrandHeader/BrandFooter, /admin)
 │   │   └── ui/              # shadcn/ui primitives (button, input, dialog, switch, ...)
 │   ├── hooks/               # use-debounce, use-pagination
-│   └── lib/                 # utils.ts (cn(), theme helpers), vietnamese-errors.ts (classifyWord, tagWord: per-word error types; pure TS so it can be copied to the BE)
+│   └── lib/                 # utils.ts (cn()), theme.ts (the 4 theme colors, the Blood red and Sand fallbacks, paint/apply/remember the theme in `localStorage`), vietnamese-errors.ts (classifyWord, tagWord: per-word error types; pure TS so it can be copied to the BE)
 └── test/                    # setup.ts, render-with-providers.tsx
 ```
 
@@ -206,4 +206,7 @@ A list of people or items in the red card look uses `ListRow` (slots `identity`,
 
 ## Design
 
-Every page uses the TypeTrace look of the login pages: `BrandHeader` and `BrandFooter` (`AppLayout` includes them; `AdminLayout` does not: its `AdminSidebar` has its own logo header and Logout footer), the blood-red palette defined once in `src/index.css` (dark: near-black red page, maroon cards, red accents; light: white with a red `primary`), and square corners. New features get this for free by using theme tokens (`bg-card`, `text-primary`, `bg-destructive`, ...). Never add other accent colors or raw hex values in components. A page that wants the translucent red glass card (login, register, typing) puts `redGlassTheme` on its wrapper and `redGlassCard` on the wrapper of the card (`src/shared/lib/red-glass-theme.ts`).
+Every page uses the TypeTrace look of the login pages: `BrandHeader` and `BrandFooter` (`AppLayout` includes them; `AdminLayout` does not: its `AdminSidebar` has its own logo header and Logout footer), the palette defined once in `src/index.css` (dark = Blood red: near-black red page, maroon cards, red accents; light = Sand: warm paper with an orange `primary`; every theme is 4 colors, the other tokens are derived from them), and square corners. New features get this for free by using theme tokens (`bg-card`, `text-primary`, `bg-destructive`, ...). Never add other accent colors or raw hex values in components. A page that wants the translucent red glass card (login, register, typing) puts `redGlassTheme` on its wrapper and `redGlassCard` on the wrapper of the card (`src/shared/lib/red-glass-theme.ts`).
+
+## Themes (SCRUM-163)
+The look is 4 colors: `--theme-background`, `--theme-text`, `--theme-muted`, `--theme-accent` (`src/index.css` derives every other token from them). The app is always in one mode, Light or Dark (the `dark` class on `<html>`; there is no System mode). With no theme chosen a mode shows its built-in palette: Blood red (dark) or Sand (light). A chosen theme sets the 4 variables inline on `<html>`. The user has one chosen theme per mode (`GET/PATCH /api/themes/active`); `useThemeSync` applies it after login and the last applied colors are remembered in `localStorage` (`applyStoredTheme()` in `main.tsx`) so the first paint is right. Logout forgets the colors. The settings page only shows the themes of the mode in use, and switching the mode while the editor is open closes it. A new theme must fit the mode (dark or light background) and be readable (text 4.5, muted text 3, accent 3 contrast against the background); at most 9 own themes. Theme colors are raw hex because users choose them: this is the one exception to "no raw hex colors".

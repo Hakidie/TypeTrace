@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { Home, Shield } from 'lucide-react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { tokenStore } from '@/modules/auth/store/token.store';
@@ -6,9 +6,15 @@ import { renderWithProviders } from '@/test/render-with-providers';
 import { AppLayout } from './AppLayout';
 
 const getMe = vi.fn();
+const getActive = vi.fn();
+const updateActive = vi.fn();
 
 vi.mock('@/modules/auth/api/auth.api', () => ({
   authApi: { getMe: () => getMe() },
+}));
+
+vi.mock('@/modules/settings/api/themes.api', () => ({
+  themesApi: { getActive: () => getActive(), updateActive: (input: unknown) => updateActive(input) },
 }));
 
 const navItems = [
@@ -25,6 +31,10 @@ const renderLayout = () =>
 beforeEach(() => {
   tokenStore.set('jwt-value');
   getMe.mockReset();
+  getActive.mockReset();
+  updateActive.mockReset();
+  getActive.mockResolvedValue({ mode: 'dark', dark: null, light: null });
+  updateActive.mockResolvedValue({ mode: 'light', dark: null, light: null });
 });
 
 describe('AppLayout', () => {
@@ -70,7 +80,7 @@ describe('AppLayout', () => {
     expect(await screen.findByText('floating widget')).toBeInTheDocument();
   });
 
-  it('opens the account menu from the avatar button with Theme and Logout', async () => {
+  it('opens the account menu from the avatar button with Mode and Logout', async () => {
     getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
     renderLayout();
     await screen.findByText('A@');
@@ -78,20 +88,27 @@ describe('AppLayout', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
 
-    expect(screen.getByRole('menuitem', { name: /Theme:/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /Mode:/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /logout/i })).toBeInTheDocument();
   });
 
-  it('changes the theme from the account menu', async () => {
-    localStorage.setItem('theme', 'light');
+  it('switches the mode from the account menu and saves it', async () => {
+    getActive.mockResolvedValue({ mode: 'light', dark: null, light: null });
+    // Like the server: the next read answers with the saved mode.
+    updateActive.mockImplementation(async ({ mode }: { mode: string }) => {
+      getActive.mockResolvedValue({ mode, dark: null, light: null });
+      return { mode, dark: null, light: null };
+    });
     getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
     renderLayout();
     fireEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Theme: Light' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Mode: Light' }));
 
+    await waitFor(() => expect(updateActive).toHaveBeenCalledWith({ mode: 'dark' }));
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
-    expect(screen.getByRole('menuitem', { name: 'Theme: Dark' })).toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Mode: Dark' })).toBeInTheDocument();
+    expect(document.documentElement).toHaveClass('dark');
   });
 
   it('logs out from the account menu', async () => {

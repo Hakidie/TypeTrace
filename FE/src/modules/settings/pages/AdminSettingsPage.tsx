@@ -12,11 +12,11 @@ export const AdminSettingsPage = () => {
   return (
     <div className="space-y-6">
       <Panel title="Appearance" bare titleClassName={panelTitleClass} className={cn(panelBodyClass, 'space-y-4')}>
-        {/* Theme: light, dark or follow the system. Saved in the browser and applied at once. */}
+        {/* Mode: light or dark. Saved on the account and applied at once. */}
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xl font-medium">Theme</p>
-            <p className="text-lg text-muted-foreground">Switch between light, dark and system colors.</p>
+            <p className="text-lg text-muted-foreground">Switch between light and dark.</p>
           </div>
           <ThemeTabs />
         </div>

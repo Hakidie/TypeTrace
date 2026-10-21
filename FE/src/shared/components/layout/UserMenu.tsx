@@ -1,30 +1,16 @@
-import { useState } from 'react';
-import { LogOut, Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
+import { LogOut, Moon, Sun } from 'lucide-react';
 import { useLogout } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
-import { getTheme, setTheme, type Theme } from '@/shared/lib/utils';
+import { useThemeMode } from '@/modules/settings/hooks/use-theme-mode';
 
-const themes: { value: Theme; label: string; icon: LucideIcon }[] = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
-];
-
-/** The avatar as a button: it opens a menu with Theme (each press goes to the next theme) and Logout. */
+/** The avatar as a button: it opens a menu with Mode (each press switches between Light and Dark) and Logout. */
 export const UserMenu = ({ user }: { user?: CurrentUser }) => {
   const handleLogout = useLogout();
-  const [current, setCurrent] = useState<Theme>(getTheme);
+  const { mode, setMode } = useThemeMode();
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? '??';
-  const index = themes.findIndex((theme) => theme.value === current);
-  const { label, icon: ThemeIcon } = themes[index];
-
-  const cycleTheme = () => {
-    const next = themes[(index + 1) % themes.length].value;
-    setTheme(next);
-    setCurrent(next);
-  };
+  const ModeIcon = mode === 'dark' ? Moon : Sun;
 
   return (
     <DropdownMenu>
@@ -35,9 +21,9 @@ export const UserMenu = ({ user }: { user?: CurrentUser }) => {
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
-        <DropdownMenuItem onClick={cycleTheme} className="gap-2">
-          <ThemeIcon className="size-4" />
-          Theme: {label}
+        <DropdownMenuItem onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')} className="gap-2">
+          <ModeIcon className="size-4" />
+          Mode: {mode === 'dark' ? 'Dark' : 'Light'}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="gap-2">

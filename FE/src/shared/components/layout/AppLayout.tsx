@@ -5,6 +5,7 @@ import { BrandFooter } from '@/shared/components/layout/BrandFooter';
 import { BrandHeader } from '@/shared/components/layout/BrandHeader';
 import { UserMenu } from '@/shared/components/layout/UserMenu';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
+import { useThemeSync } from '@/modules/settings/hooks/use-theme-mode';
 import { cn } from '@/shared/lib/utils';
 
 interface AppLayoutProps {
@@ -17,13 +18,14 @@ export const AppLayout = ({ navItems: allNavItems, widgets = [] }: AppLayoutProp
   // An expired or rejected token answers 401, which the http interceptor turns
   // into a redirect to /logout. Other failures (server down) keep the user signed in.
   const { data: user } = useCurrentUser();
+  useThemeSync();
   const location = useLocation();
 
   const navItems = allNavItems.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-background">
-      {/* The same header and footer as the login pages: logo, navigation in the center, then the user menu (Theme, Logout). */}
+      {/* The same header and footer as the login pages: logo, navigation in the center, then the user menu (Mode, Logout). */}
       <div className="sticky top-0 z-50 bg-background/75 backdrop-blur-xs">
         <BrandHeader
           themeToggle={false}
