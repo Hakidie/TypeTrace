@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Panel } from '@/shared/components/panel';
 import { panelTitleClass } from '@/shared/lib/panel-styles';
-import { fallbackThemes, paintTheme, readCurrentColors } from '@/shared/lib/theme';
+import { fallbackThemes, readCurrentColors } from '@/shared/lib/theme';
 import { AddThemeCard } from '../components/AddThemeCard';
 import { ThemeEditor } from '../components/ThemeEditor';
 import { ThemeGrid, type ThemeOption } from '../components/ThemeGrid';
 import { ThemeTabs } from '../components/ThemeTabs';
-import { appliedColors, useThemeMode } from '../hooks/use-theme-mode';
+import { useThemeMode } from '../hooks/use-theme-mode';
 import { useActiveThemes, useChooseTheme, useCreateTheme, useDeleteTheme, useThemes, useUpdateTheme } from '../hooks/use-themes';
 import { maxThemes } from '../lib/theme-rules';
+import { themeDraftStore, useThemeDraft } from '../store/theme-draft.store';
+import type { ThemeColors } from '@/shared/lib/theme';
 import type { Theme } from '../types/theme.types';
 
 /** The id of the card for the built-in palette of the mode (Blood red or Sand): choosing it means "no theme". */
@@ -28,16 +30,17 @@ export const SettingsPage = () => {
   const update = useUpdateTheme();
   const remove = useDeleteTheme();
 
-  /** The editor in the grid: `'new'` for a new theme, the id of a theme being edited, or nothing. */
-  const [editing, setEditing] = useState<string | null>(null);
+  // The editor in the grid is the unsaved draft (kept while moving between pages): `'new'` for a new theme, the id of a theme being edited, or nothing.
+  const draft = useThemeDraft();
+  const editing = draft && draft.mode === mode ? draft.editingId : null;
   const [deleting, setDeleting] = useState<ThemeOption | null>(null);
 
-  // Switching the mode (here or in the header) closes the editor: its colors were made for the other mode.
-  const [seenMode, setSeenMode] = useState(mode);
-  if (seenMode !== mode) {
-    setSeenMode(mode);
-    setEditing(null);
-  }
+  // A draft is dropped when its theme is gone, or when it was made for the other mode.
+  useEffect(() => {
+    if (!draft) return;
+    const gone = draft.editingId !== 'new' && themes.data && !themes.data.some((theme) => theme._id === draft.editingId);
+    if (draft.mode !== mode || gone) themeDraftStore.clear();
+  }, [draft, mode, themes.data]);
 
   const error = active.error ?? themes.error;
   if (error) return <ErrorState error={error} onRetry={() => { void active.refetch(); void themes.refetch(); }} />;
@@ -58,18 +61,14 @@ export const SettingsPage = () => {
     create.mutate(input, {
       onSuccess: (theme) => {
         choose.mutate({ mode, theme });
-        setEditing(null);
+        themeDraftStore.clear();
       },
     });
 
   const saveTheme = (id: string, input: Parameters<typeof create.mutate>[0]) =>
-    update.mutate({ id, input }, { onSuccess: () => setEditing(null) });
+    update.mutate({ id, input }, { onSuccess: themeDraftStore.clear });
 
-  /** Closing without saving puts the theme that was in use back. */
-  const cancelEditing = () => {
-    paintTheme(mode, appliedColors(active.data));
-    setEditing(null);
-  };
+  const startEditing = (id: string, name: string, colors: ThemeColors) => themeDraftStore.set({ mode, editingId: id, name, colors });
 
   const beingEdited = themes.data.find((theme) => theme._id === editing);
   const editor = (
@@ -77,12 +76,13 @@ export const SettingsPage = () => {
       key={editing}
       mode={mode}
       label={beingEdited ? 'Edit theme' : 'New theme'}
-      initialName={beingEdited?.name}
-      initialColors={beingEdited?.colors ?? readCurrentColors(mode)}
+      initialName={draft?.name}
+      initialColors={draft?.colors ?? readCurrentColors(mode)}
       takenNames={mine.filter((theme) => theme._id !== editing).map((theme) => theme.name)}
       onSave={(input) => (beingEdited ? saveTheme(beingEdited._id, input) : addTheme(input))}
-      onCancel={cancelEditing}
-      onPreview={(colors) => paintTheme(mode, colors)}
+      onCancel={themeDraftStore.clear}
+      onPreview={() => undefined}
+      onChange={({ name, colors }) => themeDraftStore.set({ mode, editingId: editing!, name, colors })}
     />
   );
 
@@ -102,11 +102,11 @@ export const SettingsPage = () => {
           themes={options}
           currentId={currentId}
           onSelect={selectTheme}
-          onEdit={(option) => setEditing(option.id)}
+          onEdit={(option) => startEditing(option.id, option.name, option.colors)}
           onDelete={setDeleting}
           editingId={editing}
           editor={editor}
-          last={editing === 'new' ? editor : <AddThemeCard full={mine.length >= maxThemes} onClick={() => setEditing('new')} />}
+          last={editing === 'new' ? editor : <AddThemeCard full={mine.length >= maxThemes} onClick={() => startEditing('new', '', readCurrentColors(mode))} />}
         />
       </Panel>
 

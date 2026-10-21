@@ -19,7 +19,7 @@ const isDuplicateKey = (error: unknown) => (error as { code?: number }).code ===
 const nameTaken = () => conflict('You already have a theme with this name');
 
 /** `isDark`: the background of the colors that were sent. */
-const wrongMode = (isDark: boolean) => {
+export const wrongMode = (isDark: boolean) => {
   const message = isDark
     ? 'The background is too dark for a light theme. Switch to Dark mode to use these colors.'
     : 'The background is too light for a dark theme. Switch to Light mode to use these colors.';

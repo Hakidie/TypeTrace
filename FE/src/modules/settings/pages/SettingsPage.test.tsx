@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { themesApi } from '../api/themes.api';
+import { useThemeSync } from '../hooks/use-theme-mode';
+import { themeDraftStore } from '../store/theme-draft.store';
 import type { ActiveThemes, Theme } from '../types/theme.types';
 import { SettingsPage } from './SettingsPage';
 
@@ -32,12 +34,19 @@ const paper = make('t4', 'Paper', false, false, '#1f6f78');
 let active: ActiveThemes;
 let themes: Theme[];
 
-const renderPage = () => renderWithProviders(<SettingsPage />, { route: '/settings', path: '/settings' });
+// Like a layout: it paints the chosen theme, or the unsaved one while it is being made.
+const Layout = () => {
+  useThemeSync();
+  return <SettingsPage />;
+};
+
+const renderPage = () => renderWithProviders(<Layout />, { route: '/settings', path: '/settings' });
 
 const card = (name: string) => screen.getByRole('button', { name: new RegExp(`Button ${name}$`) });
 const isChosen = (name: string) => card(name).querySelector('[aria-current]') !== null;
 
 beforeEach(() => {
+  themeDraftStore.clear();
   tokenStore.set('jwt-value');
   active = { mode: 'dark', dark: null, light: null };
   themes = [midnight, mono, night, paper];
@@ -166,6 +175,35 @@ describe('adding a theme', () => {
     expect(document.documentElement.style.getPropertyValue('--theme-accent')).toBe('');
     expect(screen.queryByRole('form', { name: 'New theme' })).not.toBeInTheDocument();
     expect(api.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps an unsaved theme when the page is left and opened again, and drops it on logout', async () => {
+    const first = renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Custom theme' }));
+    await userEvent.type(screen.getByLabelText('Name'), 'Draft');
+    fireEvent.change(screen.getByLabelText('Accent picker'), { target: { value: '#00aaff' } });
+    first.unmount();
+
+    // The colors stay on every page.
+    expect(document.documentElement.style.getPropertyValue('--theme-accent')).toBe('#00aaff');
+    renderPage();
+    expect(await screen.findByLabelText('Name')).toHaveValue('Draft');
+    expect(screen.getByLabelText('Accent picker')).toHaveValue('#00aaff');
+
+    themeDraftStore.clear();
+    await waitFor(() => expect(screen.queryByRole('form', { name: 'New theme' })).not.toBeInTheDocument());
+    expect(document.documentElement.style.getPropertyValue('--theme-accent')).toBe('');
+  });
+
+  it('keeps an unsaved edit of a theme too', async () => {
+    const first = renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Edit Night' }));
+    await userEvent.type(screen.getByLabelText('Name'), ' 2');
+    first.unmount();
+
+    renderPage();
+    expect(await screen.findByRole('form', { name: 'Edit theme' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('Night 2');
   });
 
   it('closes the editor when the mode changes', async () => {

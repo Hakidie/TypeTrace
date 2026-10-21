@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertTriangle } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -26,11 +27,18 @@ interface ThemeEditorProps {
   onSave: (theme: ThemeInput) => void;
   /** Called with the new colors each time one is picked, so the app can show them live. */
   onPreview: (colors: ThemeColors) => void;
-  onCancel: () => void;
+  /** Called with the name and colors each time one changes, so an unsaved theme can be kept. */
+  onChange?: (draft: { name: string; colors: ThemeColors }) => void;
+  /** Without it there is no cancel button. */
+  onCancel?: () => void;
+  /** Extra buttons on the card, next to Save (e.g. a mode switch). Gets the colors on the card so the buttons can use them. */
+  /** No chosen border on the card (the settings page has it). */
+  plain?: boolean;
+  actions?: (colors: ThemeColors) => ReactNode;
 }
 
 /** Create or edit a theme right in the grid: a live card to type the name on and to pick the four colors on, with a save and a cancel icon. */
-export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'New theme', takenNames, onSave, onPreview, onCancel }: ThemeEditorProps) => {
+export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'New theme', takenNames, onSave, onPreview, onChange, onCancel, actions, plain }: ThemeEditorProps) => {
   const schema = useMemo(
     () =>
       z
@@ -76,9 +84,12 @@ export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'Ne
         theme={{ name: values.name.trim() || 'Theme name', colors }}
         submitLabel="Save theme"
         onCancel={onCancel}
+        actions={actions?.(colors)}
+        plain={plain}
         onColorPick={(field, color) => {
           setValue(field, color, { shouldValidate: true });
           onPreview({ ...colors, [field]: color });
+          onChange?.({ name: values.name, colors: { ...colors, [field]: color } });
         }}
         nameSlot={
           // Type the name right on the card: same spot, size and color as the saved name.
@@ -90,7 +101,7 @@ export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'Ne
             aria-invalid={!!errors.name}
             className="absolute bottom-6 right-2 w-[55%] bg-transparent text-right text-lg font-medium placeholder:text-current focus-visible:outline-none"
             style={{ color: colors.text }}
-            {...register('name')}
+            {...register('name', { onChange: (event) => onChange?.({ name: event.target.value, colors }) })}
           />
         }
       />

@@ -7,6 +7,7 @@ import {
   setPassageStatus,
   updatePassage
 } from '../controllers/admin-passage.controller';
+import { createTheme, deleteTheme, listThemes, updateTheme } from '../controllers/admin-theme.controller';
 import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, setUserStatus, updateUser } from '../controllers/admin.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
@@ -17,6 +18,7 @@ import {
   setPassageStatusSchema,
   updatePassageSchema
 } from '../validators/admin-passage.validator';
+import { createAdminThemeSchema, listAdminThemesQuerySchema, updateAdminThemeSchema } from '../validators/admin-theme.validator';
 import { adminUpdateUserSchema, listUsersQuerySchema, setUserStatusSchema } from '../validators/admin-user.validator';
 import { bulkIdsSchema, idParamsSchema } from '../validators/common.validator';
 
@@ -43,3 +45,8 @@ adminRouter.patch(
   setPassageStatus
 );
 adminRouter.delete('/passages/:id', validate({ params: idParamsSchema }), deletePassage);
+
+adminRouter.get('/themes', validate({ query: listAdminThemesQuerySchema }), listThemes);
+adminRouter.post('/themes', validate({ body: createAdminThemeSchema }), createTheme);
+adminRouter.patch('/themes/:id', validate({ params: idParamsSchema, body: updateAdminThemeSchema }), updateTheme);
+adminRouter.delete('/themes/:id', validate({ params: idParamsSchema }), deleteTheme);

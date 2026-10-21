@@ -21,17 +21,21 @@ interface ThemeCardProps {
   submitLabel?: string;
   /** With `submitLabel`: a cancel button next to the save button. */
   onCancel?: () => void;
+  /** With `submitLabel`: no chosen border on the card. */
+  plain?: boolean;
+  /** With `submitLabel`: more buttons at the top right, before the cancel button (e.g. a mode switch). */
+  actions?: ReactNode;
   /** Makes the four color columns at the bottom clickable color pickers. */
   onColorPick?: (field: ThemeColorField, color: string) => void;
 }
 
 /** One theme previewed in its own colors: a title in the muted color with a plain text line, a button on its background, a strip of the four colors, the name at the bottom right (or `nameSlot`), a check at the top right when it is the chosen one. */
-export const ThemeCard = ({ theme, current = false, className, nameSlot, onColorPick, submitLabel, onCancel }: ThemeCardProps) => {
+export const ThemeCard = ({ theme, current = false, className, nameSlot, onColorPick, submitLabel, onCancel, actions, plain }: ThemeCardProps) => {
   const { background, text, muted, accent } = theme.colors;
 
   return (
     <div
-      className={cn('relative flex h-36 flex-col overflow-hidden border', current || submitLabel ? 'border-primary' : 'border-transparent', className)}
+      className={cn('relative flex h-36 flex-col overflow-hidden border', current || (submitLabel && !plain) ? 'border-primary' : 'border-transparent', className)}
       aria-current={current || undefined}
     >
       {current && (
@@ -41,6 +45,7 @@ export const ThemeCard = ({ theme, current = false, className, nameSlot, onColor
       )}
       {submitLabel && (
         <div className="absolute right-2 top-2 flex gap-1">
+          {actions}
           {onCancel && (
             <button
               type="button"

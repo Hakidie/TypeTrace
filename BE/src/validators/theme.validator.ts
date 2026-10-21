@@ -3,7 +3,7 @@ import { THEME_MODES } from '../models/theme.model';
 import { contrastProblems, THEME_COLOR_FIELDS } from '../utils/theme-colors';
 import { objectIdSchema, optionalBooleanQuerySchema } from './common.validator';
 
-const nameSchema = z.string().trim().min(1, 'Theme name is required').max(30, 'At most 30 characters');
+export const nameSchema = z.string().trim().min(1, 'Theme name is required').max(30, 'At most 30 characters');
 
 const colorSchema = z
   .string()

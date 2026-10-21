@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { applyTheme, getStoredTheme, type ThemeColors, type ThemeMode } from '@/shared/lib/theme';
+import { applyTheme, getStoredTheme, paintTheme, type ThemeColors, type ThemeMode } from '@/shared/lib/theme';
 import { themesApi } from '../api/themes.api';
+import { themeDraftStore, useThemeDraft } from '../store/theme-draft.store';
 import type { ActiveThemes } from '../types/theme.types';
 import { themeKeys, useActiveThemes } from './use-themes';
 
@@ -11,10 +12,14 @@ export const appliedColors = (active: ActiveThemes): ThemeColors | null => (acti
 /** Keeps the page in step with the signed-in user's mode and chosen themes. Used once by each layout. */
 export const useThemeSync = () => {
   const { data: active } = useActiveThemes();
+  const draft = useThemeDraft();
 
   useEffect(() => {
-    if (active) applyTheme(active.mode, appliedColors(active));
-  }, [active]);
+    if (!active) return;
+    // A theme being made in Settings shows live on every page until it is saved or cancelled (nothing is remembered for it).
+    if (draft && draft.mode === active.mode) paintTheme(active.mode, draft.colors);
+    else applyTheme(active.mode, appliedColors(active));
+  }, [active, draft]);
 };
 
 /**
@@ -31,6 +36,8 @@ export const useThemeMode = () => {
   });
 
   const setMode = (mode: ThemeMode) => {
+    // The colors of an unsaved theme were made for the other mode.
+    themeDraftStore.clear();
     if (active) {
       queryClient.setQueryData<ActiveThemes>(themeKeys.active, { ...active, mode });
       save.mutate(mode);
