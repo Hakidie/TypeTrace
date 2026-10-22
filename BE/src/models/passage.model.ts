@@ -38,6 +38,15 @@ export interface PassageDocument extends mongoose.Document {
 
 export const SYSTEM_OWNER_NAME = 'TypeTrace';
 
+/** How many private passages of their own a learner may have to type (`POST /api/passages`); archived ones do not count. */
+export const MAX_USER_PASSAGES = 20;
+
+/** A learner's own passage needs at least this many words: a shorter session never counts (`MIN_COUNTED_WORDS`). */
+export const MIN_USER_PASSAGE_WORDS = 20;
+
+/** `source` of the passages learners paste themselves. */
+export const USER_PASSAGE_SOURCE = 'Pasted by the learner';
+
 /**
  * The owner fields for a new passage. The owner is always the real user, so admins can tell who created it.
  * Seeded passages (no author) and passages written by an admin are shown as TypeTrace; a learner keeps their name.
@@ -95,5 +104,9 @@ passageSchema.pre('validate', function () {
 // Matches the practice list: published passages by visibility, newest first, and "pick a placement passage".
 passageSchema.index({ status: 1, visibility: 1, createdAt: -1 });
 passageSchema.index({ isPlacement: 1, status: 1 });
+// The learner list (`GET /api/passages`) sorts titles in Vietnamese order, so its query has a collation, and a query
+// with a collation can only use indexes with the same one. Without this index MongoDB reads every passage, the private
+// passages of all the other learners too.
+passageSchema.index({ visibility: 1, status: 1, isPlacement: 1, title: 1 }, { collation: { locale: 'vi' } });
 
 export const PassageModel = mongoose.model<PassageDocument>('Passage', passageSchema);

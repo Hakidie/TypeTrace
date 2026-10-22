@@ -1,4 +1,4 @@
-import type { Model, QueryFilter } from 'mongoose';
+import type { Model, mongo, QueryFilter } from 'mongoose';
 import { z } from 'zod';
 
 /**
@@ -36,24 +36,34 @@ export interface Paginated<T> {
   totalPages: number;
 }
 
+/** Optional extras of `paginate`. */
+export interface PaginateOptions {
+  /** Only these fields, e.g. `'title wordCount'`: leaves out fields `toJSON` keeps but this user may not see. */
+  select?: string;
+  /** How text is compared when sorting, e.g. `{ locale: 'vi' }` to sort Vietnamese titles. */
+  collation?: mongo.CollationOptions;
+}
+
 /** Runs a filtered, sorted, paginated find plus the matching count. */
 export const paginate = async <T>(
   model: Model<T>,
   filter: QueryFilter<T>,
-  { page, limit, sort }: PaginationQuery
+  { page, limit, sort }: PaginationQuery,
+  { select, collation }: PaginateOptions = {}
 ): Promise<Paginated<T>> => {
   // `_id` breaks ties (e.g. same createdAt) so pages never overlap or skip items.
   const field = sort.replace(/^-/, '');
   const stableSort = field === '_id' ? sort : `${sort} ${sort.startsWith('-') ? '-_id' : '_id'}`;
 
-  const [items, total] = await Promise.all([
-    model
-      .find(filter)
-      .sort(stableSort)
-      .skip((page - 1) * limit)
-      .limit(limit),
-    model.countDocuments(filter)
-  ]);
+  const query = model
+    .find(filter)
+    .sort(stableSort)
+    .skip((page - 1) * limit)
+    .limit(limit);
+  if (select) query.select(select);
+  if (collation) query.collation(collation);
+
+  const [items, total] = await Promise.all([query, model.countDocuments(filter)]);
 
   return { items: items as T[], page, limit, total, totalPages: Math.ceil(total / limit) };
 };

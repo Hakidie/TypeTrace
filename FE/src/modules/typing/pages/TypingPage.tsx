@@ -105,22 +105,47 @@ export const TypingPage = () => {
   const complete = useCompleteSession();
   const session = start.data;
   // The passage picked in the menu, for the mode it was picked in: switching the mode goes back to Random. Random lights up
-  // when nothing is picked, the passage name otherwise.
-  const [chosen, setChosen] = useState<{ mode: SessionMode; id: string }>();
+  // when nothing is picked, the passage name otherwise. `/typing?passage=<id>` (Practice on the Passages page) picks a
+  // practice passage before the page opens.
+  const [chosen, setChosen] = useState<{ mode: SessionMode; id: string } | undefined>(() => {
+    const id = searchParams.get('passage');
+    return id ? { mode: 'practice', id } : undefined;
+  });
+  // The pick is dropped when the mode changes, so it stays Random on the way back to the mode it was made in.
+  const [modeOfChoice, setModeOfChoice] = useState(mode);
+  if (modeOfChoice !== mode) {
+    setModeOfChoice(mode);
+    setChosen(undefined);
+  }
   const passageId = chosen?.mode === mode ? chosen.id : undefined;
   const randomPassage = passageId === undefined;
+
+  // `?passage=` is read once, above: take it out of the URL, so a reload after Random or another pick does not go back
+  // to it (and a passage deleted since then does not fail again).
+  useEffect(() => {
+    if (!searchParams.has('passage')) return;
+    setSearchParams(
+      (params) => {
+        params.delete('passage');
+        return params;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
 
   // `start.data` is empty while the next passage loads; the name keeps showing the current one until the new one arrives.
   const [passageTitle, setPassageTitle] = useState<string>();
   if (session && session.passageTitle !== passageTitle) setPassageTitle(session.passageTitle);
 
   // A new session when the page opens or the mode changes (once per mode, even when React runs effects twice in development).
+  // The first one types the passage from the URL, if any; switching the mode starts a random one.
   const openedFor = useRef<SessionMode | null>(null);
   useEffect(() => {
     if (openedFor.current === mode) return;
+    const firstOpen = openedFor.current === null;
     openedFor.current = mode;
-    start.mutate({ mode });
-  }, [mode, start]);
+    start.mutate(firstOpen && passageId ? { mode, passageId } : { mode });
+  }, [mode, start, passageId]);
 
   // A new session on the picked passage (a random one when none is picked): used by Restart and when the time is up.
   const restart = () => start.mutate({ mode, passageId });

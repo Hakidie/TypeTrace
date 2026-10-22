@@ -39,3 +39,35 @@ export interface PassageListParams {
   limit?: number;
   sort?: string;
 }
+
+/** Who may see a passage: a `private` passage belongs to the learner who added it. */
+export type PassageVisibility = 'public' | 'private';
+
+/** One passage of the learner list (`GET /api/passages`, SCRUM-34): no text. */
+export interface LearnerPassage {
+  _id: string;
+  title: string;
+  /** Counted by the backend when the passage is saved. */
+  wordCount: number;
+  /** Author shown to everyone: `TypeTrace`, or the learner's name on their own passages. */
+  ownerName: string;
+  /** `private` = one of the signed-in learner's own passages (nobody else's private passages are listed). */
+  visibility: PassageVisibility;
+  createdAt: string;
+}
+
+/** Mirrors `createPassageSchema` of `/api/passages`: without a title, the first words of the text become the title. */
+export interface OwnPassageInput {
+  title?: string;
+  content: string;
+}
+
+export interface LearnerPassageListParams {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  /** Text searched in the title. */
+  q?: string;
+  /** `private` = only the learner's own passages, `public` = only TypeTrace's. */
+  visibility?: PassageVisibility;
+}

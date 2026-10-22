@@ -8,6 +8,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { useCreatePassage, useSetPassageStatus, useUpdatePassage } from '../hooks/use-passages';
+import { countWords, PASSAGE_CONTENT_MAX } from '../passages.config';
 import { nextPassageStatus, type Passage, type PassageStatus } from '../types/passage.types';
 
 // Mirrors the limits of the Passage model (BE/src/models/passage.model.ts).
@@ -29,12 +30,7 @@ const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-
 
 const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false };
 
-const CONTENT_MAX = 5000;
-
 const CONTENT_PLACEHOLDER = 'Hà Nội vào thu, gió heo may se lạnh, hoa sữa thơm nồng trên từng con phố nhỏ.';
-
-/** Same rule as the backend (`splitWords`): words are separated by white space. The backend does the real count. */
-const countWords = (text: string) => text.split(/\s+/).filter(Boolean).length;
 
 /** No visible labels in this form: the placeholders say what each field is, `aria-label` serves screen readers. */
 const FieldError = ({ id, message }: { id: string; message?: string }) =>
@@ -118,7 +114,7 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Bottom left: the same look as the status bar of the typing page. */}
         <p className="w-fit bg-primary/15 px-3 py-1.5 text-[1.125rem] text-primary">
-          {countWords(content)} words · {content.length}/{CONTENT_MAX}
+          {countWords(content)} words · {content.length}/{PASSAGE_CONTENT_MAX}
         </p>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

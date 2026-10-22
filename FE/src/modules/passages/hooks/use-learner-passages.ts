@@ -1,0 +1,61 @@
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { typingKeys } from '@/modules/typing/hooks/use-typing';
+import { getApiErrorBody, getApiErrorMessage } from '@/shared/api/api-error';
+import { learnerPassagesApi } from '../api/learner-passages.api';
+import type { LearnerPassageListParams } from '../types/passage.types';
+
+/** Cache keys. Invalidating `learnerPassageKeys.all` refreshes every learner passage list. */
+export const learnerPassageKeys = {
+  all: ['learner-passages'] as const,
+  list: (params: LearnerPassageListParams) => [...learnerPassageKeys.all, 'list', params] as const,
+};
+
+/** Keeps the previous page on screen while the next one loads. */
+export const useLearnerPassages = (params: LearnerPassageListParams) =>
+  useQuery({
+    queryKey: learnerPassageKeys.list(params),
+    queryFn: () => learnerPassagesApi.list(params),
+    placeholderData: keepPreviousData,
+  });
+
+/** After a change, the lists here and the passage menu of the Typing page are asked for again. */
+const useRefreshPassages = () => {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: learnerPassageKeys.all }),
+      queryClient.invalidateQueries({ queryKey: typingKeys.all }),
+    ]);
+};
+
+/**
+ * The backend checks the text again after cleaning it, so it may still refuse it: its 400 lists the problem per field
+ * ("At least 20 words"), which says more than its `Validation failed` message.
+ */
+const addErrorMessage = (error: unknown) =>
+  getApiErrorBody(error)?.errors?.[0]?.message ?? getApiErrorMessage(error, 'Something went wrong');
+
+export const useAddOwnPassage = () => {
+  const refresh = useRefreshPassages();
+  return useMutation({
+    mutationFn: learnerPassagesApi.create,
+    onSuccess: () => {
+      toast.success('Passage added.');
+      return refresh();
+    },
+    onError: (error) => toast.error(addErrorMessage(error)),
+  });
+};
+
+// No `onError`: the shared query client toasts the backend message.
+export const useDeleteOwnPassage = () => {
+  const refresh = useRefreshPassages();
+  return useMutation({
+    mutationFn: learnerPassagesApi.remove,
+    onSuccess: () => {
+      toast.success('Passage deleted.');
+      return refresh();
+    },
+  });
+};

@@ -33,6 +33,22 @@ describe('paginate', () => {
     expect(page.total).toBe(1);
     expect(page.items[0].email).toBe('a@example.com');
   });
+
+  it('can return only some fields and sort text in the order of a language', async () => {
+    for (const [index, displayName] of ['Zoe', 'Đức', 'Dung'].entries()) {
+      await createUser({ email: `u${index}@example.com`, displayName });
+    }
+    const query = { page: 1, limit: 20, sort: 'displayName' };
+
+    const plain = await paginate(UserModel, {}, query);
+    const vietnamese = await paginate(UserModel, {}, query, { select: 'displayName', collation: { locale: 'vi' } });
+
+    // Without a collation Đ sorts after Z; in Vietnamese it comes right after D.
+    expect(plain.items.map((user) => user.displayName)).toEqual(['Dung', 'Zoe', 'Đức']);
+    expect(vietnamese.items.map((user) => user.displayName)).toEqual(['Dung', 'Đức', 'Zoe']);
+    expect(vietnamese.items[0].email).toBeUndefined();
+    expect(vietnamese.total).toBe(3);
+  });
 });
 
 describe('requireRole', () => {

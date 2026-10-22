@@ -73,7 +73,9 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `idParamsSchema`, `booleanQuerySchema`, `optionalBooleanQuerySchema`, `bulkIdsSchema` (`validators/common.validator.ts`).
 - List endpoints: extend `paginationQuerySchema` with `sort: sortSchema([...allowed fields])` and return
   `paginate(Model, filter, query)` (`utils/pagination.ts`) → `{ items, page, limit, total, totalPages }`.
-  Never allow sorting by private fields. Escape user text before building a `RegExp`.
+  Never allow sorting by private fields. Escape user text before building a `RegExp`. An optional fourth argument
+  `{ select, collation }` sends only some fields (when `toJSON` keeps one this user may not see) and sorts text in a
+  language's order (`{ locale: 'vi' }`; add an index with the same collation, or MongoDB reads the whole collection).
 - Expected failures: `throw notFound('...')`, `badRequest`, `forbidden`, `conflict`, or `new AppError(status, message)`
   (`utils/app-error.ts`). Never send error responses by hand; never wrap handlers in try/catch (Express 5 forwards rejections).
 - Protected routes: `authGuard`. Role checks: `requireRole('admin')` (also sets `req.user.role`).
