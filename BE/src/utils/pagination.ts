@@ -60,10 +60,15 @@ export const paginate = async <T>(
     .sort(stableSort)
     .skip((page - 1) * limit)
     .limit(limit);
+  // The count uses the same collation: an index made for that collation then serves both, not only the page.
+  const count = model.countDocuments(filter);
   if (select) query.select(select);
-  if (collation) query.collation(collation);
+  if (collation) {
+    query.collation(collation);
+    count.collation(collation);
+  }
 
-  const [items, total] = await Promise.all([query, model.countDocuments(filter)]);
+  const [items, total] = await Promise.all([query, count]);
 
   return { items: items as T[], page, limit, total, totalPages: Math.ceil(total / limit) };
 };

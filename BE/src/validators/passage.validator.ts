@@ -8,7 +8,7 @@ export const listPassagesQuerySchema = paginationQuerySchema.extend({
   mode: z.enum(sessionModes).default('practice'),
   /** Text searched in the title (`titleSearchPattern`: without accents it finds every accented form). */
   q: z.string().trim().max(100).optional(),
-  /** `private` = only the learner's own passages, `public` = only TypeTrace's. Missing = both. */
+  /** `private` = only the learner's own private passages, `public` = only the public ones (TypeTrace's and approved ones). Missing = both. */
   visibility: z.enum(passageVisibilities).optional(),
   // By title unless asked otherwise, like the passage menu of the Typing page.
   sort: sortSchema(['title', 'createdAt', 'wordCount'], 'title')

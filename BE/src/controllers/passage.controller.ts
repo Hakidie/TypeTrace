@@ -4,6 +4,7 @@ import { CreatePassageInput, ListPassagesQuery } from '../validators/passage.val
 
 // `authGuard` runs first, so `req.user` is always set here.
 const userIdOf = (req: Request) => req.user!.sub;
+const idOf = (req: Request) => req.params.id as string;
 
 export const listPassages = async (req: Request, res: Response) => {
   res.json(await passageService.listPassages(userIdOf(req), req.query as unknown as ListPassagesQuery));
@@ -14,6 +15,15 @@ export const createPassage = async (req: Request, res: Response) => {
 };
 
 export const deletePassage = async (req: Request, res: Response) => {
-  await passageService.deletePassage(userIdOf(req), req.params.id as string);
+  await passageService.deletePassage(userIdOf(req), idOf(req));
   res.status(204).end();
+};
+
+// No body: what the client might send (a status, a visibility) is never read.
+export const requestPublication = async (req: Request, res: Response) => {
+  res.json(await passageService.requestPublication(userIdOf(req), idOf(req)));
+};
+
+export const withdrawPublicationRequest = async (req: Request, res: Response) => {
+  res.json(await passageService.withdrawPublicationRequest(userIdOf(req), idOf(req)));
 };

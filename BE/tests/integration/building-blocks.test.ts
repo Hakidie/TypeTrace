@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { describe, expect, it } from 'vitest';
 import { authGuard } from '../../src/middlewares/auth.middleware';
 import { errorMiddleware } from '../../src/middlewares/error.middleware';
@@ -48,6 +49,21 @@ describe('paginate', () => {
     expect(vietnamese.items.map((user) => user.displayName)).toEqual(['Dung', 'Đức', 'Zoe']);
     expect(vietnamese.items[0].email).toBeUndefined();
     expect(vietnamese.total).toBe(3);
+  });
+
+  it('counts with the same collation as the page, so the count can use the index made for it', async () => {
+    await createUser({ email: 'a@example.com', displayName: 'Đức' });
+    const calls: { method: string; args: unknown[] }[] = [];
+    mongoose.set('debug', (_collection: string, method: string, ...args: unknown[]) => calls.push({ method, args }));
+    try {
+      const page = await paginate(UserModel, {}, { page: 1, limit: 20, sort: 'displayName' }, { collation: { locale: 'vi' } });
+      expect(page.total).toBe(1);
+    } finally {
+      mongoose.set('debug', false);
+    }
+
+    const count = calls.find((call) => call.method === 'countDocuments');
+    expect(count?.args).toContainEqual(expect.objectContaining({ collation: { locale: 'vi' } }));
   });
 });
 

@@ -52,6 +52,8 @@ describe('GET /api/passages', () => {
       wordCount: expect.any(Number),
       ownerName: 'TypeTrace',
       visibility: 'public',
+      status: 'published',
+      isOwn: false,
       createdAt: expect.any(String)
     });
     const titles = titlesOf(response);
@@ -189,6 +191,8 @@ describe('POST /api/passages', () => {
       wordCount: MIN_USER_PASSAGE_WORDS + 4,
       ownerName: 'Lan',
       visibility: 'private',
+      status: 'published',
+      isOwn: true,
       createdAt: expect.any(String)
     });
     const saved = (await PassageModel.findById(response.body._id))!.toObject();

@@ -11,4 +11,8 @@ export const learnerPassagesApi = {
   create: (input: OwnPassageInput) => http.post<LearnerPassage>('/passages', input).then((r) => r.data),
   /** Deletes one of the learner's own passages. */
   remove: (id: string) => http.delete(`/passages/${id}`).then(() => undefined),
+  /** Asks for one of the learner's private passages to become public: an admin reviews it (SCRUM-176). */
+  requestPublic: (id: string) => http.post<LearnerPassage>(`/passages/${id}/publish-request`).then((r) => r.data),
+  /** Takes the request back while it still waits for review. */
+  withdrawRequest: (id: string) => http.delete<LearnerPassage>(`/passages/${id}/publish-request`).then((r) => r.data),
 };

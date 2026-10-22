@@ -3,7 +3,7 @@ import mongoose, { Schema, Types } from 'mongoose';
 import { tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 
 export const passageVisibilities = ['public', 'private'] as const;
-export const passageStatuses = ['draft', 'published', 'archived'] as const;
+export const passageStatuses = ['draft', 'published', 'pending', 'archived'] as const;
 
 export type PassageVisibility = (typeof passageVisibilities)[number];
 export type PassageStatus = (typeof passageStatuses)[number];
@@ -18,11 +18,20 @@ export interface PassageDocument extends mongoose.Document {
   source: string;
   /** The user who created the passage. Empty only for seeded passages. Private: only admins may see it. */
   owner?: Types.ObjectId;
-  /** Shown to everyone as the author: `TypeTrace` for the system and admins, the learner's name otherwise. */
+  /**
+   * Shown as the author: `TypeTrace` for the system and admins, the learner's name otherwise (their email while the
+   * passage is private and they have no display name; `publicOwnerName` once it is public).
+   */
   ownerName: string;
   visibility: PassageVisibility;
-  /** Life cycle: `draft → published → archived`, and `archived → published`. Only `published` passages are offered for practice. */
+  /**
+   * Life cycle: `draft → published → archived`, and `archived → published`. Only `published` passages are offered for
+   * practice. `pending` (SCRUM-176): a learner asked for their private passage to become public and an admin has not
+   * decided yet; only its owner may still type it.
+   */
   status: PassageStatus;
+  /** Why an admin turned down the learner's request to make the passage public. Cleared when they ask again or it is approved. */
+  reviewNote?: string;
   /**
    * A passage of the placement test (US2.3); a placement session picks one at random. It needs enough opportunities
    * for every error type.
@@ -47,14 +56,31 @@ export const MIN_USER_PASSAGE_WORDS = 20;
 /** `source` of the passages learners paste themselves. */
 export const USER_PASSAGE_SOURCE = 'Pasted by the learner';
 
+/** Longest reason an admin may give when turning a request down (`reviewNote`). */
+export const REVIEW_NOTE_MAX = 300;
+
 /**
  * The owner fields for a new passage. The owner is always the real user, so admins can tell who created it.
- * Seeded passages (no author) and passages written by an admin are shown as TypeTrace; a learner keeps their name.
+ * Seeded passages (no author) and passages written by an admin are shown as TypeTrace; a learner keeps their name, or
+ * their email without one: a learner's passage starts private, so only they and the admins see it. Approval replaces
+ * it with `publicOwnerName`.
  */
 export const ownerFieldsFor = (author?: { id: string; role: string; displayName?: string; email: string }) => {
   if (!author) return { ownerName: SYSTEM_OWNER_NAME };
   const ownerName = author.role === 'admin' ? SYSTEM_OWNER_NAME : author.displayName || author.email;
   return { owner: author.id, ownerName };
+};
+
+/** The author shown with a learner's public passage when they have no display name. */
+export const ANONYMOUS_OWNER_NAME = 'Anonymous learner';
+
+/**
+ * The author shown with a passage everyone can see (SCRUM-176): `TypeTrace` for an admin's, the learner's display name
+ * otherwise, `ANONYMOUS_OWNER_NAME` without one. Never the email (sign-up does not ask for a display name).
+ */
+export const publicOwnerName = (author?: { role: string; displayName?: string } | null) => {
+  if (author?.role === 'admin') return SYSTEM_OWNER_NAME;
+  return author?.displayName?.trim() || ANONYMOUS_OWNER_NAME;
 };
 
 /** Words are separated by spaces and punctuation stays attached to its word, as in a typing session. */
@@ -77,10 +103,11 @@ const passageSchema = new Schema<PassageDocument>(
     title: { type: String, required: true, trim: true, maxlength: 120 },
     content: { type: String, required: true, trim: true, maxlength: 5000 },
     source: { type: String, required: true, trim: true, maxlength: 300 },
-    owner: { type: Schema.Types.ObjectId, ref: 'User', index: true },
+    owner: { type: Schema.Types.ObjectId, ref: 'User' },
     ownerName: { type: String, trim: true, maxlength: 120, default: SYSTEM_OWNER_NAME },
     visibility: { type: String, enum: passageVisibilities, default: 'public' },
     status: { type: String, enum: passageStatuses, default: 'draft' },
+    reviewNote: { type: String, trim: true, maxlength: REVIEW_NOTE_MAX },
     isPlacement: { type: Boolean, default: false },
     tagCounts: { type: new Schema(tagCountsDefinition, { _id: false }), default: () => ({}) },
     wordCount: { type: Number, default: 0 }
@@ -108,5 +135,11 @@ passageSchema.index({ isPlacement: 1, status: 1 });
 // with a collation can only use indexes with the same one. Without this index MongoDB reads every passage, the private
 // passages of all the other learners too.
 passageSchema.index({ visibility: 1, status: 1, isPlacement: 1, title: 1 }, { collation: { locale: 'vi' } });
+// The review queue of the admins (`GET /api/admin/passages?status=pending`), oldest request first: a request (or a
+// decision) updates the passage, so `updatedAt` is when the learner asked.
+passageSchema.index({ status: 1, updatedAt: 1 });
+// The learner's own passages (`owner` comes first, so this also serves every query on `owner` alone): what they can
+// type while one waits for review, and what the limit counts.
+passageSchema.index({ owner: 1, visibility: 1, status: 1 });
 
 export const PassageModel = mongoose.model<PassageDocument>('Passage', passageSchema);

@@ -48,13 +48,37 @@ export const useAddOwnPassage = () => {
   });
 };
 
-// No `onError`: the shared query client toasts the backend message.
+// No `onError` below: the shared query client toasts the backend message (a 409 says why nothing changed).
+
 export const useDeleteOwnPassage = () => {
   const refresh = useRefreshPassages();
   return useMutation({
     mutationFn: learnerPassagesApi.remove,
     onSuccess: () => {
       toast.success('Passage deleted.');
+      return refresh();
+    },
+  });
+};
+
+/** Asks for an own private passage to become public (SCRUM-176). */
+export const useRequestPublic = () => {
+  const refresh = useRefreshPassages();
+  return useMutation({
+    mutationFn: learnerPassagesApi.requestPublic,
+    onSuccess: () => {
+      toast.success('Request sent: an admin will review it.');
+      return refresh();
+    },
+  });
+};
+
+export const useWithdrawRequest = () => {
+  const refresh = useRefreshPassages();
+  return useMutation({
+    mutationFn: learnerPassagesApi.withdrawRequest,
+    onSuccess: () => {
+      toast.success('Request withdrawn.');
       return refresh();
     },
   });

@@ -1,5 +1,6 @@
 import { FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -11,7 +12,8 @@ import { useListParams } from '@/shared/hooks/use-list-params';
 import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { LearnerPassageCard } from '../components/LearnerPassageCard';
 import { OwnPassageForm } from '../components/OwnPassageForm';
-import { useDeleteOwnPassage, useLearnerPassages } from '../hooks/use-learner-passages';
+import { useDeleteOwnPassage, useLearnerPassages, useRequestPublic, useWithdrawRequest } from '../hooks/use-learner-passages';
+import { ANONYMOUS_OWNER_NAME } from '../passages.config';
 import type { LearnerPassage, PassageVisibility } from '../types/passage.types';
 
 const PAGE_SIZE = 9;
@@ -24,14 +26,16 @@ const SORT_OPTIONS = [
   { value: '-wordCount', label: 'Longest' },
 ];
 
-const OWNER_OPTIONS = [
-  { value: 'private', label: 'Mine' },
-  { value: 'public', label: 'TypeTrace' },
+// Private = the learner's own private passages; public = TypeTrace's and the learners' passages an admin approved.
+const VISIBILITY_OPTIONS = [
+  { value: 'private', label: 'Private' },
+  { value: 'public', label: 'Public' },
 ];
 
 /**
  * The learner's Passages page (SCRUM-34): a form to paste a text of their own, and every passage they can practice
- * (TypeTrace's and their own) with search, sort, an owner filter and pages. Practice opens a passage on the Typing page.
+ * (the public ones and their own) with search, sort, a visibility filter and pages. Practice opens a passage on the
+ * Typing page. An own private passage can be offered to everyone: an admin reviews the request (SCRUM-176).
  */
 export const PassagesPage = () => {
   const list = useListParams({ sort: '-createdAt' });
@@ -45,9 +49,14 @@ export const PassagesPage = () => {
   });
   // Only its total is used: how many passages of their own the learner has.
   const own = useLearnerPassages({ visibility: 'private', limit: 1 });
+  // The author everyone sees once a passage is approved: the display name, else ANONYMOUS_OWNER_NAME (never the email).
+  const displayName = useCurrentUser().data?.displayName?.trim();
   const deletePassage = useDeleteOwnPassage();
-  // The passage waiting for delete confirmation.
+  const requestPublic = useRequestPublic();
+  const withdrawRequest = useWithdrawRequest();
+  // The passages waiting for a confirmation: to delete, and to send for review.
   const [deleting, setDeleting] = useState<LearnerPassage>();
+  const [requesting, setRequesting] = useState<LearnerPassage>();
 
   // A page past the end (its last passage was just deleted, or an old link) goes back to the last page. Not while the
   // previous list is still on screen (`keepPreviousData`): its page count belongs to other filters.
@@ -72,13 +81,19 @@ export const PassagesPage = () => {
     return (
       <div className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {passages.data.items.map((passage) => (
-            <LearnerPassageCard
-              key={passage._id}
-              passage={passage}
-              onDelete={passage.visibility === 'private' ? setDeleting : undefined}
-            />
-          ))}
+          {passages.data.items.map((passage) => {
+            // Only private passages are the learner's to change; once public, only an admin can.
+            const ownPrivate = passage.isOwn && passage.visibility === 'private';
+            return (
+              <LearnerPassageCard
+                key={passage._id}
+                passage={passage}
+                onDelete={ownPrivate ? setDeleting : undefined}
+                onRequestPublic={ownPrivate && passage.status === 'published' ? setRequesting : undefined}
+                onWithdraw={ownPrivate && passage.status === 'pending' ? (target) => withdrawRequest.mutate(target._id) : undefined}
+              />
+            );
+          })}
         </div>
         <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} />
       </div>
@@ -102,7 +117,9 @@ export const PassagesPage = () => {
             }}
             sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
             summary={passages.data ? `${passages.data.total} passages` : 'Loading passages…'}
-            filters={[{ label: 'Owner', value: visibility, options: OWNER_OPTIONS, onChange: (value) => list.set('visibility', value) }]}
+            filters={[
+              { label: 'Visibility', value: visibility, options: VISIBILITY_OPTIONS, onChange: (value) => list.set('visibility', value) },
+            ]}
           />
           {renderList()}
         </div>
@@ -117,6 +134,24 @@ export const PassagesPage = () => {
         destructive
         pending={deletePassage.isPending}
         onConfirm={() => deleting && deletePassage.mutate(deleting._id, { onSuccess: () => setDeleting(undefined) })}
+      />
+
+      <ConfirmDialog
+        open={requesting !== undefined}
+        onOpenChange={(open) => !open && setRequesting(undefined)}
+        title="Make this passage public?"
+        description={
+          requesting
+            ? `An admin will review "${requesting.title}". Once approved, every learner can practice it and only an admin can remove it. ${
+                displayName
+                  ? `It will show your display name, "${displayName}".`
+                  : `It will show "${ANONYMOUS_OWNER_NAME}": set a display name in your profile to show yours.`
+              }`
+            : undefined
+        }
+        confirmLabel="Send request"
+        pending={requestPublic.isPending}
+        onConfirm={() => requesting && requestPublic.mutate(requesting._id, { onSuccess: () => setRequesting(undefined) })}
       />
     </div>
   );

@@ -8,7 +8,7 @@ import {
 } from '../models/passage.model';
 import type { SessionMode } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
-import { badRequest, notFound } from '../utils/app-error';
+import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
 import { titleFromContent, titleSearchPattern } from '../utils/passage-text';
 import { CreatePassageInput, ListPassagesQuery } from '../validators/passage.validator';
@@ -48,52 +48,67 @@ export const getPlacementPassage = async () => {
   return passage;
 };
 
+/** The statuses in which the owner may type their own private passage: also while an admin reviews it (SCRUM-176). */
+const OWN_TYPEABLE_STATUSES = ['published', 'pending'] as const;
+
 /**
- * What a learner may pick for a `mode`: published passages only, placement passages for the test and practice ones otherwise.
- * Both are public; in practice the learner's own passages come on top. Drafts and other people's private passages never match.
+ * What a learner may pick for a `mode`: placement passages for the test, practice ones otherwise. Public passages must be
+ * published. The owner exception: in practice the learner's own passages come on top, published or waiting for review
+ * (`pending`). Drafts, archived passages and other people's private passages never match.
  */
 export const learnerPassageFilter = (userId: string, mode: SessionMode) =>
   mode === 'placement'
     ? { status: 'published' as const, isPlacement: true, visibility: 'public' as const }
-    : { status: 'published' as const, isPlacement: false, $or: [{ visibility: 'public' as const }, { owner: userId }] };
+    : {
+        isPlacement: false,
+        $or: [
+          { status: 'published' as const, visibility: 'public' as const },
+          { owner: userId, status: { $in: [...OWN_TYPEABLE_STATUSES] } }
+        ]
+      };
 
-/**
- * What a learner gets for one passage of the list: no text, and never `owner`. Their own passages are the `private`
- * ones, since a learner never gets anyone else's private passage.
- */
-const listFields = 'title wordCount ownerName visibility createdAt';
+// What a learner gets for one passage of the list: no text, and never `owner` (it is only read to work out `isOwn`).
+const listFields = 'title wordCount ownerName visibility status reviewNote createdAt owner';
 
-const toListItem = ({ _id, title, wordCount, ownerName, visibility, createdAt }: PassageDocument) => ({
-  _id,
-  title,
-  wordCount,
-  ownerName,
-  visibility,
-  createdAt
-});
+/** One passage of the learner list. `reviewNote` (why a request was turned down) only goes to the owner. */
+const toListItem = (userId: string) => (passage: PassageDocument) => {
+  const isOwn = String(passage.owner) === userId;
+  return {
+    _id: passage._id,
+    title: passage.title,
+    wordCount: passage.wordCount,
+    ownerName: passage.ownerName,
+    visibility: passage.visibility,
+    status: passage.status,
+    ...(isOwn && passage.reviewNote ? { reviewNote: passage.reviewNote } : {}),
+    isOwn,
+    createdAt: passage.createdAt
+  };
+};
 
-/** The learner's own passages: the only ones they may delete. Another user's passage, or a public one, answers 404. */
+/** The learner's own private passages: the only ones they may change. Another user's passage, or a public one, answers 404. */
 const ownedBy = (userId: string, id?: string) => ({ ...(id ? { _id: id } : {}), owner: userId, visibility: 'private' as const });
 
 /**
- * How many own passages the learner can see and type (the list with `visibility=private`): the ones the limit counts,
- * so an own passage an admin archived does not take a place.
+ * How many own private passages the learner can type (the list with `visibility=private`), waiting for review or not:
+ * the ones the limit counts. One an admin archived, or made public, does not take a place.
  */
 const countUsableOwnPassages = (userId: string) =>
-  PassageModel.countDocuments({ ...ownedBy(userId), status: 'published', isPlacement: false });
+  PassageModel.countDocuments({ ...ownedBy(userId), status: { $in: [...OWN_TYPEABLE_STATUSES] }, isPlacement: false });
 
 const tooManyPassages = () => badRequest(`You can have at most ${MAX_USER_PASSAGES} passages`);
 
 /**
  * The passages a learner can choose from for `mode` (`learnerPassageFilter`), one page at a time. `q` searches the
- * title, accents optional (`titleSearchPattern`); `visibility` keeps only their own passages (`private`) or only
- * TypeTrace's (`public`). Titles sort in Vietnamese order.
+ * title, accents optional (`titleSearchPattern`); `visibility` keeps only their own private passages (`private`) or only
+ * the public ones (`public`: TypeTrace's and the learners' passages an admin approved). Titles sort in Vietnamese order.
  */
-export const listPassages = (userId: string, { mode, q, visibility, ...pagination }: ListPassagesQuery) => {
+export const listPassages = async (userId: string, { mode, q, visibility, ...pagination }: ListPassagesQuery) => {
   const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode)];
   if (visibility) conditions.push({ visibility });
   if (q) conditions.push({ title: titleSearchPattern(q) });
-  return paginate(PassageModel, { $and: conditions }, pagination, { select: listFields, collation: { locale: 'vi' } });
+  const page = await paginate(PassageModel, { $and: conditions }, pagination, { select: listFields, collation: { locale: 'vi' } });
+  return { ...page, items: page.items.map(toListItem(userId)) };
 };
 
 /**
@@ -137,7 +152,7 @@ const saveOwnPassage = async (userId: string, { title, content }: CreatePassageI
     await passage.deleteOne();
     throw tooManyPassages();
   }
-  return toListItem(passage);
+  return toListItem(userId)(passage);
 };
 
 /**
@@ -148,8 +163,51 @@ const saveOwnPassage = async (userId: string, { title, content }: CreatePassageI
 export const createPassage = (userId: string, input: CreatePassageInput) =>
   oneAtATime(userId, () => saveOwnPassage(userId, input));
 
-/** Deletes the learner's own passage for good. Their typing sessions keep their copy of its words and title. */
+/**
+ * Why a change of the learner's own private passage `id` found nothing to change: 404 when it is not theirs, 409 when it
+ * is theirs but not in the right state (`message` gets its visibility and status).
+ */
+const refusal = async (userId: string, id: string, message: (passage: { visibility: string; status: string }) => string) => {
+  const passage = await PassageModel.findOne({ _id: id, owner: userId }).select('visibility status');
+  return passage ? conflict(message(passage)) : notFound('Passage not found');
+};
+
+/**
+ * Deletes the learner's own private passage for good, also while it waits for review. Their typing sessions keep their
+ * copy of its words and title. Once an admin made it public, only an admin may remove it (409).
+ */
 export const deletePassage = async (userId: string, id: string) => {
   const passage = await PassageModel.findOneAndDelete(ownedBy(userId, id));
-  if (!passage) throw notFound('Passage not found');
+  if (!passage) throw await refusal(userId, id, () => 'This passage is public now: only an admin can remove it');
+};
+
+/**
+ * The learner asks for their own private passage to become public (SCRUM-176): it waits for an admin (`pending`) and an
+ * earlier refusal is cleared. They can still type it meanwhile. One step, so a request and a decision sent at the same
+ * time cannot both win. Already waiting or already public: 409.
+ */
+export const requestPublication = async (userId: string, id: string) => {
+  const passage = await PassageModel.findOneAndUpdate(
+    { ...ownedBy(userId, id), status: 'published' },
+    { $set: { status: 'pending' }, $unset: { reviewNote: 1 } },
+    { returnDocument: 'after' }
+  );
+  if (!passage) {
+    throw await refusal(userId, id, ({ visibility, status }) => {
+      if (visibility === 'public') return 'This passage is already public';
+      return status === 'pending' ? 'This passage is already waiting for review' : `This passage is ${status}: it cannot be made public`;
+    });
+  }
+  return toListItem(userId)(passage);
+};
+
+/** The learner takes their request back before an admin decides: the passage is private and published again. Not waiting: 409. */
+export const withdrawPublicationRequest = async (userId: string, id: string) => {
+  const passage = await PassageModel.findOneAndUpdate(
+    { ...ownedBy(userId, id), status: 'pending' },
+    { $set: { status: 'published' } },
+    { returnDocument: 'after' }
+  );
+  if (!passage) throw await refusal(userId, id, () => 'This passage is not waiting for review');
+  return toListItem(userId)(passage);
 };

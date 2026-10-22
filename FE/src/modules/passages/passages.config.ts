@@ -8,5 +8,11 @@ export const MAX_OWN_PASSAGES = 20;
 /** A learner's own passage needs at least this many words (`MIN_USER_PASSAGE_WORDS`): shorter sessions never count. */
 export const MIN_OWN_PASSAGE_WORDS = 20;
 
+/** Longest reason an admin may give when turning down a request to make a passage public (`REVIEW_NOTE_MAX`). */
+export const REVIEW_NOTE_MAX = 300;
+
+/** The author shown with a learner's public passage when they have no display name (`ANONYMOUS_OWNER_NAME`): never their email. */
+export const ANONYMOUS_OWNER_NAME = 'Anonymous learner';
+
 /** Same rule as the backend (`splitWords`): words are separated by white space. The backend does the real count. */
 export const countWords = (text: string) => text.split(/\s+/).filter(Boolean).length;

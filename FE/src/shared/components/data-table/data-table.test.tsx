@@ -71,4 +71,14 @@ describe('DataTable', () => {
     expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByText('Nothing here')).not.toBeInTheDocument();
   });
+
+  it('scrolls sideways inside its own box, which also holds the visually hidden headers', () => {
+    renderTable({ columns: [...columns, { id: 'actions', header: <span className="sr-only">Actions</span>, cell: () => null }] });
+
+    // `sr-only` is positioned absolutely: without `relative` on the scroll box it would stick out on a phone and make
+    // the whole page scroll sideways.
+    const box = screen.getByRole('table').parentElement;
+    expect(box).toHaveClass('overflow-x-auto', 'relative');
+    expect(box).toContainElement(screen.getByText('Actions'));
+  });
 });
