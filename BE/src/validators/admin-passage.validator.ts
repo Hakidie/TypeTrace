@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { passageStatuses } from '../models/passage.model';
+import { passageStatuses, passageVisibilities, REVIEW_NOTE_MAX } from '../models/passage.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
-import { optionalBooleanQuerySchema } from './common.validator';
+import { bulkIdsSchema, optionalBooleanQuerySchema } from './common.validator';
 
 const passageFields = {
   title: z.string().trim().min(1, 'Title is required').max(120),
@@ -23,12 +23,25 @@ export const setPassageStatusSchema = z.object({ status: z.enum(passageStatuses)
 export const listPassagesQuerySchema = paginationQuerySchema.extend({
   /** Text searched in title and source. */
   q: z.string().trim().max(100).optional(),
+  /** `pending` = the review queue: learners' passages waiting to become public (SCRUM-176). */
   status: z.enum(passageStatuses).optional(),
+  /** `public` = the passage bank (TypeTrace's and the approved ones), without the learners' private passages. */
+  visibility: z.enum(passageVisibilities).optional(),
   isPlacement: optionalBooleanQuerySchema,
   sort: sortSchema(['createdAt', 'updatedAt', 'title', 'wordCount'])
 });
+
+/** Why a request to make a passage public is turned down: the learner sees it on their passage. */
+const reasonSchema = z.string().trim().min(1, 'Give a reason').max(REVIEW_NOTE_MAX, `At most ${REVIEW_NOTE_MAX} characters`);
+
+export const rejectPassageSchema = z.object({ reason: reasonSchema });
+
+/** `{ ids, reason }`: the same reason for every passage turned down. */
+export const bulkRejectPassagesSchema = bulkIdsSchema.extend({ reason: reasonSchema });
 
 export type CreatePassageInput = z.infer<typeof createPassageSchema>;
 export type UpdatePassageInput = z.infer<typeof updatePassageSchema>;
 export type SetPassageStatusInput = z.infer<typeof setPassageStatusSchema>;
 export type ListPassagesQuery = z.infer<typeof listPassagesQuerySchema>;
+export type RejectPassageInput = z.infer<typeof rejectPassageSchema>;
+export type BulkRejectPassagesInput = z.infer<typeof bulkRejectPassagesSchema>;

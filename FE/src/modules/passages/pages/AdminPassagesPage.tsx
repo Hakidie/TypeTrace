@@ -9,16 +9,22 @@ import { usePagination } from '@/shared/hooks/use-pagination';
 import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { PassageCard } from '../components/PassageCard';
 import { PassageForm } from '../components/PassageForm';
+import { PendingPassagesPanel } from '../components/PendingPassagesPanel';
 import { usePassages } from '../hooks/use-passages';
 import type { Passage } from '../types/passage.types';
 
 const PAGE_SIZE = 9;
 
-export const AdminPassagesPage = () => {
+/**
+ * The passage bank: a "New passage" panel (the form, also used to edit) and a "Passages" panel with the card grid of the
+ * public passages, TypeTrace's and the approved ones. Learners' private passages are not part of it: an admin only sees
+ * one when its learner asks for it to become public (the Pending review panel).
+ */
+const PassageBank = () => {
   const { page, setPage } = usePagination();
   const [editing, setEditing] = useState<Passage | null>(null);
   const formPanelRef = useRef<HTMLDivElement>(null);
-  const passages = usePassages({ page, limit: PAGE_SIZE, sort: '-createdAt' });
+  const passages = usePassages({ page, limit: PAGE_SIZE, sort: '-createdAt', visibility: 'public' });
 
   // The form is at the top of the page: bring it into view when a card asks to be edited.
   const startEditing = (passage: Passage) => {
@@ -49,7 +55,7 @@ export const AdminPassagesPage = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <>
       <div ref={formPanelRef} className="scroll-mt-4">
         <Panel title={editing ? 'Edit passage' : 'New passage'} bare titleClassName={panelTitleClass} className={panelBodyClass}>
           {/* `key` remounts the form, so it starts from the passage being edited (or empty). */}
@@ -61,6 +67,17 @@ export const AdminPassagesPage = () => {
           {renderList()}
         </div>
       </Panel>
-    </div>
+    </>
   );
 };
+
+/**
+ * Admin passages page: the passage bank (New passage and Passages panels), then the Pending review panel below it with
+ * the learners' requests to make a passage public (SCRUM-176).
+ */
+export const AdminPassagesPage = () => (
+  <div className="space-y-8">
+    <PassageBank />
+    <PendingPassagesPanel />
+  </div>
+);

@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+/** The name of `key` in the URL: `key` itself, or `<prefix>-<key>` for a list with a `prefix`. */
+const paramName = (key: string, prefix?: string) => (prefix ? `${prefix}-${key}` : key);
+
 /**
  * State of a list page kept in the URL: `?q=lan&role=admin&sort=-createdAt&page=2`.
  * Reload, back button and shared links keep the same view. Changing anything
@@ -9,28 +12,31 @@ import { useSearchParams } from 'react-router-dom';
  *   const list = useListParams({ sort: '-createdAt' });
  *   list.get('role')            // '' when not set
  *   list.set('role', 'admin')   // '' removes it
+ *
+ * Two lists on one page: give one a `prefix`, and its values get their own names in the URL
+ * (`useListParams({ sort: 'updatedAt', prefix: 'pending' })` keeps `?pending-q=lan&pending-page=2`).
  */
-export const useListParams = (defaults: { sort: string }) => {
+export const useListParams = ({ sort: defaultSort, prefix }: { sort: string; prefix?: string }) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const parsedPage = Number(searchParams.get('page'));
+  const parsedPage = Number(searchParams.get(paramName('page', prefix)));
   const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-  const sort = searchParams.get('sort') || defaults.sort;
-  const q = searchParams.get('q') ?? '';
+  const sort = searchParams.get(paramName('sort', prefix)) || defaultSort;
+  const q = searchParams.get(paramName('q', prefix)) ?? '';
 
-  const get = useCallback((key: string) => searchParams.get(key) ?? '', [searchParams]);
+  const get = useCallback((key: string) => searchParams.get(paramName(key, prefix)) ?? '', [searchParams, prefix]);
 
   const set = useCallback(
     (key: string, value: string) => {
       setSearchParams((params) => {
-        const isDefault = value === '' || (key === 'sort' && value === defaults.sort) || (key === 'page' && value === '1');
-        if (isDefault) params.delete(key);
-        else params.set(key, value);
-        if (key !== 'page') params.delete('page');
+        const isDefault = value === '' || (key === 'sort' && value === defaultSort) || (key === 'page' && value === '1');
+        if (isDefault) params.delete(paramName(key, prefix));
+        else params.set(paramName(key, prefix), value);
+        if (key !== 'page') params.delete(paramName('page', prefix));
         return params;
       });
     },
-    [setSearchParams, defaults.sort],
+    [setSearchParams, defaultSort, prefix],
   );
 
   const setPage = useCallback((next: number) => set('page', String(next)), [set]);

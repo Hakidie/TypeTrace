@@ -120,7 +120,9 @@ export const DataTable = <T,>({
   };
 
   return (
-    <div className="overflow-x-auto border bg-card">
+    // `relative`: visually hidden (`sr-only`, absolutely placed) headers stay inside the box instead of making the whole
+    // page scroll sideways on a phone.
+    <div className="relative overflow-x-auto border bg-card">
       <table className="w-full min-w-[640px] text-base" aria-label={label} aria-busy={isLoading}>
         <thead className="bg-muted/50 text-left text-sm uppercase tracking-wide text-muted-foreground">
           <tr>

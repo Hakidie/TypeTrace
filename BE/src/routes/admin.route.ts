@@ -1,9 +1,13 @@
 import { Router } from 'express';
 import {
+  approvePassage,
+  bulkApprovePassages,
+  bulkRejectPassages,
   createPassage,
   deletePassage,
   getPassage,
   listPassages,
+  rejectPassage,
   setPassageStatus,
   updatePassage
 } from '../controllers/admin-passage.controller';
@@ -13,8 +17,10 @@ import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import {
+  bulkRejectPassagesSchema,
   createPassageSchema,
   listPassagesQuerySchema,
+  rejectPassageSchema,
   setPassageStatusSchema,
   updatePassageSchema
 } from '../validators/admin-passage.validator';
@@ -45,6 +51,11 @@ adminRouter.patch(
   setPassageStatus
 );
 adminRouter.delete('/passages/:id', validate({ params: idParamsSchema }), deletePassage);
+// The review queue (`GET /passages?status=pending`): approve or turn down learners' requests, one or many at once.
+adminRouter.patch('/passages/:id/approve', validate({ params: idParamsSchema }), approvePassage);
+adminRouter.patch('/passages/:id/reject', validate({ params: idParamsSchema, body: rejectPassageSchema }), rejectPassage);
+adminRouter.post('/passages/bulk-approve', validate({ body: bulkIdsSchema }), bulkApprovePassages);
+adminRouter.post('/passages/bulk-reject', validate({ body: bulkRejectPassagesSchema }), bulkRejectPassages);
 
 adminRouter.get('/themes', validate({ query: listAdminThemesQuerySchema }), listThemes);
 adminRouter.post('/themes', validate({ body: createAdminThemeSchema }), createTheme);

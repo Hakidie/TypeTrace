@@ -1,6 +1,6 @@
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor, within } from '@testing-library/react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { TypingPage } from './TypingPage';
@@ -29,6 +29,9 @@ const session = {
 
 const renderPage = () =>
   renderWithProviders(<TypingPage />, { route: '/typing', otherRoutes: { '/typing/result/s1': 'result page' } });
+
+/** Shows the query string of the URL, to check what the page leaves in it. */
+const UrlSearch = () => <p aria-label="URL search">{useLocation().search}</p>;
 
 beforeEach(() => {
   start.mockReset().mockResolvedValue(session);
@@ -221,6 +224,14 @@ describe('TypingPage', () => {
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
     expect(passages).toHaveBeenCalledWith('practice');
+
+    // Still Random back in practice: the pick is gone, so Restart types a random passage too.
+    await user.click(screen.getByRole('radio', { name: 'Practice' }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice' }));
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary');
+    await user.click(screen.getByRole('button', { name: /restart/i }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: undefined }));
   });
 
   it('keeps the word count and the clock on screen while a new session loads', async () => {
@@ -314,6 +325,30 @@ describe('TypingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Random' }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: undefined }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
+  });
+
+  it('types the passage from the URL first, as when Practice is clicked on the Passages page', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <TypingPage />
+        <UrlSearch />
+      </>,
+      { route: '/typing?passage=p2' },
+    );
+
+    expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith({ mode: 'practice', passageId: 'p2' });
+    expect(screen.getByRole('button', { name: 'Random' })).not.toHaveClass('text-primary');
+    // Read once, then left out of the URL: a reload after Random or another pick must not bring it back.
+    await waitFor(() => expect(screen.getByLabelText('URL search')).toBeEmptyDOMElement());
+
+    // Restart keeps the passage, Random leaves it.
+    await user.click(screen.getByRole('button', { name: /restart/i }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p2' }));
+    await user.click(screen.getByRole('button', { name: 'Random' }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: undefined }));
   });
 
   it('shows an error in the name menu when the passages cannot be loaded', async () => {

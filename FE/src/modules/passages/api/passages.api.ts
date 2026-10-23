@@ -9,4 +9,12 @@ export const passagesApi = {
   update: (id: string, input: PassageInput) => http.patch<Passage>(`/admin/passages/${id}`, input).then((r) => r.data),
   setStatus: (id: string, status: PassageStatus) =>
     http.patch<Passage>(`/admin/passages/${id}/status`, { status }).then((r) => r.data),
+  // The review of learners' requests to make a passage public (SCRUM-176). One passage answers 409 if it is no longer
+  // waiting; many at once answer how many changed.
+  approve: (id: string) => http.patch<Passage>(`/admin/passages/${id}/approve`).then((r) => r.data),
+  reject: (id: string, reason: string) => http.patch<Passage>(`/admin/passages/${id}/reject`, { reason }).then((r) => r.data),
+  bulkApprove: (ids: string[]) =>
+    http.post<{ updated: number }>('/admin/passages/bulk-approve', { ids }).then((r) => r.data),
+  bulkReject: (ids: string[], reason: string) =>
+    http.post<{ updated: number }>('/admin/passages/bulk-reject', { ids, reason }).then((r) => r.data),
 };
