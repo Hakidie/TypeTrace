@@ -22,7 +22,9 @@ const signIn = async (email: string, extra: { displayName?: string; role?: 'admi
 };
 
 const addPassage = async (auth: string, title: string) =>
-  (await api().post('/api/passages').set('Authorization', auth).send({ title, content: longEnough })).body as { _id: string };
+  (await api().post('/api/passages').set('Authorization', auth).send({ title, source: 'Tự viết', content: longEnough })).body as {
+    _id: string;
+  };
 const requestPublic = (auth: string, id: string, body: object = {}) =>
   api().post(`/api/passages/${id}/publish-request`).set('Authorization', auth).send(body);
 const withdraw = (auth: string, id: string) => api().delete(`/api/passages/${id}/publish-request`).set('Authorization', auth);
@@ -116,7 +118,7 @@ describe('only an admin makes a passage public', () => {
     const created = await api()
       .post('/api/passages')
       .set('Authorization', lan.auth)
-      .send({ title: 'Tự công khai', content: longEnough, status: 'published', visibility: 'public' });
+      .send({ title: 'Tự công khai', source: 'Tự viết', content: longEnough, status: 'published', visibility: 'public' });
     expect(await saved(created.body._id)).toMatchObject({ status: 'published', visibility: 'private' });
 
     const asked = await requestPublic(lan.auth, created.body._id, { status: 'published', visibility: 'public' });
@@ -157,6 +159,26 @@ describe('only an admin makes a passage public', () => {
     expect((await setStatus(waiting._id, 'archived')).status).toBe(409);
     expect((await saved(waiting._id)).status).toBe('pending');
     expect((await saved(notAsked._id)).status).toBe('published');
+  });
+});
+
+describe('the passage bank: GET /api/admin/passages?visibility=public', () => {
+  it('leaves out the learners private passages, waiting for review or not, but keeps the approved ones and the drafts', async () => {
+    const lan = await signIn('lan@example.com');
+    const admin = await signIn('admin@example.com', { role: 'admin' });
+    await addPassage(lan.auth, 'Riêng của Lan');
+    await requestPublic(lan.auth, (await addPassage(lan.auth, 'Đang chờ'))._id);
+    const approved = await addPassage(lan.auth, 'Đã duyệt');
+    await requestPublic(lan.auth, approved._id);
+    await approve(admin.auth, approved._id);
+    await api().post('/api/admin/passages').set('Authorization', admin.auth).send({ title: 'Nháp', content: longEnough, source: 'TypeTrace' });
+
+    const bank = titlesOf(await adminList(admin.auth, '?visibility=public&limit=100'));
+
+    expect(bank).toEqual(expect.arrayContaining(['Đã duyệt', 'Nháp']));
+    expect(bank).not.toContain('Riêng của Lan');
+    expect(bank).not.toContain('Đang chờ');
+    expect((await adminList(admin.auth, '?visibility=secret')).status).toBe(400);
   });
 });
 
@@ -271,15 +293,23 @@ describe('PATCH /api/admin/passages/:id/reject', () => {
     const response = await reject(admin.auth, _id, { reason: '  Nội dung chưa phù hợp  ' });
 
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ status: 'published', visibility: 'private', reviewNote: 'Nội dung chưa phù hợp' });
+    expect(response.body).toMatchObject({ status: 'rejected', visibility: 'private', reviewNote: 'Nội dung chưa phù hợp' });
     expect(itemsOf(await listPassages(lan.auth, '?visibility=private'))[0]).toMatchObject({
-      status: 'published',
+      status: 'rejected',
       reviewNote: 'Nội dung chưa phù hợp'
     });
     expect((await startSession(lan.auth, { passageId: _id })).status).toBe(201);
     expect((await reject(admin.auth, _id, { reason: 'Lần nữa' })).status).toBe(409);
 
-    // Asking again clears the old reason.
+    // Turned down is never published: neither the published passages nor the passage bank (public ones) hold it.
+    expect(titlesOf(await adminList(admin.auth, '?status=published&limit=100'))).not.toContain('Bài của Lan');
+    expect(titlesOf(await adminList(admin.auth, '?visibility=public&limit=100'))).not.toContain('Bài của Lan');
+    expect(titlesOf(await adminList(admin.auth, '?status=rejected'))).toEqual(['Bài của Lan']);
+    expect(titlesOf(await listPassages((await signIn('other@example.com')).auth))).not.toContain('Bài của Lan');
+
+    // The owner may fix it (it stays turned down, with the reason) and ask again, which clears the reason.
+    const edited = await api().patch(`/api/passages/${_id}`).set('Authorization', lan.auth).send({ title: 'Bài đã sửa' });
+    expect(edited.body).toMatchObject({ title: 'Bài đã sửa', status: 'rejected', reviewNote: 'Nội dung chưa phù hợp' });
     expect((await requestPublic(lan.auth, _id)).body).toMatchObject({ status: 'pending' });
     expect((await saved(_id)).reviewNote).toBeUndefined();
   });
@@ -302,7 +332,7 @@ describe('POST /api/admin/passages/bulk-approve and bulk-reject', () => {
 
     const rejected = await bulk(admin.auth, 'reject', { ids: [second._id, first._id], reason: 'Trùng nội dung' });
     expect(rejected.body).toEqual({ updated: 1 });
-    expect(await saved(second._id)).toMatchObject({ status: 'published', visibility: 'private', reviewNote: 'Trùng nội dung' });
+    expect(await saved(second._id)).toMatchObject({ status: 'rejected', visibility: 'private', reviewNote: 'Trùng nội dung' });
     expect(await saved(first._id)).toMatchObject({ visibility: 'public' });
 
     expect((await bulk(admin.auth, 'reject', { ids: [second._id] })).status).toBe(400);
@@ -318,10 +348,13 @@ describe('own passages waiting for review', () => {
     for (let i = 1; i < MAX_USER_PASSAGES; i += 1) await PassageModel.create({ ...base, title: `Bài ${i}`, status: 'published' });
     const waiting = await PassageModel.create({ ...base, title: 'Đang chờ', status: 'pending' });
 
-    expect((await api().post('/api/passages').set('Authorization', lan.auth).send({ content: longEnough })).status).toBe(400);
+    const add = () => api().post('/api/passages').set('Authorization', lan.auth).send({ title: 'Mới', source: 'Tự viết', content: longEnough });
+    const full = await add();
+    expect(full.status).toBe(400);
+    expect(full.body.message).toBe(`You can have at most ${MAX_USER_PASSAGES} passages`);
 
     await PassageModel.updateOne({ _id: waiting._id }, { status: 'published', visibility: 'public' });
-    expect((await api().post('/api/passages').set('Authorization', lan.auth).send({ content: longEnough })).status).toBe(201);
+    expect((await add()).status).toBe(201);
   });
 
   it('can still be deleted by their owner', async () => {

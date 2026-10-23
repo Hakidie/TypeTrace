@@ -1,12 +1,14 @@
 /**
  * Life cycle from SCRUM-32: a new passage is `draft`; `draft → published → archived` and `archived → published`.
- * `pending` (SCRUM-176): a learner asked for their private passage to become public and waits for an admin.
+ * `pending` (SCRUM-176): a learner asked for their private passage to become public and waits for an admin;
+ * `rejected`: an admin turned the request down (never published, still private, the learner may ask again).
  */
-export type PassageStatus = 'draft' | 'published' | 'pending' | 'archived';
+export type PassageStatus = 'draft' | 'published' | 'pending' | 'rejected' | 'archived';
 
 /**
  * The one status a passage may move to from each status (the same life cycle as the backend). None from `pending`: an
- * admin approves or turns the request down in the Pending review tab instead.
+ * admin approves or turns the request down in the Pending review panel instead; none from `rejected`: only its learner
+ * sends it again.
  */
 export const nextPassageStatus: Partial<Record<PassageStatus, PassageStatus>> = {
   draft: 'published',
@@ -53,6 +55,8 @@ export interface PassageListParams {
   q?: string;
   /** `pending` = the review queue. */
   status?: PassageStatus;
+  /** `public` = the passage bank, without the learners' private passages. */
+  visibility?: PassageVisibility;
 }
 
 /** What an admin decides on a learner's request to make a passage public. */
@@ -65,14 +69,19 @@ export type PassageVisibility = 'public' | 'private';
 export interface LearnerPassage {
   _id: string;
   title: string;
+  /** Where the text comes from (a book, a website, the learner's own). */
+  source: string;
   /** Counted by the backend when the passage is saved. */
   wordCount: number;
   /** Author shown to everyone: `TypeTrace`, or the learner's name on learners' passages. */
   ownerName: string;
   /** `private` = one of the signed-in learner's own passages (nobody else's private passages are listed). */
   visibility: PassageVisibility;
-  /** `pending`: the learner asked for it to become public and an admin has not decided yet (SCRUM-176). */
-  status: 'published' | 'pending';
+  /**
+   * `pending`: the learner asked for it to become public and an admin has not decided yet; `rejected`: an admin turned
+   * the request down (the reason is in `reviewNote`) (SCRUM-176).
+   */
+  status: 'published' | 'pending' | 'rejected';
   /** Only on the learner's own passages: why an admin turned the request to make it public down. */
   reviewNote?: string;
   /** One of the signed-in learner's passages: private, or public once an admin approved it. */
@@ -80,9 +89,16 @@ export interface LearnerPassage {
   createdAt: string;
 }
 
-/** Mirrors `createPassageSchema` of `/api/passages`: without a title, the first words of the text become the title. */
+/** One of the learner's own passages with its text (`GET /api/passages/:id`), to edit it. */
+export interface OwnPassage extends LearnerPassage {
+  content: string;
+}
+
+/** Mirrors `createPassageSchema` of `/api/passages`: all three are required. */
 export interface OwnPassageInput {
-  title?: string;
+  title: string;
+  /** Where the text comes from (a book, a website, "my own"): admins check it before the passage can become public. */
+  source: string;
   content: string;
 }
 
@@ -94,4 +110,6 @@ export interface LearnerPassageListParams {
   q?: string;
   /** `private` = only the learner's own private passages, `public` = only the public ones (TypeTrace's and approved ones). */
   visibility?: PassageVisibility;
+  /** `true` = only the learner's own passages, private or approved (the Passages page); `false` = only the others. */
+  mine?: boolean;
 }

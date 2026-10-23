@@ -43,10 +43,19 @@ const passage = {
 
 const page = (items: unknown[]) => ({ items, page: 1, limit: 9, total: items.length, totalPages: 1 });
 
+/** Both panels ask: the passage bank for the public passages, the Pending review panel below for `status: 'pending'`. */
+const answer = ({ bank = [passage], pending = [] }: { bank?: unknown[]; pending?: unknown[] } = {}) =>
+  list.mockImplementation(async (params: { status?: string; limit?: number }) =>
+    params.status === 'pending'
+      ? { items: pending, page: 1, limit: params.limit, total: pending.length, totalPages: 1 }
+      : page(bank),
+  );
+
 const renderPage = () => renderWithProviders(<AdminPassagesPage />, { route: '/admin/passages' });
 
 beforeEach(() => {
-  list.mockReset().mockResolvedValue(page([passage]));
+  list.mockReset();
+  answer();
   create.mockReset();
   update.mockReset();
   setStatus.mockReset();
@@ -61,11 +70,11 @@ describe('AdminPassagesPage', () => {
     expect(await screen.findByText('Mùa thu Hà Nội')).toBeInTheDocument();
     expect(screen.getByText('draft')).toBeInTheDocument();
     expect(screen.getByText('6 words')).toBeInTheDocument();
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 9 }));
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 9, visibility: 'public' }));
   });
 
   it('shows an empty state without any example card', async () => {
-    list.mockResolvedValue(page([]));
+    answer({ bank: [] });
     renderPage();
 
     expect(await screen.findByText('No passages yet')).toBeInTheDocument();
@@ -73,11 +82,15 @@ describe('AdminPassagesPage', () => {
   });
 
   it('shows the backend error with a retry button', async () => {
-    list.mockRejectedValue({ response: { status: 500, data: { message: 'Database offline' } } });
+    // Only the passage bank fails here; the Pending review panel below is empty.
+    list.mockImplementation(async (params: { status?: string }) => {
+      if (params.status === 'pending') return page([]);
+      throw { response: { status: 500, data: { message: 'Database offline' } } };
+    });
     renderPage();
 
     expect(await screen.findByText('Database offline')).toBeInTheDocument();
-    list.mockResolvedValue(page([passage]));
+    answer({ bank: [passage] });
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('Mùa thu Hà Nội')).toBeInTheDocument();
   });
@@ -179,7 +192,7 @@ describe('AdminPassagesPage', () => {
   });
 
   it('only shows the status on the card: it is changed in the edit form', async () => {
-    list.mockResolvedValue(page([{ ...passage, status: 'published' }]));
+    answer({ bank: [{ ...passage, status: 'published' }] });
     renderPage();
     await screen.findByText('Mùa thu Hà Nội');
 
@@ -189,7 +202,7 @@ describe('AdminPassagesPage', () => {
   });
 
   it('shows the status of the passage in the edit form', async () => {
-    list.mockResolvedValue(page([{ ...passage, status: 'published' }]));
+    answer({ bank: [{ ...passage, status: 'published' }] });
     renderPage();
     await screen.findByText('Mùa thu Hà Nội');
 
@@ -235,7 +248,7 @@ describe('AdminPassagesPage', () => {
   });
 
   it('moves an archived passage to published', async () => {
-    list.mockResolvedValue(page([{ ...passage, status: 'archived' }]));
+    answer({ bank: [{ ...passage, status: 'archived' }] });
     renderPage();
     await screen.findByText('Mùa thu Hà Nội');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Mùa thu Hà Nội' }));
@@ -246,7 +259,7 @@ describe('AdminPassagesPage', () => {
   });
 
   it('lets an admin archive a placement passage with the status button', async () => {
-    list.mockResolvedValue(page([{ ...passage, status: 'published', isPlacement: true }]));
+    answer({ bank: [{ ...passage, status: 'published', isPlacement: true }] });
     update.mockResolvedValue({ ...passage, status: 'published', isPlacement: true });
     setStatus.mockResolvedValue({ ...passage, status: 'archived' });
     renderPage();
@@ -262,31 +275,35 @@ describe('AdminPassagesPage', () => {
   });
 });
 
-describe('AdminPassagesPage: Pending review tab (SCRUM-176)', () => {
+describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
   const waitingA = {
     ...passage,
     _id: 'pA',
     title: 'Sông quê',
     content: 'Dòng sông quê hương hiền hòa chảy qua làng.',
+    source: 'Sách Tiếng Việt lớp 5',
     ownerName: 'Lan',
     status: 'pending',
     visibility: 'private',
     wordCount: 21,
     updatedAt: '2026-10-20T12:00:00.000Z',
   };
-  const waitingB = { ...waitingA, _id: 'pB', title: 'Biển xanh', ownerName: 'Minh', updatedAt: '2026-10-21T12:00:00.000Z' };
+  const waitingB = {
+    ...waitingA,
+    _id: 'pB',
+    title: 'Biển xanh',
+    content: 'Sóng biển xanh vỗ nhẹ vào bờ cát trắng.',
+    ownerName: 'Minh',
+    updatedAt: '2026-10-21T12:00:00.000Z',
+  };
 
-  /** The bank asks without a status; the tab count asks for `status: 'pending', limit: 1`, the table for its page. */
-  const answerQueue = (items: unknown[] = [waitingA, waitingB]) =>
-    list.mockImplementation(async (params: { status?: string; limit?: number }) => {
-      if (params.status !== 'pending') return page([passage]);
-      return { items: params.limit === 1 ? items.slice(0, 1) : items, page: 1, limit: params.limit, total: items.length, totalPages: 1 };
-    });
+  const answerQueue = (items: unknown[] = [waitingA, waitingB]) => answer({ pending: items });
 
-  const openTab = async () => {
+  /** Opens the page and waits for the cards of the queue. */
+  const openPage = async () => {
     const user = userEvent.setup();
-    renderWithProviders(<AdminPassagesPage />, { route: '/admin/passages?tab=pending' });
-    await within(await screen.findByRole('table', { name: 'Passages waiting for review' })).findByText('Sông quê');
+    renderPage();
+    await within(await screen.findByLabelText('Passages waiting for review')).findByText('Sông quê');
     return user;
   };
 
@@ -299,50 +316,56 @@ describe('AdminPassagesPage: Pending review tab (SCRUM-176)', () => {
     answerQueue();
   });
 
-  it('shows on its tab how many requests wait, and lists them in a table, oldest first', async () => {
-    const user = userEvent.setup();
+  it('lists the requests below the Passages panel, without tabs, as cards like the passage bank, oldest first', async () => {
     renderPage();
 
-    const tab = await screen.findByRole('tab', { name: /Pending review/ });
-    await waitFor(() => expect(tab).toHaveTextContent(/Pending review\s*2/));
-    expect(screen.getByRole('tab', { name: 'All passages' })).toHaveAttribute('aria-selected', 'true');
-    await user.click(tab);
+    const passagesPanel = screen.getByRole('heading', { name: 'Passages' });
+    const pendingPanel = screen.getByRole('heading', { name: 'Pending review' });
+    expect(passagesPanel.compareDocumentPosition(pendingPanel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
 
-    expect(tab).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('heading', { name: 'Pending review' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'New passage' })).not.toBeInTheDocument();
-    const table = await screen.findByRole('table', { name: 'Passages waiting for review' });
-    expect(await within(table).findByText('Sông quê')).toBeInTheDocument();
-    expect(within(table).getByText('Lan')).toBeInTheDocument();
-    expect(within(table).getByText('20 Oct 2026')).toBeInTheDocument();
-    expect(list).toHaveBeenCalledWith({ status: 'pending', page: 1, limit: 10, sort: 'updatedAt', q: undefined });
+    const queue = await screen.findByLabelText('Passages waiting for review');
+    expect(await within(queue).findByText('Sông quê')).toBeInTheDocument();
+    expect(within(queue).getByText('by Lan · Sách Tiếng Việt lớp 5 · asked 20 Oct 2026')).toBeInTheDocument();
+    expect(within(queue).getByText('Dòng sông quê hương hiền hòa chảy qua làng.')).toBeInTheDocument();
+    expect(within(queue).getAllByText('21 words')).toHaveLength(2);
+    expect(list).toHaveBeenCalledWith({ status: 'pending', page: 1, limit: 9, sort: 'updatedAt', q: undefined });
     expect(screen.getByText('2 waiting')).toBeInTheDocument();
+    // The passage bank above holds only public passages: a learner's request is not part of it.
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ visibility: 'public' }));
   });
 
-  it('searches the requests', async () => {
-    const user = await openTab();
+  it('searches and sorts the requests, keeping them apart from the passage bank in the URL', async () => {
+    const user = await openPage();
 
     await user.type(screen.getByLabelText('Search requests'), 'biển{Enter}');
-
     await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', q: 'biển', page: 1 })));
+
+    const toolbar = screen.getByLabelText('Search requests').closest('div.flex')!.parentElement!;
+    await user.click(within(toolbar).getByRole('button', { name: 'Sort' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Newest request' }));
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', q: 'biển', sort: '-updatedAt' })));
+    // The bank is never searched with the text of the queue.
+    expect(list).not.toHaveBeenCalledWith(expect.objectContaining({ visibility: 'public', q: 'biển' }));
   });
 
-  it('shows an empty state when no request waits, and no number on the tab', async () => {
+  it('shows an empty state when no request waits', async () => {
     answerQueue([]);
-    renderWithProviders(<AdminPassagesPage />, { route: '/admin/passages?tab=pending' });
+    renderPage();
 
     expect(await screen.findByText('Nothing to review')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Pending review' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('0 waiting')).toBeInTheDocument();
   });
 
   it('opens a request to read its whole text, and approves it from there after a confirmation', async () => {
     approve.mockResolvedValue({ ...waitingA, status: 'published', visibility: 'public' });
-    const user = await openTab();
+    const user = await openPage();
 
     await user.click(screen.getByRole('button', { name: 'View Sông quê' }));
     const view = await screen.findByRole('dialog', { name: 'Sông quê' });
     expect(within(view).getByText('Dòng sông quê hương hiền hòa chảy qua làng.')).toBeInTheDocument();
     expect(within(view).getByText('by Lan · 21 words')).toBeInTheDocument();
+    expect(within(view).getByText('Source: Sách Tiếng Việt lớp 5')).toBeInTheDocument();
     await user.click(within(view).getByRole('button', { name: 'Approve' }));
 
     const confirm = await screen.findByRole('dialog', { name: 'Approve "Sông quê"?' });
@@ -354,8 +377,8 @@ describe('AdminPassagesPage: Pending review tab (SCRUM-176)', () => {
   });
 
   it('turns a request down only with a reason, which is sent', async () => {
-    reject.mockResolvedValue({ ...waitingA, status: 'published', reviewNote: 'Trùng nội dung' });
-    const user = await openTab();
+    reject.mockResolvedValue({ ...waitingA, status: 'rejected', reviewNote: 'Trùng nội dung' });
+    const user = await openPage();
 
     await user.click(screen.getByRole('button', { name: 'Reject Sông quê' }));
     const dialog = await screen.findByRole('dialog', { name: 'Reject "Sông quê"?' });
@@ -370,26 +393,28 @@ describe('AdminPassagesPage: Pending review tab (SCRUM-176)', () => {
     await user.click(confirm);
 
     await waitFor(() => expect(reject).toHaveBeenCalledWith('pA', 'Trùng nội dung'));
+    expect(approve).not.toHaveBeenCalled();
     expect(toast.success).toHaveBeenCalledWith('Passage turned down.');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
-  it('approves or turns down the selected requests at once', async () => {
+  it('approves or turns down the ticked requests at once', async () => {
     bulkApprove.mockResolvedValue({ updated: 2 });
     bulkReject.mockResolvedValue({ updated: 1 });
-    const user = await openTab();
+    const user = await openPage();
     expect(screen.queryByRole('button', { name: 'Approve 2' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Select all rows' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
     await user.click(screen.getByRole('button', { name: 'Approve 2' }));
     await user.click(within(await screen.findByRole('dialog', { name: 'Approve 2 passages?' })).getByRole('button', { name: 'Approve' }));
     await waitFor(() => expect(bulkApprove).toHaveBeenCalledWith(['pA', 'pB']));
     expect(toast.success).toHaveBeenCalledWith('2 passages approved.');
-    // A decision clears the selection.
+    // A decision clears the ticks.
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Approve 2' })).not.toBeInTheDocument());
+    expect(screen.getByRole('checkbox', { name: 'Select Sông quê' })).not.toBeChecked();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Select row pA' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Select row pB' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select Sông quê' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select Biển xanh' }));
     await user.click(screen.getByRole('button', { name: 'Reject 2' }));
     const dialog = await screen.findByRole('dialog', { name: 'Reject 2 passages?' });
     await user.type(within(dialog).getByLabelText('Reason'), 'Trùng nội dung');
@@ -404,7 +429,7 @@ describe('AdminPassagesPage: Pending review tab (SCRUM-176)', () => {
     for (const status of [409, 404]) {
       approve.mockRejectedValueOnce({ response: { status, data: { message: 'This passage is not waiting for review' } } });
       answerQueue();
-      const user = await openTab();
+      const user = await openPage();
       answerQueue([waitingB]);
 
       await user.click(screen.getByRole('button', { name: 'Approve Sông quê' }));
@@ -413,14 +438,13 @@ describe('AdminPassagesPage: Pending review tab (SCRUM-176)', () => {
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
       expect(await screen.findByText('1 waiting')).toBeInTheDocument();
       expect(screen.queryByText('Sông quê')).not.toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Pending review/ })).toHaveTextContent(/Pending review\s*1/);
       cleanup();
     }
   });
 
   it('keeps the dialog open to try again when the server cannot be reached', async () => {
     approve.mockRejectedValueOnce(new Error('Network Error'));
-    const user = await openTab();
+    const user = await openPage();
 
     await user.click(screen.getByRole('button', { name: 'Approve Sông quê' }));
     await user.click(within(await screen.findByRole('dialog', { name: 'Approve "Sông quê"?' })).getByRole('button', { name: 'Approve' }));
@@ -430,34 +454,17 @@ describe('AdminPassagesPage: Pending review tab (SCRUM-176)', () => {
     expect(screen.getByRole('dialog', { name: 'Approve "Sông quê"?' })).toBeInTheDocument();
   });
 
-  it('asks again for the number on the tab when the tab is opened, so it matches the queue', async () => {
-    answerQueue([]);
-    const user = userEvent.setup();
-    renderPage();
-    const tab = await screen.findByRole('tab', { name: /Pending review/ });
-    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', limit: 1 })));
-    expect(tab).toHaveTextContent(/^Pending review$/);
-
-    // Two learners send a request while the admin is on the other tab.
-    answerQueue();
-    await user.click(tab);
-
-    expect(await screen.findByText('2 waiting')).toBeInTheDocument();
-    await waitFor(() => expect(tab).toHaveTextContent(/Pending review\s*2/));
-  });
-
   it('asks again every minute while the page stays open, so new requests show up', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       answerQueue([waitingA]);
-      renderWithProviders(<AdminPassagesPage />, { route: '/admin/passages?tab=pending' });
+      renderPage();
       expect(await screen.findByText('1 waiting')).toBeInTheDocument();
 
       answerQueue();
       await vi.advanceTimersByTimeAsync(REVIEW_QUEUE_REFRESH_MS);
 
       expect(await screen.findByText('2 waiting')).toBeInTheDocument();
-      await waitFor(() => expect(screen.getByRole('tab', { name: /Pending review/ })).toHaveTextContent(/Pending review\s*2/));
     } finally {
       vi.useRealTimers();
     }

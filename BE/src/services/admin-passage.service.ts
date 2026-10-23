@@ -10,23 +10,25 @@ const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$
 
 /**
  * Life cycle of a passage: where each status may go next with `PATCH /:id/status`. Only a learner puts a passage in
- * `pending`, and an admin takes it out with approve or reject, not with this table.
+ * `pending`, and an admin takes it out with approve or reject, not with this table; a `rejected` one goes back to
+ * `pending` only when its learner asks again.
  */
 const nextStatuses: Record<PassageStatus, readonly PassageStatus[]> = {
   draft: ['published'],
   published: ['archived'],
   pending: [],
+  rejected: [],
   archived: ['published']
 };
 
-// What approving and turning down do to a passage waiting for review. Either way it is published (so its owner can
-// type it). Approved it is public, shown with `ownerName` (its owner's public name, never an email), and the old reason
-// goes; turned down it stays private with the reason.
+// What approving and turning down do to a passage waiting for review. Approved it is published and public, shown with
+// `ownerName` (its owner's public name, never an email), and the old reason goes. Turned down it is `rejected`, still
+// private, with the reason: never published, but its owner can still type it.
 const approved = (ownerName: string): UpdateQuery<PassageDocument> => ({
   $set: { status: 'published', visibility: 'public', ownerName },
   $unset: { reviewNote: 1 }
 });
-const rejected = (reason: string): UpdateQuery<PassageDocument> => ({ $set: { status: 'published', reviewNote: reason } });
+const rejected = (reason: string): UpdateQuery<PassageDocument> => ({ $set: { status: 'rejected', reviewNote: reason } });
 
 /**
  * The public name (`publicOwnerName`) of each of `owners`, from their profile as it is now: a display name set after
@@ -39,9 +41,10 @@ const publicNamesOf = async (owners: (Types.ObjectId | undefined)[]) => {
   return (owner?: Types.ObjectId) => names.get(String(owner)) ?? publicOwnerName();
 };
 
-export const listPassages = ({ q, status, isPlacement, ...pagination }: ListPassagesQuery) => {
+export const listPassages = ({ q, status, visibility, isPlacement, ...pagination }: ListPassagesQuery) => {
   const filter: QueryFilter<PassageDocument> = {};
   if (status) filter.status = status;
+  if (visibility) filter.visibility = visibility;
   if (isPlacement !== undefined) filter.isPlacement = isPlacement;
   if (q) {
     const pattern = new RegExp(escapeRegex(q), 'i');

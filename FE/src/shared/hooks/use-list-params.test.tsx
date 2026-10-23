@@ -38,4 +38,23 @@ describe('useListParams', () => {
     act(() => result.current.setPage(1));
     expect(result.current.location.search).toBe('?q=lan');
   });
+
+  it('keeps a second list on the same page apart with a prefix', () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <MemoryRouter initialEntries={['/admin/passages?page=3&q=bank']}>{children}</MemoryRouter>
+    );
+    const { result } = renderHook(() => ({ ...useListParams({ sort: 'updatedAt', prefix: 'pending' }), location: useLocation() }), { wrapper });
+
+    // The other list's `page` and `q` are not this list's.
+    expect(result.current).toMatchObject({ page: 1, sort: 'updatedAt', q: '' });
+
+    act(() => result.current.set('q', 'song'));
+    act(() => result.current.setPage(2));
+    expect(result.current).toMatchObject({ page: 2, q: 'song' });
+    expect(result.current.location.search).toBe('?page=3&q=bank&pending-q=song&pending-page=2');
+
+    // A new search goes back to its own page 1 only.
+    act(() => result.current.set('q', ''));
+    expect(result.current.location.search).toBe('?page=3&q=bank');
+  });
 });

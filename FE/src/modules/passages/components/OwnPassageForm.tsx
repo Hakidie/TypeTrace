@@ -6,16 +6,26 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
-import { useAddOwnPassage } from '../hooks/use-learner-passages';
+import { useAddOwnPassage, useUpdateOwnPassage } from '../hooks/use-learner-passages';
 import { cleanPassageText } from '../lib/passage-text';
-import { countWords, MAX_OWN_PASSAGES, MIN_OWN_PASSAGE_WORDS, PASSAGE_CONTENT_MAX, PASSAGE_TITLE_MAX } from '../passages.config';
+import {
+  countWords,
+  MAX_OWN_PASSAGES,
+  MIN_OWN_PASSAGE_WORDS,
+  PASSAGE_CONTENT_MAX,
+  PASSAGE_SOURCE_MAX,
+  PASSAGE_TITLE_MAX,
+} from '../passages.config';
+import type { OwnPassage } from '../types/passage.types';
 
-// Mirrors `createPassageSchema` of `/api/passages`: the text is cleaned first, like the backend does (HTML tags and
-// hidden characters out, `…` → `...`), so the limits apply to what is saved and the cleaned text is sent.
+// Mirrors `createPassageSchema` of `/api/passages`: every field is cleaned first, like the backend does (HTML tags and
+// hidden characters out, `…` → `...`), so the limits apply to what is saved and the cleaned text is sent. All three are
+// required: a title or a source made only of spaces or tags is empty once cleaned.
 const cleanText = z.string().transform(cleanPassageText);
 
 const schema = z.object({
-  title: cleanText.pipe(z.string().max(PASSAGE_TITLE_MAX, `Max ${PASSAGE_TITLE_MAX} characters`)),
+  title: cleanText.pipe(z.string().min(1, 'Title is required').max(PASSAGE_TITLE_MAX, `Max ${PASSAGE_TITLE_MAX} characters`)),
+  source: cleanText.pipe(z.string().min(1, 'Source is required').max(PASSAGE_SOURCE_MAX, `Max ${PASSAGE_SOURCE_MAX} characters`)),
   content: cleanText.pipe(
     z
       .string()
@@ -26,11 +36,11 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const emptyValues: FormValues = { title: '', content: '' };
+const emptyValues: FormValues = { title: '', source: '', content: '' };
 
-// Same look as the admin passage form (`PassageForm`): no borders, the title in the red tint of the typing status bar.
+// Same look as the admin passage form (`PassageForm`): no borders, Title and Source in the red tint of the typing status bar.
 const fieldClass = 'border-0 text-[1.125rem]';
-const titleClass = 'h-12 bg-primary/15 px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary/60 focus-visible:ring-0';
+const metaClass = 'h-12 bg-primary/15 px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary/60 focus-visible:ring-0';
 
 /** No visible labels: the placeholders say what each field is, `aria-label` serves screen readers. */
 const FieldError = ({ message }: { message?: string }) =>
@@ -43,29 +53,52 @@ const FieldError = ({ message }: { message?: string }) =>
 interface OwnPassageFormProps {
   /** How many passages of their own the learner has (unknown while loading); adding stops at `MAX_OWN_PASSAGES`. */
   ownCount?: number;
+  /** The passage to edit, with its text. Without it the form adds a new passage. */
+  passage?: OwnPassage;
+  /** Edit mode: called after a successful update and by the Cancel button. */
+  onDone?: () => void;
 }
 
-/** Where a learner pastes (or types) a text of their own to practice. It is saved private and can be typed at once. */
-export const OwnPassageForm = ({ ownCount }: OwnPassageFormProps) => {
+/**
+ * Where a learner pastes (or types) a text of their own to practice. It is saved private and can be typed at once. With
+ * `passage` it edits that passage instead, like the admin `PassageForm`; remount it (`key`) to switch passage.
+ */
+export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProps) => {
   const addPassage = useAddOwnPassage();
+  const updatePassage = useUpdateOwnPassage();
+  const isPending = addPassage.isPending || updatePassage.isPending;
   const { register, control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: emptyValues,
+    defaultValues: passage ? { title: passage.title, source: passage.source, content: passage.content } : emptyValues,
   });
   // Counted as it will be saved.
   const content = cleanPassageText(useWatch({ control, name: 'content' }));
-  const full = ownCount !== undefined && ownCount >= MAX_OWN_PASSAGES;
+  const full = !passage && ownCount !== undefined && ownCount >= MAX_OWN_PASSAGES;
 
-  // An empty title is left out: the backend makes one from the first words of the text.
-  const submit = handleSubmit(({ title, content: text }) =>
-    addPassage.mutate({ ...(title ? { title } : {}), content: text }, { onSuccess: () => reset(emptyValues) }),
-  );
+  const submit = handleSubmit((input) => {
+    if (passage) {
+      updatePassage.mutate({ id: passage._id, input }, { onSuccess: onDone });
+      return;
+    }
+    addPassage.mutate(input, { onSuccess: () => reset(emptyValues) });
+  });
 
   return (
     <form className="space-y-4" onSubmit={submit}>
-      <div className="space-y-2">
-        <Input className={cn(fieldClass, titleClass)} aria-label="Title" placeholder="Title (optional)" {...register('title')} />
-        <FieldError message={errors.title?.message} />
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="min-w-0 space-y-2">
+          <Input className={cn(fieldClass, metaClass)} aria-label="Title" placeholder="Title" {...register('title')} />
+          <FieldError message={errors.title?.message} />
+        </div>
+        <div className="min-w-0 space-y-2">
+          <Input
+            className={cn(fieldClass, metaClass)}
+            aria-label="Source"
+            placeholder="Source: a book, a website or your own"
+            {...register('source')}
+          />
+          <FieldError message={errors.source?.message} />
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -85,15 +118,20 @@ export const OwnPassageForm = ({ ownCount }: OwnPassageFormProps) => {
         </p>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          {ownCount !== undefined && (
+          {!passage && ownCount !== undefined && (
             <p className="text-base text-muted-foreground">
               Your passages: {ownCount}/{MAX_OWN_PASSAGES}
               {full && '. Delete one to add another.'}
             </p>
           )}
-          <Button type="submit" disabled={full || addPassage.isPending}>
-            {addPassage.isPending && <Loader2 className="size-4 animate-spin" />}
-            Add passage
+          {passage && (
+            <Button type="button" variant="outline" onClick={onDone}>
+              Cancel
+            </Button>
+          )}
+          <Button type="submit" disabled={full || isPending}>
+            {isPending && <Loader2 className="size-4 animate-spin" />}
+            {passage ? 'Update passage' : 'Add passage'}
           </Button>
         </div>
       </div>

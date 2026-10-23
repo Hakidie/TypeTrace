@@ -29,16 +29,6 @@ export const cleanPassageText = (text: string) => {
   return clean.replace(/\s+/g, ' ').trim();
 };
 
-/** Longest title `titleFromContent` makes, without the `…`. */
-export const TITLE_FROM_CONTENT_MAX = 40;
-
-/** Title of a passage sent without one: its first words, cut at a space and ended with `…` when the text is longer. */
-export const titleFromContent = (content: string) => {
-  if (content.length <= TITLE_FROM_CONTENT_MAX) return content;
-  const lastSpace = content.slice(0, TITLE_FROM_CONTENT_MAX + 1).lastIndexOf(' ');
-  return `${content.slice(0, lastSpace > 0 ? lastSpace : TITLE_FROM_CONTENT_MAX)}…`;
-};
-
 // Every letter a plain letter can stand for in a search: `a` also finds `à`, `ă`, `ấ`..., `d` also finds `đ`.
 const ACCENTED_FORMS: Record<string, string> = {
   a: 'aàáảãạăằắẳẵặâầấẩẫậ',

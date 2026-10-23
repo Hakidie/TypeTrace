@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanPassageText, TITLE_FROM_CONTENT_MAX, titleFromContent, titleSearchPattern } from '../../src/utils/passage-text';
+import { cleanPassageText, titleSearchPattern } from '../../src/utils/passage-text';
 
 describe('cleanPassageText', () => {
   it('keeps clean Vietnamese text as it is', () => {
@@ -27,23 +27,6 @@ describe('cleanPassageText', () => {
 
   it('turns every run of white space, line breaks included, into one space', () => {
     expect(cleanPassageText('  một\n\nhai\tba bốn\r\n  ')).toBe('một hai ba bốn');
-  });
-});
-
-describe('titleFromContent', () => {
-  it('keeps a short text whole', () => {
-    expect(titleFromContent('Mùa thu')).toBe('Mùa thu');
-    expect(titleFromContent('x'.repeat(TITLE_FROM_CONTENT_MAX))).toBe('x'.repeat(TITLE_FROM_CONTENT_MAX));
-  });
-
-  it('cuts a longer text after the last whole word that fits, and adds …', () => {
-    const text = 'aaaa '.repeat(20).trim();
-
-    expect(titleFromContent(text)).toBe(`${'aaaa '.repeat(8).trim()}…`);
-  });
-
-  it('cuts one very long word at the limit', () => {
-    expect(titleFromContent('x'.repeat(60))).toBe(`${'x'.repeat(TITLE_FROM_CONTENT_MAX)}…`);
   });
 });
 

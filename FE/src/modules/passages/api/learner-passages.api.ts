@@ -1,14 +1,18 @@
 import { http } from '@/shared/api/http';
 import type { Paginated } from '@/shared/api/types';
-import type { LearnerPassage, LearnerPassageListParams, OwnPassageInput } from '../types/passage.types';
+import type { LearnerPassage, LearnerPassageListParams, OwnPassage, OwnPassageInput } from '../types/passage.types';
 
 /** The learner side of the passages (`/api/passages`); the admin side is `passages.api.ts`. Every function resolves with the response body. */
 export const learnerPassagesApi = {
-  /** The published practice passages: TypeTrace's and the learner's own. */
+  /** The published practice passages: TypeTrace's and the learner's own (`mine: true` = only their own). */
   list: (params: LearnerPassageListParams = {}) =>
     http.get<Paginated<LearnerPassage>>('/passages', { params }).then((r) => r.data),
+  /** One of the learner's own passages, with its text. */
+  get: (id: string) => http.get<OwnPassage>(`/passages/${id}`).then((r) => r.data),
   /** Adds one of the learner's own passages: private, and ready to type at once. */
   create: (input: OwnPassageInput) => http.post<LearnerPassage>('/passages', input).then((r) => r.data),
+  /** Edits one of the learner's own private passages (not while it waits for review); an empty title is made again. */
+  update: (id: string, input: OwnPassageInput) => http.patch<LearnerPassage>(`/passages/${id}`, input).then((r) => r.data),
   /** Deletes one of the learner's own passages. */
   remove: (id: string) => http.delete(`/passages/${id}`).then(() => undefined),
   /** Asks for one of the learner's private passages to become public: an admin reviews it (SCRUM-176). */

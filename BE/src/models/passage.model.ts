@@ -3,7 +3,7 @@ import mongoose, { Schema, Types } from 'mongoose';
 import { tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 
 export const passageVisibilities = ['public', 'private'] as const;
-export const passageStatuses = ['draft', 'published', 'pending', 'archived'] as const;
+export const passageStatuses = ['draft', 'published', 'pending', 'rejected', 'archived'] as const;
 
 export type PassageVisibility = (typeof passageVisibilities)[number];
 export type PassageStatus = (typeof passageStatuses)[number];
@@ -27,7 +27,8 @@ export interface PassageDocument extends mongoose.Document {
   /**
    * Life cycle: `draft → published → archived`, and `archived → published`. Only `published` passages are offered for
    * practice. `pending` (SCRUM-176): a learner asked for their private passage to become public and an admin has not
-   * decided yet; only its owner may still type it.
+   * decided yet; `rejected`: an admin turned the request down (the reason is in `reviewNote`). Both stay private: only
+   * the owner may still type them, and a rejected one may be edited and sent again.
    */
   status: PassageStatus;
   /** Why an admin turned down the learner's request to make the passage public. Cleared when they ask again or it is approved. */
@@ -53,8 +54,6 @@ export const MAX_USER_PASSAGES = 20;
 /** A learner's own passage needs at least this many words: a shorter session never counts (`MIN_COUNTED_WORDS`). */
 export const MIN_USER_PASSAGE_WORDS = 20;
 
-/** `source` of the passages learners paste themselves. */
-export const USER_PASSAGE_SOURCE = 'Pasted by the learner';
 
 /** Longest reason an admin may give when turning a request down (`reviewNote`). */
 export const REVIEW_NOTE_MAX = 300;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { passageStatuses, REVIEW_NOTE_MAX } from '../models/passage.model';
+import { passageStatuses, passageVisibilities, REVIEW_NOTE_MAX } from '../models/passage.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { bulkIdsSchema, optionalBooleanQuerySchema } from './common.validator';
 
@@ -25,6 +25,8 @@ export const listPassagesQuerySchema = paginationQuerySchema.extend({
   q: z.string().trim().max(100).optional(),
   /** `pending` = the review queue: learners' passages waiting to become public (SCRUM-176). */
   status: z.enum(passageStatuses).optional(),
+  /** `public` = the passage bank (TypeTrace's and the approved ones), without the learners' private passages. */
+  visibility: z.enum(passageVisibilities).optional(),
   isPlacement: optionalBooleanQuerySchema,
   sort: sortSchema(['createdAt', 'updatedAt', 'title', 'wordCount'])
 });

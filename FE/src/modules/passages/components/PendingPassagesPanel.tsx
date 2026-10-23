@@ -1,9 +1,9 @@
 import { ClipboardCheck } from 'lucide-react';
 import { useState } from 'react';
-import { DataTable, type DataTableColumn } from '@/shared/components/data-table';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { ListToolbar } from '@/shared/components/list-toolbar';
+import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
@@ -11,66 +11,79 @@ import { useListParams } from '@/shared/hooks/use-list-params';
 import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { usePendingPassages } from '../hooks/use-passages';
 import type { Passage, ReviewDecision } from '../types/passage.types';
+import { PassageCard } from './PassageCard';
 import { PassageViewDialog } from './PassageViewDialog';
 import { ReviewDialog } from './ReviewDialog';
 
-const PAGE_SIZE = 10;
+// A page of the card grid, like the Passages panel above.
+const PAGE_SIZE = 9;
 
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+const SORT_OPTIONS = [
+  { value: 'updatedAt', label: 'Oldest request' },
+  { value: '-updatedAt', label: 'Newest request' },
+  { value: 'title', label: 'Title A–Z' },
+  { value: 'wordCount', label: 'Shortest' },
+  { value: '-wordCount', label: 'Longest' },
+];
+
+const checkboxClass = 'size-4 cursor-pointer accent-primary';
 
 /**
- * The Pending review tab of the admin passages page (SCRUM-176): learners' requests to make a passage public, oldest
- * first, with search, sort and pages kept in the URL, and new requests showing up by themselves. An admin reads a
- * passage, then approves it or turns it down with a reason, one at a time or the selected ones at once.
+ * The Pending review panel of the admin passages page, under the Passages panel (SCRUM-176): learners' requests to make
+ * a passage public, as cards like the passage bank, oldest first, with search, sort and pages kept in the URL under the
+ * `pending-` prefix (the bank above already uses `?page=`), and new requests showing up by themselves. An admin reads a
+ * passage, then approves it or turns it down with a reason, one at a time or the ticked ones at once.
  */
 export const PendingPassagesPanel = () => {
-  const list = useListParams({ sort: 'updatedAt' });
+  const list = useListParams({ sort: 'updatedAt', prefix: 'pending' });
   const passages = usePendingPassages({ page: list.page, limit: PAGE_SIZE, sort: list.sort, q: list.q || undefined });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [viewing, setViewing] = useState<Passage>();
   const [review, setReview] = useState<{ decision: ReviewDecision; passages: Passage[] }>();
 
-  const rows = passages.data?.items ?? [];
-  // Only rows on screen count as selected: another page or search starts with none.
-  const selected = rows.filter((row) => selectedIds.includes(row._id));
+  const cards = passages.data?.items ?? [];
+  // Only cards on screen count as ticked: another page or search starts with none.
+  const selected = cards.filter((card) => selectedIds.includes(card._id));
+  const allSelected = cards.length > 0 && selected.length === cards.length;
+
+  const tick = (id: string, on: boolean) => setSelectedIds((ids) => (on ? [...ids, id] : ids.filter((other) => other !== id)));
+  const tickAll = () => setSelectedIds(allSelected ? [] : cards.map((card) => card._id));
 
   const startReview = (decision: ReviewDecision, targets: Passage[]) => {
     setViewing(undefined);
     setReview({ decision, passages: targets });
   };
 
-  const columns: DataTableColumn<Passage>[] = [
-    {
-      id: 'title',
-      header: 'Title',
-      sortKey: 'title',
-      cell: (passage) => (
-        <button type="button" className="text-left font-medium hover:underline" onClick={() => setViewing(passage)}>
-          {passage.title}
-        </button>
-      ),
-    },
-    { id: 'author', header: 'Author', cell: (passage) => passage.ownerName },
-    { id: 'words', header: 'Words', sortKey: 'wordCount', cell: (passage) => passage.wordCount },
-    { id: 'requested', header: 'Requested', sortKey: 'updatedAt', cell: (passage) => formatDate(passage.updatedAt) },
-    {
-      id: 'actions',
-      header: <span className="sr-only">Actions</span>,
-      cell: (passage) => (
-        <div className="flex justify-end gap-2">
-          <Button size="sm" variant="outline" aria-label={`View ${passage.title}`} onClick={() => setViewing(passage)}>
-            View
-          </Button>
-          <Button size="sm" aria-label={`Approve ${passage.title}`} onClick={() => startReview('approve', [passage])}>
-            Approve
-          </Button>
-          <Button size="sm" variant="destructive" aria-label={`Reject ${passage.title}`} onClick={() => startReview('reject', [passage])}>
-            Reject
-          </Button>
+  const renderList = () => {
+    if (passages.isPending) return <LoadingState rows={3} />;
+    if (passages.isError) return <ErrorState error={passages.error} onRetry={() => void passages.refetch()} />;
+    if (cards.length === 0) {
+      return list.q ? (
+        <EmptyState icon={ClipboardCheck} title="No matching requests" description="Try another search." />
+      ) : (
+        <EmptyState icon={ClipboardCheck} title="Nothing to review" description="Learners' requests to make a passage public show up here." />
+      );
+    }
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Passages waiting for review">
+          {cards.map((passage) => (
+            <PassageCard
+              key={passage._id}
+              passage={passage}
+              review={{
+                selected: selectedIds.includes(passage._id),
+                onSelectedChange: (on) => tick(passage._id, on),
+                onView: setViewing,
+                onDecide: (target, decision) => startReview(decision, [target]),
+              }}
+            />
+          ))}
         </div>
-      ),
-    },
-  ];
+        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} />
+      </div>
+    );
+  };
 
   return (
     <Panel title="Pending review" bare titleClassName={panelTitleClass} className={panelBodyClass}>
@@ -82,45 +95,30 @@ export const PendingPassagesPanel = () => {
             defaultValue: list.q,
             onSearch: (value) => list.set('q', value),
           }}
+          sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
           summary={passages.data ? `${passages.data.total} waiting` : 'Loading requests…'}
           actions={
-            selected.length > 0 && (
+            cards.length > 0 && (
               <>
-                <Button size="sm" onClick={() => startReview('approve', selected)}>
-                  Approve {selected.length}
-                </Button>
-                <Button size="sm" variant="destructive" onClick={() => startReview('reject', selected)}>
-                  Reject {selected.length}
-                </Button>
+                <label className="flex items-center gap-2 whitespace-nowrap text-base text-muted-foreground">
+                  <input type="checkbox" checked={allSelected} onChange={tickAll} className={checkboxClass} />
+                  Select all
+                </label>
+                {selected.length > 0 && (
+                  <>
+                    <Button size="sm" onClick={() => startReview('approve', selected)}>
+                      Approve {selected.length}
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => startReview('reject', selected)}>
+                      Reject {selected.length}
+                    </Button>
+                  </>
+                )}
               </>
             )
           }
         />
-        {passages.isError ? (
-          <ErrorState error={passages.error} onRetry={() => void passages.refetch()} />
-        ) : (
-          <DataTable
-            label="Passages waiting for review"
-            columns={columns}
-            rows={rows}
-            getRowId={(passage) => passage._id}
-            sort={list.sort}
-            onSortChange={(value) => list.set('sort', value)}
-            selectedIds={selected.map((passage) => passage._id)}
-            onSelectedIdsChange={setSelectedIds}
-            isLoading={passages.isPending}
-            emptyState={
-              list.q ? (
-                <EmptyState icon={ClipboardCheck} title="No matching requests" description="Try another search." />
-              ) : (
-                <EmptyState icon={ClipboardCheck} title="Nothing to review" description="Learners' requests to make a passage public show up here." />
-              )
-            }
-          />
-        )}
-        {passages.data && (
-          <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" />
-        )}
+        {renderList()}
       </div>
 
       <PassageViewDialog passage={viewing} onClose={() => setViewing(undefined)} onReview={(passage, decision) => startReview(decision, [passage])} />

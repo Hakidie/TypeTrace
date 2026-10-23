@@ -3,12 +3,13 @@ import { toast } from 'sonner';
 import { typingKeys } from '@/modules/typing/hooks/use-typing';
 import { getApiErrorBody, getApiErrorMessage } from '@/shared/api/api-error';
 import { learnerPassagesApi } from '../api/learner-passages.api';
-import type { LearnerPassageListParams } from '../types/passage.types';
+import type { LearnerPassageListParams, OwnPassageInput } from '../types/passage.types';
 
-/** Cache keys. Invalidating `learnerPassageKeys.all` refreshes every learner passage list. */
+/** Cache keys. Invalidating `learnerPassageKeys.all` refreshes every learner passage list and passage. */
 export const learnerPassageKeys = {
   all: ['learner-passages'] as const,
   list: (params: LearnerPassageListParams) => [...learnerPassageKeys.all, 'list', params] as const,
+  detail: (id: string) => [...learnerPassageKeys.all, 'detail', id] as const,
 };
 
 /** Keeps the previous page on screen while the next one loads. */
@@ -17,6 +18,14 @@ export const useLearnerPassages = (params: LearnerPassageListParams) =>
     queryKey: learnerPassageKeys.list(params),
     queryFn: () => learnerPassagesApi.list(params),
     placeholderData: keepPreviousData,
+  });
+
+/** One of the learner's own passages with its text, to edit it; nothing is asked for without an `id`. */
+export const useOwnPassage = (id?: string) =>
+  useQuery({
+    queryKey: learnerPassageKeys.detail(id ?? ''),
+    queryFn: () => learnerPassagesApi.get(id!),
+    enabled: Boolean(id),
   });
 
 /** After a change, the lists here and the passage menu of the Typing page are asked for again. */
@@ -42,6 +51,19 @@ export const useAddOwnPassage = () => {
     mutationFn: learnerPassagesApi.create,
     onSuccess: () => {
       toast.success('Passage added.');
+      return refresh();
+    },
+    onError: (error) => toast.error(addErrorMessage(error)),
+  });
+};
+
+/** Edits one of the learner's own private passages; checked again by the backend like a new one. */
+export const useUpdateOwnPassage = () => {
+  const refresh = useRefreshPassages();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: OwnPassageInput }) => learnerPassagesApi.update(id, input),
+    onSuccess: () => {
+      toast.success('Passage updated.');
       return refresh();
     },
     onError: (error) => toast.error(addErrorMessage(error)),

@@ -10,7 +10,7 @@ interface PassageViewDialogProps {
   onReview?: (passage: Passage, decision: ReviewDecision) => void;
 }
 
-/** The whole text of a passage, so an admin can read a learner's request before deciding. */
+/** The whole text of a passage and where it comes from, so an admin can read a learner's request before deciding. */
 export const PassageViewDialog = ({ passage, onClose, onReview }: PassageViewDialogProps) => (
   <Dialog open={passage !== undefined} onOpenChange={(open) => !open && onClose()}>
     <DialogContent className="max-w-2xl">
@@ -21,6 +21,8 @@ export const PassageViewDialog = ({ passage, onClose, onReview }: PassageViewDia
             <DialogDescription>
               by {passage.ownerName} · {passage.wordCount} words
             </DialogDescription>
+            {/* Before a passage becomes public, check that its source allows it to be reused. */}
+            <p className="break-words text-base text-muted-foreground">Source: {passage.source}</p>
           </DialogHeader>
           <p className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap border border-border p-3 text-base">{passage.content}</p>
           {onReview && (

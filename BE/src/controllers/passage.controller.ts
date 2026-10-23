@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import * as passageService from '../services/passage.service';
-import { CreatePassageInput, ListPassagesQuery } from '../validators/passage.validator';
+import { CreatePassageInput, ListPassagesQuery, UpdatePassageInput } from '../validators/passage.validator';
 
 // `authGuard` runs first, so `req.user` is always set here.
 const userIdOf = (req: Request) => req.user!.sub;
@@ -12,6 +12,14 @@ export const listPassages = async (req: Request, res: Response) => {
 
 export const createPassage = async (req: Request, res: Response) => {
   res.status(201).json(await passageService.createPassage(userIdOf(req), req.body as CreatePassageInput));
+};
+
+export const getPassage = async (req: Request, res: Response) => {
+  res.json(await passageService.getOwnPassage(userIdOf(req), idOf(req)));
+};
+
+export const updatePassage = async (req: Request, res: Response) => {
+  res.json(await passageService.updatePassage(userIdOf(req), idOf(req), req.body as UpdatePassageInput));
 };
 
 export const deletePassage = async (req: Request, res: Response) => {

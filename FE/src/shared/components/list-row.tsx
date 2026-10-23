@@ -8,7 +8,7 @@ interface ListRowProps {
   center?: ReactNode;
   /** Right, as wide as its content: a few label/value pairs. */
   extra?: ReactNode;
-  /** Far right, 32px: a `ListRowMenu`. */
+  /** Far right, as wide as its content: a `ListRowMenu` (see `UserRow`), or a few icon buttons (see `PassageRow`). */
   action?: ReactNode;
   /** Bottom left: badges. */
   tags?: ReactNode;
@@ -23,7 +23,7 @@ interface ListRowProps {
  */
 export const ListRow = ({ identity, center, extra, action, tags, meta }: ListRowProps) => (
   <article className="group border-0 bg-primary/15 text-primary transition-shadow hover:ring-1 hover:ring-primary/60">
-    <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 py-3 pr-3 pl-4 xl:grid-cols-[minmax(0,300px)_minmax(16px,1fr)_minmax(0,50%)_minmax(16px,1fr)_auto_32px] xl:gap-x-0">
+    <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 py-3 pr-3 pl-4 xl:grid-cols-[minmax(0,300px)_minmax(16px,1fr)_minmax(0,50%)_minmax(16px,1fr)_auto_auto] xl:gap-x-0">
       {identity}
       <span className="hidden xl:block" aria-hidden />
       <div className="hidden xl:block">{center}</div>
@@ -41,6 +41,14 @@ export const ListRow = ({ identity, center, extra, action, tags, meta }: ListRow
       )}
     </div>
   </article>
+);
+
+/** One label/value pair for the `extra` slot of a `ListRow`, e.g. `WPM` over `64`; 61px high, like the heatmap and the avatar. */
+export const ListRowStat = ({ label, value }: { label: string; value: string }) => (
+  <div className="flex h-[61px] flex-col text-right">
+    <span className="text-base font-semibold leading-none tracking-widest text-primary/70">{label}</span>
+    <span className="flex flex-1 items-end justify-end text-3xl font-black leading-none text-primary">{value}</span>
+  </div>
 );
 
 // With a mouse the button shows only while the row is hovered, focused or its menu is open; touch screens always show it.

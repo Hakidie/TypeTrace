@@ -1,5 +1,6 @@
 // Limits of a passage, the same as the backend (`BE/src/models/passage.model.ts` and `passage.validator.ts`).
 export const PASSAGE_TITLE_MAX = 120;
+export const PASSAGE_SOURCE_MAX = 300;
 export const PASSAGE_CONTENT_MAX = 5000;
 
 /** How many passages of their own a learner may have (`MAX_USER_PASSAGES`). */

@@ -101,7 +101,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog` (`children` for an extra field such as a reason, `confirmDisabled` until it is filled), `Pagination`,
-  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` (a two-tier red list item with slots, see `UserRow`), `ActivityHeatmap`, `ListToolbar` (search + Sort and Filter menu buttons + actions above a list) (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
+  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; icon buttons instead of the kebab menu: `PassageRow`), `ActivityHeatmap`, `ListToolbar` (search + Sort and Filter menu buttons + actions above a list) (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
   shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams` (`shared/hooks/`).
 - Design: the TypeTrace look of the login pages applies to every page, now and for new features. Header and footer are
   `BrandHeader` / `BrandFooter` (`shared/components/layout/`; `AppLayout` already uses them, so pages
@@ -116,9 +116,10 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 
 `/admin` has its own sidebar layout (`FE/src/shared/components/layout/AdminLayout.tsx`): no BrandHeader/BrandFooter, the sidebar (`AdminSidebar.tsx`) has the logo on top and the user + Logout at the bottom. The reference admin page is user
 management: `FE/src/modules/admin/pages/AdminUsersPage.tsx` (a `ListToolbar` with search, sort and filters, a list of `UserRow` cards with an edit/delete kebab menu,
-pagination, edit dialog, delete with confirmation) backed by `BE/src/routes/admin.route.ts`. For a review queue with a
-`DataTable`, row selection and bulk decisions, see the Pending review tab of `FE/src/modules/passages/pages/AdminPassagesPage.tsx`
-(learners ask for their own passages to become public, admins approve them or turn them down with a reason, SCRUM-176).
+pagination, edit dialog, delete with confirmation) backed by `BE/src/routes/admin.route.ts`. For a review queue with
+cards to tick and bulk decisions, see the Pending review panel under the Passages panel of `FE/src/modules/passages/pages/AdminPassagesPage.tsx`
+(`PendingPassagesPanel`: learners ask for their own passages to become public, admins approve them or turn them down with a
+reason, which makes them `rejected`, SCRUM-176). Two lists on one page keep their URL params apart with `useListParams({ sort, prefix })`.
 
 **Access: admins only.** The lock is one line on each side: `requireRole('admin')` in `BE/src/routes/admin.route.ts`
 (others get 403) and `<ProtectedRoute roles={['admin']}>` around `AdminLayout` in `FE/src/App.tsx` (others are sent to `/`).

@@ -7,7 +7,9 @@ import { createTestQueryClient, renderWithProviders } from '@/test/render-with-p
 import { PassagesPage } from './PassagesPage';
 
 const list = vi.fn();
+const get = vi.fn();
 const create = vi.fn();
+const update = vi.fn();
 const remove = vi.fn();
 const requestPublic = vi.fn();
 const withdrawRequest = vi.fn();
@@ -15,7 +17,9 @@ const withdrawRequest = vi.fn();
 vi.mock('../api/learner-passages.api', () => ({
   learnerPassagesApi: {
     list: (params: unknown) => list(params),
+    get: (id: string) => get(id),
     create: (input: unknown) => create(input),
+    update: (id: string, input: unknown) => update(id, input),
     remove: (id: string) => remove(id),
     requestPublic: (id: string) => requestPublic(id),
     withdrawRequest: (id: string) => withdrawRequest(id),
@@ -24,19 +28,23 @@ vi.mock('../api/learner-passages.api', () => ({
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-const theirs = {
+// The page only lists the learner's own passages (`mine: true`): this one an admin approved, so it is public.
+const approvedMine = {
   _id: 'p1',
   title: 'Hà Nội vào thu',
+  source: 'Sách Tiếng Việt lớp 5',
   wordCount: 40,
-  ownerName: 'TypeTrace',
+  ownerName: 'Lan',
   visibility: 'public',
   status: 'published',
-  isOwn: false,
-  createdAt: '2026-10-01T00:00:00.000Z',
+  isOwn: true,
+  // Midday UTC: the same day in every time zone the tests may run in.
+  createdAt: '2026-10-01T12:00:00.000Z',
 };
 const mine = {
   _id: 'p2',
   title: 'Bài của tôi',
+  source: 'Tự viết',
   wordCount: 25,
   ownerName: 'Lan',
   visibility: 'private',
@@ -45,10 +53,10 @@ const mine = {
   createdAt: '2026-10-02T00:00:00.000Z',
 };
 
-const page = (items: unknown[], total = items.length) => ({ items, page: 1, limit: 9, total, totalPages: 1 });
+const page = (items: unknown[], total = items.length) => ({ items, page: 1, limit: 10, total, totalPages: 1 });
 
 /** The page asks twice: for the list itself, and for the number of the learner's own passages (`limit: 1`). */
-const answer = ({ items = [mine, theirs], own = 1 }: { items?: unknown[]; own?: number } = {}) =>
+const answer = ({ items = [mine, approvedMine], own = 1 }: { items?: unknown[]; own?: number } = {}) =>
   list.mockImplementation(async (params: { limit?: number }) => (params.limit === 1 ? page([mine], own) : page(items)));
 
 const twentyWords = Array.from({ length: 20 }, (_, index) => `chữ${index}`).join(' ');
@@ -57,7 +65,9 @@ const renderPage = () => renderWithProviders(<PassagesPage />, { route: '/passag
 
 beforeEach(() => {
   list.mockReset();
+  get.mockReset();
   create.mockReset();
+  update.mockReset();
   remove.mockReset();
   requestPublic.mockReset();
   withdrawRequest.mockReset();
@@ -67,21 +77,29 @@ beforeEach(() => {
 });
 
 describe('PassagesPage', () => {
-  it('lists the passages to practice, newest first, with Practice links and Delete on own passages only', async () => {
+  it('lists only the learner own passages, newest first, one row each like the admin users list', async () => {
     renderPage();
 
     expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Passages' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'My passages' })).toBeInTheDocument();
     expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
-    expect(list).toHaveBeenCalledWith({ page: 1, limit: 9, sort: '-createdAt', q: undefined, visibility: undefined });
+    expect(list).toHaveBeenCalledWith({ page: 1, limit: 10, sort: '-createdAt', q: undefined, visibility: undefined, mine: true });
     expect(screen.getByText('2 passages')).toBeInTheDocument();
-    expect(screen.getByText('40 words')).toBeInTheDocument();
-    expect(screen.getByText('by TypeTrace')).toBeInTheDocument();
+
+    // One row per passage: title and source on the left, the word count on the right, where it stands and the day below.
+    const row = screen.getByRole('heading', { name: 'Hà Nội vào thu' }).closest('article')!;
+    expect(within(row).getByText('Sách Tiếng Việt lớp 5')).toBeInTheDocument();
+    expect(within(row).getByText('WORDS')).toBeInTheDocument();
+    expect(within(row).getByText('40')).toBeInTheDocument();
+    expect(within(row).getByText('Public')).toBeInTheDocument();
+    expect(within(row).getByText('01 Oct 2026')).toBeInTheDocument();
     expect(screen.getByText('Private')).toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(2);
 
     expect(screen.getByRole('link', { name: 'Practice Hà Nội vào thu' })).toHaveAttribute('href', '/typing?passage=p1');
     expect(screen.getByRole('link', { name: 'Practice Bài của tôi' })).toHaveAttribute('href', '/typing?passage=p2');
     expect(screen.getByRole('button', { name: 'Delete Bài của tôi' })).toBeInTheDocument();
+    // Approved, so public now: only an admin can remove it.
     expect(screen.queryByRole('button', { name: 'Delete Hà Nội vào thu' })).not.toBeInTheDocument();
   });
 
@@ -92,7 +110,7 @@ describe('PassagesPage', () => {
 
     list.mockImplementation(async (params: { limit?: number }) => (params.limit === 1 ? page([mine], 1) : page([])));
     await user.type(screen.getByLabelText('Search passages'), 'thu{Enter}');
-    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, q: 'thu', visibility: undefined })));
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, q: 'thu', visibility: undefined, mine: true })));
     expect(await screen.findByText('No matching passages')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Filter/ }));
@@ -112,7 +130,7 @@ describe('PassagesPage', () => {
     list.mockImplementation(async (params: { limit?: number }) => {
       if (params.limit === 1) return page([mine], 1);
       if (fail) throw { response: { status: 500, data: { message: 'Database offline' } } };
-      return page([theirs]);
+      return page([approvedMine]);
     });
     renderPage();
 
@@ -122,30 +140,40 @@ describe('PassagesPage', () => {
     expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
   });
 
-  it('adds a pasted text without a title when none is given, then clears the form', async () => {
-    create.mockResolvedValue({ ...mine, _id: 'p3' });
-    renderPage();
-    await screen.findByText('Hà Nội vào thu');
-
-    fireEvent.change(screen.getByLabelText('Content'), { target: { value: twentyWords } });
-    expect(screen.getByText(`20 words · ${twentyWords.length}/5000`)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
-
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ content: twentyWords }));
-    await waitFor(() => expect(screen.getByLabelText('Content')).toHaveValue(''));
-    expect(toast.success).toHaveBeenCalledWith('Passage added.');
-  });
-
-  it('sends the title when there is one', async () => {
+  it('adds a passage with its title, source and text, then clears the form', async () => {
     create.mockResolvedValue({ ...mine, _id: 'p3' });
     renderPage();
     await screen.findByText('Hà Nội vào thu');
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Bài mới' } });
+    fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'Tự viết' } });
     fireEvent.change(screen.getByLabelText('Content'), { target: { value: twentyWords } });
+    expect(screen.getByText(`20 words · ${twentyWords.length}/5000`)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
 
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ title: 'Bài mới', content: twentyWords }));
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ title: 'Bài mới', source: 'Tự viết', content: twentyWords }));
+    await waitFor(() => expect(screen.getByLabelText('Content')).toHaveValue(''));
+    expect(screen.getByLabelText('Title')).toHaveValue('');
+    expect(screen.getByLabelText('Source')).toHaveValue('');
+    expect(toast.success).toHaveBeenCalledWith('Passage added.');
+  });
+
+  it('does not send a passage without a title or a source, also when they are only spaces or tags', async () => {
+    renderPage();
+    await screen.findByText('Hà Nội vào thu');
+
+    fireEvent.change(screen.getByLabelText('Content'), { target: { value: twentyWords } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
+    expect(await screen.findByText('Title is required')).toBeInTheDocument();
+    expect(screen.getByText('Source is required')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: '   ' } });
+    fireEvent.change(screen.getByLabelText('Source'), { target: { value: '<b></b>' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
+
+    await waitFor(() => expect(screen.getByText('Title is required')).toBeInTheDocument());
+    expect(screen.getByText('Source is required')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('counts and checks the text as it will be saved: cleaned like the backend does', async () => {
@@ -155,6 +183,7 @@ describe('PassagesPage', () => {
 
     // HTML tags are not words, and `…` becomes `...`, so this title is 122 characters once cleaned.
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: `${'a'.repeat(119)}…` } });
+    fireEvent.change(screen.getByLabelText('Source'), { target: { value: ' <i>Sách</i>  Tiếng Việt ' } });
     fireEvent.change(screen.getByLabelText('Content'), { target: { value: `<p>${twentyWords}</p>` } });
     expect(screen.getByText(`20 words · ${twentyWords.length}/5000`)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
@@ -164,7 +193,7 @@ describe('PassagesPage', () => {
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: '“Bài” mới' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
-    await waitFor(() => expect(create).toHaveBeenCalledWith({ title: '"Bài" mới', content: twentyWords }));
+    await waitFor(() => expect(create).toHaveBeenCalledWith({ title: '"Bài" mới', source: 'Sách Tiếng Việt', content: twentyWords }));
   });
 
   it('does not send a text under 20 words, and says why', async () => {
@@ -185,6 +214,8 @@ describe('PassagesPage', () => {
     renderPage();
     await screen.findByText('Hà Nội vào thu');
 
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Bài mới' } });
+    fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'Tự viết' } });
     fireEvent.change(screen.getByLabelText('Content'), { target: { value: twentyWords } });
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
 
@@ -226,13 +257,13 @@ describe('PassagesPage', () => {
     remove.mockImplementation(async () => {
       deleted = true;
     });
-    // 10 passages: page 2 holds only `mine`. Once it is deleted, 9 are left and all fit on page 1.
+    // 11 passages: page 2 holds only `mine`. Once it is deleted, 10 are left and all fit on page 1.
     list.mockImplementation(async (params: { limit?: number; page?: number }) => {
       if (params.limit === 1) return page([mine], deleted ? 0 : 1);
-      const total = deleted ? 9 : 10;
-      const totalPages = Math.ceil(total / 9);
-      if (params.page === 2) return { items: deleted ? [] : [mine], page: 2, limit: 9, total, totalPages };
-      return { items: [theirs], page: 1, limit: 9, total, totalPages };
+      const total = deleted ? 10 : 11;
+      const totalPages = Math.ceil(total / 10);
+      if (params.page === 2) return { items: deleted ? [] : [mine], page: 2, limit: 10, total, totalPages };
+      return { items: [approvedMine], page: 1, limit: 10, total, totalPages };
     });
     renderWithProviders(<PassagesPage />, { route: '/passages?page=2' });
 
@@ -240,17 +271,105 @@ describe('PassagesPage', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
-    expect(screen.getByText('9 passages')).toBeInTheDocument();
+    expect(screen.getByText('10 passages')).toBeInTheDocument();
     expect(screen.queryByText('No passages yet')).not.toBeInTheDocument();
+  });
+
+  it('pages through the own passages 10 at a time, with the pages at the bottom right like the admin users list', async () => {
+    const user = userEvent.setup();
+    list.mockImplementation(async (params: { limit?: number; page?: number }) =>
+      params.limit === 1 ? page([mine], 1) : { items: [params.page === 2 ? approvedMine : mine], page: params.page ?? 1, limit: 10, total: 11, totalPages: 2 },
+    );
+    renderPage();
+
+    const pages = await screen.findByRole('navigation', { name: 'Pagination' });
+    expect(pages).toHaveClass('justify-end');
+    expect(within(pages).getByText('Page 1 of 2')).toBeInTheDocument();
+    await user.click(within(pages).getByRole('button', { name: /Next/ }));
+
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 2, limit: 10, mine: true })));
+    expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+  });
+
+  it('shows the actions as icon buttons at the right of each row', async () => {
+    renderPage();
+
+    const row = (await screen.findByRole('heading', { name: 'Bài của tôi' })).closest('article')!;
+    const actions = [
+      within(row).getByRole('link', { name: 'Practice Bài của tôi' }),
+      within(row).getByRole('button', { name: 'Edit Bài của tôi' }),
+      within(row).getByRole('button', { name: 'Request public Bài của tôi' }),
+      within(row).getByRole('button', { name: 'Delete Bài của tôi' }),
+    ];
+    // Icons only: the name is for screen readers, the hint shows on hover.
+    expect(actions.map((action) => action.textContent)).toEqual(['', '', '', '']);
+    expect(actions.map((action) => action.getAttribute('title'))).toEqual(['Practice', 'Edit', 'Request public', 'Delete']);
+  });
+
+  describe('editing an own passage', () => {
+    it('opens it in the top panel, saves it with Update passage, then goes back to New passage', async () => {
+      const user = userEvent.setup();
+      get.mockResolvedValue({ ...mine, source: 'Tự viết', content: twentyWords });
+      update.mockResolvedValue({ ...mine, title: 'Bài đã sửa' });
+      renderPage();
+
+      await user.click(await screen.findByRole('button', { name: 'Edit Bài của tôi' }));
+
+      expect(await screen.findByRole('heading', { name: 'Edit passage' })).toBeInTheDocument();
+      expect(get).toHaveBeenCalledWith('p2');
+      expect(await screen.findByLabelText('Content')).toHaveValue(twentyWords);
+      expect(screen.getByLabelText('Title')).toHaveValue('Bài của tôi');
+      expect(screen.getByLabelText('Source')).toHaveValue('Tự viết');
+      expect(screen.queryByRole('button', { name: 'Add passage' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Your passages:/)).not.toBeInTheDocument();
+
+      await user.clear(screen.getByLabelText('Title'));
+      await user.type(screen.getByLabelText('Title'), 'Bài đã sửa');
+      await user.click(screen.getByRole('button', { name: 'Update passage' }));
+
+      await waitFor(() => expect(update).toHaveBeenCalledWith('p2', { title: 'Bài đã sửa', source: 'Tự viết', content: twentyWords }));
+      expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Content')).toHaveValue('');
+      expect(toast.success).toHaveBeenCalledWith('Passage updated.');
+    });
+
+    it('cancels without saving', async () => {
+      const user = userEvent.setup();
+      get.mockResolvedValue({ ...mine, source: 'Tự viết', content: twentyWords });
+      renderPage();
+
+      await user.click(await screen.findByRole('button', { name: 'Edit Bài của tôi' }));
+      await screen.findByDisplayValue(twentyWords);
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add passage' })).toBeInTheDocument();
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('goes back to New passage when the passage being edited is deleted', async () => {
+      const user = userEvent.setup();
+      get.mockResolvedValue({ ...mine, source: 'Tự viết', content: twentyWords });
+      remove.mockResolvedValue(undefined);
+      renderPage();
+
+      await user.click(await screen.findByRole('button', { name: 'Edit Bài của tôi' }));
+      await screen.findByDisplayValue(twentyWords);
+      await user.click(screen.getByRole('button', { name: 'Delete Bài của tôi' }));
+      await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
+
+      expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+    });
   });
 
   describe('asking for a passage to become public (SCRUM-176)', () => {
     const waiting = { ...mine, _id: 'p3', title: 'Đang chờ', status: 'pending' };
-    const refused = { ...mine, _id: 'p4', title: 'Bị từ chối', reviewNote: 'Trùng nội dung' };
+    const refused = { ...mine, _id: 'p4', title: 'Bị từ chối', status: 'rejected', reviewNote: 'Trùng nội dung' };
     const approved = { ...mine, _id: 'p5', title: 'Đã công khai', visibility: 'public' };
 
     it('shows where each own passage stands, and why a request was turned down', async () => {
-      answer({ items: [waiting, refused, approved, theirs] });
+      answer({ items: [waiting, refused, approved] });
       renderPage();
 
       expect(await screen.findByText('Pending review')).toBeInTheDocument();
@@ -258,18 +377,19 @@ describe('PassagesPage', () => {
       expect(screen.getByText('Reason: Trùng nội dung')).toBeInTheDocument();
       expect(screen.getByText('Public')).toBeInTheDocument();
 
-      // Waiting: it can be taken back (or deleted), not asked for again.
+      // Waiting: it can be taken back (or deleted), not edited or asked for again.
       expect(screen.getByRole('button', { name: 'Withdraw request Đang chờ' })).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Request public Đang chờ' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit Đang chờ' })).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Delete Đang chờ' })).toBeInTheDocument();
-      // Turned down: it can be asked for again.
+      // Turned down: it can be edited and asked for again.
       expect(screen.getByRole('button', { name: 'Request public Bị từ chối' })).toBeInTheDocument();
-      // Public: only an admin can change it now. Nor can anyone else's passage be changed.
-      for (const title of ['Đã công khai', 'Hà Nội vào thu']) {
-        expect(screen.queryByRole('button', { name: `Delete ${title}` })).not.toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: `Request public ${title}` })).not.toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: `Withdraw request ${title}` })).not.toBeInTheDocument();
-      }
+      expect(screen.getByRole('button', { name: 'Edit Bị từ chối' })).toBeInTheDocument();
+      // Public: only an admin can change it now.
+      expect(screen.queryByRole('button', { name: 'Delete Đã công khai' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Edit Đã công khai' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Request public Đã công khai' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Withdraw request Đã công khai' })).not.toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Practice Đang chờ' })).toHaveAttribute('href', '/typing?passage=p3');
     });
 
