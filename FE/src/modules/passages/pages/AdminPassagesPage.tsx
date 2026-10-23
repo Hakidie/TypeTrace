@@ -1,5 +1,6 @@
 import { FileText } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -10,7 +11,7 @@ import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { PassageCard } from '../components/PassageCard';
 import { PassageForm } from '../components/PassageForm';
 import { PendingPassagesPanel } from '../components/PendingPassagesPanel';
-import { usePassages } from '../hooks/use-passages';
+import { useDeletePassage, usePassages } from '../hooks/use-passages';
 import type { Passage } from '../types/passage.types';
 
 const PAGE_SIZE = 9;
@@ -23,6 +24,8 @@ const PAGE_SIZE = 9;
 const PassageBank = () => {
   const { page, setPage } = usePagination();
   const [editing, setEditing] = useState<Passage | null>(null);
+  const [deleting, setDeleting] = useState<Passage | null>(null);
+  const deletePassage = useDeletePassage();
   const formPanelRef = useRef<HTMLDivElement>(null);
   const passages = usePassages({ page, limit: PAGE_SIZE, sort: '-createdAt', visibility: 'public' });
 
@@ -46,6 +49,7 @@ const PassageBank = () => {
               key={passage._id}
               passage={passage}
               onEdit={startEditing}
+              onDelete={setDeleting}
             />
           ))}
         </div>
@@ -67,6 +71,24 @@ const PassageBank = () => {
           {renderList()}
         </div>
       </Panel>
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Delete this passage for good?"
+        description={deleting ? `"${deleting.title}" is removed for good. A passage with typing sessions cannot be deleted.` : undefined}
+        confirmLabel="Delete"
+        destructive
+        pending={deletePassage.isPending}
+        onConfirm={() =>
+          deleting &&
+          deletePassage.mutate(deleting._id, {
+            onSuccess: () => {
+              if (editing?._id === deleting._id) setEditing(null);
+              setDeleting(null);
+            },
+          })
+        }
+      />
     </>
   );
 };

@@ -128,12 +128,15 @@ describe('ChatWidget', () => {
     expect(screen.getByText(chatConfig.welcomeMessage)).toBeInTheDocument();
   });
 
-  it('floats at the bottom center, and at the bottom right on the typing page', () => {
-    const { unmount } = renderWithProviders(<ChatWidget />, { route: '/notes' });
-    expect(screen.getByRole('button', { name: 'Open chat' }).parentElement).toHaveClass('left-1/2');
-    unmount();
+  it('is a navigation tab that opens the popup under the header, on the right', () => {
+    renderWithProviders(<ChatWidget />, { route: '/notes' });
+    const tab = screen.getByRole('button', { name: 'Open chat' });
+    expect(tab).toHaveTextContent('AI chat');
+    expect(tab).not.toHaveClass('bg-primary/15');
 
-    renderWithProviders(<ChatWidget />, { route: '/typing' });
-    expect(screen.getByRole('button', { name: 'Open chat' }).parentElement).toHaveClass('right-4');
+    fireEvent.click(tab);
+
+    expect(screen.getByRole('dialog')).toHaveClass('fixed', 'right-4', 'top-[4.5rem]');
+    expect(screen.getByRole('button', { name: 'Close chat', expanded: true })).toHaveClass('bg-primary/15');
   });
 });

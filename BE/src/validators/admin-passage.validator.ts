@@ -1,11 +1,16 @@
 import { z } from 'zod';
-import { passageStatuses, passageVisibilities, REVIEW_NOTE_MAX } from '../models/passage.model';
+import { MAX_PASSAGE_WORDS, passageStatuses, passageVisibilities, REVIEW_NOTE_MAX, splitWords } from '../models/passage.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { bulkIdsSchema, optionalBooleanQuerySchema } from './common.validator';
 
 const passageFields = {
   title: z.string().trim().min(1, 'Title is required').max(120),
-  content: z.string().trim().min(1, 'Content is required').max(5000),
+  content: z
+    .string()
+    .trim()
+    .min(1, 'Content is required')
+    .max(5000)
+    .refine((text) => splitWords(text).length <= MAX_PASSAGE_WORDS, `At most ${MAX_PASSAGE_WORDS} words`),
   source: z.string().trim().min(1, 'Source is required').max(300),
   isPlacement: z.boolean()
 };
@@ -28,6 +33,8 @@ export const listPassagesQuerySchema = paginationQuerySchema.extend({
   /** `public` = the passage bank (TypeTrace's and the approved ones), without the learners' private passages. */
   visibility: z.enum(passageVisibilities).optional(),
   isPlacement: optionalBooleanQuerySchema,
+  /** With `status=pending`: `true` = only the learners' edits of public passages, `false` = only the requests to make a passage public. */
+  edited: optionalBooleanQuerySchema,
   sort: sortSchema(['createdAt', 'updatedAt', 'title', 'wordCount'])
 });
 

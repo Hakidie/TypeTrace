@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MIN_USER_PASSAGE_WORDS, passageVisibilities, splitWords } from '../models/passage.model';
+import { MAX_PASSAGE_WORDS, MIN_USER_PASSAGE_WORDS, passageVisibilities, splitWords } from '../models/passage.model';
 import { sessionModes } from '../models/typing-session.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { cleanPassageText } from '../utils/passage-text';
@@ -22,19 +22,23 @@ const cleanText = z.string().transform(cleanPassageText);
 
 const titleSchema = cleanText.pipe(z.string().min(1, 'Title is required').max(120, 'At most 120 characters'));
 
-/** Where the text comes from (a book, a website, "my own"): the admins check it before a passage becomes public. */
-const sourceSchema = cleanText.pipe(z.string().min(1, 'Source is required').max(300, 'At most 300 characters'));
+/**
+ * Where the text comes from (a book, a website, "my own"): the admins check it before a passage becomes public. Optional:
+ * the service saves the author's public name (`publicOwnerName`) when it is empty, or only spaces and tags, once cleaned.
+ */
+const sourceSchema = cleanText.pipe(z.string().max(300, 'At most 300 characters'));
 
 const contentSchema = cleanText.pipe(
   z
     .string()
     .min(1, 'Content is required')
     .max(5000, 'At most 5000 characters')
+    .refine((text) => splitWords(text).length <= MAX_PASSAGE_WORDS, `At most ${MAX_PASSAGE_WORDS} words`)
     .refine((text) => splitWords(text).length >= MIN_USER_PASSAGE_WORDS, `At least ${MIN_USER_PASSAGE_WORDS} words`)
 );
 
-/** A learner's own passage: a title, where the text comes from, and the text. All three are required, also once cleaned. */
-export const createPassageSchema = z.object({ title: titleSchema, source: sourceSchema, content: contentSchema });
+/** A learner's own passage: a title and the text are required (also once cleaned), the source is not. */
+export const createPassageSchema = z.object({ title: titleSchema, source: sourceSchema.optional(), content: contentSchema });
 
 /** Changes to a learner's own passage, checked like a new one. */
 export const updatePassageSchema = z

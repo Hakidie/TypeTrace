@@ -11,6 +11,13 @@ export type PassageStatus = (typeof passageStatuses)[number];
 /** How many times each error type could happen in the passage ("error opportunities"). */
 export type TagCounts = Record<WordErrorType, number>;
 
+/** The text a learner proposes for their public passage (`PassageDocument.pendingEdit`). */
+export interface PendingEdit {
+  title: string;
+  source: string;
+  content: string;
+}
+
 export interface PassageDocument extends mongoose.Document {
   title: string;
   content: string;
@@ -31,8 +38,16 @@ export interface PassageDocument extends mongoose.Document {
    * the owner may still type them, and a rejected one may be edited and sent again.
    */
   status: PassageStatus;
-  /** Why an admin turned down the learner's request to make the passage public. Cleared when they ask again or it is approved. */
+  /**
+   * Why an admin turned down the learner's request to make the passage public, or (on a public passage) their edit.
+   * Cleared when they ask or edit again, or it is approved.
+   */
   reviewNote?: string;
+  /**
+   * The learner's edit of their own public passage, waiting for an admin: the approved text stays public meanwhile, and
+   * the edit replaces it only when an admin approves. Missing = no edit waiting. The words are counted on approval.
+   */
+  pendingEdit?: PendingEdit;
   /**
    * A passage of the placement test (US2.3); a placement session picks one at random. It needs enough opportunities
    * for every error type.
@@ -54,6 +69,8 @@ export const MAX_USER_PASSAGES = 20;
 /** A learner's own passage needs at least this many words: a shorter session never counts (`MIN_COUNTED_WORDS`). */
 export const MIN_USER_PASSAGE_WORDS = 20;
 
+/** No passage may have more words than this (admins and learners): a long text makes a session too long to finish. */
+export const MAX_PASSAGE_WORDS = 200;
 
 /** Longest reason an admin may give when turning a request down (`reviewNote`). */
 export const REVIEW_NOTE_MAX = 300;
@@ -107,6 +124,16 @@ const passageSchema = new Schema<PassageDocument>(
     visibility: { type: String, enum: passageVisibilities, default: 'public' },
     status: { type: String, enum: passageStatuses, default: 'draft' },
     reviewNote: { type: String, trim: true, maxlength: REVIEW_NOTE_MAX },
+    pendingEdit: {
+      type: new Schema(
+        {
+          title: { type: String, required: true, trim: true, maxlength: 120 },
+          source: { type: String, required: true, trim: true, maxlength: 300 },
+          content: { type: String, required: true, trim: true, maxlength: 5000 }
+        },
+        { _id: false }
+      )
+    },
     isPlacement: { type: Boolean, default: false },
     tagCounts: { type: new Schema(tagCountsDefinition, { _id: false }), default: () => ({}) },
     wordCount: { type: Number, default: 0 }

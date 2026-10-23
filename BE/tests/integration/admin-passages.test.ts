@@ -83,6 +83,11 @@ describe('POST /api/admin/passages', () => {
     expect((await post({ ...input, title: ' ' })).status).toBe(400);
     expect((await post({ ...input, source: '' })).status).toBe(400);
     expect((await post({ ...input, content: 'a'.repeat(5001) })).status).toBe(400);
+    const tooLong = await post({ ...input, content: Array(201).fill('a').join(' ') });
+    expect(tooLong.status).toBe(400);
+    expect(tooLong.body.errors).toEqual([{ field: 'content', message: 'At most 200 words' }]);
+    expect((await post({ ...input, content: Array(200).fill('a').join(' ') })).status).toBe(201);
+    await PassageModel.deleteMany({});
     expect((await post({ title: 'Chỉ có tiêu đề' })).status).toBe(400);
     expect(await PassageModel.countDocuments()).toBe(0);
   });
@@ -168,27 +173,26 @@ describe('PATCH /api/admin/passages/:id', () => {
 });
 
 describe('PATCH /api/admin/passages/:id/status', () => {
-  it('follows draft → published → archived → published', async () => {
+  it('switches freely between draft, published and archived', async () => {
     const { auth } = await signInAdmin();
     const passage = await createPassage(auth);
 
     expect((await setStatus(auth, passage._id, 'published')).body.status).toBe('published');
     expect((await setStatus(auth, passage._id, 'archived')).body.status).toBe('archived');
     expect((await setStatus(auth, passage._id, 'published')).body.status).toBe('published');
+    expect((await setStatus(auth, passage._id, 'draft')).body.status).toBe('draft');
+    expect((await setStatus(auth, passage._id, 'archived')).body.status).toBe('archived'); // draft → archived
+    expect((await setStatus(auth, passage._id, 'draft')).body.status).toBe('draft'); // archived → draft
   });
 
-  it('refuses the other moves with 409', async () => {
+  it('refuses the same status and the learner statuses with 409', async () => {
     const { auth } = await signInAdmin();
     const passage = await createPassage(auth);
 
-    expect((await setStatus(auth, passage._id, 'archived')).status).toBe(409); // draft → archived
-    expect((await setStatus(auth, passage._id, 'draft')).status).toBe(409);
-    await setStatus(auth, passage._id, 'published');
-    expect((await setStatus(auth, passage._id, 'draft')).status).toBe(409); // published → draft
-    expect((await setStatus(auth, passage._id, 'published')).status).toBe(409); // same status
-    await setStatus(auth, passage._id, 'archived');
-    expect((await setStatus(auth, passage._id, 'draft')).status).toBe(409); // archived → draft
-    expect((await PassageModel.findById(passage._id))!.status).toBe('archived');
+    expect((await setStatus(auth, passage._id, 'draft')).status).toBe(409); // same status
+    expect((await setStatus(auth, passage._id, 'pending')).status).toBe(409);
+    expect((await setStatus(auth, passage._id, 'rejected')).status).toBe(409);
+    expect((await PassageModel.findById(passage._id))!.status).toBe('draft');
   });
 
   it('lets an admin archive a placement passage and publish it again', async () => {

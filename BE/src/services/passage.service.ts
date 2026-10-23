@@ -4,7 +4,8 @@ import {
   MAX_USER_PASSAGES,
   ownerFieldsFor,
   PassageDocument,
-  PassageModel
+  PassageModel,
+  publicOwnerName
 } from '../models/passage.model';
 import type { SessionMode } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
@@ -73,11 +74,13 @@ export const learnerPassageFilter = (userId: string, mode: SessionMode) =>
         ]
       };
 
-// What a learner gets for one passage of the list: no text, and never `owner` (it is only read to work out `isOwn`).
-const listFields = 'title source wordCount ownerName visibility status reviewNote createdAt owner';
+// What a learner gets for one passage of the list: no text (except on their own passages, see `listPassages`), and never
+// `owner` (it is only read to work out `isOwn`).
+// `pendingEdit.title` only tells that an edit waits (`editPending`); its text is read when the learner opens the passage.
+const listFields = 'title source wordCount ownerName visibility status reviewNote pendingEdit.title createdAt owner';
 
 /** One passage of the learner list. `reviewNote` (why a request was turned down) only goes to the owner. */
-const toListItem = (userId: string) => (passage: PassageDocument) => {
+const toListItem = (userId: string, withContent = false) => (passage: PassageDocument) => {
   const isOwn = String(passage.owner) === userId;
   return {
     _id: passage._id,
@@ -87,6 +90,9 @@ const toListItem = (userId: string) => (passage: PassageDocument) => {
     ownerName: passage.ownerName,
     visibility: passage.visibility,
     status: passage.status,
+    ...(withContent ? { content: passage.content } : {}),
+    // An edit of this public passage waits for an admin (the approved text stays public meanwhile).
+    ...(isOwn && passage.pendingEdit ? { editPending: true } : {}),
     ...(isOwn && passage.reviewNote ? { reviewNote: passage.reviewNote } : {}),
     isOwn,
     createdAt: passage.createdAt
@@ -109,15 +115,19 @@ const tooManyPassages = () => badRequest(`You can have at most ${MAX_USER_PASSAG
  * The passages a learner can choose from for `mode` (`learnerPassageFilter`), one page at a time. `q` searches the
  * title, accents optional (`titleSearchPattern`); `visibility` keeps only their own private passages (`private`) or only
  * the public ones (`public`: TypeTrace's and the learners' passages an admin approved); `mine` keeps only the learner's
- * own passages (`true`, private or approved: the Passages page) or only the others (`false`). Titles sort in Vietnamese order.
+ * own passages (`true`, private or approved: the Passages page, whose cards also show the text) or only the others
+ * (`false`). Titles sort in Vietnamese order.
  */
 export const listPassages = async (userId: string, { mode, q, visibility, mine, ...pagination }: ListPassagesQuery) => {
   const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode)];
   if (visibility) conditions.push({ visibility });
   if (mine !== undefined) conditions.push(mine ? { owner: userId } : { owner: { $ne: userId } });
   if (q) conditions.push({ title: titleSearchPattern(q) });
-  const page = await paginate(PassageModel, { $and: conditions }, pagination, { select: listFields, collation: { locale: 'vi' } });
-  return { ...page, items: page.items.map(toListItem(userId)) };
+  // The text only for the learner's own passages: nobody else's private text is sent, and the passage menu does not need it.
+  const withContent = mine === true;
+  const select = withContent ? `${listFields} content` : listFields;
+  const page = await paginate(PassageModel, { $and: conditions }, pagination, { select, collation: { locale: 'vi' } });
+  return { ...page, items: page.items.map(toListItem(userId, withContent)) };
 };
 
 /**
@@ -149,7 +159,8 @@ const saveOwnPassage = async (userId: string, { title, source, content }: Create
   const passage = await PassageModel.create({
     title,
     content,
-    source,
+    // No source: the author's name, as everyone may see it (never the email).
+    source: source || publicOwnerName(author),
     ...ownerFieldsFor({ id: userId, role: author.role, displayName: author.displayName, email: author.email }),
     visibility: 'private',
     status: 'published',
@@ -194,23 +205,53 @@ export const deletePassage = async (userId: string, id: string) => {
 export const getOwnPassage = async (userId: string, id: string) => {
   const passage = await PassageModel.findOne({ _id: id, owner: userId, status: { $in: [...OWN_TYPEABLE_STATUSES] } });
   if (!passage) throw notFound('Passage not found');
-  return { ...toListItem(userId)(passage), content: passage.content };
+  // A public passage with an edit waiting opens with that edit, so the learner goes on from what they sent.
+  const { title, source, content } = passage.pendingEdit ?? passage;
+  return { ...toListItem(userId)(passage), title, source, content };
 };
 
 const cannotEdit = ({ visibility, status }: { visibility: string; status: string }) => {
-  if (visibility === 'public') return 'This passage is public now: only an admin can change it';
+  if (visibility === 'public') return `This passage is ${status}: it cannot be edited`;
   if (status === 'pending') return 'This passage is waiting for review: take the request back to edit it';
   return `This passage is ${status}: it cannot be edited`;
 };
 
 /**
+ * An edit of the learner's own public passage: it is kept as `pendingEdit` and the approved text stays public until an
+ * admin approves it (SCRUM-176). A second edit replaces the first (fields left out come from it, else from the
+ * passage), and clears the reason of an earlier refusal. `updatedAt` moves, so the edit queues behind the others.
+ */
+const proposeEdit = async (userId: string, id: string, { title, source, content }: UpdatePassageInput) => {
+  const current = await PassageModel.findOne({ _id: id, owner: userId, visibility: 'public', status: 'published' });
+  if (!current) throw await refusal(userId, id, cannotEdit);
+  const base = current.pendingEdit ?? current;
+  const passage = await PassageModel.findOneAndUpdate(
+    // Still the passage that was read: a decision of an admin in between must not be overwritten.
+    { _id: id, owner: userId, visibility: 'public', status: 'published', updatedAt: current.updatedAt },
+    {
+      $set: { pendingEdit: { title: title ?? base.title, source: source ?? base.source, content: content ?? base.content } },
+      $unset: { reviewNote: 1 }
+    },
+    { returnDocument: 'after', runValidators: true }
+  );
+  if (!passage) throw conflict('This passage changed meanwhile: open it again');
+  return toListItem(userId)(passage);
+};
+
+/**
  * Edits the learner's own private passage, also one an admin turned down (cleaned and checked by the validator like a
  * new one); the words and error tags are counted again when the text changes. Not while it waits for review (the admin
- * reads what was sent), nor once it is public (only an admin may change it): 409. One conditional update, so a request
- * to make it public sent at the same time cannot let the text change under review. Typing sessions keep their copy of
- * the old words.
+ * reads what was sent): 409. One conditional update, so a request to make it public sent at the same time cannot let the
+ * text change under review. Typing sessions keep their copy of the old words. A public passage is edited too, but the
+ * edit waits for an admin (`proposeEdit`).
  */
 export const updatePassage = async (userId: string, id: string, { title, source, content }: UpdatePassageInput) => {
+  // An emptied source goes back to the author's name, like a new passage without one.
+  if (source === '') {
+    const author = await UserModel.findById(userId).select('role displayName');
+    if (!author) throw notFound('User not found');
+    source = publicOwnerName(author);
+  }
   const passage = await PassageModel.findOneAndUpdate(
     { ...ownedBy(userId, id), status: { $in: [...OWN_EDITABLE_STATUSES] } },
     {
@@ -222,8 +263,11 @@ export const updatePassage = async (userId: string, id: string, { title, source,
     },
     { returnDocument: 'after', runValidators: true }
   );
-  if (!passage) throw await refusal(userId, id, cannotEdit);
-  return toListItem(userId)(passage);
+  if (passage) return toListItem(userId)(passage);
+  if (await PassageModel.exists({ _id: id, owner: userId, visibility: 'public', status: 'published' })) {
+    return proposeEdit(userId, id, { title, source, content });
+  }
+  throw await refusal(userId, id, cannotEdit);
 };
 
 /**
@@ -246,13 +290,18 @@ export const requestPublication = async (userId: string, id: string) => {
   return toListItem(userId)(passage);
 };
 
-/** The learner takes their request back before an admin decides: the passage is private and published again. Not waiting: 409. */
+/**
+ * The learner takes their request back before an admin decides: the passage is private and published again. For an edit
+ * of a public passage that waits, the edit is dropped and the approved text stays. Nothing waiting: 409.
+ */
 export const withdrawPublicationRequest = async (userId: string, id: string) => {
-  const passage = await PassageModel.findOneAndUpdate(
-    { ...ownedBy(userId, id), status: 'pending' },
-    { $set: { status: 'published' } },
-    { returnDocument: 'after' }
-  );
+  const passage =
+    (await PassageModel.findOneAndUpdate({ ...ownedBy(userId, id), status: 'pending' }, { $set: { status: 'published' } }, { returnDocument: 'after' })) ??
+    (await PassageModel.findOneAndUpdate(
+      { _id: id, owner: userId, visibility: 'public', pendingEdit: { $exists: true } },
+      { $unset: { pendingEdit: 1 } },
+      { returnDocument: 'after' }
+    ));
   if (!passage) throw await refusal(userId, id, () => 'This passage is not waiting for review');
   return toListItem(userId)(passage);
 };

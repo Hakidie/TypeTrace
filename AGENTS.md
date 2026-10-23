@@ -92,7 +92,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 
 - One folder per feature in `FE/src/modules/<feature>/` with `api/ hooks/ components/ pages/ types/` and a
   `<feature>.module.ts` describing what it adds: `routes` + `navItems` (main app), `adminRoutes` + `adminNavItems`
-  (admin area), `widgets` (floating components on every app page, like the chat button). Register it in `FE/src/app/modules.ts`.
+  (admin area), `widgets` (floating components on every app page), a `navItems` entry `{ Component }` instead of a link puts a component in the top navigation (the chat button). Register it in `FE/src/app/modules.ts`.
 - HTTP only through the `http` instance (`shared/api/http.ts`). API functions return the response body: `http.get<T>(url).then((r) => r.data)`.
 - Server data only through TanStack Query hooks in `hooks/use-<feature>.ts` (see `modules/notes/hooks/use-notes.ts`):
   a key factory, `useQuery` for reads, `useMutation` + `invalidateQueries` for writes. No `useEffect` + `useState` fetching.
@@ -101,14 +101,14 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog` (`children` for an extra field such as a reason, `confirmDisabled` until it is filled), `Pagination`,
-  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; icon buttons instead of the kebab menu: `PassageRow`), `ActivityHeatmap`, `ListToolbar` (search + Sort and Filter menu buttons + actions above a list) (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
+  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap`, `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons + actions above a list) (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
   shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams` (`shared/hooks/`).
 - Design: the TypeTrace look of the login pages applies to every page, now and for new features. Header and footer are
   `BrandHeader` / `BrandFooter` (`shared/components/layout/`; `AppLayout` already uses them, so pages
   inside them get both). Colors are only the theme tokens in `FE/src/index.css` (Blood red dark palette and Sand light palette, built from 4 theme colors; users can choose their own themes): do
   not add purple, blue or other accents. A page that wants the red glass card (login, typing) uses `redGlassTheme` and
   `redGlassCard` from `shared/lib/red-glass-theme.ts`. Square corners (radius 0), no per-page color schemes.
-- Menus: every dropdown menu (`shared/components/ui/dropdown-menu.tsx`) has the `Panel` look: see-through page background with blur, panel border with the soft red hover, muted option text.
+- Menus: every dropdown menu (`shared/components/ui/dropdown-menu.tsx`) has the `Panel` look: see-through page background with blur, panel border with the soft red hover, muted option text that turns red on a light red tint while hovered.
 - Styling: Tailwind theme tokens (`bg-background`, `text-muted-foreground`, ...), never raw hex colors. Layouts must work on phones.
 - Imports use the `@/` alias. Components and pages are `PascalCase.tsx` named exports; other files are `kebab-case.ts`.
 
@@ -117,13 +117,13 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 `/admin` has its own sidebar layout (`FE/src/shared/components/layout/AdminLayout.tsx`): no BrandHeader/BrandFooter, the sidebar (`AdminSidebar.tsx`) has the logo on top and the user + Logout at the bottom. The reference admin page is user
 management: `FE/src/modules/admin/pages/AdminUsersPage.tsx` (a `ListToolbar` with search, sort and filters, a list of `UserRow` cards with an edit/delete kebab menu,
 pagination, edit dialog, delete with confirmation) backed by `BE/src/routes/admin.route.ts`. For a review queue with
-cards to tick and bulk decisions, see the Pending review panel under the Passages panel of `FE/src/modules/passages/pages/AdminPassagesPage.tsx`
+cards chosen by a click and bulk decisions, see the Pending review panel under the Passages panel of `FE/src/modules/passages/pages/AdminPassagesPage.tsx`
 (`PendingPassagesPanel`: learners ask for their own passages to become public, admins approve them or turn them down with a
 reason, which makes them `rejected`, SCRUM-176). Two lists on one page keep their URL params apart with `useListParams({ sort, prefix })`.
 
 **Access: admins only.** The lock is one line on each side: `requireRole('admin')` in `BE/src/routes/admin.route.ts`
 (others get 403) and `<ProtectedRoute roles={['admin']}>` around `AdminLayout` in `FE/src/App.tsx` (others are sent to `/`).
-The "Admin" link in the main nav is also admins only. After login or registration, admins land on `/admin`; everyone else on `/typing` in Practice mode (`afterLoginPathFor` in
+The "Admin" item in the avatar menu (`UserMenu`, top right of the main app) is also admins only. After login or registration, admins land on `/admin`; everyone else on `/typing` in Practice mode (`afterLoginPathFor` in
 `FE/src/modules/auth/utils/home-path.ts`); `/` also opens `/typing`. The placement test is the Placement tab on the Typing page (a confirm modal first). Make the first
 admin with `npm run seed` (`admin@example.com`) or by setting `role: 'admin'` in the database. Keep the server-side checks that stop
 an account from deleting itself or removing its own admin role.
@@ -134,15 +134,15 @@ To add an admin page for a feature module:
    `optionalBooleanQuerySchema` for yes/no filters, and `paginate`. Bulk actions take `bulkIdsSchema` (`{ ids }`).
 2. Frontend: in the module's `<feature>.module.ts` add `adminRoutes: [{ path: '/admin/<plural>', Component }]` and
    `adminNavItems: [{ to: '/admin/<plural>', label, icon }]`. Build the page like `AdminUsersPage`: a `ListToolbar` (search, sort, filters),
-   a list of `ListRow` cards (or a `DataTable` with column config for plain tables), `Pagination` (`variant="toolbar"` = right-aligned, styled like the `ListToolbar` buttons), `ConfirmDialog`, and `useListParams`
+   a list of `ListRow` cards (or a `DataTable` with column config for plain tables), `Pagination` (`variant="toolbar"` = right-aligned, styled like the `ListToolbar` buttons; `accent` = red text on transparent buttons), `ConfirmDialog`, and `useListParams`
    to keep search, filters, sort and page in the URL.
 
 ## AI chat bot (Google Gemini, free tier)
 
 A sample chat bot to customize, not a finished product:
 
-- UI: a floating button in the bottom-right corner opens a chat popup (`FE/src/modules/chat/components/ChatWidget.tsx`),
-  registered as a `widget` in `chat.module.ts`. It has no page of its own. Texts and suggested questions: `chat.config.ts`;
+- UI: a tab in the top navigation (before Settings) opens a chat popup under the header, on the right (`FE/src/modules/chat/components/ChatWidget.tsx`),
+  registered as a nav widget in `chat.module.ts`. It has no page of its own. Texts and suggested questions: `chat.config.ts`;
   conversation state: `hooks/use-chat.ts`.
 - Backend: `POST /api/chat` with `{ messages: [{ role: 'user' | 'model', text }] }` → `{ reply }`. Stateless: the client sends
   the conversation each time. Signed-in users only, 10 messages per minute per user.

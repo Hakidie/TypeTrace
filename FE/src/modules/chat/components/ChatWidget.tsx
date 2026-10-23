@@ -1,6 +1,6 @@
 import { Bot, MessageCircle, SquarePen, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { chatConfig } from '../chat.config';
@@ -8,14 +8,14 @@ import { useChat } from '../hooks/use-chat';
 import { ChatPanel } from './ChatPanel';
 
 /**
- * Floating chat: a framed button at the bottom center (at the bottom right on the typing page, where the timer takes the center; same frame and height as the typing page's word count and timer) that opens a small
- * chat popup above it. Closing the popup keeps the conversation. Shown on every
- * page of the app through `widgets` in chat.module.ts.
+ * The chat button in the top navigation (a tab like the others, highlighted while the chat is open) that opens a small
+ * chat popup under the header, on the right. The popup is drawn in `document.body`: the header blurs what is behind it,
+ * which would make a fixed popup follow the header. Closing the popup keeps the conversation. Registered as a nav
+ * widget in chat.module.ts.
  */
 export const ChatWidget = () => {
   const [open, setOpen] = useState(false);
   const chat = useChat();
-  const onTypingPage = useLocation().pathname === '/typing';
 
   // Escape closes the popup.
   useEffect(() => {
@@ -26,43 +26,44 @@ export const ChatWidget = () => {
   }, [open]);
 
   return (
-    <div
-      className={cn(
-        'fixed bottom-8 z-50 flex flex-col gap-3',
-        onTypingPage ? 'right-4 items-end md:right-8' : 'left-1/2 -translate-x-1/2 items-center',
-      )}
-    >
-      {open && (
-        <section
-          role="dialog"
-          aria-label={chatConfig.botName}
-          className="flex h-[min(560px,calc(100vh-9rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden border bg-card shadow-2xl"
-        >
-          <header className="flex items-center gap-2 border-b px-4 py-3">
-            <div className="flex size-8 items-center justify-center bg-primary/10 text-primary">
-              <Bot className="size-4" />
-            </div>
-            <p className="flex-1 font-semibold">{chatConfig.botName}</p>
-            <Button variant="ghost" size="sm" aria-label="New chat" disabled={chat.messages.length === 0} onClick={chat.reset}>
-              <SquarePen className="size-4" />
-            </Button>
-            <Button variant="ghost" size="sm" aria-label="Close chat" onClick={() => setOpen(false)}>
-              <X className="size-4" />
-            </Button>
-          </header>
-          <ChatPanel chat={chat} />
-        </section>
-      )}
-
-      <Button
-        className="h-auto gap-2 bg-primary/15 px-3 py-1.5 text-[1.125rem] text-primary hover:bg-primary/25 hover:opacity-100"
+    <>
+      <button
+        type="button"
         aria-label={open ? 'Close chat' : 'Open chat'}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
+        className={cn(
+          'inline-flex items-center gap-1.5 px-3 py-1.5 text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          open ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        )}
       >
-        {open ? <X className="size-5" /> : <MessageCircle className="size-5" />}
-        {open ? 'Close' : 'AI chat'}
-      </Button>
-    </div>
+        <MessageCircle className="size-4" />
+        <span className="hidden sm:inline">AI chat</span>
+      </button>
+
+      {open &&
+        createPortal(
+          <section
+            role="dialog"
+            aria-label={chatConfig.botName}
+            className="fixed top-[4.5rem] right-4 z-50 flex h-[min(560px,calc(100vh-6rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden border bg-card shadow-2xl md:right-8"
+          >
+            <header className="flex items-center gap-2 border-b px-4 py-3">
+              <div className="flex size-8 items-center justify-center bg-primary/10 text-primary">
+                <Bot className="size-4" />
+              </div>
+              <p className="flex-1 font-semibold">{chatConfig.botName}</p>
+              <Button variant="ghost" size="sm" aria-label="New chat" disabled={chat.messages.length === 0} onClick={chat.reset}>
+                <SquarePen className="size-4" />
+              </Button>
+              <Button variant="ghost" size="sm" aria-label="Close chat" onClick={() => setOpen(false)}>
+                <X className="size-4" />
+              </Button>
+            </header>
+            <ChatPanel chat={chat} />
+          </section>,
+          document.body,
+        )}
+    </>
   );
 };

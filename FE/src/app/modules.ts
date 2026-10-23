@@ -13,7 +13,7 @@ import type { AppModule } from './module.types';
  * entry here; its routes, nav links, admin pages and widgets are picked up automatically.
  * Order decides the order of the navigation links.
  */
-export const appModules: AppModule[] = [homeModule, notesModule, typingModule, chatModule, profileModule, adminModule, passagesModule, settingsModule];
+export const appModules: AppModule[] = [homeModule, notesModule, typingModule, profileModule, adminModule, passagesModule, chatModule, settingsModule];
 
 export const protectedRoutes = appModules.flatMap((module) => module.routes);
 export const navItems = appModules.flatMap((module) => module.navItems ?? []);

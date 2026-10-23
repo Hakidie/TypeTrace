@@ -9,9 +9,9 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
-import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
-import { PassageRow } from '../components/PassageRow';
 import { OwnPassageForm } from '../components/OwnPassageForm';
+import { PassageCard } from '../components/PassageCard';
+import { RejectionReasonDialog } from '../components/RejectionReasonDialog';
 import {
   useDeleteOwnPassage,
   useLearnerPassages,
@@ -22,8 +22,8 @@ import {
 import { ANONYMOUS_OWNER_NAME } from '../passages.config';
 import type { LearnerPassage, PassageVisibility } from '../types/passage.types';
 
-// As many as a page of the admin users list.
-const PAGE_SIZE = 10;
+// Three columns of three, like the passage bank of the admin area.
+const PAGE_SIZE = 6;
 
 const SORT_OPTIONS = [
   { value: '-createdAt', label: 'Newest' },
@@ -66,6 +66,8 @@ export const PassagesPage = () => {
   // The passages waiting for a confirmation: to delete, and to send for review.
   const [deleting, setDeleting] = useState<LearnerPassage>();
   const [requesting, setRequesting] = useState<LearnerPassage>();
+  // The turned-down passage whose reason is open.
+  const [reasonOf, setReasonOf] = useState<LearnerPassage>();
   // The passage open in the top panel (Edit passage instead of New passage), loaded with its text.
   const [editingId, setEditingId] = useState<string>();
   const editing = useOwnPassage(editingId);
@@ -107,28 +109,33 @@ export const PassagesPage = () => {
         <EmptyState icon={FileText} title="No passages yet" description="Paste a text in the form above to add one." />
       );
     }
-    // Like the users list of the admin area: one row per passage, the pages at the bottom right.
+    // Like the passage bank of the admin area: a grid of cards, the pages at the bottom right.
     return (
       <>
-        <div className="space-y-2" aria-label="Passage rows">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Passage cards">
           {passages.data.items.map((passage) => {
-            // Only private passages are the learner's to change; once public, only an admin can. While one waits for
-            // review it can only be taken back or deleted.
+            // A private passage is the learner's to change and delete; while it waits for review it can only be taken back
+            // or deleted. A public one can be edited (an admin approves the edit, the approved text stays public
+            // meanwhile) and its edit taken back, but only an admin deletes it.
             const ownPrivate = passage.isOwn && passage.visibility === 'private';
+            const ownPublic = passage.isOwn && passage.visibility === 'public';
             const waiting = passage.status === 'pending';
             return (
-              <PassageRow
+              <PassageCard
                 key={passage._id}
                 passage={passage}
-                onEdit={ownPrivate && !waiting ? startEditing : undefined}
-                onDelete={ownPrivate ? setDeleting : undefined}
-                onRequestPublic={ownPrivate && !waiting ? setRequesting : undefined}
-                onWithdraw={ownPrivate && waiting ? (target) => withdrawRequest.mutate(target._id) : undefined}
+                own={{
+                  onEdit: (ownPrivate && !waiting) || ownPublic ? startEditing : undefined,
+                  onDelete: ownPrivate ? setDeleting : undefined,
+                  onRequestPublic: ownPrivate && !waiting ? setRequesting : undefined,
+                  onWithdraw: (ownPrivate && waiting) || (ownPublic && passage.editPending) ? (target) => withdrawRequest.mutate(target._id) : undefined,
+                  onShowReason: setReasonOf,
+                }}
               />
             );
           })}
         </div>
-        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" />
+        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
       </>
     );
   };
@@ -136,14 +143,18 @@ export const PassagesPage = () => {
   return (
     <div className="space-y-8">
       <div ref={formPanelRef} className="scroll-mt-4">
-        <Panel title={editingId ? 'Edit passage' : 'New passage'} bare titleClassName={panelTitleClass} className={panelBodyClass}>
+        {/* No visible title (the form says what it is); screen readers still get one. */}
+        <Panel bare>
+          <h2 className="sr-only">{editingId ? 'Edit passage' : 'New passage'}</h2>
           {renderForm()}
         </Panel>
       </div>
 
-      <Panel title="My passages" bare titleClassName={panelTitleClass} className={panelBodyClass}>
+      <Panel bare>
+        <h2 className="sr-only">My passages</h2>
         <div className="space-y-3">
           <ListToolbar
+            title="My Passages"
             search={{
               label: 'Search passages',
               placeholder: 'Search titles…',
@@ -159,6 +170,8 @@ export const PassagesPage = () => {
           {renderList()}
         </div>
       </Panel>
+
+      <RejectionReasonDialog passage={reasonOf} onClose={() => setReasonOf(undefined)} />
 
       <ConfirmDialog
         open={deleting !== undefined}

@@ -17,11 +17,17 @@ export interface NavItem {
   roles?: UserRole[];
 }
 
+/** A component in the top navigation bar in place of a link, e.g. the AI chat button. Set `roles` to hide it from other users. */
+export interface NavWidget {
+  Component: ComponentType;
+  roles?: UserRole[];
+}
+
 /** What a feature module contributes to the app. Register it in `src/app/modules.ts`. */
 export interface AppModule {
   /** Pages inside the main app layout (top navigation). */
   routes: ModuleRoute[];
-  navItems?: NavItem[];
+  navItems?: (NavItem | NavWidget)[];
   /** Pages inside the admin area (`/admin/...`, sidebar layout). */
   adminRoutes?: ModuleRoute[];
   /** Links in the admin sidebar. */

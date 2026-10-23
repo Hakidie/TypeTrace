@@ -1,13 +1,15 @@
-import { LogOut, Moon, Sun } from 'lucide-react';
+import { LogOut, Moon, Shield, Sun } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useLogout } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { useThemeMode } from '@/modules/settings/hooks/use-theme-mode';
 
-/** The avatar as a button: it opens a menu with Mode (each press switches between Light and Dark) and Logout. */
+/** The avatar as a button: it opens a menu with Mode (each press switches between Light and Dark), Admin (admins only: the link to the admin area) and Logout. */
 export const UserMenu = ({ user }: { user?: CurrentUser }) => {
   const handleLogout = useLogout();
+  const navigate = useNavigate();
   const { mode, setMode } = useThemeMode();
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? '??';
   const ModeIcon = mode === 'dark' ? Moon : Sun;
@@ -25,6 +27,12 @@ export const UserMenu = ({ user }: { user?: CurrentUser }) => {
           <ModeIcon className="size-4" />
           Mode: {mode === 'dark' ? 'Dark' : 'Light'}
         </DropdownMenuItem>
+        {user?.role === 'admin' && (
+          <DropdownMenuItem onClick={() => navigate('/admin')} className="gap-2">
+            <Shield className="size-4" />
+            Admin
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="gap-2">
           <LogOut className="size-4" />
