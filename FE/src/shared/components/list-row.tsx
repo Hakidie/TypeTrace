@@ -8,7 +8,7 @@ interface ListRowProps {
   center?: ReactNode;
   /** Right, as wide as its content: a few label/value pairs. */
   extra?: ReactNode;
-  /** Far right, as wide as its content: a `ListRowMenu` (see `UserRow`), or a few icon buttons (see `PassageRow`). */
+  /** Far right, as wide as its content: a `ListRowMenu` (see `UserRow`), or a few icon buttons. */
   action?: ReactNode;
   /** Bottom left: badges. */
   tags?: ReactNode;

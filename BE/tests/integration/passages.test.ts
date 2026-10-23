@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PASSAGE_LIST } from '../../src/data/passages';
-import { MAX_USER_PASSAGES, MIN_USER_PASSAGE_WORDS, PassageModel } from '../../src/models/passage.model';
+import { MAX_USER_PASSAGES, MAX_PASSAGE_WORDS, MIN_USER_PASSAGE_WORDS, PassageModel } from '../../src/models/passage.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { learnerPassageFilter } from '../../src/services/passage.service';
 import { api } from '../helpers/api';
@@ -23,7 +23,7 @@ const titlesOf = (response: { body: { items: { title: string }[] } }) => respons
 const wordsOf = (count: number) => Array.from({ length: count }, () => 'chữ').join(' ');
 const longEnough = wordsOf(MIN_USER_PASSAGE_WORDS);
 
-/** The body of a valid new passage (title, source and text are all required); `changes` replaces some fields. */
+/** The body of a valid new passage (title and text are required, the source is not); `changes` replaces some fields. */
 const newPassage = (changes: Record<string, unknown> = {}) => ({ title: 'Bài của tôi', source: 'Tự viết', content: longEnough, ...changes });
 
 /** A learner's own passage, put straight in the database (no limit). */
@@ -193,6 +193,11 @@ describe('GET /api/passages', () => {
     expect(others.body.items.some((item: { isOwn: boolean }) => item.isOwn)).toBe(false);
     expect(others.body.total).toBe(await PassageModel.countDocuments({ status: 'published', visibility: 'public', isPlacement: false, owner: { $ne: me._id } }));
     expect((await listPassages(auth, '?mine=yes')).status).toBe(400);
+
+    // The cards of the Passages page show the text, but only of the learner's own passages.
+    expect(mine.body.items.every((item: { content?: string }) => item.content === longEnough)).toBe(true);
+    expect(others.body.items.some((item: { content?: string }) => 'content' in item)).toBe(false);
+    expect((await listPassages(auth, '')).body.items.some((item: { content?: string }) => 'content' in item)).toBe(false);
   });
 
   it('sorts by word count or by date when asked', async () => {
@@ -252,23 +257,30 @@ describe('POST /api/passages', () => {
     expect(saved.content).toBe(`Tiếng Việt "Xin chào" - bạn ơi... đẹp quá ${longEnough}`);
   });
 
-  it('requires a title and a source, also once cleaned', async () => {
+  it('saves a passage without a source with the name of its author, never the email', async () => {
+    const named = await createUser({ email: 'lan@example.com', displayName: 'Lan' });
+    const anonymous = await createUser({ email: 'an@example.com' });
+    for (const blank of [undefined, '', ' \n ', '<b></b>​']) {
+      const input = { title: 'Không nguồn', content: longEnough, ...(blank === undefined ? {} : { source: blank }) };
+      expect((await addPassage(bearerFor(named), input)).body.source).toBe('Lan');
+    }
+    const response = await addPassage(bearerFor(anonymous), { title: 'Không nguồn', content: longEnough });
+    expect(response.status).toBe(201);
+    expect(response.body.source).toBe('Anonymous learner');
+  });
+
+  it('requires a title, also once cleaned', async () => {
     const me = await createUser({});
     const auth = bearerFor(me);
 
     const missing = await addPassage(auth, { content: longEnough });
     expect(missing.status).toBe(400);
-    expect(missing.body.errors).toEqual(
-      expect.arrayContaining([expect.objectContaining({ field: 'title' }), expect.objectContaining({ field: 'source' })])
-    );
+    expect(missing.body.errors).toEqual([expect.objectContaining({ field: 'title' })]);
     // Blank, or only tags and hidden characters: nothing is left once cleaned.
     for (const blank of ['', ' \n ', '<b></b>​']) {
       const noTitle = await addPassage(auth, newPassage({ title: blank }));
       expect(noTitle.status).toBe(400);
       expect(noTitle.body.errors).toEqual([{ field: 'title', message: 'Title is required' }]);
-      const noSource = await addPassage(auth, newPassage({ source: blank }));
-      expect(noSource.status).toBe(400);
-      expect(noSource.body.errors).toEqual([{ field: 'source', message: 'Source is required' }]);
     }
     expect((await addPassage(auth, newPassage({ source: 'a'.repeat(301) }))).status).toBe(400);
     expect(await PassageModel.countDocuments({ owner: me._id })).toBe(0);
@@ -281,6 +293,10 @@ describe('POST /api/passages', () => {
     const tooShort = await addPassage(auth, newPassage({ content: wordsOf(MIN_USER_PASSAGE_WORDS - 1) }));
     expect(tooShort.status).toBe(400);
     expect(tooShort.body.errors).toEqual([{ field: 'content', message: `At least ${MIN_USER_PASSAGE_WORDS} words` }]);
+
+    const tooLong = await addPassage(auth, newPassage({ content: wordsOf(MAX_PASSAGE_WORDS + 1) }));
+    expect(tooLong.status).toBe(400);
+    expect(tooLong.body.errors).toEqual([{ field: 'content', message: `At most ${MAX_PASSAGE_WORDS} words` }]);
 
     // Tags and hidden characters are not words.
     expect((await addPassage(auth, { ...newPassage(), content: `<p>​</p>${'<br>'.repeat(30)}` })).status).toBe(400);
@@ -396,8 +412,10 @@ describe('PATCH /api/passages/:id', () => {
     expect((await editPassage(auth, created._id, { source: ' Sách <i>Tiếng Việt</i> ' })).status).toBe(200);
     expect((await PassageModel.findById(created._id))!.source).toBe('Sách Tiếng Việt');
     expect((await editPassage(auth, created._id, { title: ' ' })).body.errors).toEqual([{ field: 'title', message: 'Title is required' }]);
-    expect((await editPassage(auth, created._id, { source: '' })).body.errors).toEqual([{ field: 'source', message: 'Source is required' }]);
     expect(await PassageModel.findById(created._id)).toMatchObject({ title: 'Tên khác', source: 'Sách Tiếng Việt' });
+    // The source can be taken away again: it becomes the name of the author (no display name here).
+    expect((await editPassage(auth, created._id, { source: '' })).status).toBe(200);
+    expect((await PassageModel.findById(created._id))!.source).toBe('Anonymous learner');
 
     // A session started before the edit keeps the words it was given.
     const kept = await api().get(`/api/sessions/${session._id}`).set('Authorization', auth);
@@ -416,9 +434,10 @@ describe('PATCH /api/passages/:id', () => {
     const pending = await editPassage(auth, String(waiting._id), { title: 'Sửa' });
     expect(pending.status).toBe(409);
     expect(pending.body.message).toBe('This passage is waiting for review: take the request back to edit it');
+    // A public passage can be edited, but the approved text stays until an admin approves (passage-review.test.ts).
     const isPublic = await editPassage(auth, String(approved._id), { title: 'Sửa' });
-    expect(isPublic.status).toBe(409);
-    expect(isPublic.body.message).toBe('This passage is public now: only an admin can change it');
+    expect(isPublic.status).toBe(200);
+    expect((await PassageModel.findById(approved._id))!.title).toBe('Đã duyệt');
     expect((await editPassage(auth, String(theirs._id), { title: 'Sửa' })).status).toBe(404);
     expect((await editPassage(auth, String(typeTrace._id), { title: 'Sửa' })).status).toBe(404);
 

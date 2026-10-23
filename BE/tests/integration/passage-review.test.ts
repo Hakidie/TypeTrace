@@ -366,3 +366,130 @@ describe('own passages waiting for review', () => {
     expect(await PassageModel.exists({ _id })).toBeNull();
   });
 });
+
+describe('editing a public passage: the edit waits for an admin', () => {
+  const edit = (auth: string, id: string, body: object) => api().patch(`/api/passages/${id}`).set('Authorization', auth).send(body);
+  const open = (auth: string, id: string) => api().get(`/api/passages/${id}`).set('Authorization', auth);
+  const newText = Array.from({ length: MIN_USER_PASSAGE_WORDS + 5 }, () => 'mới').join(' ');
+
+  const publicPassage = async () => {
+    const lan = await signIn('lan@example.com', { displayName: 'Lan' });
+    const admin = await signIn('admin@example.com', { role: 'admin' });
+    const { _id } = await addPassage(lan.auth, 'Bài cũ');
+    await requestPublic(lan.auth, _id);
+    await approve(admin.auth, _id);
+    return { lan, admin, _id };
+  };
+
+  it('keeps the approved text public and queues the edit, which the owner sees as waiting', async () => {
+    const { lan, _id } = await publicPassage();
+    const other = await signIn('other@example.com');
+
+    const response = await edit(lan.auth, _id, { title: 'Bài mới', content: newText });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ title: 'Bài cũ', visibility: 'public', status: 'published', editPending: true });
+    expect(await saved(_id)).toMatchObject({
+      title: 'Bài cũ',
+      content: longEnough,
+      pendingEdit: { title: 'Bài mới', source: 'Tự viết', content: newText }
+    });
+    // Everybody still reads the approved text; the owner opens the passage with their edit.
+    expect(titlesOf(await listPassages(other.auth))).toContain('Bài cũ');
+    expect((await open(lan.auth, _id)).body).toMatchObject({ title: 'Bài mới', content: newText });
+    // The list says it too (the Pending badge of the Passages page), without sending the proposed text.
+    const listed = itemsOf(await listPassages(lan.auth, '?mine=true')).find((item) => item._id === _id);
+    expect(listed).toMatchObject({ title: 'Bài cũ', editPending: true });
+    expect(listed).not.toHaveProperty('pendingEdit');
+    // A second edit replaces the first; fields left out come from it.
+    await edit(lan.auth, _id, { source: 'Sách' });
+    expect((await saved(_id)).pendingEdit).toMatchObject({ title: 'Bài mới', source: 'Sách', content: newText });
+  });
+
+  it('lists the edit in the review queue; approving replaces the text and counts the words again', async () => {
+    const { lan, admin, _id } = await publicPassage();
+    await edit(lan.auth, _id, { title: 'Bài mới', content: newText });
+
+    const queue = await adminList(admin.auth, '?status=pending');
+    expect(titlesOf(queue)).toEqual(['Bài cũ']);
+    expect(queue.body.items[0].pendingEdit).toMatchObject({ title: 'Bài mới', content: newText });
+
+    const response = await approve(admin.auth, _id);
+
+    expect(response.status).toBe(200);
+    expect(await saved(_id)).toMatchObject({
+      title: 'Bài mới',
+      content: newText,
+      wordCount: MIN_USER_PASSAGE_WORDS + 5,
+      visibility: 'public',
+      status: 'published'
+    });
+    expect((await saved(_id)).pendingEdit).toBeUndefined();
+    expect((await adminList(admin.auth, '?status=pending')).body.total).toBe(0);
+    expect((await approve(admin.auth, _id)).status).toBe(409);
+  });
+
+  it('filters the queue to the edits (edited=true) or to the requests (edited=false)', async () => {
+    const { lan, admin, _id } = await publicPassage();
+    const request = await addPassage(lan.auth, 'Đề nghị mới');
+    await requestPublic(lan.auth, request._id);
+    await edit(lan.auth, _id, { title: 'Bài mới' });
+
+    expect(titlesOf(await adminList(admin.auth, '?status=pending&sort=title'))).toEqual(['Bài cũ', 'Đề nghị mới']);
+    expect(titlesOf(await adminList(admin.auth, '?status=pending&edited=true'))).toEqual(['Bài cũ']);
+    expect(titlesOf(await adminList(admin.auth, '?status=pending&edited=false'))).toEqual(['Đề nghị mới']);
+    expect((await adminList(admin.auth, '?status=pending&edited=maybe')).status).toBe(400);
+  });
+
+  it('rejecting drops the edit, keeps the approved text and tells the owner why', async () => {
+    const { lan, admin, _id } = await publicPassage();
+    await edit(lan.auth, _id, { title: 'Bài mới' });
+
+    expect((await reject(admin.auth, _id, { reason: 'Sai chính tả' })).status).toBe(200);
+
+    expect(await saved(_id)).toMatchObject({ title: 'Bài cũ', reviewNote: 'Sai chính tả', visibility: 'public' });
+    expect((await saved(_id)).pendingEdit).toBeUndefined();
+    const mine = itemsOf(await listPassages(lan.auth, '?mine=true')).find((item) => item._id === _id);
+    expect(mine).toMatchObject({ title: 'Bài cũ', reviewNote: 'Sai chính tả' });
+    expect(mine).not.toHaveProperty('editPending');
+    // Editing again clears the reason.
+    await edit(lan.auth, _id, { title: 'Lần hai' });
+    expect((await saved(_id)).reviewNote).toBeUndefined();
+  });
+
+  it('approves and rejects edits in bulk, next to new requests', async () => {
+    const { lan, admin, _id } = await publicPassage();
+    const second = await addPassage(lan.auth, 'Bài thứ hai');
+    await requestPublic(lan.auth, second._id);
+    const third = await addPassage(lan.auth, 'Bài thứ ba');
+    await requestPublic(lan.auth, third._id);
+    await approve(admin.auth, third._id);
+    await edit(lan.auth, _id, { title: 'Sửa một' });
+    await edit(lan.auth, third._id, { title: 'Sửa ba' });
+
+    const approvedMany = await bulk(admin.auth, 'approve', { ids: [_id, second._id] });
+    expect(approvedMany.body).toEqual({ updated: 2 });
+    expect(await saved(_id)).toMatchObject({ title: 'Sửa một' });
+    expect(await saved(second._id)).toMatchObject({ visibility: 'public' });
+
+    const rejectedMany = await bulk(admin.auth, 'reject', { ids: [third._id], reason: 'Không phù hợp' });
+    expect(rejectedMany.body).toEqual({ updated: 1 });
+    expect(await saved(third._id)).toMatchObject({ title: 'Bài thứ ba', reviewNote: 'Không phù hợp' });
+  });
+
+  it('lets the owner withdraw the edit; only the owner may edit', async () => {
+    const { lan, _id } = await publicPassage();
+    const other = await signIn('other@example.com');
+    expect((await edit(other.auth, _id, { title: 'Của tôi' })).status).toBe(404);
+    await edit(lan.auth, _id, { title: 'Bài mới' });
+
+    const response = await withdraw(lan.auth, _id);
+
+    expect(response.status).toBe(200);
+    expect(response.body).not.toHaveProperty('editPending');
+    expect((await saved(_id)).pendingEdit).toBeUndefined();
+    expect((await withdraw(lan.auth, _id)).status).toBe(409);
+    // Still checked like any edit.
+    expect((await edit(lan.auth, _id, { content: 'quá ngắn' })).status).toBe(400);
+  });
+});

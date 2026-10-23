@@ -85,7 +85,7 @@ function DropdownMenuItem({ children, className, onClick, ...props }: React.HTML
     <div
       role="menuitem"
       className={cn(
-        'relative flex cursor-pointer select-none items-center px-2 py-1.5 text-base text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground',
+        'relative flex cursor-pointer select-none items-center px-2 py-1.5 text-base text-muted-foreground outline-none transition-colors hover:bg-primary/15 hover:text-primary',
         className
       )}
       onClick={handleClick}

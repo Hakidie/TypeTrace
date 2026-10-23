@@ -63,6 +63,30 @@ describe('AppLayout', () => {
     expect(await screen.findByText('Admin')).toBeInTheDocument();
   });
 
+  it('shows a nav widget in its place among the links, and the Admin link in the account menu for admins only', async () => {
+    const Tab = () => <button type="button">Widget tab</button>;
+    const items = [{ to: '/', label: 'Home', icon: Home }, { Component: Tab }, { to: '/settings', label: 'Settings', icon: Home }];
+    getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'admin' });
+    renderWithProviders(<AppLayout navItems={items} />, { route: '/', otherRoutes: { '/admin': 'admin area' } });
+
+    const links = (await screen.findAllByText(/Home|Widget tab|Settings/)).map((node) => node.textContent);
+    expect(links).toEqual(['Home', 'Widget tab', 'Settings']);
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Admin' }));
+    expect(await screen.findByText('admin area')).toBeInTheDocument();
+  });
+
+  it('does not show the Admin menu item to a learner', async () => {
+    getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
+    renderLayout();
+    expect(await screen.findByText('A@')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+
+    expect(await screen.findByRole('menuitem', { name: /Logout/ })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Admin' })).not.toBeInTheDocument();
+  });
+
   it('keeps the user signed in when /me fails for a reason other than 401', async () => {
     getMe.mockRejectedValue({ response: { status: 503 } });
     renderLayout();

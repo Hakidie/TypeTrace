@@ -8,14 +8,19 @@ import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { useCreatePassage, useSetPassageStatus, useUpdatePassage } from '../hooks/use-passages';
-import { countWords, PASSAGE_CONTENT_MAX } from '../passages.config';
+import { countWords, MAX_PASSAGE_WORDS } from '../passages.config';
 import { nextPassageStatus, type Passage, type PassageStatus } from '../types/passage.types';
 
 // Mirrors the limits of the Passage model (BE/src/models/passage.model.ts).
 const schema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(120, 'Max 120 characters'),
   source: z.string().trim().min(1, 'Source is required').max(300, 'Max 300 characters'),
-  content: z.string().trim().min(1, 'Content is required').max(5000, 'Max 5000 characters'),
+  content: z
+    .string()
+    .trim()
+    .min(1, 'Content is required')
+    .max(5000, 'Max 5000 characters')
+    .refine((text) => countWords(text) <= MAX_PASSAGE_WORDS, `At most ${MAX_PASSAGE_WORDS} words`),
   isPlacement: z.boolean(),
 });
 
@@ -64,7 +69,8 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
 
   // The status button flips between the saved status and the next one; the change is saved with the form.
   const [status, setStatusChoice] = useState<PassageStatus>(passage?.status ?? 'draft');
-  const next = passage ? nextPassageStatus[passage.status] : undefined;
+  // Draft → Published → Archived → Draft; no button for a status outside the cycle (pending, rejected).
+  const next = passage && nextPassageStatus[passage.status] ? nextPassageStatus[status] : undefined;
 
   /** Saves the passage, then moves it to the status chosen with the status button (a new passage stays a draft). */
   const save = handleSubmit(async (input) => {
@@ -114,7 +120,7 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Bottom left: the same look as the status bar of the typing page. */}
         <p className="w-fit bg-primary/15 px-3 py-1.5 text-[1.125rem] text-primary">
-          {countWords(content)} words · {content.length}/{PASSAGE_CONTENT_MAX}
+          {countWords(content)}/{MAX_PASSAGE_WORDS} words
         </p>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -140,14 +146,14 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
               </button>
             )}
           />
-          {/* Edit mode: the status of the passage, a button that flips it. Draft and archived look like "Regular passage", published is highlighted. */}
+          {/* Edit mode: the status of the passage, a button that switches Draft, Published and Archived. Draft and archived look like "Regular passage", published is highlighted. */}
           {passage && (
             <button
               type="button"
               aria-label={`Status: ${status}`}
               disabled={!next}
-              title={next ? `Click to change to ${status === passage.status ? next : passage.status}` : undefined}
-              onClick={() => setStatusChoice(status === passage.status ? next! : passage.status)}
+              title={next ? `Click to change to ${next}` : undefined}
+              onClick={() => next && setStatusChoice(next)}
               className={cn(
                 'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed',
                 status === 'published' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',

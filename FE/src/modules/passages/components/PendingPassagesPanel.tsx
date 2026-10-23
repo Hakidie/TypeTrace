@@ -6,7 +6,6 @@ import { ListToolbar } from '@/shared/components/list-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
-import { Button } from '@/shared/components/ui/button';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { usePendingPassages } from '../hooks/use-passages';
@@ -26,7 +25,11 @@ const SORT_OPTIONS = [
   { value: '-wordCount', label: 'Longest' },
 ];
 
-const checkboxClass = 'size-4 cursor-pointer accent-primary';
+// What waits in the queue: a learner's edit of a public passage (the Edited tag), or a request to make a passage public.
+const KIND_OPTIONS = [
+  { value: 'edited', label: 'Edited' },
+  { value: 'pending', label: 'Pending' },
+];
 
 /**
  * The Pending review panel of the admin passages page, under the Passages panel (SCRUM-176): learners' requests to make
@@ -36,18 +39,23 @@ const checkboxClass = 'size-4 cursor-pointer accent-primary';
  */
 export const PendingPassagesPanel = () => {
   const list = useListParams({ sort: 'updatedAt', prefix: 'pending' });
-  const passages = usePendingPassages({ page: list.page, limit: PAGE_SIZE, sort: list.sort, q: list.q || undefined });
+  const kind = list.get('kind');
+  const passages = usePendingPassages({
+    page: list.page,
+    limit: PAGE_SIZE,
+    sort: list.sort,
+    q: list.q || undefined,
+    edited: kind ? kind === 'edited' : undefined,
+  });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [viewing, setViewing] = useState<Passage>();
   const [review, setReview] = useState<{ decision: ReviewDecision; passages: Passage[] }>();
 
   const cards = passages.data?.items ?? [];
-  // Only cards on screen count as ticked: another page or search starts with none.
+  // Only cards on screen count as chosen: another page or search starts with none.
   const selected = cards.filter((card) => selectedIds.includes(card._id));
-  const allSelected = cards.length > 0 && selected.length === cards.length;
 
-  const tick = (id: string, on: boolean) => setSelectedIds((ids) => (on ? [...ids, id] : ids.filter((other) => other !== id)));
-  const tickAll = () => setSelectedIds(allSelected ? [] : cards.map((card) => card._id));
+  const choose = (id: string, on: boolean) => setSelectedIds((ids) => (on ? [...ids, id] : ids.filter((other) => other !== id)));
 
   const startReview = (decision: ReviewDecision, targets: Passage[]) => {
     setViewing(undefined);
@@ -58,8 +66,8 @@ export const PendingPassagesPanel = () => {
     if (passages.isPending) return <LoadingState rows={3} />;
     if (passages.isError) return <ErrorState error={passages.error} onRetry={() => void passages.refetch()} />;
     if (cards.length === 0) {
-      return list.q ? (
-        <EmptyState icon={ClipboardCheck} title="No matching requests" description="Try another search." />
+      return list.q || kind ? (
+        <EmptyState icon={ClipboardCheck} title="No matching requests" description="Try another search or filter." />
       ) : (
         <EmptyState icon={ClipboardCheck} title="Nothing to review" description="Learners' requests to make a passage public show up here." />
       );
@@ -73,7 +81,7 @@ export const PendingPassagesPanel = () => {
               passage={passage}
               review={{
                 selected: selectedIds.includes(passage._id),
-                onSelectedChange: (on) => tick(passage._id, on),
+                onSelectedChange: (on) => choose(passage._id, on),
                 onView: setViewing,
                 onDecide: (target, decision) => startReview(decision, [target]),
               }}
@@ -96,26 +104,16 @@ export const PendingPassagesPanel = () => {
             onSearch: (value) => list.set('q', value),
           }}
           sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
+          filters={[{ label: 'Type', value: kind, options: KIND_OPTIONS, onChange: (value) => list.set('kind', value) }]}
           summary={passages.data ? `${passages.data.total} waiting` : 'Loading requests…'}
-          actions={
-            cards.length > 0 && (
-              <>
-                <label className="flex items-center gap-2 whitespace-nowrap text-base text-muted-foreground">
-                  <input type="checkbox" checked={allSelected} onChange={tickAll} className={checkboxClass} />
-                  Select all
-                </label>
-                {selected.length > 0 && (
-                  <>
-                    <Button size="sm" onClick={() => startReview('approve', selected)}>
-                      Approve {selected.length}
-                    </Button>
-                    <Button size="sm" variant="destructive" onClick={() => startReview('reject', selected)}>
-                      Reject {selected.length}
-                    </Button>
-                  </>
-                )}
-              </>
-            )
+          // The decision on the chosen cards: parts of the toolbar of their own, like Sort and Filter.
+          decisions={
+            selected.length > 0
+              ? [
+                  { label: `Approve ${selected.length}`, onClick: () => startReview('approve', selected) },
+                  { label: `Reject ${selected.length}`, onClick: () => startReview('reject', selected), destructive: true },
+                ]
+              : []
           }
         />
         {renderList()}

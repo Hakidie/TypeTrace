@@ -12,6 +12,14 @@ const sortOptions = [
 const roleOptions = [{ value: 'admin', label: 'Admin' }];
 
 describe('ListToolbar', () => {
+  it('shows the title as a part of its own before the search box', () => {
+    render(<ListToolbar title="My Passages" search={{ onSearch: vi.fn(), label: 'Search users' }} />);
+
+    const title = screen.getByText('My Passages');
+    expect(title).toHaveClass('text-primary');
+    expect(title.compareDocumentPosition(screen.getByLabelText('Search users'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it('reports the search text only when Enter is pressed', () => {
     const onSearch = vi.fn();
     render(<ListToolbar search={{ onSearch, label: 'Search users' }} />);
@@ -103,6 +111,29 @@ describe('ListToolbar', () => {
     );
     expect(screen.getByRole('button', { name: 'Sort' })).toHaveClass('bg-primary');
     expect(screen.getByRole('button', { name: /Filter/ })).toHaveClass('bg-primary');
+  });
+
+  it('shows the decisions as buttons of their own between the summary and Sort', () => {
+    const approve = vi.fn();
+    const reject = vi.fn();
+    render(
+      <ListToolbar
+        summary="3 waiting"
+        sort={{ value: 'a', options: [{ value: 'a', label: 'A' }], onChange: vi.fn() }}
+        decisions={[
+          { label: 'Approve 2', onClick: approve },
+          { label: 'Reject 2', onClick: reject, destructive: true },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('3 waiting')).not.toContainElement(screen.getByRole('button', { name: 'Approve 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reject 2' }));
+    expect(approve).toHaveBeenCalledTimes(1);
+    expect(reject).toHaveBeenCalledTimes(1);
+    const order = screen.getAllByRole('button').map((button) => button.textContent);
+    expect(order).toEqual(['Approve 2', 'Reject 2', 'Sort']);
   });
 
   it('shows only the parts it is given, and the actions', () => {

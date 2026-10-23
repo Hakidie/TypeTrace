@@ -14,6 +14,8 @@ interface ListToolbarFilter {
 }
 
 interface ListToolbarProps {
+  /** A name for the list in a part of its own before the search box, in the theme red, e.g. `My Passages`. */
+  title?: ReactNode;
   search?: {
     /** Starting text, e.g. the `q` value from the URL. */
     defaultValue?: string;
@@ -33,6 +35,11 @@ interface ListToolbarProps {
   summary?: ReactNode;
   /** Buttons on the right, e.g. bulk actions. */
   actions?: ReactNode;
+  /**
+   * Own parts of the toolbar like Sort and Filter, between the summary and Sort, filled with a color: the decisions on
+   * the chosen items (`Approve 2`, `Reject 2`). `destructive` is red, the others the theme red-orange.
+   */
+  decisions?: { label: string; onClick: () => void; destructive?: boolean }[];
 }
 
 // A 2px line in the page background color on the left of each control splits the toolbar into parts. Same look as an outline `Button`; the dropdown trigger is itself a button, so it cannot wrap one.
@@ -60,16 +67,32 @@ const MenuOption = ({ selected, onSelect, children }: { selected: boolean; onSel
  *     filters={[{ label: 'Role', value: role, options: ROLE_OPTIONS, onChange: (v) => list.set('role', v) }]}
  *   />
  */
-export const ListToolbar = ({ search, sort, filters = [], summary, actions }: ListToolbarProps) => {
+export const ListToolbar = ({ title, search, sort, filters = [], summary, actions, decisions = [] }: ListToolbarProps) => {
   const activeFilters = filters.filter((filter) => filter.value !== '').length;
   // The first sort option is the default one.
   const sortChanged = sort !== undefined && sort.value !== sort.options[0]?.value;
 
   return (
     <div className="flex flex-col bg-primary/15 sm:flex-row sm:items-center">
+      {title && <p className={cn(controlClass, 'border-l-0 border-r-2 text-primary')}>{title}</p>}
       {search && <SearchInput {...search} searchOn="enter" className="sm:max-w-none sm:flex-1 [&_input]:border-transparent [&_input]:bg-transparent" />}
       <div className="flex flex-wrap items-center sm:ml-auto sm:justify-end">
         {summary && <p className={controlClass}>{summary}</p>}
+        {decisions.map((decision) => (
+          <button
+            key={decision.label}
+            type="button"
+            onClick={decision.onClick}
+            className={cn(
+              buttonClass,
+              decision.destructive
+                ? 'bg-destructive text-white hover:bg-destructive hover:opacity-90'
+                : 'bg-primary text-primary-foreground hover:bg-primary hover:opacity-90',
+            )}
+          >
+            {decision.label}
+          </button>
+        ))}
         {sort && (
           <DropdownMenu>
             <DropdownMenuTrigger className={cn(buttonClass, sortChanged && activeClass)}>

@@ -9,6 +9,9 @@ export const MAX_OWN_PASSAGES = 20;
 /** A learner's own passage needs at least this many words (`MIN_USER_PASSAGE_WORDS`): shorter sessions never count. */
 export const MIN_OWN_PASSAGE_WORDS = 20;
 
+/** No passage may have more words than this (`MAX_PASSAGE_WORDS`), admins and learners alike. */
+export const MAX_PASSAGE_WORDS = 200;
+
 /** Longest reason an admin may give when turning down a request to make a passage public (`REVIEW_NOTE_MAX`). */
 export const REVIEW_NOTE_MAX = 300;
 

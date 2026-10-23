@@ -14,8 +14,8 @@ import { PassageView } from './PassageView';
 const withPreedit = (text: string, preedit: string) =>
   preedit === '' ? text : /\s$|^$/.test(text) ? text + preedit : text.replace(/\S+$/, preedit);
 
-/** The frame of the words and the timer: the same as the selected tab of the main navigation. */
-const statusFrame = 'bg-primary/15 px-3 py-1.5 text-primary';
+/** The words and the timer: red text on the page itself (no background), with the padding of the tabs of the main navigation. */
+const statusFrame = 'bg-transparent px-3 py-1.5 text-primary';
 
 /** Keys that do not start the timer. */
 const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'CapsLock', 'Tab', 'Escape']);
@@ -51,18 +51,18 @@ interface TypingStatusProps {
   finished: boolean;
 }
 
-/** Bottom of the page: words typed on the left, the timer in the center (the chat button floats at the right). Full screen width, not the card's. The page shows it with zeros while the next session loads, so it never disappears. */
+/** Bottom of the page: words typed on the left, the timer on the right. Full screen width, not the card's. The page shows it with zeros while the next session loads, so it never disappears. */
 export const TypingStatus = ({ typed, total, seconds, finished }: TypingStatusProps) => (
-  <div className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-3 items-center px-4 text-[1.125rem] md:px-8">
+  <div className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-2 items-center px-4 text-[1.125rem] md:px-8">
     <span className={`${statusFrame} justify-self-start`}>
       Words {Math.min(typed, total)} / {total}
     </span>
     {finished ? (
-      <span className={`${statusFrame} flex items-center gap-2 justify-self-center font-medium`}>
+      <span className={`${statusFrame} flex items-center gap-2 justify-self-end font-medium`}>
         <CheckCircle2 className="size-5" /> Finished
       </span>
     ) : (
-      <span aria-label="Elapsed time" className={`${statusFrame} justify-self-center`}>{formatDuration(seconds)}</span>
+      <span aria-label="Elapsed time" className={`${statusFrame} justify-self-end`}>{formatDuration(seconds)}</span>
     )}
   </div>
 );

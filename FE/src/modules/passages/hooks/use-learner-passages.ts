@@ -62,8 +62,9 @@ export const useUpdateOwnPassage = () => {
   const refresh = useRefreshPassages();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: OwnPassageInput }) => learnerPassagesApi.update(id, input),
-    onSuccess: () => {
-      toast.success('Passage updated.');
+    onSuccess: (passage) => {
+      // An edit of a public passage is not live yet: an admin reads it first.
+      toast.success(passage.editPending ? 'Edit sent for review. The approved text stays public until then.' : 'Passage updated.');
       return refresh();
     },
     onError: (error) => toast.error(addErrorMessage(error)),

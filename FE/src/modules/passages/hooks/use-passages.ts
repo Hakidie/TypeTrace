@@ -71,6 +71,17 @@ export const useSetPassageStatus = () => {
   });
 };
 
+export const useDeletePassage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: passagesApi.remove,
+    onSuccess: () => {
+      toast.success('Passage deleted.');
+      return queryClient.invalidateQueries({ queryKey: passageKeys.all });
+    },
+  });
+};
+
 interface ReviewInput {
   ids: string[];
   decision: ReviewDecision;

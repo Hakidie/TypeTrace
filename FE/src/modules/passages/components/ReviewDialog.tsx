@@ -32,9 +32,15 @@ export const ReviewDialog = ({ decision, passages, onClose, onDone }: ReviewDial
   const [reason, setReason] = useState('');
   const reject = decision === 'reject';
   const one = passages.length === 1;
-  const what = one ? `"${passages[0].title}"` : `${passages.length} passages`;
+  const what = one ? `"${passages[0].pendingEdit?.title ?? passages[0].title}"` : `${passages.length} passages`;
 
-  const description = reject
+  // Edits of public passages are decided here too: approved they replace the text, turned down the approved text stays.
+  const edits = passages.every((passage) => passage.pendingEdit !== undefined);
+  const description = edits
+    ? reject
+      ? `${one ? 'The edit is dropped' : 'The edits are dropped'}, the approved ${one ? 'text stays' : 'texts stay'} public and ${one ? 'its author sees' : 'their authors see'} your reason.`
+      : `${one ? 'The edit replaces' : 'The edits replace'} the public ${one ? 'text' : 'texts'}, shown with the name of ${one ? 'its author' : 'their authors'}.`
+    : reject
     ? `${one ? 'It stays private to its author, who sees' : 'They stay private to their authors, who see'} your reason.`
     : `Every learner will be able to practice ${one ? 'it, shown with the name of its author' : 'them, shown with the names of their authors'}.`;
 

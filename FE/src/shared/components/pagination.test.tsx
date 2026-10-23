@@ -25,4 +25,13 @@ describe('Pagination', () => {
     expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveClass('justify-end');
     expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
   });
+
+  it('uses the red theme text with accent, grey without', () => {
+    const { rerender } = render(<Pagination page={2} totalPages={3} onPageChange={vi.fn()} variant="toolbar" />);
+    expect(screen.getByText('Page 2 of 3')).toHaveClass('text-muted-foreground');
+
+    rerender(<Pagination page={2} totalPages={3} onPageChange={vi.fn()} variant="toolbar" accent />);
+    expect(screen.getByText('Page 2 of 3')).toHaveClass('text-primary');
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveClass('text-primary', 'bg-transparent');
+  });
 });

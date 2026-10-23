@@ -14,11 +14,13 @@ const approve = vi.fn();
 const reject = vi.fn();
 const bulkApprove = vi.fn();
 const bulkReject = vi.fn();
+const remove = vi.fn();
 
 vi.mock('../api/passages.api', () => ({
   passagesApi: { list: (params: unknown) => list(params), create: (input: unknown) => create(input),
     update: (id: string, input: unknown) => update(id, input),
     setStatus: (id: string, status: unknown) => setStatus(id, status),
+    remove: (id: string) => remove(id),
     approve: (id: string) => approve(id),
     reject: (id: string, reason: string) => reject(id, reason),
     bulkApprove: (ids: string[]) => bulkApprove(ids),
@@ -116,6 +118,19 @@ describe('AdminPassagesPage', () => {
     await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue(''));
   });
 
+  it('does not send a text over 200 words, and says why', async () => {
+    renderPage();
+    await screen.findByText('Mùa thu Hà Nội');
+
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Dài' } });
+    fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'TypeTrace' } });
+    fireEvent.change(screen.getByLabelText('Content'), { target: { value: Array(201).fill('từ').join(' ') } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
+
+    expect(await screen.findByText('At most 200 words')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('counts the words and can mark the passage as a placement passage', async () => {
     create.mockResolvedValue({ ...passage, _id: 'p3', isPlacement: true });
     renderPage();
@@ -124,7 +139,7 @@ describe('AdminPassagesPage', () => {
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Kiểm tra' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'TypeTrace' } });
     fireEvent.change(screen.getByLabelText('Content'), { target: { value: 'một hai ba' } });
-    expect(screen.getByText('3 words · 10/5000')).toBeInTheDocument();
+    expect(screen.getByText('3/200 words')).toBeInTheDocument();
 
     const placement = screen.getByRole('switch', { name: 'Placement passage' });
     expect(placement).toHaveAttribute('aria-checked', 'false');
@@ -237,6 +252,8 @@ describe('AdminPassagesPage', () => {
     expect(screen.getByRole('button', { name: 'Status: published' })).toHaveClass('bg-primary');
     expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Status: published' }));
+    expect(screen.getByRole('button', { name: 'Status: archived' })).toHaveClass('bg-muted');
+    fireEvent.click(screen.getByRole('button', { name: 'Status: archived' }));
     expect(screen.getByRole('button', { name: 'Status: draft' })).toHaveClass('bg-muted');
     expect(setStatus).not.toHaveBeenCalled();
 
@@ -247,15 +264,30 @@ describe('AdminPassagesPage', () => {
     expect(update).toHaveBeenCalled();
   });
 
-  it('moves an archived passage to published', async () => {
+  it('moves an archived passage to draft, then published', async () => {
     answer({ bank: [{ ...passage, status: 'archived' }] });
     renderPage();
     await screen.findByText('Mùa thu Hà Nội');
     fireEvent.click(screen.getByRole('button', { name: 'Edit Mùa thu Hà Nội' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Status: archived' }));
-
+    expect(screen.getByRole('button', { name: 'Status: draft' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Status: draft' }));
     expect(screen.getByRole('button', { name: 'Status: published' })).toBeInTheDocument();
+  });
+
+  it('deletes an archived passage for good after a confirmation, and only an archived one', async () => {
+    answer({ bank: [passage, { ...passage, _id: 'p2', title: 'Old one', status: 'archived' }] });
+    remove.mockResolvedValue(undefined);
+    renderPage();
+    await screen.findByText('Old one');
+
+    expect(screen.getAllByRole('button', { name: /^Delete / })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Old one' }));
+    expect(remove).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('p2'));
   });
 
   it('lets an admin archive a placement passage with the status button', async () => {
@@ -349,12 +381,71 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     expect(list).not.toHaveBeenCalledWith(expect.objectContaining({ visibility: 'public', q: 'biển' }));
   });
 
+  it('filters the queue by type: Edited (edits of public passages) or Pending (requests), kept in the URL', async () => {
+    const user = await openPage();
+    const toolbar = screen.getByLabelText('Search requests').closest('div.flex')!.parentElement!;
+
+    await user.click(within(toolbar).getByRole('button', { name: /Filter/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Edited' }));
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', edited: true, page: 1 })));
+
+    await user.click(within(toolbar).getByRole('button', { name: /Filter/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Pending' }));
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', edited: false })));
+    // The passage bank above is not filtered by the queue.
+    expect(list).not.toHaveBeenCalledWith(expect.objectContaining({ visibility: 'public', edited: expect.anything() }));
+  });
+
   it('shows an empty state when no request waits', async () => {
     answerQueue([]);
     renderPage();
 
     expect(await screen.findByText('Nothing to review')).toBeInTheDocument();
     expect(screen.getByText('0 waiting')).toBeInTheDocument();
+  });
+
+  it('lists an edit of a public passage in the queue with its proposed text, and approves it', async () => {
+    const edit = {
+      ...waitingA,
+      _id: 'pE',
+      title: 'Sông quê (cũ)',
+      status: 'published',
+      visibility: 'public',
+      pendingEdit: { title: 'Sông quê mới', source: 'Sách mới', content: 'Dòng sông quê hương đổi mới.' },
+    };
+    approve.mockResolvedValue(edit);
+    answerQueue([edit]);
+    renderPage();
+    const queue = await screen.findByLabelText('Passages waiting for review');
+
+    // The card shows what is proposed, tagged Edited; the approved text is what everyone reads meanwhile.
+    expect(await within(queue).findByText('Sông quê mới')).toBeInTheDocument();
+    expect(within(queue).getByText('Dòng sông quê hương đổi mới.')).toBeInTheDocument();
+    // Next to the status of the public passage, a tag says it is an edit.
+    expect(within(queue).getByText('published')).toBeInTheDocument();
+    expect(within(queue).getByText('Edited')).toBeInTheDocument();
+    expect(within(queue).queryByText('Sông quê (cũ)')).not.toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(within(queue).getByRole('button', { name: 'View Sông quê mới' }));
+    const view = await screen.findByRole('dialog', { name: 'Sông quê mới' });
+    // What changes is marked word by word, in place (no extra lines): the old words struck through, the new ones highlighted.
+    expect(within(view).getByText('(cũ)', { selector: 'del' })).toBeInTheDocument();
+    expect(within(view).getByText('Tiếng Việt lớp 5', { selector: 'del' })).toBeInTheDocument();
+    expect(within(view).getAllByText('mới', { selector: 'ins' })).toHaveLength(2);
+    expect(within(view).getByText(/Source:/)).toHaveTextContent('Source: Sách Tiếng Việt lớp 5 mới');
+    const changes = within(view).getByRole('group', { name: 'Changes' });
+    expect(within(changes).getByText(/hiền hòa chảy qua làng\./, { selector: 'del' })).toBeInTheDocument();
+    expect(within(changes).getByText(/đổi mới\./, { selector: 'ins' })).toBeInTheDocument();
+    // The words that stay are plain.
+    expect(within(changes).getByText(/Dòng sông quê hương/, { selector: 'span' })).toBeInTheDocument();
+    expect(within(view).queryByText(/What the edit changes/)).not.toBeInTheDocument();
+    await user.click(within(view).getByRole('button', { name: 'Approve' }));
+    const confirm = await screen.findByRole('dialog', { name: 'Approve "Sông quê mới"?' });
+    expect(within(confirm).getByText(/The edit replaces the public text/)).toBeInTheDocument();
+    await user.click(within(confirm).getByRole('button', { name: 'Approve' }));
+
+    await waitFor(() => expect(approve).toHaveBeenCalledWith('pE'));
   });
 
   it('opens a request to read its whole text, and approves it from there after a confirmation', async () => {
@@ -398,23 +489,40 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
-  it('approves or turns down the ticked requests at once', async () => {
+  it('approves or turns down the chosen requests at once, from buttons in the toolbar', async () => {
     bulkApprove.mockResolvedValue({ updated: 2 });
     bulkReject.mockResolvedValue({ updated: 1 });
     const user = await openPage();
+    const queue = screen.getByLabelText('Passages waiting for review');
+    // No Select all and no box on a card: a card is chosen by clicking it.
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Approve 2' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Select all' }));
+    await user.click(within(queue).getByText('Sông quê'));
+    await user.click(within(queue).getByText('Biển xanh'));
+    expect(within(queue).getAllByText('Selected')).toHaveLength(2);
+    // The buttons are parts of the toolbar of their own, like Sort and Filter, not inside the count.
+    expect(screen.getByText('2 waiting')).not.toContainElement(screen.getByRole('button', { name: 'Approve 2' }));
     await user.click(screen.getByRole('button', { name: 'Approve 2' }));
     await user.click(within(await screen.findByRole('dialog', { name: 'Approve 2 passages?' })).getByRole('button', { name: 'Approve' }));
     await waitFor(() => expect(bulkApprove).toHaveBeenCalledWith(['pA', 'pB']));
     expect(toast.success).toHaveBeenCalledWith('2 passages approved.');
-    // A decision clears the ticks.
+    // A decision clears the choice.
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Approve 2' })).not.toBeInTheDocument());
-    expect(screen.getByRole('checkbox', { name: 'Select Sông quê' })).not.toBeChecked();
+    expect(within(queue).queryByText('Selected')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Select Sông quê' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Select Biển xanh' }));
+    // A second click on a card un-chooses it; Space chooses a focused card; the icon buttons do not choose it.
+    await user.click(within(queue).getByText('Sông quê'));
+    await user.click(within(queue).getByText('Sông quê'));
+    expect(within(queue).queryByText('Selected')).not.toBeInTheDocument();
+    within(queue).getByText('Sông quê').closest<HTMLElement>('[role="article"]')!.focus();
+    await user.keyboard(' ');
+    expect(within(queue).getAllByText('Selected')).toHaveLength(1);
+    await user.click(within(queue).getByRole('button', { name: 'View Biển xanh' }));
+    await user.keyboard('{Escape}');
+    expect(within(queue).getAllByText('Selected')).toHaveLength(1);
+
+    await user.click(within(queue).getByText('Biển xanh'));
     await user.click(screen.getByRole('button', { name: 'Reject 2' }));
     const dialog = await screen.findByRole('dialog', { name: 'Reject 2 passages?' });
     await user.type(within(dialog).getByLabelText('Reason'), 'Trùng nội dung');
