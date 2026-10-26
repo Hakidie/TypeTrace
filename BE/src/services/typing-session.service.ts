@@ -1,4 +1,4 @@
-import type { Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { PassageModel, splitWords } from '../models/passage.model';
 import { ErrorCounts, SessionWord, TypingSessionModel } from '../models/typing-session.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
@@ -140,4 +140,47 @@ export const abandonSession = async (userId: string, id: string) => {
   if (session.status !== 'in_progress') throw conflict('Session is not in progress');
   session.status = 'abandoned';
   return session.save();
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Days of the activity heatmaps, in the admin user list and on the profile page (the frontend draws as many cells). */
+export const HEATMAP_DAYS = 364;
+
+/**
+ * Typing activity of each of `owners`, in two queries for all of them: `stats`, the average speed and accuracy of their
+ * completed sessions (absent until one is completed), and `sessions`, their completed sessions per UTC day of the last
+ * `HEATMAP_DAYS` days. Returns the activity of one owner.
+ */
+export const typingActivityOf = async (owners: unknown[]) => {
+  const since = new Date(Date.now() - HEATMAP_DAYS * DAY_MS);
+  const [averages, days] = await Promise.all([
+    TypingSessionModel.aggregate<{ _id: unknown; wpm: number; accuracy: number }>([
+      { $match: { owner: { $in: owners }, status: 'completed', wpm: { $exists: true } } },
+      { $group: { _id: '$owner', wpm: { $avg: '$wpm' }, accuracy: { $avg: '$accuracy' } } }
+    ]),
+    TypingSessionModel.aggregate<{ _id: { owner: unknown; date: string }; sessions: number }>([
+      { $match: { owner: { $in: owners }, status: 'completed', completedAt: { $gte: since } } },
+      {
+        $group: {
+          _id: { owner: '$owner', date: { $dateToString: { format: '%Y-%m-%d', date: '$completedAt' } } },
+          sessions: { $sum: 1 }
+        }
+      }
+    ])
+  ]);
+  return (owner: unknown) => {
+    const id = String(owner);
+    const average = averages.find((row) => String(row._id) === id);
+    return {
+      ...(average && { stats: { wpm: round1(average.wpm), accuracy: round1(average.accuracy) } }),
+      sessions: days.filter((row) => String(row._id.owner) === id).map((row) => ({ date: row._id.date, sessions: row.sessions }))
+    };
+  };
+};
+
+/** The learner's own typing activity, for their profile page (SCRUM-157): the same as their row in the admin user list. */
+export const getOwnActivity = async (userId: string) => {
+  const owner = new Types.ObjectId(userId);
+  return (await typingActivityOf([owner]))(owner);
 };

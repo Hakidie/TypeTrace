@@ -4,6 +4,7 @@ import { TypingSessionModel } from '../models/typing-session.model';
 import { UserDocument, UserModel } from '../models/user.model';
 import { badRequest, forbidden, notFound } from '../utils/app-error';
 import { deleteImage } from './cloudinary.service';
+import { typingActivityOf } from './typing-session.service';
 import { paginate } from '../utils/pagination';
 import { AdminUpdateUserInput, ListUsersQuery, SetUserStatusInput } from '../validators/admin-user.validator';
 
@@ -24,30 +25,6 @@ export const getAdminStats = async () => {
   return { users, admins, verified, newUsersThisWeek, notes };
 };
 
-/** Days shown in the activity heatmap of the admin user list (the frontend draws the same number of cells). */
-export const HEATMAP_DAYS = 364;
-
-/** Typing activity of the given users: average speed and accuracy of their completed sessions, and completed sessions per day. */
-const loadActivity = async (ids: unknown[]) => {
-  const since = new Date(Date.now() - HEATMAP_DAYS * DAY_MS);
-  const [averages, days] = await Promise.all([
-    TypingSessionModel.aggregate<{ _id: unknown; wpm: number; accuracy: number }>([
-      { $match: { owner: { $in: ids }, status: 'completed', wpm: { $exists: true } } },
-      { $group: { _id: '$owner', wpm: { $avg: '$wpm' }, accuracy: { $avg: '$accuracy' } } }
-    ]),
-    TypingSessionModel.aggregate<{ _id: { owner: unknown; date: string }; sessions: number }>([
-      { $match: { owner: { $in: ids }, status: 'completed', completedAt: { $gte: since } } },
-      {
-        $group: {
-          _id: { owner: '$owner', date: { $dateToString: { format: '%Y-%m-%d', date: '$completedAt' } } },
-          sessions: { $sum: 1 }
-        }
-      }
-    ])
-  ]);
-  return { averages, days };
-};
-
 /** The users page, each user with `stats` (absent until a session is completed) and `sessions` (completed sessions per day). */
 export const listUsers = async ({ q, role, verified, status, ...pagination }: ListUsersQuery) => {
   const filter: QueryFilter<UserDocument> = {};
@@ -59,18 +36,8 @@ export const listUsers = async ({ q, role, verified, status, ...pagination }: Li
     filter.$or = [{ email: pattern }, { displayName: pattern }];
   }
   const page = await paginate(UserModel, filter, pagination);
-  const { averages, days } = await loadActivity(page.items.map((user) => user._id));
-
-  const items = page.items.map((user) => {
-    const id = String(user._id);
-    const average = averages.find((row) => String(row._id) === id);
-    return {
-      ...user.toJSON(),
-      ...(average && { stats: { wpm: Math.round(average.wpm * 10) / 10, accuracy: Math.round(average.accuracy * 10) / 10 } }),
-      sessions: days.filter((row) => String(row._id.owner) === id).map((row) => ({ date: row._id.date, sessions: row.sessions }))
-    };
-  });
-  return { ...page, items };
+  const activityOf = await typingActivityOf(page.items.map((user) => user._id));
+  return { ...page, items: page.items.map((user) => ({ ...user.toJSON(), ...activityOf(user._id) })) };
 };
 
 export const getUser = async (id: string) => {

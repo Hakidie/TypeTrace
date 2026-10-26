@@ -16,6 +16,8 @@ interface ConfirmDialogProps {
   title: string;
   description?: string;
   confirmLabel?: string;
+  /** Text of the button that closes the dialog without the action, e.g. `Not now`. */
+  cancelLabel?: string;
   /** Red confirm button, for deletes. */
   destructive?: boolean;
   /** Disables the buttons and shows a spinner while the action runs. */
@@ -36,6 +38,7 @@ export const ConfirmDialog = ({
   title,
   description,
   confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
   destructive = false,
   pending = false,
   confirmDisabled = false,
@@ -52,7 +55,7 @@ export const ConfirmDialog = ({
       {children}
       <DialogFooter className="gap-2">
         <Button variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>
-          Cancel
+          {cancelLabel}
         </Button>
         <Button variant={destructive ? 'destructive' : 'default'} disabled={pending || confirmDisabled} onClick={onConfirm}>
           {pending && <Loader2 className="size-4 animate-spin" />}

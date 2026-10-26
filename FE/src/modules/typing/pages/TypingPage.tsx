@@ -1,6 +1,7 @@
 import { ClipboardCheck, Keyboard, RotateCcw, Trophy, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import type { AfterLoginState } from '@/modules/auth/utils/home-path';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -90,12 +91,23 @@ const PassageMenu = ({ mode, selectedId, onSelect }: { mode: SessionMode; select
 // opens; the timer starts at the first key (TypingArea tells the server through `begin`).
 export const TypingPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   // `/typing?mode=placement` types the placement test passage (Start on the placement intro page opens it).
   const mode: SessionMode = searchParams.get('mode') === 'placement' ? 'placement' : 'practice';
-  // Asks before switching to the placement test: Cancel (or closing it) stays in practice.
   const pageRef = useRef<HTMLDivElement>(null);
-  const [confirmPlacement, setConfirmPlacement] = useState(false);
+  // Asks before the placement test: when the learner picks the Placement tab, and once when a learner who has just
+  // created their account lands here (`welcome`, SCRUM-157). Cancel (or closing it) stays in practice. `welcome` stays
+  // as it was while the dialog closes, so its text does not change on the way out.
+  const [placementPrompt, setPlacementPrompt] = useState(() => {
+    const welcome = (location.state as AfterLoginState | null)?.newAccount === true;
+    return { open: welcome, welcome };
+  });
+  // Asked once: the state leaves the history entry at once, so a reload or Back does not ask again.
+  useEffect(() => {
+    if (!(location.state as AfterLoginState | null)?.newAccount) return;
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
+  }, [location, navigate]);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('sec');
   const [timeIndex, setTimeIndex] = useState(1);
   const timeSeconds = timeChoices[timeUnit][timeIndex] * (timeUnit === 'min' ? 60 : 1);
@@ -197,7 +209,12 @@ export const TypingPage = () => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <TabGroup label="Mode" tabs={modeTabs} value={mode} onChange={(value) => (value === 'practice' ? setSearchParams({}) : value !== mode && setConfirmPlacement(true))} />
+        <TabGroup
+          label="Mode"
+          tabs={modeTabs}
+          value={mode}
+          onChange={(value) => (value === 'practice' ? setSearchParams({}) : value !== mode && setPlacementPrompt({ open: true, welcome: false }))}
+        />
         <div className="md:justify-self-start">
           <div className="flex outline outline-1 -outline-offset-1 outline-border">
             <TabGroup
@@ -220,18 +237,23 @@ export const TypingPage = () => {
         </div>
       </div>
       <ConfirmDialog
-        open={confirmPlacement}
-        onOpenChange={setConfirmPlacement}
-        title="Start the placement test?"
-        description="Your result is saved and counts toward your all-time average WPM and accuracy. Press Start to begin, or Cancel to go back to practice."
-        confirmLabel="Start"
+        open={placementPrompt.open}
+        onOpenChange={(open) => setPlacementPrompt((prompt) => ({ ...prompt, open }))}
+        title={placementPrompt.welcome ? 'Welcome! Take the placement test?' : 'Start the placement test?'}
+        description={
+          placementPrompt.welcome
+            ? 'A short typing test shows the speed and accuracy you start from. Your result is saved and counts toward your all-time average WPM and accuracy. You can also take it later from the Placement tab.'
+            : 'Your result is saved and counts toward your all-time average WPM and accuracy. Press Start to begin, or Cancel to go back to practice.'
+        }
+        confirmLabel={placementPrompt.welcome ? 'Start the test' : 'Start'}
+        cancelLabel={placementPrompt.welcome ? 'Not now' : 'Cancel'}
         // Back to the typing area, so the learner can type at once (a new session's area takes the focus itself when it opens).
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           pageRef.current?.querySelector('textarea')?.focus();
         }}
         onConfirm={() => {
-          setConfirmPlacement(false);
+          setPlacementPrompt((prompt) => ({ ...prompt, open: false }));
           setSearchParams({ mode: 'placement' });
         }}
       />

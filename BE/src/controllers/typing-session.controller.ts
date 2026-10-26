@@ -13,6 +13,10 @@ export const listSessions = async (req: Request, res: Response) => {
   res.json(await sessionService.listSessions(userIdOf(req), req.query as unknown as ListSessionsQuery));
 };
 
+export const getActivity = async (req: Request, res: Response) => {
+  res.json(await sessionService.getOwnActivity(userIdOf(req)));
+};
+
 export const getSession = async (req: Request, res: Response) => {
   res.json(await sessionService.getSession(userIdOf(req), req.params.id as string));
 };

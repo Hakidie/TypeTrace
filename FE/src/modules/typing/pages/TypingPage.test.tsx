@@ -361,3 +361,51 @@ describe('TypingPage', () => {
     expect(await screen.findByText('Could not load passages')).toBeInTheDocument();
   });
 });
+
+describe('TypingPage: a learner who has just created their account (SCRUM-157)', () => {
+  /** Shows the history state of the URL, to check that the question is asked only once. */
+  const UrlState = () => <p aria-label="URL state">{JSON.stringify(useLocation().state)}</p>;
+
+  const renderForNewAccount = () =>
+    renderWithProviders(
+      <>
+        <TypingPage />
+        <UrlState />
+      </>,
+      { route: '/typing', state: { newAccount: true } },
+    );
+
+  it('asks first to take the placement test, and starts it on Start the test', async () => {
+    const user = userEvent.setup();
+    renderForNewAccount();
+
+    const dialog = await screen.findByRole('dialog', { name: 'Welcome! Take the placement test?' });
+    expect(dialog).toHaveTextContent(/later from the Placement tab/);
+    // Asked once: the history entry no longer says the account is new, so a reload does not ask again.
+    await waitFor(() => expect(screen.getByLabelText('URL state')).toHaveTextContent('null'));
+    await user.click(within(dialog).getByRole('button', { name: 'Start the test' }));
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
+    expect(screen.getByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('stays in practice on Not now', async () => {
+    const user = userEvent.setup();
+    renderForNewAccount();
+
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Not now' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith({ mode: 'practice' });
+    expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('does not ask a learner who only logs in', async () => {
+    renderPage();
+
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});

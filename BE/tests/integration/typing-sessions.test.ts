@@ -365,3 +365,37 @@ describe('abandon, read and history', () => {
     expect((await api().get('/api/sessions')).status).toBe(401);
   });
 });
+
+describe('GET /api/sessions/activity (the profile page, SCRUM-157)', () => {
+  it("answers the learner's own average speed, accuracy and completed sessions per day, never another learner's", async () => {
+    const me = await createUser({});
+    const other = await createUser({ email: 'other@example.com' });
+    const base = { owner: me._id, passageId: 'p1', targetWords: ['a'] };
+    await TypingSessionModel.create([
+      { ...base, status: 'completed', wpm: 40, accuracy: 90, completedAt: new Date() },
+      { ...base, status: 'completed', wpm: 60, accuracy: 100, completedAt: new Date() },
+      // Neither one counts: still in progress, or left.
+      { ...base, status: 'in_progress' },
+      { ...base, status: 'abandoned' },
+      // Older than the heatmap: in the average, not in the days.
+      { ...base, status: 'completed', wpm: 99, accuracy: 99, completedAt: new Date('2020-01-01') },
+      { ...base, owner: other._id, status: 'completed', wpm: 10, accuracy: 10, completedAt: new Date() }
+    ]);
+
+    const response = await api().get('/api/sessions/activity').set('Authorization', bearerFor(me));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      stats: { wpm: 66.3, accuracy: 96.3 },
+      sessions: [{ date: new Date().toISOString().slice(0, 10), sessions: 2 }]
+    });
+  });
+
+  it('has no stats and no days for a new learner, and needs a signed-in account', async () => {
+    const response = await api().get('/api/sessions/activity').set('Authorization', bearerFor(await createUser({})));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ sessions: [] });
+    expect((await api().get('/api/sessions/activity')).status).toBe(401);
+  });
+});

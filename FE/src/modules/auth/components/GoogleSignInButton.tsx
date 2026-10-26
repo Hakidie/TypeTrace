@@ -46,8 +46,9 @@ export const GoogleSignInButton = () => {
           client_id: clientId,
           callback: async ({ credential }) => {
             try {
-              const { token } = await authApi.googleLogin(credential);
-              await finishLogin(token);
+              // A first Google login creates the account: the typing page then asks to take the placement test.
+              const { token, isNewUser } = await authApi.googleLogin(credential);
+              await finishLogin(token, { newAccount: isNewUser });
             } catch (error) {
               toast.error(getApiErrorMessage(error, 'Google login failed'));
             }

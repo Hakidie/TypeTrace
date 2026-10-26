@@ -9,7 +9,7 @@ export interface ActivityDay {
 const BLOCKS = 4;
 const WEEKS_PER_BLOCK = 13;
 const BLOCK_DAYS = WEEKS_PER_BLOCK * 7;
-/** How many days the heatmap shows, today included. Keep it equal to `HEATMAP_DAYS` in `BE/src/services/admin-user.service.ts`. */
+/** How many days the heatmap shows, today included. Keep it equal to `HEATMAP_DAYS` in `BE/src/services/typing-session.service.ts`. */
 export const HEATMAP_DAYS = BLOCKS * BLOCK_DAYS;
 
 // Cells, from no activity to the most: the red of the Passages card in five steps.

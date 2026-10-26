@@ -30,6 +30,14 @@ describe('ConfirmDialog', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  it('can name the button that closes it, e.g. Not now', () => {
+    const { onOpenChange } = renderDialog({ cancelLabel: 'Not now' });
+
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it('turns both buttons off while the action runs', () => {
     renderDialog({ pending: true });
 
