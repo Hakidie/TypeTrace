@@ -1,5 +1,6 @@
 import userEvent from '@testing-library/user-event';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
@@ -304,6 +305,213 @@ describe('AdminPassagesPage', () => {
 
     await waitFor(() => expect(setStatus).toHaveBeenCalledWith('p1', 'archived'));
     expect(update).toHaveBeenCalledWith('p1', expect.objectContaining({ isPlacement: true }));
+  });
+});
+
+describe('AdminPassagesPage: search, filters, sort and hard delete of the passage bank (SCRUM-159)', () => {
+  /** Shows the query string of the page, to check what the passage bank keeps in the URL. */
+  const LocationProbe = () => <output aria-label="URL">{useLocation().search}</output>;
+
+  const renderAt = (route: string) =>
+    renderWithProviders(
+      <>
+        <AdminPassagesPage />
+        <LocationProbe />
+      </>,
+      { route },
+    );
+
+  const urlParams = () => new URLSearchParams(screen.getByLabelText('URL').textContent ?? '');
+
+  /** The toolbar of the Passages panel, apart from the one of the Pending review panel below. */
+  const bankToolbar = () => screen.getByLabelText('Search passages').closest('div.flex')!.parentElement!;
+
+  /** Picks `option` in the Sort or the Filter menu of the passage bank. */
+  const pick = async (user: ReturnType<typeof userEvent.setup>, menu: string | RegExp, option: string) => {
+    await user.click(within(bankToolbar()).getByRole('button', { name: menu }));
+    await user.click(await screen.findByRole('menuitemradio', { name: option }));
+  };
+
+  /** A bank of `totalPages` pages that answers the page it is asked for; the review queue is empty. */
+  const answerPages = (totalPages: number) =>
+    list.mockImplementation(async (params: { status?: string; page?: number }) =>
+      params.status === 'pending'
+        ? page([])
+        : { items: [passage], page: params.page ?? 1, limit: 9, total: totalPages * 9, totalPages },
+    );
+
+  /** Opens the edit form of the only passage, then asks to delete it from there. */
+  const deleteFromForm = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole('button', { name: 'Edit Mùa thu Hà Nội' }));
+    await user.click(screen.getByRole('button', { name: 'Delete passage' }));
+    return screen.findByRole('dialog', { name: 'Delete this passage for good?' });
+  };
+
+  beforeEach(() => {
+    remove.mockReset();
+    vi.mocked(toast.success).mockClear();
+  });
+
+  it('searches, filters and sorts the passage bank, keeping each choice in the URL', async () => {
+    answerPages(3);
+    const user = userEvent.setup();
+    renderAt('/admin/passages?page=2');
+    await screen.findByText('Mùa thu Hà Nội');
+    expect(list).toHaveBeenCalledWith({ page: 2, limit: 9, sort: '-createdAt', visibility: 'public' });
+
+    // A search (on Enter) looks in the title and the source, from the first page.
+    await user.type(screen.getByLabelText('Search passages'), 'hà nội{Enter}');
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ q: 'hà nội', page: 1, visibility: 'public' })));
+    expect(urlParams().get('q')).toBe('hà nội');
+    expect(urlParams().get('page')).toBeNull();
+
+    // Filters: the status, and the placement passages or the regular ones.
+    await pick(user, /Filter/, 'Archived');
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ q: 'hà nội', status: 'archived' })));
+    await pick(user, /Filter/, 'Placement');
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived', isPlacement: true })));
+    expect(within(bankToolbar()).getByLabelText('2 active')).toBeInTheDocument();
+    expect(urlParams().get('status')).toBe('archived');
+    expect(urlParams().get('type')).toBe('placement');
+    await pick(user, /Filter/, 'Regular');
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived', isPlacement: false })));
+    // "All" takes a filter off again.
+    await user.click(within(bankToolbar()).getByRole('button', { name: /Filter/ }));
+    await user.click(within(await screen.findByRole('group', { name: 'Status' })).getByRole('menuitemradio', { name: 'All' }));
+    await waitFor(() => expect(urlParams().get('status')).toBeNull());
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'hà nội', status: undefined, isPlacement: false }));
+
+    // Sort: the default one stays out of the URL.
+    await pick(user, 'Sort', 'Title A–Z');
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ sort: 'title', q: 'hà nội', isPlacement: false })));
+    expect(urlParams().get('sort')).toBe('title');
+    await pick(user, 'Sort', 'Longest');
+    await waitFor(() => expect(urlParams().get('sort')).toBe('-wordCount'));
+    await pick(user, 'Sort', 'Newest');
+    await waitFor(() => expect(urlParams().get('sort')).toBeNull());
+
+    // The review queue below keeps its own search and its own names in the URL.
+    expect(list).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'pending', q: 'hà nội' }));
+    expect([...urlParams().keys()].some((key) => key.startsWith('pending-'))).toBe(false);
+  });
+
+  it('opens with the search, filters, sort and page of the URL, as after a reload or from a shared link', async () => {
+    answerPages(3);
+    const user = userEvent.setup();
+    renderAt('/admin/passages?q=biển&status=archived&type=placement&sort=title&page=2');
+    await screen.findByText('Mùa thu Hà Nội');
+
+    expect(list).toHaveBeenCalledWith({
+      page: 2,
+      limit: 9,
+      sort: 'title',
+      q: 'biển',
+      status: 'archived',
+      isPlacement: true,
+      visibility: 'public',
+    });
+    expect(screen.getByLabelText('Search passages')).toHaveValue('biển');
+    expect(within(bankToolbar()).getByText('27 passages')).toBeInTheDocument();
+    expect(within(bankToolbar()).getByLabelText('2 active')).toBeInTheDocument();
+    await user.click(within(bankToolbar()).getByRole('button', { name: 'Sort' }));
+    expect(await screen.findByRole('menuitemradio', { name: 'Title A–Z' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('goes back to the last page when the page of the URL is past the end', async () => {
+    answerPages(2);
+    renderAt('/admin/passages?page=5');
+
+    await waitFor(() => expect(urlParams().get('page')).toBe('2'));
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 2, visibility: 'public' }));
+    expect(await screen.findByText('Mùa thu Hà Nội')).toBeInTheDocument();
+  });
+
+  it('says when no passage matches the search or the filters', async () => {
+    answer({ bank: [] });
+    renderAt('/admin/passages?q=xyz&status=draft');
+
+    expect(await screen.findByText('No matching passages')).toBeInTheDocument();
+    expect(screen.getByText('Try another search or filter.')).toBeInTheDocument();
+    expect(screen.queryByText('No passages yet')).not.toBeInTheDocument();
+  });
+
+  it('deletes an archived passage for good from the edit form, after a confirmation', async () => {
+    answer({ bank: [{ ...passage, status: 'archived' }] });
+    remove.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Mùa thu Hà Nội');
+    expect(within(bankToolbar()).getByText('1 passage')).toBeInTheDocument();
+
+    const dialog = await deleteFromForm(user);
+    expect(
+      within(dialog).getByText('"Mùa thu Hà Nội" is removed for good. A passage learners have typed cannot be deleted.'),
+    ).toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('p1'));
+    expect(toast.success).toHaveBeenCalledWith('Passage deleted.');
+    // The passage is gone: the form goes back to a new passage.
+    expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('keeps the passage and its edit form when the confirmation is cancelled', async () => {
+    answer({ bank: [{ ...passage, status: 'archived' }] });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Mùa thu Hà Nội');
+
+    const dialog = await deleteFromForm(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(remove).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'Edit passage' })).toBeInTheDocument();
+  });
+
+  it('stays on the passage when the backend refuses to delete it', async () => {
+    answer({ bank: [{ ...passage, status: 'archived' }] });
+    remove.mockRejectedValue({
+      response: { status: 409, data: { message: 'Learners have typed this passage: it cannot be deleted, only archived' } },
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Mùa thu Hà Nội');
+
+    const dialog = await deleteFromForm(user);
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledTimes(1));
+    // The confirmation closes (the backend message is toasted), and the passage stays open in the edit form.
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'Edit passage' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Title')).toHaveValue('Mùa thu Hà Nội');
+  });
+
+  it('offers the hard delete only on an archived passage that is not a placement passage, on the card and in the form', async () => {
+    answer({
+      bank: [
+        { ...passage, _id: 'p1', title: 'Đang dùng', status: 'published' },
+        { ...passage, _id: 'p2', title: 'Kiểm tra cũ', status: 'archived', isPlacement: true },
+        { ...passage, _id: 'p3', title: 'Bài cũ', status: 'archived' },
+      ],
+    });
+    renderPage();
+    await screen.findByText('Bài cũ');
+
+    expect(screen.getAllByRole('button', { name: /^Delete / }).map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Delete Bài cũ',
+    ]);
+    for (const title of ['Đang dùng', 'Kiểm tra cũ']) {
+      fireEvent.click(screen.getByRole('button', { name: `Edit ${title}` }));
+      expect(screen.getByLabelText('Title')).toHaveValue(title);
+      expect(screen.queryByRole('button', { name: 'Delete passage' })).not.toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Bài cũ' }));
+    expect(screen.getByRole('button', { name: 'Delete passage' })).toBeInTheDocument();
   });
 });
 

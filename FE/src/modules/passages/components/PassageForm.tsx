@@ -9,7 +9,7 @@ import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { useCreatePassage, useSetPassageStatus, useUpdatePassage } from '../hooks/use-passages';
 import { countWords, MAX_PASSAGE_WORDS } from '../passages.config';
-import { nextPassageStatus, type Passage, type PassageStatus } from '../types/passage.types';
+import { canHardDelete, nextPassageStatus, type Passage, type PassageStatus } from '../types/passage.types';
 
 // Mirrors the limits of the Passage model (BE/src/models/passage.model.ts).
 const schema = z.object({
@@ -50,10 +50,15 @@ interface PassageFormProps {
   passage?: Passage;
   /** Edit mode: called after a successful update and by the Cancel button. */
   onDone?: () => void;
+  /**
+   * Edit mode: shows a Delete passage button on a passage that may be deleted for good (`canHardDelete`, its saved
+   * status). The page asks for confirmation before deleting it (SCRUM-159).
+   */
+  onDelete?: (passage: Passage) => void;
 }
 
 /** Form that creates a passage, or edits one when `passage` is given. Remount it (`key`) to switch passage. */
-export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
+export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => {
   const createPassage = useCreatePassage();
   const updatePassage = useUpdatePassage();
   const setStatus = useSetPassageStatus();
@@ -119,11 +124,12 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Bottom left: the same look as the status bar of the typing page. */}
-        <p className="w-fit bg-primary/15 px-3 py-1.5 text-[1.125rem] text-primary">
+        <p className="w-fit shrink-0 whitespace-nowrap bg-primary/15 px-3 py-1.5 text-[1.125rem] text-primary">
           {countWords(content)}/{MAX_PASSAGE_WORDS} words
         </p>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        {/* Up to five controls in edit mode: they wrap to a second line (on the right) when the row is too narrow. */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <Controller
             control={control}
             name="isPlacement"
@@ -162,6 +168,18 @@ export const PassageForm = ({ passage, onDone }: PassageFormProps) => {
               {status === 'published' && <CheckCircle2 className="size-5" />}
               {status}
             </button>
+          )}
+          {passage && onDelete && canHardDelete(passage) && (
+            // Outlined in the destructive red: less weight than Update passage, the main action of the form.
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => onDelete(passage)}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              Delete passage
+            </Button>
           )}
           {passage && (
             <Button type="button" variant="outline" onClick={onDone}>

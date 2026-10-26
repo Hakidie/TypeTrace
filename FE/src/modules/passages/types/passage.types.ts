@@ -17,6 +17,14 @@ export const nextPassageStatus: Partial<Record<PassageStatus, PassageStatus>> = 
   archived: 'draft',
 };
 
+/**
+ * Whether the admin page offers to delete a passage for good, on its card and in the edit form (SCRUM-159): archived
+ * passages only (a passage in use is archived first), never a placement passage (the backend refuses it). The backend
+ * also refuses a passage learners have typed; one that was only opened on the Typing page can go.
+ */
+export const canHardDelete = (passage: Pick<Passage, 'status' | 'isPlacement'>) =>
+  passage.status === 'archived' && !passage.isPlacement;
+
 /** The text a learner proposes for their public passage. */
 export interface PassageEdit {
   title: string;
@@ -67,6 +75,8 @@ export interface PassageListParams {
   status?: PassageStatus;
   /** `public` = the passage bank, without the learners' private passages. */
   visibility?: PassageVisibility;
+  /** `true` = only the placement passages, `false` = only the regular ones. */
+  isPlacement?: boolean;
   /** With `status: 'pending'`: `true` = only learners' edits of public passages, `false` = only requests to make a passage public. */
   edited?: boolean;
 }

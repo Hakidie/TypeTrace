@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/shared/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { cn } from '@/shared/lib/utils';
-import type { LearnerPassage, Passage, ReviewDecision } from '../types/passage.types';
+import { canHardDelete, type LearnerPassage, type Passage, type ReviewDecision } from '../types/passage.types';
 
 /** What a card of the review queue needs (SCRUM-176). */
 interface PassageReview {
@@ -35,7 +35,7 @@ interface PassageCardProps {
   passage: Passage | LearnerPassage;
   /** Shows the Edit chip when given. The status is changed in the form that opens, not on the card. */
   onEdit?: (passage: Passage) => void;
-  /** The bank's hard delete, offered on an archived passage only. */
+  /** The bank's hard delete, offered only where `canHardDelete` allows it (archived, not a placement passage). */
   onDelete?: (passage: Passage) => void;
   /**
    * A card of the review queue (a request, or a learner's edit of a public passage, which shows the proposed text and an
@@ -137,7 +137,7 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
           // Shown on hover or keyboard focus; always on touch screens, which cannot hover.
           <div className="-mr-1 -mt-1 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
             {onEdit && <IconButton icon={Pencil} hint="Edit" label={`Edit ${passage.title}`} onClick={() => onEdit(full)} />}
-            {onDelete && full.status === 'archived' && (
+            {onDelete && canHardDelete(full) && (
               <IconButton
                 icon={Trash2}
                 hint="Delete"

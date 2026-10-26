@@ -12,9 +12,8 @@ import { TypingSessionModel } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
 import { conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
+import { titleSearchPattern } from '../utils/passage-text';
 import { CreatePassageInput, ListPassagesQuery, UpdatePassageInput } from '../validators/admin-passage.validator';
-
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Life cycle of a passage: draft, published and archived switch freely; where each status may go next with `PATCH /:id/status`. Only a learner puts a passage in
@@ -74,10 +73,14 @@ export const listPassages = ({ q, status, visibility, isPlacement, edited, ...pa
   if (visibility) filter.visibility = visibility;
   if (isPlacement !== undefined) filter.isPlacement = isPlacement;
   if (q) {
-    const pattern = new RegExp(escapeRegex(q), 'i');
+    // Accents optional, like the learners' list: `ha noi` finds `Hà Nội`, in the title or the source.
+    const pattern = titleSearchPattern(q);
     filter.$or = [{ title: pattern }, { source: pattern }];
   }
-  return paginate(PassageModel, filter, pagination);
+  // Titles sort in Vietnamese order (Đ right after D, not after Z). Only for a sort by title: a query with a collation
+  // can only use the indexes with the same one, and the `vi` index of `passage.model.ts` is the one for titles.
+  const byTitle = pagination.sort.replace(/^-/, '') === 'title';
+  return paginate(PassageModel, filter, pagination, byTitle ? { collation: { locale: 'vi' } } : {});
 };
 
 export const getPassage = async (id: string) => {
@@ -164,12 +167,21 @@ export const rejectPassages = async (ids: string[], reason: string) => {
   return requests.modifiedCount + edits.modifiedCount;
 };
 
-/** Hard delete. A passage that has typing sessions (or is the placement passage) can only be archived. */
+// A session of a passage nobody typed in: the Typing page starts one as soon as it shows a passage, and it is abandoned
+// when the learner opens another one. No key pressed (`beganAt`) and not completed.
+const untypedSession = { beganAt: null, status: { $ne: 'completed' as const } };
+
+/**
+ * Hard delete (SCRUM-159). The placement passage, and a passage learners typed in (a session with a key pressed, or a
+ * completed one: their history), can only be archived. The sessions only opened on it, never typed in, go with it.
+ */
 export const deletePassage = async (id: string) => {
   const passage = await getPassage(id);
   if (passage.isPlacement) throw conflict('The placement passage cannot be deleted');
-  if (await TypingSessionModel.exists({ passageId: id })) {
-    throw conflict('This passage has typing sessions: archive it instead of deleting it');
+  if (await TypingSessionModel.exists({ passageId: id, $nor: [untypedSession] })) {
+    throw conflict('Learners have typed this passage: it cannot be deleted, only archived');
   }
+  // The same filter again: a session whose learner starts typing meanwhile is kept, with its copy of the words.
+  await TypingSessionModel.deleteMany({ passageId: id, ...untypedSession });
   await passage.deleteOne();
 };

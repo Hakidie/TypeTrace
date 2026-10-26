@@ -122,6 +122,30 @@ describe('GET /api/admin/passages', () => {
     expect(paged.body).toMatchObject({ total: 2, totalPages: 2, items: [{ title: 'B' }] });
     expect((await api().get('/api/admin/passages?sort=owner').set('Authorization', auth)).status).toBe(400);
   });
+
+  it('finds a passage typed without its accents, in the title or the source', async () => {
+    const { auth } = await signInAdmin();
+    await createPassage(auth, { ...input, title: 'Hà Nội vào thu' });
+    await createPassage(auth, { ...input, title: 'Phố cổ', source: 'Báo Hà Nội mới' });
+    await createPassage(auth, { ...input, title: 'Biển xanh' });
+
+    const search = await api().get('/api/admin/passages').query({ q: 'ha noi', sort: 'title' }).set('Authorization', auth);
+
+    expect(search.body.items.map((item: { title: string }) => item.title)).toEqual(['Hà Nội vào thu', 'Phố cổ']);
+  });
+
+  it('sorts titles in Vietnamese order: Đ right after D, accented letters with their letter', async () => {
+    const { auth } = await signInAdmin();
+    for (const title of ['Vịnh Hạ Long', 'Đội bóng', 'Dòng sông', 'Ánh trăng']) await createPassage(auth, { ...input, title });
+
+    const titles = async (sort: string) =>
+      (await api().get('/api/admin/passages').query({ sort }).set('Authorization', auth)).body.items.map(
+        (item: { title: string }) => item.title
+      );
+
+    expect(await titles('title')).toEqual(['Ánh trăng', 'Dòng sông', 'Đội bóng', 'Vịnh Hạ Long']);
+    expect(await titles('-title')).toEqual(['Vịnh Hạ Long', 'Đội bóng', 'Dòng sông', 'Ánh trăng']);
+  });
 });
 
 describe('GET /api/admin/passages/:id', () => {
@@ -240,19 +264,49 @@ describe('DELETE /api/admin/passages/:id', () => {
     expect((await api().delete(`/api/admin/passages/${passage._id}`).set('Authorization', auth)).status).toBe(404);
   });
 
-  it('keeps a passage that has typing sessions: it can only be archived', async () => {
+  it('deletes a passage that was only opened, never typed, with those sessions', async () => {
     const { auth } = await signInAdmin();
     const learner = await createUser({ email: 'learner@example.com' });
     const passage = await createPassage(auth);
-    await TypingSessionModel.create({ owner: learner._id, passageId: passage._id, targetWords: ['Đường'] });
+    const other = await createPassage(auth, { ...input, title: 'Khác' });
+    // The Typing page starts a session as soon as it shows a passage; opening another one abandons it. No key pressed.
+    const opened = { owner: learner._id, passageId: passage._id, targetWords: ['Đường'] };
+    await TypingSessionModel.create([opened, { ...opened, status: 'abandoned' }]);
+    await TypingSessionModel.create({ ...opened, passageId: other._id });
 
     const response = await api().delete(`/api/admin/passages/${passage._id}`).set('Authorization', auth);
 
-    expect(response.status).toBe(409);
-    expect(response.body.message).toMatch(/archive/);
-    expect(await PassageModel.countDocuments()).toBe(1);
-    await setStatus(auth, passage._id, 'published');
-    expect((await setStatus(auth, passage._id, 'archived')).body.status).toBe('archived');
+    expect(response.status).toBe(204);
+    expect(await PassageModel.exists({ _id: passage._id })).toBeNull();
+    expect(await TypingSessionModel.countDocuments({ passageId: passage._id })).toBe(0);
+    // The sessions of other passages stay.
+    expect(await TypingSessionModel.countDocuments({ passageId: other._id })).toBe(1);
+  });
+
+  it('keeps a passage learners typed (a key pressed, or a completed session): it can only be archived', async () => {
+    const { auth } = await signInAdmin();
+    const learner = await createUser({ email: 'learner@example.com' });
+    const opened = { owner: learner._id, targetWords: ['Đường'] };
+    const begun = await createPassage(auth, { ...input, title: 'Đã gõ dở' });
+    const completed = await createPassage(auth, { ...input, title: 'Đã gõ xong' });
+    await TypingSessionModel.create([
+      { ...opened, passageId: begun._id, status: 'abandoned', beganAt: new Date() },
+      // Also a session only opened: nothing is deleted when the passage stays.
+      { ...opened, passageId: begun._id, status: 'abandoned' },
+      // Completed without the begin call (an older client): typed all the same.
+      { ...opened, passageId: completed._id, status: 'completed' }
+    ]);
+
+    for (const passage of [begun, completed]) {
+      const response = await api().delete(`/api/admin/passages/${passage._id}`).set('Authorization', auth);
+
+      expect(response.status).toBe(409);
+      expect(response.body.message).toBe('Learners have typed this passage: it cannot be deleted, only archived');
+    }
+    expect(await PassageModel.countDocuments()).toBe(2);
+    expect(await TypingSessionModel.countDocuments()).toBe(3);
+    await setStatus(auth, begun._id, 'published');
+    expect((await setStatus(auth, begun._id, 'archived')).body.status).toBe('archived');
   });
 
   it('keeps the placement passage', async () => {
