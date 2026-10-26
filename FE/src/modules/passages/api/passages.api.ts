@@ -9,7 +9,8 @@ export const passagesApi = {
   update: (id: string, input: PassageInput) => http.patch<Passage>(`/admin/passages/${id}`, input).then((r) => r.data),
   setStatus: (id: string, status: PassageStatus) =>
     http.patch<Passage>(`/admin/passages/${id}/status`, { status }).then((r) => r.data),
-  // Hard delete; answers 409 for a passage with typing sessions or the placement passage.
+  // Hard delete; answers 409 for a passage learners have typed or a placement passage. The sessions only opened on it,
+  // never typed in, are deleted with it.
   remove: (id: string) => http.delete(`/admin/passages/${id}`).then(() => undefined),
   // The review of learners' requests to make a passage public (SCRUM-176). One passage answers 409 if it is no longer
   // waiting; many at once answer how many changed.
