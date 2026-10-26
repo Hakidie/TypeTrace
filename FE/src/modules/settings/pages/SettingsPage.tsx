@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Panel } from '@/shared/components/panel';
-import { panelTitleClass } from '@/shared/lib/panel-styles';
+import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { fallbackThemes, readCurrentColors } from '@/shared/lib/theme';
 import { AddThemeCard } from '../components/AddThemeCard';
+import { SecuritySettings } from '../components/SecuritySettings';
 import { ThemeEditor } from '../components/ThemeEditor';
 import { ThemeGrid, type ThemeOption } from '../components/ThemeGrid';
 import { ThemeTabs } from '../components/ThemeTabs';
@@ -22,6 +24,7 @@ const fallbackId = 'fallback';
 const toOption = (theme: Theme): ThemeOption => ({ id: theme._id, name: theme.name, colors: theme.colors, own: !theme.published });
 
 export const SettingsPage = () => {
+  const { data: user } = useCurrentUser();
   const { mode } = useThemeMode();
   const active = useActiveThemes();
   const themes = useThemes(mode === 'dark');
@@ -108,6 +111,10 @@ export const SettingsPage = () => {
           editor={editor}
           last={editing === 'new' ? editor : <AddThemeCard full={mine.length >= maxThemes} onClick={() => startEditing('new', '', readCurrentColors(mode))} />}
         />
+      </Panel>
+
+      <Panel title="Security" bare titleClassName={panelTitleClass} className={panelBodyClass}>
+        {user ? <SecuritySettings user={user} /> : <LoadingState rows={1} />}
       </Panel>
 
       <ConfirmDialog

@@ -1,0 +1,159 @@
+import userEvent from '@testing-library/user-event';
+import { screen, waitFor } from '@testing-library/react';
+import type { UseQueryResult } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CurrentUser } from '@/modules/auth/types/auth.types';
+import { renderWithProviders } from '@/test/render-with-providers';
+import type { TypingActivity } from '../types/profile.types';
+import { ProfileHeader } from './ProfileHeader';
+
+const updateProfile = vi.fn();
+
+vi.mock('@/modules/profile/api/profile.api', () => ({
+  profileApi: { updateProfile: (input: unknown) => updateProfile(input), uploadAvatar: vi.fn() },
+}));
+
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
+}));
+
+const user: CurrentUser = {
+  bio: 'Hello there',
+  _id: 'user-1',
+  email: 'alice@example.com',
+  role: 'user',
+  isEmailVerified: true,
+  loginOtpEnabled: false,
+  displayName: 'Alice',
+  createdAt: '2026-01-15T12:00:00.000Z',
+  updatedAt: '2026-01-15T12:00:00.000Z',
+};
+
+const activity = (data?: TypingActivity) => ({ data }) as UseQueryResult<TypingActivity>;
+
+const renderHeader = (account: CurrentUser = user, data?: TypingActivity) =>
+  renderWithProviders(<ProfileHeader user={account} activity={activity(data)} onAvatarChange={vi.fn()} />);
+
+beforeEach(() => {
+  updateProfile.mockReset();
+  vi.mocked(toast.success).mockClear();
+});
+
+describe('ProfileHeader (SCRUM-157)', () => {
+  it('shows the avatar, the name, the email and the numbers', () => {
+    renderHeader(user, { stats: { wpm: 66.3, accuracy: 96.3 }, sessions: [] });
+
+    expect(screen.getByRole('button', { name: 'Change avatar' })).toBeInTheDocument();
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByText('alice@example.com')).toBeInTheDocument();
+    expect(screen.getByText('96%')).toBeInTheDocument();
+    expect(screen.getByText('66')).toBeInTheDocument();
+    expect(screen.getByText('000D')).toBeInTheDocument();
+  });
+
+  it('shows the day the account was made at the bottom right', () => {
+    renderHeader();
+
+    expect(screen.getByText('Joined 15 Jan 2026')).toHaveClass('text-right');
+  });
+
+  it('shows the bio under the email, or "No description" without one', () => {
+    const { unmount } = renderHeader();
+    expect(screen.getByRole('textbox', { name: 'Description' })).toHaveValue('Hello there');
+    unmount();
+
+    renderHeader({ ...user, bio: undefined });
+    expect(screen.getByRole('textbox', { name: 'Description' })).toHaveAttribute('placeholder', 'No description');
+  });
+
+  it('saves the bio on Enter', async () => {
+    updateProfile.mockResolvedValue({ ...user, bio: 'Typist' });
+    const person = userEvent.setup();
+    renderHeader();
+
+    const bio = screen.getByRole('textbox', { name: 'Description' });
+    await person.clear(bio);
+    await person.type(bio, 'Typist{Enter}');
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ bio: 'Typist' }));
+    expect(toast.success).toHaveBeenCalledWith('Bio updated.');
+  });
+
+  it('saves the bio when the field loses focus, and clears it when emptied', async () => {
+    updateProfile.mockResolvedValue({ ...user, bio: '' });
+    const person = userEvent.setup();
+    renderHeader();
+
+    await person.clear(screen.getByRole('textbox', { name: 'Description' }));
+    await person.tab();
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ bio: '' }));
+  });
+
+  it('keeps Shift+Enter as a new line, and sends nothing on Escape or when the text did not change', async () => {
+    const person = userEvent.setup();
+    renderHeader();
+    const bio = screen.getByRole('textbox', { name: 'Description' });
+
+    await person.click(bio);
+    await person.type(bio, '{Shift>}{Enter}{/Shift}more');
+    expect(bio).toHaveValue('Hello there\nmore');
+    await person.keyboard('{Escape}');
+    expect(bio).toHaveValue('Hello there');
+
+    await person.click(bio);
+    await person.tab();
+    expect(updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('shows the email as the name, and a hint, while there is no display name', () => {
+    renderHeader({ ...user, displayName: undefined });
+
+    expect(screen.getAllByText('alice@example.com')).toHaveLength(1);
+    expect(screen.getByText('No display name yet: hover the name to add one.')).toBeInTheDocument();
+  });
+
+  it('changes the name in place and shows the new one', async () => {
+    updateProfile.mockResolvedValue({ ...user, displayName: 'Alice Nguyen' });
+    const person = userEvent.setup();
+    renderHeader();
+
+    await person.click(screen.getByRole('button', { name: 'Edit display name' }));
+    const input = screen.getByLabelText('New display name');
+    expect(input).toHaveValue('Alice');
+    await person.clear(input);
+    await person.type(input, 'Alice Nguyen{Enter}');
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ displayName: 'Alice Nguyen' }));
+    expect(toast.success).toHaveBeenCalledWith('Display name updated.');
+    expect(screen.queryByLabelText('New display name')).not.toBeInTheDocument();
+  });
+
+  it('does not save a name that is too short', async () => {
+    const person = userEvent.setup();
+    renderHeader();
+
+    await person.click(screen.getByRole('button', { name: 'Edit display name' }));
+    const input = screen.getByLabelText('New display name');
+    await person.clear(input);
+    await person.type(input, 'A{Enter}');
+
+    expect(await screen.findByText('Display name must be at least 2 characters')).toBeInTheDocument();
+    expect(updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('leaves the name alone on Escape or Cancel, and when nothing changed', async () => {
+    const person = userEvent.setup();
+    renderHeader();
+
+    await person.click(screen.getByRole('button', { name: 'Edit display name' }));
+    await person.type(screen.getByLabelText('New display name'), ' Nguyen{Escape}');
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+
+    await person.click(screen.getByRole('button', { name: 'Edit display name' }));
+    await person.click(screen.getByRole('button', { name: 'Save display name' }));
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(updateProfile).not.toHaveBeenCalled();
+  });
+});
