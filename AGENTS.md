@@ -100,7 +100,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Mutations without `onError` show the backend message as a toast automatically. Add `onError` only for custom handling.
 - Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
-- Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog` (`children` for an extra field such as a reason, `confirmDisabled` until it is filled), `Pagination`,
+- Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog` (`children` for an extra field such as a reason, `confirmDisabled` until it is filled, `cancelLabel` to rename Cancel), `Pagination`,
   `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap`, `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons + actions above a list) (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
   shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams` (`shared/hooks/`).
 - Design: the TypeTrace look of the login pages applies to every page, now and for new features. Header and footer are
@@ -124,7 +124,7 @@ reason, which makes them `rejected`, SCRUM-176). Two lists on one page keep thei
 **Access: admins only.** The lock is one line on each side: `requireRole('admin')` in `BE/src/routes/admin.route.ts`
 (others get 403) and `<ProtectedRoute roles={['admin']}>` around `AdminLayout` in `FE/src/App.tsx` (others are sent to `/`).
 The "Admin" item in the avatar menu (`UserMenu`, top right of the main app) is also admins only. After login or registration, admins land on `/admin`; everyone else on `/typing` in Practice mode (`afterLoginPathFor` in
-`FE/src/modules/auth/utils/home-path.ts`); `/` also opens `/typing`. The placement test is the Placement tab on the Typing page (a confirm modal first). Make the first
+`FE/src/modules/auth/utils/home-path.ts`); `/` also opens `/typing`. A learner who has just created an account (registration, or a first Google login: `useFinishLogin(token, { newAccount: true })`) lands there with the history state `AfterLoginState`, and the Typing page asks once to take the placement test (SCRUM-157). The placement test is the Placement tab on the Typing page (a confirm modal first). Make the first
 admin with `npm run seed` (`admin@example.com`) or by setting `role: 'admin'` in the database. Keep the server-side checks that stop
 an account from deleting itself or removing its own admin role.
 
@@ -156,7 +156,7 @@ A sample chat bot to customize, not a finished product:
 - Backend integration tests use `api()` from `BE/tests/helpers/api.ts` (not `request(app)`), `createUser` / `bearerFor`
   from `tests/helpers/user-factory.ts`, and an in-memory MongoDB. External services are mocked in
   `tests/setup/mock-external-services.ts`; inspect them with `email-outbox.ts`, `cloudinary-recorder.ts`, `gemini-recorder.ts`.
-- Frontend tests mock the feature's `api` module and render with `renderWithProviders` from `FE/src/test/render-with-providers.tsx`.
+- Frontend tests mock the feature's `api` module and render with `renderWithProviders` from `FE/src/test/render-with-providers.tsx` (`state` for the history state of the starting URL, `otherRoutes` with an element instead of a text to read the location after a redirect).
   Assert what the user sees (`getByRole`, `findByText`).
 
 ## Before you finish

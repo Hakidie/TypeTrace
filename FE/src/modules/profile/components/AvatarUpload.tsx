@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { profileApi } from '@/modules/profile/api/profile.api';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
+import { cn } from '@/shared/lib/utils';
 
 interface AvatarUploadProps {
   currentAvatarUrl?: string;
@@ -43,34 +44,30 @@ export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSu
   };
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className="shrink-0">
+      {/* The 61px square tile of the user rows (`UserRow`); the camera shows on hover or keyboard focus. */}
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="group relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="Change avatar"
+        title="Change avatar (an image up to 5MB)"
+        className="group relative block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait"
       >
-        <Avatar className="size-24 ring-2 ring-border transition group-hover:ring-primary">
+        <Avatar className="size-[61px]">
           <AvatarImage src={currentAvatarUrl} alt="Profile avatar" />
-          <AvatarFallback className="text-xl">{userInitials}</AvatarFallback>
+          <AvatarFallback className="bg-primary/25 text-xl font-black text-primary">{userInitials}</AvatarFallback>
         </Avatar>
 
-        {/* Overlay */}
-        <span className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition group-hover:opacity-100">
-          {uploading
-            ? <Loader2 className="size-6 animate-spin text-white" />
-            : <Camera className="size-6 text-white" />
-          }
+        <span
+          className={cn(
+            'absolute inset-0 flex items-center justify-center bg-background/70 text-primary transition-opacity',
+            uploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100',
+          )}
+        >
+          {uploading ? <Loader2 className="size-5 animate-spin" /> : <Camera className="size-5" />}
         </span>
-
-        {uploading && (
-          <span className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <Loader2 className="size-6 animate-spin text-white" />
-          </span>
-        )}
       </button>
-
-      <p className="text-sm text-muted-foreground">Click to upload (max 5MB)</p>
 
       <input
         ref={inputRef}

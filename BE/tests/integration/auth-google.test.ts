@@ -23,6 +23,8 @@ describe('POST /api/auth/google', () => {
 
     expect(response.status).toBe(200);
     expect(verifyToken(response.body.token).email).toBe(email);
+    // A new account: the app asks the new learner to take the placement test (SCRUM-157).
+    expect(response.body.isNewUser).toBe(true);
     const user = await UserModel.findOne({ email });
     expect(user?.isEmailVerified).toBe(true);
     expect(user?.role).toBe('user');
@@ -35,6 +37,7 @@ describe('POST /api/auth/google', () => {
     const response = await api().post('/api/auth/google').send({ credential: 'google-id-token' });
 
     expect(response.status).toBe(200);
+    expect(response.body.isNewUser).toBe(false);
     expect(await UserModel.countDocuments({ email })).toBe(1);
   });
 

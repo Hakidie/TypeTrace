@@ -1,5 +1,6 @@
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { tokenStore } from '@/modules/auth/store/token.store';
@@ -24,10 +25,15 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
 }));
 
+/** The typing page, saying whether it was told that the account is new (it then asks to take the placement test). */
+const TypingPageProbe = () => (
+  <p>typing page{(useLocation().state as { newAccount?: boolean } | null)?.newAccount ? ' for a new account' : ''}</p>
+);
+
 const renderPage = () =>
   renderWithProviders(<RegisterPage />, {
     route: '/register',
-    otherRoutes: { '/login': 'login page', '/typing': 'typing page' },
+    otherRoutes: { '/login': 'login page', '/typing': <TypingPageProbe /> },
   });
 
 /** Fills the form, then types the emailed code. */
@@ -52,12 +58,12 @@ beforeEach(() => {
 });
 
 describe('RegisterPage', () => {
-  it('signs the new account in after the emailed code and opens the typing page', async () => {
+  it('signs the new account in after the emailed code and opens the typing page, which asks for the placement test', async () => {
     renderPage();
 
     await registerAndVerify();
 
-    expect(await screen.findByText('typing page')).toBeInTheDocument();
+    expect(await screen.findByText('typing page for a new account')).toBeInTheDocument();
     expect(register).toHaveBeenCalledWith({ email: 'new@b.com', password: 'secret123' });
     expect(verifyRegisterOtp).toHaveBeenCalledWith('new@b.com', '123456');
     expect(login).toHaveBeenCalledWith({ email: 'new@b.com', password: 'secret123' });

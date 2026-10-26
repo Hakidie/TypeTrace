@@ -66,9 +66,16 @@ export const ProfileEditForm = ({ defaultValues }: ProfileEditFormProps) => {
 
   return (
     <form className="space-y-5" onSubmit={handleSubmit((values) => updateProfile.mutate(values))}>
-      <FormField id="displayName" label="Display Name" error={errors.displayName?.message}>
-        <Input id="displayName" placeholder="Your name" {...register('displayName')} />
-      </FormField>
+      {/* The two short fields side by side from `md` up, the bio under them. */}
+      <div className="grid gap-5 md:grid-cols-2">
+        <FormField id="displayName" label="Display name" error={errors.displayName?.message}>
+          <Input id="displayName" placeholder="Your name" {...register('displayName')} />
+        </FormField>
+
+        <FormField id="phone" label="Phone" error={errors.phone?.message}>
+          <Input id="phone" placeholder="+84 912 345 678" {...register('phone')} />
+        </FormField>
+      </div>
 
       <FormField id="bio" label="Bio" error={errors.bio?.message} hint={`${bioValue.length}/200`}>
         <Textarea
@@ -80,13 +87,11 @@ export const ProfileEditForm = ({ defaultValues }: ProfileEditFormProps) => {
         />
       </FormField>
 
-      <FormField id="phone" label="Phone" error={errors.phone?.message}>
-        <Input id="phone" placeholder="+1 555 000 0000" {...register('phone')} />
-      </FormField>
-
-      <Button type="submit" className="w-full" disabled={updateProfile.isPending}>
-        {updateProfile.isPending ? 'Saving…' : 'Save Changes'}
-      </Button>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={updateProfile.isPending}>
+          {updateProfile.isPending ? 'Saving…' : 'Save changes'}
+        </Button>
+      </div>
     </form>
   );
 };

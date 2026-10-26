@@ -28,6 +28,7 @@ const verifyGoogleCredential = async (credential: string) => {
 /**
  * Finds the user with the Google email or creates one (already verified, random password
  * so the account can only be entered through Google or the "forgot password" flow).
+ * `isNewUser`: the account was created now (the app then asks the new learner to take the placement test).
  */
 export const findOrCreateGoogleUser = async (credential: string) => {
   const email = await verifyGoogleCredential(credential);
@@ -38,12 +39,13 @@ export const findOrCreateGoogleUser = async (credential: string) => {
       existing.isEmailVerified = true;
       await existing.save();
     }
-    return existing;
+    return { user: existing, isNewUser: false };
   }
 
-  return UserModel.create({
+  const user = await UserModel.create({
     email,
     password: await hashPassword(crypto.randomBytes(32).toString('hex')),
     isEmailVerified: true
   });
+  return { user, isNewUser: true };
 };

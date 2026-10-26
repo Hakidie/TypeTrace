@@ -4,6 +4,7 @@ import {
   beginSession,
   completeSession,
   createSession,
+  getActivity,
   getSession,
   listSessions
 } from '../controllers/typing-session.controller';
@@ -23,6 +24,8 @@ typingSessionRouter.use(authGuard, requireRole('user', 'admin'));
 
 typingSessionRouter.post('/', validate({ body: createSessionSchema }), createSession);
 typingSessionRouter.get('/', validate({ query: listSessionsQuerySchema }), listSessions);
+/** The learner's own `{ stats?, sessions }` for the profile page (SCRUM-157). Before `/:id`, which would take `activity` as an id. */
+typingSessionRouter.get('/activity', getActivity);
 typingSessionRouter.get('/:id', validate({ params: idParamsSchema }), getSession);
 typingSessionRouter.patch('/:id/begin', validate({ params: idParamsSchema }), beginSession);
 typingSessionRouter.patch(

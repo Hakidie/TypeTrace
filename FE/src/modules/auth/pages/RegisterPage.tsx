@@ -38,7 +38,7 @@ export const RegisterPage = () => {
     try {
       const response = await authApi.login({ email, password: getValues('password') });
       if (!('token' in response)) return false;
-      await finishLogin(response.token);
+      await finishLogin(response.token, { newAccount: true });
       return true;
     } catch {
       return false;
@@ -65,8 +65,8 @@ export const RegisterPage = () => {
     setLoading(true);
     try {
       await authApi.verifyRegisterOtp(email, otp);
-      // Verified: sign in right away, so a new learner lands where every login does (the placement test intro).
-      // If that fails, the account is still verified and the login page opens instead.
+      // Verified: sign in right away, so the new learner lands on the typing page, which asks them to take the placement
+      // test (SCRUM-157). If that fails, the account is still verified and the login page opens instead.
       if (await signIn()) return;
       toast.success('Account verified! You can login now.');
       navigate('/login');

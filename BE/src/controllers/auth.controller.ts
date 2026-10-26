@@ -98,7 +98,8 @@ export const getMe = async (req: Request, res: Response) => {
 
 export const googleLogin = async (req: Request, res: Response) => {
   const { credential } = req.body as { credential: string };
-  const user = await findOrCreateGoogleUser(credential);
+  const { user, isNewUser } = await findOrCreateGoogleUser(credential);
   if (user.status === 'locked') throw forbidden('Your account is locked');
-  return res.json({ token: signToken({ sub: String(user._id), email: user.email }) });
+  // `isNewUser`: the account was just created; the app asks the new learner to take the placement test (SCRUM-157).
+  return res.json({ token: signToken({ sub: String(user._id), email: user.email }), isNewUser });
 };
