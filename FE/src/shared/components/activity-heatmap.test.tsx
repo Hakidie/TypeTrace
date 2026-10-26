@@ -27,4 +27,20 @@ describe('ActivityHeatmap', () => {
 
     expect(cellsOf()[HEATMAP_DAYS - 2]).toHaveAttribute('title', expect.stringContaining('no activity'));
   });
+
+  it('names the months of each block under it when asked', () => {
+    render(<ActivityHeatmap label="Sessions" labels />);
+
+    const blocks = Array.from(screen.getByRole('img', { name: 'Sessions' }).children);
+    const names = blocks.map((block) => block.lastElementChild?.textContent);
+    const thisMonth = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][new Date().getUTCMonth()];
+    expect(names).toHaveLength(4);
+    names.forEach((name) => expect(name).toMatch(/^[A-Z][a-z]{2}( – [A-Z][a-z]{2})?$/));
+    expect(names[3]).toMatch(new RegExp(`${thisMonth}$`));
+  });
+
+  it('has no labels by default', () => {
+    render(<ActivityHeatmap label="Sessions" />);
+    expect(screen.queryByText(/^[A-Z][a-z]{2}( – [A-Z][a-z]{2})?$/)).not.toBeInTheDocument();
+  });
 });

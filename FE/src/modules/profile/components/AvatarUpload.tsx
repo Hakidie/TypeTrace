@@ -10,9 +10,13 @@ interface AvatarUploadProps {
   currentAvatarUrl?: string;
   userInitials?: string;
   onUploadSuccess: (newUrl: string) => void;
+  /** Size of the picture (default the 61px tile of the user rows), e.g. `size-48`. */
+  className?: string;
+  /** Size of the initials shown without a picture (default `text-xl`). */
+  initialsClassName?: string;
 }
 
-export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSuccess }: AvatarUploadProps) => {
+export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSuccess, className, initialsClassName }: AvatarUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,9 +58,9 @@ export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSu
         title="Change avatar (an image up to 5MB)"
         className="group relative block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait"
       >
-        <Avatar className="size-[61px]">
+        <Avatar className={cn('size-[61px]', className)}>
           <AvatarImage src={currentAvatarUrl} alt="Profile avatar" />
-          <AvatarFallback className="bg-primary/25 text-xl font-black text-primary">{userInitials}</AvatarFallback>
+          <AvatarFallback className={cn('bg-primary/25 text-xl font-black text-primary', initialsClassName)}>{userInitials}</AvatarFallback>
         </Avatar>
 
         <span

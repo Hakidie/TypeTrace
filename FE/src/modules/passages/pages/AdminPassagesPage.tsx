@@ -104,7 +104,7 @@ const PassageBank = () => {
             />
           ))}
         </div>
-        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} />
+        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" />
       </div>
     );
   };

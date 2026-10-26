@@ -11,7 +11,7 @@ interface SecuritySettingsProps {
   user: CurrentUser;
 }
 
-/** Lets the user turn the emailed login code (second login step) on or off. */
+/** Lets the user turn the emailed login code (second login step) on or off. In the Security panel of the Settings page. */
 export const SecuritySettings = ({ user }: SecuritySettingsProps) => {
   const queryClient = useQueryClient();
 

@@ -9,6 +9,12 @@ import { themeDraftStore } from '../store/theme-draft.store';
 import type { ActiveThemes, Theme } from '../types/theme.types';
 import { SettingsPage } from './SettingsPage';
 
+const getMe = vi.fn();
+
+vi.mock('@/modules/auth/api/auth.api', () => ({
+  authApi: { getMe: () => getMe() },
+}));
+
 vi.mock('../api/themes.api', () => ({
   themesApi: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), getActive: vi.fn(), updateActive: vi.fn() },
 }));
@@ -51,6 +57,15 @@ beforeEach(() => {
   active = { mode: 'dark', dark: null, light: null };
   themes = [midnight, mono, night, paper];
   vi.resetAllMocks();
+  getMe.mockResolvedValue({
+    _id: 'user-1',
+    email: 'alice@example.com',
+    role: 'user',
+    isEmailVerified: true,
+    loginOtpEnabled: false,
+    createdAt: '2026-01-15T12:00:00.000Z',
+    updatedAt: '2026-01-15T12:00:00.000Z',
+  });
   api.getActive.mockImplementation(async () => active);
   api.list.mockImplementation(async (isDark) => themes.filter((theme) => theme.isDark === isDark));
   // Like the server: keeps what was sent.
@@ -83,6 +98,14 @@ describe('SettingsPage', () => {
     ]);
     expect(screen.queryByText('Mono')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Custom theme' })).toBeInTheDocument();
+  });
+
+  it('has a Security panel with the email code at login switch', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Security' })).toBeInTheDocument();
+    const toggle = await screen.findByRole('switch', { name: 'Email code at login' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
   });
 
   it('marks the fallback as chosen when no theme is, and only one card at a time', async () => {

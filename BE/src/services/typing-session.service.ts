@@ -145,7 +145,7 @@ export const abandonSession = async (userId: string, id: string) => {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Days of the activity heatmaps, in the admin user list and on the profile page (the frontend draws as many cells). */
-export const HEATMAP_DAYS = 364;
+export const HEATMAP_DAYS = 371;
 
 /**
  * Typing activity of each of `owners`, in two queries for all of them: `stats`, the average speed and accuracy of their
