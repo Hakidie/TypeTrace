@@ -87,7 +87,7 @@ export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProp
   });
 
   return (
-    <form className="space-y-4" onSubmit={submit}>
+    <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={submit}>
       <div className="flex flex-col gap-4 md:flex-row md:justify-between">
         <div className="min-w-0 max-w-full space-y-2 md:max-w-[calc(50%-0.5rem)]">
           <Input className={cn(fieldClass, metaFieldClass)} aria-label="Title" placeholder="Title of The Passage" {...register('title')} />
@@ -100,9 +100,9 @@ export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProp
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
         <Textarea
-          className={cn(fieldClass, 'h-48 text-[2rem] leading-snug')}
+          className={cn(fieldClass, 'min-h-48 flex-1 resize-none text-[2rem] leading-snug lg:min-h-20')}
           aria-label="Content"
           placeholder="Paste or type the text you want to practice…"
           {...register('content')}
