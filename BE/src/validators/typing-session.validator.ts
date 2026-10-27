@@ -9,10 +9,21 @@ export const createSessionSchema = z.object({
   passageId: objectIdSchema.optional()
 });
 
-/** Only the typed words are trusted: score, WPM and accuracy are always computed by the server. */
-export const completeSessionSchema = z.object({
-  typedWords: z.array(z.string().max(60)).min(1, 'Send at least one typed word').max(1000)
-});
+/**
+ * Only the typed words (and when each was finished) are trusted: score, WPM and accuracy are always computed by the server.
+ * `typedAtMs` is optional (an older page does not send it) but, when sent, has one entry per typed word.
+ */
+export const completeSessionSchema = z
+  .object({
+    typedWords: z.array(z.string().max(60)).min(1, 'Send at least one typed word').max(1000),
+    typedAtMs: z.array(z.number().int().min(0)).max(1000).optional(),
+    /** The time the learner chose, only used to size the time axis of the chart (3 minutes at most, like `MAX_SESSION_MS`). */
+    timeLimitSeconds: z.number().int().min(1).max(180).optional()
+  })
+  .refine((body) => !body.typedAtMs || body.typedAtMs.length === body.typedWords.length, {
+    message: 'Send one time for each typed word',
+    path: ['typedAtMs']
+  });
 
 export const listSessionsQuerySchema = paginationQuerySchema.extend({
   sort: sortSchema(['createdAt', 'wpm', 'accuracy']),

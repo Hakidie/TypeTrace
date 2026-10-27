@@ -172,10 +172,10 @@ export const TypingPage = () => {
     setTimeIndex(index);
   };
 
-  const finish = (typedWords: string[]) => {
+  const finish = (typedWords: string[], typedAtMs: number[]) => {
     if (!session) return;
     complete.mutate(
-      { id: session._id, typedWords },
+      { id: session._id, typedWords, typedAtMs, timeLimitSeconds: timeSeconds },
       { onSuccess: (done) => navigate(`/typing/result/${done._id}`) },
     );
   };

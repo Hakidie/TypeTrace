@@ -24,10 +24,10 @@ interface TypingAreaProps {
   targetWords: string[];
   /** Stops typing, e.g. while the result is being saved. */
   disabled?: boolean;
-  /** Called once, with the typed words, when the last word is finished. */
   /** Called once, when the first key is pressed: the timer starts then. */
   onStart?: () => void;
-  onFinish: (typedWords: string[]) => void;
+  /** Called once, with the finished words and when each was finished (ms after the first key), when the session ends. */
+  onFinish: (typedWords: string[], typedAtMs: number[]) => void;
   /** How long the session lasts; the page lets the learner choose less than the 3 minute maximum. */
   timeLimitSeconds?: number;
   /** Called once when time runs out and no word was finished, so there is nothing to grade. */
@@ -76,6 +76,9 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, o
   const composing = useRef(false);
   // The timer starts at the first key, not when the page opens.
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  // When each finished word was finished, in ms after the first key (only noted here, never sent while typing).
+  const startTime = useRef(0);
+  const wordTimes = useRef<number[]>([]);
   const seconds = useElapsedSeconds(startedAt, !lastWordDone && !disabled);
 
   const timeIsUp = seconds >= timeLimitSeconds;
@@ -84,7 +87,8 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, o
 
   const start = () => {
     if (startedAt !== null) return;
-    setStartedAt(Date.now());
+    startTime.current = Date.now();
+    setStartedAt(startTime.current);
     onStart?.();
   };
 
@@ -96,16 +100,17 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, o
     if (!timeIsUp || lastWordDone || expired.current) return;
     expired.current = true;
     const typedWords = splitTyped(committed).done.slice(0, targetWords.length);
-    if (typedWords.length > 0) onFinish(typedWords);
+    if (typedWords.length > 0) onFinish(typedWords, wordTimes.current.slice(0, typedWords.length));
     else onTimeUp?.();
   }, [timeIsUp, lastWordDone, committed, targetWords.length, onFinish, onTimeUp]);
 
   const commit = (value: string) => {
     setCommitted(value);
     const typedWords = splitTyped(value).done;
+    while (wordTimes.current.length < typedWords.length) wordTimes.current.push(Date.now() - startTime.current);
     if (!isFinished && typedWords.length >= targetWords.length) {
       setLastWordDone(true);
-      onFinish(typedWords.slice(0, targetWords.length));
+      onFinish(typedWords.slice(0, targetWords.length), wordTimes.current.slice(0, targetWords.length));
     }
   };
 

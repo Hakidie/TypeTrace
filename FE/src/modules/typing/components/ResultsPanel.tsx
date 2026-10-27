@@ -1,5 +1,5 @@
 import { EmptyState } from '@/shared/components/empty-state';
-import { Card } from '@/shared/components/ui/card';
+import { Panel } from '@/shared/components/panel';
 import { errorLabels } from '../typing.config';
 import type { ErrorStat, WordResult } from '../utils/typing-session';
 
@@ -14,8 +14,7 @@ export const ResultsPanel = ({ results, stats }: ResultsPanelProps) => {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card className="p-5">
-        <h2 className="mb-3 text-lg font-semibold">Mistakes</h2>
+      <Panel bare title="Mistakes">
         {mistakes.length === 0 ? (
           <EmptyState title="No mistakes yet" description="Words you type wrongly show up here with their error type." />
         ) : (
@@ -40,10 +39,9 @@ export const ResultsPanel = ({ results, stats }: ResultsPanelProps) => {
             </table>
           </div>
         )}
-      </Card>
+      </Panel>
 
-      <Card className="p-5">
-        <h2 className="mb-3 text-lg font-semibold">Error rate by type</h2>
+      <Panel bare title="Error rate by type">
         {stats.length === 0 ? (
           <p className="text-muted-foreground">Finish a word to see the rates.</p>
         ) : (
@@ -58,7 +56,7 @@ export const ResultsPanel = ({ results, stats }: ResultsPanelProps) => {
             ))}
           </ul>
         )}
-      </Card>
+      </Panel>
     </div>
   );
 };

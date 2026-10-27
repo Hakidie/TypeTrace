@@ -35,8 +35,20 @@ describe('TypingArea', () => {
     await user.type(area, 'Tiếng Việt đẹp. ');
 
     expect(onFinish).toHaveBeenCalledTimes(1);
-    expect(onFinish).toHaveBeenCalledWith(['Tiếng', 'Việt', 'đẹp.']);
+    expect(onFinish).toHaveBeenCalledWith(['Tiếng', 'Việt', 'đẹp.'], expect.any(Array));
     expect(area).toBeDisabled();
+  });
+
+  it('notes when each word was finished and sends the times with the words, never earlier', async () => {
+    const user = userEvent.setup();
+    const { area, onFinish } = renderArea();
+
+    await user.type(area, 'Tiếng Việt đẹp. ');
+
+    const times = onFinish.mock.calls[0][1] as number[];
+    expect(times).toHaveLength(3);
+    expect(times.every((time) => time >= 0)).toBe(true);
+    expect(times).toEqual([...times].sort((a, b) => a - b));
   });
 
   it('finishes when Enter closes the last word', async () => {
@@ -45,7 +57,7 @@ describe('TypingArea', () => {
 
     await user.type(area, 'Tiếng Việt đẹp.{Enter}');
 
-    expect(onFinish).toHaveBeenCalledWith(['Tiếng', 'Việt', 'đẹp.']);
+    expect(onFinish).toHaveBeenCalledWith(['Tiếng', 'Việt', 'đẹp.'], expect.any(Array));
   });
 
   it('does not grade text the input method has not committed yet', () => {
@@ -220,7 +232,7 @@ describe('TypingArea time limit', () => {
       expect(onFinish).not.toHaveBeenCalled();
       vi.advanceTimersByTime(180_000);
 
-      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]]));
+      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]], expect.any(Array)));
       expect(onFinish).toHaveBeenCalledTimes(1);
       expect(onTimeUp).not.toHaveBeenCalled();
       expect(screen.getByRole('textbox', { name: 'Typing area' })).toBeDisabled();
@@ -259,7 +271,7 @@ describe('TypingArea time limit', () => {
       expect(onFinish).not.toHaveBeenCalled();
       vi.advanceTimersByTime(1_000);
 
-      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]]));
+      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]], expect.any(Array)));
       expect(onFinish).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();

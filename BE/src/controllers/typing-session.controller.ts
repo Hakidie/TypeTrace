@@ -21,6 +21,10 @@ export const getSession = async (req: Request, res: Response) => {
   res.json(await sessionService.getSession(userIdOf(req), req.params.id as string));
 };
 
+export const getSessionStats = async (req: Request, res: Response) => {
+  res.json(await sessionService.getSessionStats(userIdOf(req), req.params.id as string));
+};
+
 export const beginSession = async (req: Request, res: Response) => {
   res.json(await sessionService.beginSession(userIdOf(req), req.params.id as string));
 };
