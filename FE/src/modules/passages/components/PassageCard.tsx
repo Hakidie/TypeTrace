@@ -3,6 +3,7 @@ import type { KeyboardEvent, MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/shared/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { useFitLines } from '@/shared/hooks/use-fit-lines';
 import { cn } from '@/shared/lib/utils';
 import { canHardDelete, type LearnerPassage, type Passage, type ReviewDecision } from '../types/passage.types';
 
@@ -81,6 +82,21 @@ const ownStatus = (passage: LearnerPassage) => {
   }
   if (passage.status === 'pending') return 'Pending';
   return passage.status === 'rejected' ? 'Rejected' : 'Draft';
+};
+
+/**
+ * The start of the text in a card of the learner's Passages page: it shows as many lines as the card has room for (the
+ * page gives the cards the height of the panel), 2 at least; 4 on a phone, where the page grows instead.
+ */
+const FitText = ({ children }: { children: string }) => {
+  const { ref, lines } = useFitLines<HTMLDivElement>(2);
+  return (
+    <div ref={ref} className="min-h-24 flex-1 overflow-hidden text-base text-muted-foreground lg:min-h-12">
+      <p className="line-clamp-4" style={{ WebkitLineClamp: lines }}>
+        {children}
+      </p>
+    </div>
+  );
 };
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -165,14 +181,15 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3 p-4 pt-0">
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-3 p-4 pt-0">
         {review && full && (
           // A request is a learner's own text: check where it comes from before it becomes public.
           <p className="truncate text-sm text-primary/70" title={shown.source}>
             by {passage.ownerName} · {shown.source} · asked {formatDate(full.updatedAt)}
           </p>
         )}
-        {shown.content && <p className="line-clamp-4 min-h-24 text-base text-muted-foreground">{shown.content}</p>}
+        {shown.content &&
+          (own ? <FitText>{shown.content}</FitText> : <p className="line-clamp-4 min-h-24 text-base text-muted-foreground">{shown.content}</p>)}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="flex flex-wrap items-center justify-start gap-2">
             {full?.isPlacement && <Badge>Placement</Badge>}

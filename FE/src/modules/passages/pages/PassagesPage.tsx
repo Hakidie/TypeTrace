@@ -112,7 +112,7 @@ export const PassagesPage = () => {
     // Like the passage bank of the admin area: a grid of cards, the pages at the bottom right.
     return (
       <>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Passage cards">
+        <div className="grid gap-4 sm:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-[repeat(2,minmax(0,1fr))]" aria-label="Passage cards">
           {passages.data.items.map((passage) => {
             // A private passage is the learner's to change and delete; while it waits for review it can only be taken back
             // or deleted. A public one can be edited (an admin approves the edit, the approved text stays public
@@ -141,35 +141,39 @@ export const PassagesPage = () => {
   };
 
   return (
-    <div className="space-y-8">
-      <div ref={formPanelRef} className="scroll-mt-4">
+    // On a desktop the page is one screen tall below the header (the footer is below it, like the Typing page): the form
+    // takes a third of it, the list the rest, and the cards show as many lines of text as fit.
+    <div className="flex flex-1 flex-col gap-12">
+      <div ref={formPanelRef} className="scroll-mt-4 lg:flex lg:min-h-72 lg:flex-[1_1_0] lg:flex-col">
         {/* No visible title (the form says what it is); screen readers still get one. */}
-        <Panel bare>
+        <Panel bare fill>
           <h2 className="sr-only">{editingId ? 'Edit passage' : 'New passage'}</h2>
           {renderForm()}
         </Panel>
       </div>
 
-      <Panel bare>
-        <h2 className="sr-only">My passages</h2>
-        <div className="space-y-3">
-          <ListToolbar
-            title="My Passages"
-            search={{
-              label: 'Search passages',
-              placeholder: 'Search titles…',
-              defaultValue: list.q,
-              onSearch: (value) => list.set('q', value),
-            }}
-            sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-            summary={passages.data ? `${passages.data.total} passages` : 'Loading passages…'}
-            filters={[
-              { label: 'Visibility', value: visibility, options: VISIBILITY_OPTIONS, onChange: (value) => list.set('visibility', value) },
-            ]}
-          />
-          {renderList()}
-        </div>
+      <div className="lg:flex lg:min-h-[28rem] lg:flex-[2_1_0] lg:flex-col">
+        <Panel bare fill>
+          <h2 className="sr-only">My passages</h2>
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <ListToolbar
+              title="My Passages"
+              search={{
+                label: 'Search passages',
+                placeholder: 'Search titles…',
+                defaultValue: list.q,
+                onSearch: (value) => list.set('q', value),
+              }}
+              sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
+              summary={passages.data ? `${passages.data.total} passages` : 'Loading passages…'}
+              filters={[
+                { label: 'Visibility', value: visibility, options: VISIBILITY_OPTIONS, onChange: (value) => list.set('visibility', value) },
+              ]}
+            />
+            {renderList()}
+          </div>
       </Panel>
+      </div>
 
       <RejectionReasonDialog passage={reasonOf} onClose={() => setReasonOf(undefined)} />
 

@@ -102,7 +102,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog` (`children` for an extra field such as a reason, `confirmDisabled` until it is filled, `cancelLabel` to rename Cancel), `Pagination`,
   `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap`, `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons + actions above a list) (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
-  shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams` (`shared/hooks/`).
+  shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams`, `useFitLines` (`shared/hooks/`).
 - Design: the TypeTrace look of the login pages applies to every page, now and for new features. Header and footer are
   `BrandHeader` / `BrandFooter` (`shared/components/layout/`; `AppLayout` already uses them, so pages
   inside them get both). Colors are only the theme tokens in `FE/src/index.css` (Blood red dark palette and Sand light palette, built from 4 theme colors; users can choose their own themes): do

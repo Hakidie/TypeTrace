@@ -12,6 +12,8 @@ interface PanelProps {
   transparent?: boolean;
   /** No border, background, shadow or padding: the title and content sit directly on the page. */
   bare?: boolean;
+  /** Grows to the height the layout gives it (in a flex column) and passes it on to the content, which can then fill it. */
+  fill?: boolean;
   /** Extra classes for the title (e.g. `text-2xl` for a bigger one). */
   titleClassName?: string;
   /** Extra classes for the body (e.g. `p-0` for a table that touches the edges). */
@@ -20,8 +22,8 @@ interface PanelProps {
 }
 
 /** A block of content in a page: a bordered card with an optional header (title, description, actions) and the content below. */
-export const Panel = ({ title, description, actions, transparent, bare, titleClassName, className, children }: PanelProps) => (
-  <Card className={cn((transparent || bare) && 'bg-transparent shadow-none', bare && 'border-0')}>
+export const Panel = ({ title, description, actions, transparent, bare, fill, titleClassName, className, children }: PanelProps) => (
+  <Card className={cn((transparent || bare) && 'bg-transparent shadow-none', bare && 'border-0', fill && 'flex min-h-0 flex-1 flex-col')}>
     {(title || actions) && (
       <div
         className={cn(
@@ -36,6 +38,6 @@ export const Panel = ({ title, description, actions, transparent, bare, titleCla
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
     )}
-    <div className={cn('p-5', bare && 'p-0', className)}>{children}</div>
+    <div className={cn('p-5', bare && 'p-0', fill && 'flex min-h-0 flex-1 flex-col', className)}>{children}</div>
   </Card>
 );
