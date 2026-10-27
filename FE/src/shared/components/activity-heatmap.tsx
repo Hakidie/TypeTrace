@@ -1,3 +1,4 @@
+import { useState, type MouseEvent } from 'react';
 import { cn } from '@/shared/lib/utils';
 
 export interface ActivityDay {
@@ -42,8 +43,12 @@ const QUARTER_LABELS = ['Jan – Mar', 'Apr – Jun', 'Jul – Sep', 'Oct – De
 interface Cell {
   key: string;
   level: number;
-  title: string;
+  /** Shown in the tooltip: the day and what happened on it, e.g. "27 Oct 2026: 2 sessions". */
+  tip: string;
 }
+
+/** `2026-10-27` as "27 Oct 2026". */
+const formatDay = (key: string) => `${key.slice(8, 10)} ${monthOf(key)} ${key.slice(0, 4)}`;
 
 interface Block {
   /** Left to right, 7 to a column; `null` is a day outside the year, drawn as an empty cell without a tooltip so the columns look full. */
@@ -85,7 +90,7 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
   const cellOf = (key: string): Cell => {
     const sessions = key < first ? 0 : (sessionsByDay.get(key) ?? 0);
     const text = days ? (sessions > 0 ? `${sessions} session${sessions > 1 ? 's' : ''}` : 'no activity') : 'no data yet';
-    return { key, level: heatLevel(sessions), title: `${key}: ${text}` };
+    return { key, level: heatLevel(sessions), tip: `${formatDay(key)}: ${text}` };
   };
 
   const blocks: Block[] = [];
@@ -110,7 +115,7 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
           continue;
         }
         const key = dayKey(new Date(time));
-        block.cells.push(key > todayKey ? { ...cellOf(key), title: `${key}: upcoming` } : cellOf(key));
+        block.cells.push(key > todayKey ? { ...cellOf(key), tip: `${formatDay(key)}: upcoming` } : cellOf(key));
       }
     }
   } else {
@@ -126,8 +131,32 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
     });
   }
 
+  // The tooltip follows the cell the pointer is over (one for the whole grid, not one per cell), above it, at once. It looks like a dropdown menu: see-through page background with blur, panel border, muted text.
+  const [tip, setTip] = useState<{ text: string; left: number; top: number }>();
+  const showTip = (event: MouseEvent<HTMLDivElement>) => {
+    const cell = (event.target as HTMLElement).closest<HTMLElement>('[data-tip]');
+    if (!cell) return setTip(undefined);
+    const box = cell.getBoundingClientRect();
+    const grid = event.currentTarget.getBoundingClientRect();
+    setTip({ text: cell.dataset.tip ?? '', left: box.left - grid.left + box.width / 2, top: box.top - grid.top });
+  };
+
   return (
-    <div className={cn('flex gap-1.5', fill && 'h-full')} role="img" aria-label={label}>
+    <div
+      className={cn('relative flex gap-1.5', fill && 'h-full')}
+      role="img"
+      aria-label={label}
+      onMouseOver={showTip}
+      onMouseLeave={() => setTip(undefined)}
+    >
+      {tip && (
+        <span
+          style={{ left: tip.left, top: tip.top }}
+          className="pointer-events-none absolute z-10 -mt-1 -translate-x-1/2 -translate-y-full whitespace-nowrap border border-border bg-background/75 px-3 py-1.5 text-base text-muted-foreground shadow-md backdrop-blur-xs"
+        >
+          {tip.text}
+        </span>
+      )}
       {blocks.map((block, index) => (
         // Wider by its weeks, so every cell has the same width.
         <div key={index} style={{ flexGrow: block.weeks }} className="flex min-w-0 basis-0 flex-col gap-1">
@@ -136,7 +165,7 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
               cell ? (
                 <span
                   key={cell.key}
-                  title={cell.title}
+                  data-tip={cell.tip}
                   className={cn(!fill && 'h-[7px]', HEAT_CLASSES[cell.level])}
                 />
               ) : (

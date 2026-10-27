@@ -7,23 +7,27 @@ import type { TypingActivity } from '../types/profile.types';
 import { ProfileHeatmap } from './ProfileHeatmap';
 
 const today = new Date().toISOString().slice(0, 10);
+/** `2026-10-27` as "27 Oct 2026", the day in the tooltip. */
+const formatDay = (key: string) => `${key.slice(8, 10)} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`;
+/** The cell whose tooltip says `text`. */
+const cellWith = (container: HTMLElement, text: string) => container.querySelector(`[data-tip="${text}"]`);
 const activity = (data?: TypingActivity) => ({ data }) as UseQueryResult<TypingActivity>;
 
 describe('ProfileHeatmap (SCRUM-157)', () => {
   it('shows the sessions of each day of the last year', () => {
-    renderWithProviders(<ProfileHeatmap activity={activity({ sessions: [{ date: today, sessions: 2 }] })} since="2026-01-15T12:00:00.000Z" />);
+    const { container } = renderWithProviders(<ProfileHeatmap activity={activity({ sessions: [{ date: today, sessions: 2 }] })} since="2026-01-15T12:00:00.000Z" />);
 
     expect(screen.getByRole('img', { name: `Completed sessions in ${new Date().getUTCFullYear()}` })).toBeInTheDocument();
-    expect(screen.getByTitle(`${today}: 2 sessions`)).toBeInTheDocument();
+    expect(cellWith(container, `${formatDay(today)}: 2 sessions`)).toBeInTheDocument();
   });
 
   it('is the quarters of this year, with the months under each and the days to come with an upcoming tooltip', () => {
-    renderWithProviders(<ProfileHeatmap activity={activity({ sessions: [] })} since="2020-01-01T00:00:00.000Z" />);
+    const { container } = renderWithProviders(<ProfileHeatmap activity={activity({ sessions: [] })} since="2020-01-01T00:00:00.000Z" />);
 
     const year = new Date().getUTCFullYear();
     ['Jan – Mar', 'Apr – Jun', 'Jul – Sep', 'Oct – Dec'].forEach((months) => expect(screen.getByText(months)).toBeInTheDocument());
-    expect(screen.getByTitle(`${year}-01-01: no activity`)).toBeInTheDocument();
-    expect(screen.getByTitle(`${year}-12-31: ${new Date().toISOString().slice(0, 10) === `${year}-12-31` ? 'no activity' : 'upcoming'}`)).toBeInTheDocument();
+    expect(cellWith(container, `01 Jan ${year}: no activity`)).toBeInTheDocument();
+    expect(cellWith(container, `31 Dec ${year}: ${today === `${year}-12-31` ? 'no activity' : 'upcoming'}`)).toBeInTheDocument();
   });
 
   it('keeps every column full: only the first and the last of the year have blanks', () => {
@@ -32,15 +36,15 @@ describe('ProfileHeatmap (SCRUM-157)', () => {
     const blocks = Array.from(container.querySelectorAll('[role="img"] > div > div:first-child'));
     expect(blocks).toHaveLength(4);
     blocks.forEach((block) => expect(block.children.length % 7).toBe(0));
-    const blanks = blocks.map((block) => Array.from(block.children).filter((cell) => !cell.hasAttribute('title')).length);
+    const blanks = blocks.map((block) => Array.from(block.children).filter((cell) => !cell.hasAttribute('data-tip')).length);
     expect(blanks[1] + blanks[2]).toBe(0);
     expect(blanks[0] + blanks[3]).toBeLessThanOrEqual(12);
   });
 
   it('shows empty cells while there is no activity data', () => {
-    renderWithProviders(<ProfileHeatmap activity={activity()} since="2026-01-15T12:00:00.000Z" />);
+    const { container } = renderWithProviders(<ProfileHeatmap activity={activity()} since="2026-01-15T12:00:00.000Z" />);
 
-    expect(screen.getByTitle(`${today}: no data yet`)).toBeInTheDocument();
+    expect(cellWith(container, `${formatDay(today)}: no data yet`)).toBeInTheDocument();
   });
 
   it('shows the error with a retry when the activity could not load', async () => {

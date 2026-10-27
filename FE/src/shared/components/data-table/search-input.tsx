@@ -13,6 +13,8 @@ interface SearchInputProps {
   placeholder?: string;
   label?: string;
   delay?: number;
+  /** The magnifier at the left of the box; `false` leaves it out (and its room). Default `true`. */
+  icon?: boolean;
   /** Extra classes for the wrapper, e.g. `sm:max-w-none` to let it fill its row. */
   className?: string;
 }
@@ -25,6 +27,7 @@ export const SearchInput = ({
   label = 'Search',
   delay = 300,
   searchOn = 'type',
+  icon = true,
   className,
 }: SearchInputProps) => {
   const [text, setText] = useState(defaultValue);
@@ -47,10 +50,10 @@ export const SearchInput = ({
 
   return (
     <div className={cn('relative w-full sm:max-w-xs', className)}>
-      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      {icon && <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />}
       <Input
         aria-label={label}
-        className="pl-9 pr-9"
+        className={cn('pr-9', icon ? 'pl-9' : 'pl-3')}
         placeholder={placeholder}
         value={text}
         onChange={(event) => change(event.target.value)}

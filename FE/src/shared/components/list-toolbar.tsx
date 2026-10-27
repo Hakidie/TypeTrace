@@ -22,6 +22,8 @@ interface ListToolbarProps {
     onSearch: (value: string) => void;
     placeholder?: string;
     label?: string;
+    /** `false` leaves out the magnifier in the box. */
+    icon?: boolean;
   };
   sort?: {
     /** Current sort, e.g. `-createdAt`. */
@@ -40,11 +42,13 @@ interface ListToolbarProps {
    * the chosen items (`Approve 2`, `Reject 2`). `destructive` is red, the others the theme red-orange.
    */
   decisions?: { label: string; onClick: () => void; destructive?: boolean }[];
+  /** No background color (the red tint behind the toolbar), for a list whose rows have none either; the controls have the red of the title (the hover is the red tint) and the search box shows no ring while it has the focus. */
+  plain?: boolean;
 }
 
 // A 2px line in the page background color on the left of each control splits the toolbar into parts. Same look as an outline `Button`; the dropdown trigger is itself a button, so it cannot wrap one.
-const controlClass = 'inline-flex h-10 items-center gap-2 whitespace-nowrap border-l-2 border-background bg-transparent px-4 text-base font-medium text-muted-foreground';
-const buttonClass = cn(controlClass, 'transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring');
+const controlClass = 'inline-flex h-10 items-center gap-2 whitespace-nowrap border-l-2 border-background bg-transparent px-4 text-base font-medium';
+const buttonClass = cn(controlClass, 'transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring');
 // Like the tag badges: filled with the theme red-orange while the button holds a non-default choice.
 const activeClass = 'bg-primary text-primary-foreground hover:bg-primary hover:opacity-90';
 
@@ -67,24 +71,28 @@ const MenuOption = ({ selected, onSelect, children }: { selected: boolean; onSel
  *     filters={[{ label: 'Role', value: role, options: ROLE_OPTIONS, onChange: (v) => list.set('role', v) }]}
  *   />
  */
-export const ListToolbar = ({ title, search, sort, filters = [], summary, actions, decisions = [] }: ListToolbarProps) => {
+export const ListToolbar = ({ title, search, sort, filters = [], summary, actions, decisions = [], plain }: ListToolbarProps) => {
   const activeFilters = filters.filter((filter) => filter.value !== '').length;
   // The first sort option is the default one.
+  // The text of the controls is muted and the hover grey; a `plain` toolbar has the red of its title and the red tint instead.
+  const tone = plain ? 'text-primary' : 'text-muted-foreground';
+  const control = cn(controlClass, tone);
+  const button = cn(buttonClass, tone, plain ? 'hover:bg-primary/15' : 'hover:bg-muted');
   const sortChanged = sort !== undefined && sort.value !== sort.options[0]?.value;
 
   return (
-    <div className="flex flex-col bg-primary/15 sm:flex-row sm:items-center">
+    <div className={cn('flex flex-col sm:flex-row sm:items-center', !plain && 'bg-primary/15')}>
       {title && <p className={cn(controlClass, 'border-l-0 border-r-2 text-primary')}>{title}</p>}
-      {search && <SearchInput {...search} searchOn="enter" className="sm:max-w-none sm:flex-1 [&_input]:border-transparent [&_input]:bg-transparent" />}
+      {search && <SearchInput {...search} searchOn="enter" className={cn('sm:max-w-none sm:flex-1 [&_input]:border-transparent [&_input]:bg-transparent', plain && '[&_input]:text-primary [&_input]:placeholder:text-primary/70 [&_input]:focus-visible:ring-0 [&_button]:text-primary')} />}
       <div className="flex flex-wrap items-center sm:ml-auto sm:justify-end">
-        {summary && <p className={controlClass}>{summary}</p>}
+        {summary && <p className={control}>{summary}</p>}
         {decisions.map((decision) => (
           <button
             key={decision.label}
             type="button"
             onClick={decision.onClick}
             className={cn(
-              buttonClass,
+              button,
               decision.destructive
                 ? 'bg-destructive text-white hover:bg-destructive hover:opacity-90'
                 : 'bg-primary text-primary-foreground hover:bg-primary hover:opacity-90',
@@ -95,7 +103,7 @@ export const ListToolbar = ({ title, search, sort, filters = [], summary, action
         ))}
         {sort && (
           <DropdownMenu>
-            <DropdownMenuTrigger className={cn(buttonClass, sortChanged && activeClass)}>
+            <DropdownMenuTrigger className={cn(button, sortChanged && activeClass)}>
               <ArrowUpDown className="size-4" />
               Sort
             </DropdownMenuTrigger>
@@ -110,7 +118,7 @@ export const ListToolbar = ({ title, search, sort, filters = [], summary, action
         )}
         {filters.length > 0 && (
           <DropdownMenu>
-            <DropdownMenuTrigger className={cn(buttonClass, activeFilters > 0 && activeClass)}>
+            <DropdownMenuTrigger className={cn(button, activeFilters > 0 && activeClass)}>
               <ListFilter className="size-4" />
               Filter
               {activeFilters > 0 && (

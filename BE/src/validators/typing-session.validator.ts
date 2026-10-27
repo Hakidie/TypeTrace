@@ -27,7 +27,12 @@ export const completeSessionSchema = z
 
 export const listSessionsQuerySchema = paginationQuerySchema.extend({
   sort: sortSchema(['createdAt', 'wpm', 'accuracy']),
-  status: z.enum(sessionStatuses).optional()
+  status: z.enum(sessionStatuses).optional(),
+  /** Text searched in the passage name (`titleSearchPattern`: without accents it finds every accented form). */
+  q: z.string().trim().max(100).optional(),
+  mode: z.enum(sessionModes).optional(),
+  /** The time the learner chose, in seconds (sessions from before it was stored never match). */
+  timeLimitSeconds: z.coerce.number().int().min(1).max(180).optional()
 });
 
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;

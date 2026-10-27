@@ -371,6 +371,46 @@ describe('word times and the speed chart (SCRUM-187)', () => {
   const send = (authorization: string, id: string, body: Record<string, unknown>) =>
     api().patch(`/api/sessions/${id}/complete`).set('Authorization', authorization).send(body);
 
+  it('searches the history by passage name (accents optional) and filters it by mode and by the time chosen', async () => {
+    const me = await createUser({});
+    const auth = bearerFor(me);
+    const other = await createUser({ email: 'other@example.com' });
+    const base = { passageId: 'p1', targetWords: ['a'], status: 'completed' };
+    await TypingSessionModel.create([
+      { ...base, owner: me._id, passageTitle: 'Hà Nội mùa thu', mode: 'practice', timeLimitSeconds: 30 },
+      { ...base, owner: me._id, passageTitle: 'Sài Gòn', mode: 'placement', timeLimitSeconds: 120 },
+      { ...base, owner: me._id, passageTitle: 'Hà Nội về đêm', mode: 'practice', timeLimitSeconds: 120 },
+      { ...base, owner: me._id, mode: 'practice' }, // from before the title and the time were stored
+      { ...base, owner: other._id, passageTitle: 'Hà Nội của người khác', mode: 'practice', timeLimitSeconds: 30 }
+    ]);
+    const titles = async (query: string) => {
+      const response = await api().get(`/api/sessions?${query}`).set('Authorization', auth);
+      expect(response.status).toBe(200);
+      return response.body.items.map((item: { passageTitle?: string }) => item.passageTitle).sort();
+    };
+
+    expect(await titles('q=ha noi')).toEqual(['Hà Nội mùa thu', 'Hà Nội về đêm']); // accents optional, never another learner's
+    expect(await titles('q=sài')).toEqual(['Sài Gòn']);
+    expect(await titles('q=.*')).toEqual([]); // taken literally
+    expect(await titles('mode=placement')).toEqual(['Sài Gòn']);
+    expect(await titles('timeLimitSeconds=120')).toEqual(['Hà Nội về đêm', 'Sài Gòn']);
+    expect(await titles('q=hà nội&mode=practice&timeLimitSeconds=120')).toEqual(['Hà Nội về đêm']);
+    expect((await api().get('/api/sessions?mode=rank').set('Authorization', auth)).status).toBe(400);
+    expect((await api().get('/api/sessions?timeLimitSeconds=500').set('Authorization', auth)).status).toBe(400);
+  });
+
+  it('gives each session of the history list its speed line, the same as the stats, and never its words', async () => {
+    const auth = bearerFor(await createUser({}));
+    const session = await startedAgo(auth, 60);
+    await send(auth, session._id, { typedWords: session.targetWords, typedAtMs: session.targetWords.map((_: string, index: number) => (index + 1) * 500) });
+
+    const listed = (await api().get('/api/sessions?status=completed').set('Authorization', auth)).body.items[0];
+    const stats = (await statsOf(auth, session._id)).body;
+    expect(listed.timeline).toEqual(stats.timeline);
+    expect(listed.timeline.status).toBe('ok');
+    expect(listed).not.toHaveProperty('words');
+  });
+
   it('stores the time of each word and draws the WPM and the errors of the last 10 seconds at every second', async () => {
     const auth = bearerFor(await createUser({}));
     const session = await startedAgo(auth, 60);
@@ -521,6 +561,15 @@ describe('abandon, read and history', () => {
 
     const completed = await api().get('/api/sessions?status=completed').set('Authorization', auth);
     expect(completed.body.total).toBe(1);
+    // A card of the history needs the summary only, never the typed words.
+    expect(completed.body.items[0]).toMatchObject({ _id: first.body._id, mode: 'practice', status: 'completed', isCounted: false });
+    expect(completed.body.items[0]).toHaveProperty('wpm');
+    expect(completed.body.items[0]).toHaveProperty('accuracy');
+    // The speed line of the card: a session without word times has none to draw.
+    expect(completed.body.items[0].timeline).toEqual({ status: 'no_data', points: [] });
+    expect(completed.body.items[0]).not.toHaveProperty('words');
+    expect(completed.body.items[0]).not.toHaveProperty('targetWords');
+    expect(completed.body.items[0]).not.toHaveProperty('owner');
 
     expect((await api().get('/api/sessions?sort=owner').set('Authorization', auth)).status).toBe(400);
     expect((await api().get('/api/sessions')).status).toBe(401);
