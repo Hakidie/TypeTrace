@@ -1,3 +1,4 @@
+import { ClipboardCheck, Keyboard, type LucideIcon } from 'lucide-react';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 import type { SessionMode } from './types/typing.types';
 
@@ -14,6 +15,15 @@ export const modeLabels: Record<SessionMode, string> = {
   practice: 'Practice',
   placement: 'Placement',
 };
+
+/** The icons of the typing modes: on the Typing page tabs and on the session cards of the profile page. */
+export const modeIcons: Record<SessionMode, LucideIcon> = {
+  practice: Keyboard,
+  placement: ClipboardCheck,
+};
+
+/** "30s", "2m": the way the Typing page names its time choices. */
+export const formatTimeLimit = (seconds: number) => (seconds % 60 === 0 ? `${seconds / 60}m` : `${seconds}s`);
 
 /** Short Vietnamese names of the error types, for the chart axis. */
 export const errorChartLabels: Record<WordErrorType, string> = {

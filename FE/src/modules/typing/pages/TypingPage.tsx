@@ -1,4 +1,4 @@
-import { ClipboardCheck, Keyboard, RotateCcw, Trophy, type LucideIcon } from 'lucide-react';
+import { RotateCcw, Trophy, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
@@ -12,14 +12,15 @@ import { redGlassTheme } from '@/shared/lib/red-glass-theme';
 import { TypingArea, TypingStatus } from '../components/TypingArea';
 import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession } from '../hooks/use-typing';
 import type { SessionMode } from '../types/typing.types';
+import { modeIcons } from '../typing.config';
 
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
 
 // Rank has no session mode yet, so its tab is only shown.
 const modeTabs = [
-  { value: 'practice', label: 'Practice', icon: Keyboard },
-  { value: 'placement', label: 'Placement', icon: ClipboardCheck },
+  { value: 'practice', label: 'Practice', icon: modeIcons.practice },
+  { value: 'placement', label: 'Placement', icon: modeIcons.placement },
   { value: 'rank', label: 'Rank', icon: Trophy, disabled: true },
 ];
 

@@ -1,6 +1,7 @@
 import { http } from '@/shared/api/http';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
-import type { TypingActivity } from '../types/profile.types';
+import type { Paginated } from '@/shared/api/types';
+import type { SessionListParams, SessionSummary, TypingActivity } from '../types/profile.types';
 
 export interface UpdateProfileInput {
   displayName?: string;
@@ -16,6 +17,9 @@ export interface UpdateSecurityInput {
 export const profileApi = {
   // The signed-in learner's own typing activity (the typing sessions API, SCRUM-157).
   getActivity: () => http.get<TypingActivity>('/sessions/activity').then((r) => r.data),
+  // The learner's own typing sessions, one page of summaries (the typing sessions API).
+  getSessions: (params: SessionListParams) =>
+    http.get<Paginated<SessionSummary>>('/sessions', { params }).then((r) => r.data),
   updateProfile: (data: UpdateProfileInput) =>
     http.patch<CurrentUser>('/profile', data).then((r) => r.data),
   updateSecurity: (data: UpdateSecurityInput) =>

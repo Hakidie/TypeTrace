@@ -1,8 +1,9 @@
-import { Types } from 'mongoose';
+import { QueryFilter, Types } from 'mongoose';
 import { PassageModel, splitWords } from '../models/passage.model';
-import { ErrorCounts, SessionWord, TypingSessionModel } from '../models/typing-session.model';
+import { ErrorCounts, SessionWord, TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
+import { titleSearchPattern } from '../utils/passage-text';
 import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
 import { learnerPassageFilter, samplePassage } from './passage.service';
@@ -95,8 +96,25 @@ export const getSession = async (userId: string, id: string) => {
   return session;
 };
 
-export const listSessions = (userId: string, { status, ...pagination }: ListSessionsQuery) =>
-  paginate(TypingSessionModel, { owner: userId, ...(status ? { status } : {}) }, pagination);
+/** What a card of the history shows. `words` is read only to draw the speed line; it is not sent (`targetWords` is not read at all). */
+const LIST_FIELDS = 'mode passageTitle status wpm accuracy durationMs timeLimitSeconds isCounted startedAt completedAt createdAt words';
+
+/** The learner's sessions, each with its speed `timeline` (as in the stats) instead of its words. */
+export const listSessions = async (userId: string, { status, q, mode, timeLimitSeconds, ...pagination }: ListSessionsQuery) => {
+  const filter: QueryFilter<TypingSessionDocument> = { owner: userId };
+  if (status) filter.status = status;
+  if (q) filter.passageTitle = titleSearchPattern(q);
+  if (mode) filter.mode = mode;
+  if (timeLimitSeconds) filter.timeLimitSeconds = timeLimitSeconds;
+  const page = await paginate(TypingSessionModel, filter, pagination, { select: LIST_FIELDS });
+  return {
+    ...page,
+    items: page.items.map((session) => {
+      const { words, ...summary } = session.toJSON();
+      return { ...summary, timeline: timelineStatus(words, session.durationMs ?? 0) };
+    })
+  };
+};
 
 /** The learner pressed the first key: the clock starts now. Calling it again keeps the first time. */
 export const beginSession = async (userId: string, id: string) => {

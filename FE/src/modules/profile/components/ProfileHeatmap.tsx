@@ -12,7 +12,7 @@ interface ProfileHeatmapProps {
 }
 
 /**
- * The heatmap of this calendar year (four quarters, 96px high) on its own and without a frame (sits under
+ * The heatmap of this calendar year (four quarters, 128px high (two thirds of the header panel above it, which keeps the cells nearly square)) on its own and without a frame (sits under
  * `ProfileHeader`). The cells are empty while the activity loads; when it fails the error is shown with a retry, and a
  * learner without a completed session is pointed to the Typing page.
  */
@@ -22,7 +22,7 @@ export const ProfileHeatmap = ({ activity, since }: ProfileHeatmapProps) => {
   const nothingYet = activity.isSuccess && !activity.data.stats && activity.data.sessions.length === 0;
   return (
     <>
-      <div className="h-24">
+      <div className="h-32">
         <ActivityHeatmap days={activity.data?.sessions} since={since} label={`Completed sessions in ${new Date().getUTCFullYear()}`} fill labels calendarYear />
       </div>
       {nothingYet && (

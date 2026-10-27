@@ -1,6 +1,6 @@
 import { Panel } from '@/shared/components/panel';
 import type { SessionMode } from '../types/typing.types';
-import { modeLabels } from '../typing.config';
+import { formatTimeLimit, modeLabels } from '../typing.config';
 
 interface SessionInfoPanelProps {
   /** Missing on sessions from before the title was stored. */
@@ -9,9 +9,6 @@ interface SessionInfoPanelProps {
   /** The time the learner chose, in seconds. */
   timeLimitSeconds: number;
 }
-
-/** "30s", "2m": the way the Typing page names its time choices. */
-const formatTimeLimit = (seconds: number) => (seconds % 60 === 0 ? `${seconds / 60}m` : `${seconds}s`);
 
 /** What was typed and how: the name of the passage, the typing mode and the time chosen. */
 export const SessionInfoPanel = ({ passageTitle, mode, timeLimitSeconds }: SessionInfoPanelProps) => (
