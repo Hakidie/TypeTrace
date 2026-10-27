@@ -17,6 +17,8 @@ export interface SessionWord {
   typed: string;
   /** Empty when the word is correct. */
   errorTypes: WordErrorType[];
+  /** Milliseconds from the first key to the moment the learner finished this word (SCRUM-187); sessions from before have none. */
+  typedAtMs?: number;
 }
 
 export interface TypingSessionDocument extends mongoose.Document {
@@ -32,6 +34,8 @@ export interface TypingSessionDocument extends mongoose.Document {
   startedAt: Date;
   /** When the learner pressed the first key. The speed is measured from here (from `startedAt` if never set). */
   beganAt?: Date;
+  /** The time the learner chose for the session, in seconds (the end of the time axis of the speed chart); sessions from before have none. */
+  timeLimitSeconds?: number;
   completedAt?: Date;
   durationMs?: number;
   wpm?: number;
@@ -52,7 +56,8 @@ const wordSchema = new Schema(
     index: { type: Number, required: true },
     target: { type: String, required: true },
     typed: { type: String, required: true },
-    errorTypes: { type: [String], enum: Object.values(WordError), default: [] }
+    errorTypes: { type: [String], enum: Object.values(WordError), default: [] },
+    typedAtMs: Number
   },
   { _id: false }
 );
@@ -68,6 +73,7 @@ const typingSessionSchema = new Schema<TypingSessionDocument>(
     words: { type: [wordSchema], default: [] },
     startedAt: { type: Date, default: Date.now },
     beganAt: Date,
+    timeLimitSeconds: Number,
     completedAt: Date,
     durationMs: Number,
     wpm: Number,

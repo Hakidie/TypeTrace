@@ -14,7 +14,8 @@ vi.mock('../api/typing.api', () => ({
   typingApi: {
     start: (input: unknown) => start(input),
     begin: (id: string) => begin(id),
-    complete: (id: string, typedWords: string[]) => complete(id, typedWords),
+    complete: (id: string, typedWords: string[], typedAtMs: number[], timeLimitSeconds: number) =>
+      complete(id, typedWords, typedAtMs, timeLimitSeconds),
     passages: (mode: string) => passages(mode),
   },
 }));
@@ -115,7 +116,7 @@ describe('TypingPage', () => {
 
     await user.type(await screen.findByRole('textbox', { name: 'Typing area' }), 'Tiếng Viet ');
 
-    await waitFor(() => expect(complete).toHaveBeenCalledWith('s1', ['Tiếng', 'Viet']));
+    await waitFor(() => expect(complete).toHaveBeenCalledWith('s1', ['Tiếng', 'Viet'], [expect.any(Number), expect.any(Number)], 20));
     expect(await screen.findByText('result page')).toBeInTheDocument();
   });
 

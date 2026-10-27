@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PASSAGE_LIST } from '../../src/data/passages';
 import { PassageModel } from '../../src/models/passage.model';
-import { TypingSessionModel } from '../../src/models/typing-session.model';
+import { SessionWord, TypingSessionModel } from '../../src/models/typing-session.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
+import { timelineOf } from '../../src/services/typing-session.service';
 import { api } from '../helpers/api';
 import { bearerFor, createUser } from '../helpers/user-factory';
 
@@ -303,6 +304,166 @@ describe('PATCH /api/sessions/:id/begin', () => {
     expect((await begin(other, session._id)).status).toBe(404);
     await complete(owner, session._id, session.targetWords);
     expect((await begin(owner, session._id)).status).toBe(409);
+  });
+});
+
+describe('GET /api/sessions/:id/stats (SCRUM-186)', () => {
+  const statsOf = (authorization: string, id: string) =>
+    api().get(`/api/sessions/${id}/stats`).set('Authorization', authorization);
+
+  it('counts right and wrong words and the error rate per type from the stored words', async () => {
+    const auth = bearerFor(await createUser({}));
+    const session = await startOn(auth, 'Tiếng Việt rất đẹp');
+    const typed = [...session.targetWords];
+    typed[5] = 'truong'; // trường typed without the horn marks and the tone
+    await complete(auth, session._id, typed);
+
+    const response = await statsOf(auth, session._id);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ totalWords: typed.length, correctWords: typed.length - 1, wrongWords: 1 });
+    expect(response.body.wrongRate).toBe(Math.round((100 / typed.length) * 10) / 10);
+    const tone = response.body.errorTypes.find((row: { type: string }) => row.type === 'TONE_WRONG');
+    expect(tone).toMatchObject({ errors: 1, opportunities: typed.length });
+    expect(tone.rate).toBe(Math.round((100 / typed.length) * 10) / 10);
+    // a type with no chance in the passage is left out
+    expect(response.body.errorTypes.every((row: { opportunities: number }) => row.opportunities > 0)).toBe(true);
+    expect(response.body.isCounted).toBe(false);
+  });
+
+  it('works out the numbers from the words, not from the stored totals', async () => {
+    const auth = bearerFor(await createUser({}));
+    const session = await startOn(auth, 'Tiếng Việt rất đẹp');
+    await complete(auth, session._id, [...session.targetWords]);
+    await TypingSessionModel.updateOne({ _id: session._id }, { wpm: 999, accuracy: 0, 'errorCounts.TONE_WRONG': 50 });
+
+    const response = await statsOf(auth, session._id);
+
+    expect(response.body.wrongWords).toBe(0);
+    expect(response.body.errorTypes.every((row: { errors: number }) => row.errors === 0)).toBe(true);
+  });
+
+  it('answers 404 to other users, even admins, and 409 until the session is completed', async () => {
+    const owner = await createUser({ email: 'owner@example.com' });
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
+    const session = await startOn(bearerFor(owner), 'Tiếng Việt rất đẹp');
+
+    expect((await statsOf(bearerFor(owner), session._id)).status).toBe(409);
+    await complete(bearerFor(owner), session._id, [...session.targetWords]);
+    expect((await statsOf(bearerFor(owner), session._id)).status).toBe(200);
+    expect((await statsOf(bearerFor(admin), session._id)).status).toBe(404);
+    expect((await statsOf(bearerFor(owner), 'not-an-id')).status).toBe(400);
+    expect((await api().get(`/api/sessions/${session._id}/stats`)).status).toBe(401);
+  });
+});
+
+describe('word times and the speed chart (SCRUM-187)', () => {
+  const statsOf = (authorization: string, id: string) =>
+    api().get(`/api/sessions/${id}/stats`).set('Authorization', authorization);
+
+  /** A session whose first key was pressed `seconds` ago, so the server measures that duration. */
+  const startedAgo = async (authorization: string, seconds: number) => {
+    const session = await startOn(authorization, 'Tiếng Việt rất đẹp');
+    await TypingSessionModel.updateOne({ _id: session._id }, { beganAt: new Date(Date.now() - seconds * 1000) });
+    return session;
+  };
+
+  const send = (authorization: string, id: string, body: Record<string, unknown>) =>
+    api().patch(`/api/sessions/${id}/complete`).set('Authorization', authorization).send(body);
+
+  it('stores the time of each word and draws the WPM and the errors of the last 10 seconds at every second', async () => {
+    const auth = bearerFor(await createUser({}));
+    const session = await startedAgo(auth, 60);
+    const typed = [...session.targetWords];
+    typed[0] = 'Tieng'; // wrong
+    const typedAtMs = typed.map((_, index) => (index + 1) * 500); // two words every second
+
+    const done = await send(auth, session._id, { typedWords: typed, typedAtMs });
+    expect(done.status).toBe(200);
+    expect(done.body.words.map((word: { typedAtMs: number }) => word.typedAtMs)).toEqual(typedAtMs);
+
+    const { timeline } = (await statsOf(auth, session._id)).body;
+    expect(timeline.status).toBe('ok');
+    expect(timeline.points[0]).toEqual({ second: 1, wpm: 60, errors: 1 }); // 2 words, 1 wrong: 1 right in 1 s
+    expect(timeline.points.map((point: { second: number }) => point.second).slice(0, 3)).toEqual([1, 2, 3]);
+    const last = timeline.points[timeline.points.length - 1];
+    expect(last.second).toBeCloseTo(done.body.durationMs / 1000, 0);
+    expect(last).toMatchObject({ wpm: 0, errors: 0 }); // nothing was finished in the last 10 seconds
+  });
+
+  it('looks only at the last 10 seconds: older words and a quiet stretch do not count', () => {
+    const word = (typedAtMs: number, wrong = false): SessionWord => ({
+      index: 0,
+      target: 'a',
+      typed: 'a',
+      errorTypes: wrong ? ['BASE_LETTER'] : [],
+      typedAtMs
+    });
+    // right at 1 s, 2 s and 3 s, wrong at 8 s, then nothing until the end at 20 s
+    const points = timelineOf([word(1000), word(2000), word(3000), word(8000, true)], 20_000);
+    const at = (second: number) => points.find((point) => point.second === second);
+
+    expect(at(3)).toEqual({ second: 3, wpm: 60, errors: 0 }); // 3 right words in 3 s: the window is cut at the start
+    expect(at(8)).toEqual({ second: 8, wpm: 22.5, errors: 1 }); // 3 right words in 8 s, and the wrong one
+    expect(at(10)).toEqual({ second: 10, wpm: 18, errors: 1 }); // all four words, 3 right in 10 s
+    expect(at(12)).toEqual({ second: 12, wpm: 6, errors: 1 }); // (2 s, 12 s]: the word at 3 s and the wrong one
+    expect(at(14)).toEqual({ second: 14, wpm: 0, errors: 1 }); // (4 s, 14 s]: only the wrong word
+    expect(at(19)).toEqual({ second: 19, wpm: 0, errors: 0 }); // quiet: no word in the window
+    expect(points).toHaveLength(20);
+  });
+
+  it('keeps the time the learner chose for the time axis, 3 minutes when none was sent, and rejects more than 3 minutes', async () => {
+    const auth = bearerFor(await createUser({}));
+    const chosen = await startedAgo(auth, 30);
+    await send(auth, chosen._id, { typedWords: chosen.targetWords, timeLimitSeconds: 30 });
+    expect((await statsOf(auth, chosen._id)).body.timeLimitSeconds).toBe(30);
+
+    const plain = await startedAgo(auth, 30);
+    await send(auth, plain._id, { typedWords: plain.targetWords });
+    expect((await statsOf(auth, plain._id)).body.timeLimitSeconds).toBe(180);
+
+    const tooLong = await startedAgo(auth, 30);
+    expect((await send(auth, tooLong._id, { typedWords: tooLong.targetWords, timeLimitSeconds: 600 })).status).toBe(400);
+    expect((await send(auth, tooLong._id, { typedWords: tooLong.targetWords, timeLimitSeconds: 0 })).status).toBe(400);
+  });
+
+  it('says there is no data for a session without word times, and that a short one is too short', async () => {
+    const auth = bearerFor(await createUser({}));
+    const old = await startedAgo(auth, 60);
+    await send(auth, old._id, { typedWords: old.targetWords });
+    expect((await statsOf(auth, old._id)).body.timeline).toEqual({ status: 'no_data', points: [] });
+
+    const short = await startedAgo(auth, 6);
+    await send(auth, short._id, { typedWords: short.targetWords, typedAtMs: short.targetWords.map(() => 1000) });
+    expect((await statsOf(auth, short._id)).body.timeline).toEqual({ status: 'too_short', points: [] });
+  });
+
+  it('answers 400 for times that go back, are negative, or are later than the session', async () => {
+    const auth = bearerFor(await createUser({}));
+    const session = await startedAgo(auth, 60);
+    const words = session.targetWords as string[];
+    const rising = words.map((_, index) => index * 100);
+
+    const back = [...rising];
+    back[3] = 0;
+    expect((await send(auth, session._id, { typedWords: words, typedAtMs: back })).status).toBe(400);
+    expect((await send(auth, session._id, { typedWords: words, typedAtMs: rising.map((t) => t - 100) })).status).toBe(400);
+    expect((await send(auth, session._id, { typedWords: words, typedAtMs: rising.map((t) => t + 70_000) })).status).toBe(400);
+    expect((await send(auth, session._id, { typedWords: words, typedAtMs: rising.slice(1) })).status).toBe(400);
+    expect((await send(auth, session._id, { typedWords: words, typedAtMs: rising.map(() => 1.5) })).status).toBe(400);
+
+    expect((await send(auth, session._id, { typedWords: words, typedAtMs: rising })).status).toBe(200); // still in progress after the 400s
+  });
+
+  it('computes both lines itself: a speed or error rate sent by the client changes nothing', async () => {
+    const auth = bearerFor(await createUser({}));
+    const session = await startedAgo(auth, 60);
+    const typedAtMs = session.targetWords.map((_: string, index: number) => (index + 1) * 500);
+    await send(auth, session._id, { typedWords: session.targetWords, typedAtMs, timeline: [{ second: 5, wpm: 999, errors: 99 }] });
+
+    const { timeline } = (await statsOf(auth, session._id)).body;
+    expect(timeline.points[0].errors).toBe(0);
+    expect(timeline.points.every((point: { wpm: number }) => point.wpm < 999)).toBe(true);
   });
 });
 

@@ -12,6 +12,9 @@ export const typingKeys = {
 export const useSession = (id: string) =>
   useQuery({ queryKey: typingKeys.detail(id), queryFn: () => typingApi.get(id) });
 
+export const useSessionStats = (id: string) =>
+  useQuery({ queryKey: [...typingKeys.detail(id), 'stats'], queryFn: () => typingApi.stats(id) });
+
 /** The passages to choose from for a mode. */
 export const usePassageOptions = (mode: SessionMode) =>
   useQuery({ queryKey: typingKeys.passages(mode), queryFn: () => typingApi.passages(mode) });
@@ -27,7 +30,8 @@ export const useBeginSession = () => useMutation({ mutationFn: typingApi.begin }
 export const useCompleteSession = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, typedWords }: { id: string; typedWords: string[] }) => typingApi.complete(id, typedWords),
+    mutationFn: ({ id, typedWords, typedAtMs, timeLimitSeconds }: { id: string; typedWords: string[]; typedAtMs: number[]; timeLimitSeconds: number }) =>
+      typingApi.complete(id, typedWords, typedAtMs, timeLimitSeconds),
     // The result page opens next: put the graded session in the cache so it does not need another request.
     onSuccess: (session) => queryClient.setQueryData(typingKeys.detail(session._id), session),
   });

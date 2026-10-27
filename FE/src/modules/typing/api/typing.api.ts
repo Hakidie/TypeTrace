@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http';
 import type { Paginated } from '@/shared/api/types';
-import type { PassageOption, SessionMode, StartSessionInput, TypingSession } from '../types/typing.types';
+import type { PassageOption, SessionMode, SessionStats, StartSessionInput, TypingSession } from '../types/typing.types';
 
 /** The passage menu shows one page of the list, as big as the backend allows (sorted by title). */
 const PASSAGE_MENU_LIMIT = 100;
@@ -9,11 +9,13 @@ const PASSAGE_MENU_LIMIT = 100;
 export const typingApi = {
   start: (input: StartSessionInput = {}) => http.post<TypingSession>('/sessions', input).then((r) => r.data),
   get: (id: string) => http.get<TypingSession>(`/sessions/${id}`).then((r) => r.data),
+  /** Right and wrong words and the error rate per type of a completed session (owner only). */
+  stats: (id: string) => http.get<SessionStats>(`/sessions/${id}/stats`).then((r) => r.data),
   /** The learner pressed the first key: the server starts the clock. */
   begin: (id: string) => http.patch<TypingSession>(`/sessions/${id}/begin`).then((r) => r.data),
-  /** Sends only the typed words: the server grades them and measures the time itself. */
-  complete: (id: string, typedWords: string[]) =>
-    http.patch<TypingSession>(`/sessions/${id}/complete`, { typedWords }).then((r) => r.data),
+  /** Sends the typed words, when each was finished and the time the learner chose (for the chart): the server grades them and measures the time itself. */
+  complete: (id: string, typedWords: string[], typedAtMs: number[], timeLimitSeconds: number) =>
+    http.patch<TypingSession>(`/sessions/${id}/complete`, { typedWords, typedAtMs, timeLimitSeconds }).then((r) => r.data),
   /** The passages the learner can choose for a mode (published, public, and their own in practice). */
   passages: (mode: SessionMode) =>
     http

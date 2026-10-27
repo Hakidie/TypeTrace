@@ -24,12 +24,13 @@ const emptyCounts = (): ErrorCounts =>
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
 /** Grades typed words against the target words at the same position. Extra words are rejected by the caller. */
-export const gradeWords = (targetWords: string[], typedWords: string[]): SessionWord[] =>
+export const gradeWords = (targetWords: string[], typedWords: string[], typedAtMs?: number[]): SessionWord[] =>
   typedWords.map((typed, index) => ({
     index,
     target: targetWords[index],
     typed,
-    errorTypes: classifyWord(targetWords[index], typed)
+    errorTypes: classifyWord(targetWords[index], typed),
+    ...(typedAtMs && { typedAtMs: typedAtMs[index] })
   }));
 
 /** Counts how often each error happened and how often it could have happened. */
@@ -108,8 +109,18 @@ export const beginSession = async (userId: string, id: string) => {
   return session;
 };
 
+/**
+ * The times the page sent for each finished word must rise, and none may be later than the session: the server measured
+ * `durationMs` from the `begin` request, which reaches it a little after the first key, so the grace of a slow request is allowed.
+ */
+const assertValidTimes = (typedAtMs: number[], durationMs: number) => {
+  const rising = typedAtMs.every((time, index) => index === 0 || time >= typedAtMs[index - 1]);
+  if (!rising) throw badRequest('Word times must not go back');
+  if (typedAtMs.some((time) => time > durationMs + SESSION_GRACE_MS)) throw badRequest('A word time is after the end of the session');
+};
+
 /** Re-grades the typed words and stores WPM, accuracy and error counts. Anything else the client says is ignored. */
-export const completeSession = async (userId: string, id: string, { typedWords }: CompleteSessionInput) => {
+export const completeSession = async (userId: string, id: string, { typedWords, typedAtMs, timeLimitSeconds }: CompleteSessionInput) => {
   const session = await getSession(userId, id);
   if (session.status !== 'in_progress') throw conflict('Session is not in progress');
   if (typedWords.length > session.targetWords.length) throw badRequest('More words than the passage has');
@@ -118,7 +129,8 @@ export const completeSession = async (userId: string, id: string, { typedWords }
   const elapsedMs = now.getTime() - (session.beganAt ?? session.startedAt).getTime();
   // Within the grace the learner finished on time (the request was only slow): the clock stops at the limit.
   const durationMs = elapsedMs <= MAX_SESSION_MS + SESSION_GRACE_MS ? Math.min(elapsedMs, MAX_SESSION_MS) : elapsedMs;
-  const words = gradeWords(session.targetWords, typedWords);
+  if (typedAtMs) assertValidTimes(typedAtMs, durationMs);
+  const words = gradeWords(session.targetWords, typedWords, typedAtMs);
   const correctWords = words.filter((word) => word.errorTypes.length === 0).length;
   const wpm = computeWpm(correctWords, durationMs);
 
@@ -126,6 +138,7 @@ export const completeSession = async (userId: string, id: string, { typedWords }
     status: 'completed',
     words,
     completedAt: now,
+    timeLimitSeconds,
     durationMs,
     wpm,
     accuracy: round1((correctWords / words.length) * 100),
@@ -133,6 +146,80 @@ export const completeSession = async (userId: string, id: string, { typedWords }
     isCounted: isSessionCounted(words.length, wpm, elapsedMs)
   });
   return session.save();
+};
+
+/** The line chart takes one point every second, and a session shorter than 10 seconds is too short to draw. */
+export const TIMELINE_STEP_SECONDS = 1;
+export const MIN_TIMELINE_MS = 10_000;
+/** Each point looks at the words finished in the last 10 seconds: a 1 second window only shows 0, 60 or 120 WPM, and a 5 second one moves in steps of 12 WPM per word, which draws flat stretches. */
+export const TIMELINE_WINDOW_SECONDS = 10;
+
+export interface TimelinePoint {
+  second: number;
+  wpm: number;
+  /** Wrong words among the words finished in the window. */
+  errors: number;
+}
+
+/**
+ * WPM and error rate at every second and at the end of the session, over a sliding window: only the words finished in the
+ * last `TIMELINE_WINDOW_SECONDS` count (fewer at the start, where the window is cut at 0). WPM is correct words per minute
+ * of the window (`computeWpm`), the number of errors is the wrong words among them. So it shows the
+ * pace at that moment, not the average since the start. A time after the end counts as the end.
+ */
+export const timelineOf = (words: SessionWord[], durationMs: number): TimelinePoint[] => {
+  const windowMs = TIMELINE_WINDOW_SECONDS * 1000;
+  const marks = [...Array(Math.ceil(durationMs / 1000 / TIMELINE_STEP_SECONDS)).keys()]
+    .map((step) => (step + 1) * TIMELINE_STEP_SECONDS * 1000)
+    .filter((ms) => ms < durationMs);
+  return [...marks, durationMs].map((ms) => {
+    const finished = words.filter((word) => {
+      const time = Math.min(word.typedAtMs ?? 0, durationMs);
+      return time <= ms && time > ms - windowMs;
+    });
+    const wrong = finished.filter((word) => word.errorTypes.length > 0).length;
+    return {
+      second: round1(ms / 1000),
+      wpm: computeWpm(finished.length - wrong, Math.min(ms, windowMs)),
+      errors: wrong
+    };
+  });
+};
+
+/** The numbers behind the result charts (SCRUM-186). Worked out again from the graded words: no stored total is trusted. */
+export const getSessionStats = async (userId: string, id: string) => {
+  const session = await getSession(userId, id);
+  if (session.status !== 'completed') throw conflict('Session is not completed');
+
+  const totalWords = session.words.length;
+  const wrongWords = session.words.filter((word) => word.errorTypes.length > 0).length;
+  const { errorCounts, opportunityCounts } = countErrors(session.words);
+  return {
+    totalWords,
+    correctWords: totalWords - wrongWords,
+    wrongWords,
+    wrongRate: totalWords === 0 ? 0 : round1((wrongWords / totalWords) * 100),
+    /** Types that never had a chance in this passage are left out. */
+    errorTypes: Object.values(WordError)
+      .filter((type) => opportunityCounts[type] > 0)
+      .map((type) => ({
+        type,
+        errors: errorCounts[type],
+        opportunities: opportunityCounts[type],
+        rate: round1((errorCounts[type] / opportunityCounts[type]) * 100)
+      })),
+    isCounted: session.isCounted,
+    /** The time the learner chose (3 minutes for an older session): the time axis of the speed chart ends here. */
+    timeLimitSeconds: session.timeLimitSeconds ?? MAX_SESSION_MS / 1000,
+    timeline: timelineStatus(session.words, session.durationMs ?? 0)
+  };
+};
+
+/** `no_data`: an older session without word times; `too_short`: under 10 seconds; otherwise `ok` with the points. */
+const timelineStatus = (words: SessionWord[], durationMs: number) => {
+  if (words.length === 0 || words.some((word) => word.typedAtMs === undefined)) return { status: 'no_data', points: [] };
+  if (durationMs < MIN_TIMELINE_MS) return { status: 'too_short', points: [] };
+  return { status: 'ok', points: timelineOf(words, durationMs) };
 };
 
 export const abandonSession = async (userId: string, id: string) => {

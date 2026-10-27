@@ -58,7 +58,7 @@ export const AppLayout = ({ navItems: allNavItems, widgets = [] }: AppLayoutProp
       </div>
 
       {/* At least one screen tall below the header (about 61px), so the footer is only seen after scrolling down. */}
-      <main className="mx-auto flex min-h-[calc(100vh-61px)] w-full max-w-7xl flex-col px-4 py-8">
+      <main className="mx-auto flex min-h-[calc(100vh-61px)] w-full max-w-7xl flex-col px-4 pb-8 pt-12">
         <Outlet />
       </main>
 
