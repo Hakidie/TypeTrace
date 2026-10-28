@@ -93,6 +93,9 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   never with `toISOString().slice(0, 10)`. They live in `DailyProgress`, which only `completeSession` writes, through
   `recordCountedSession`. The mission goal is `DAILY_MISSION_SESSIONS` (`services/daily-progress.service.ts`), sent to the
   frontend as `missionGoal`. The admin user list keeps its own UTC days from `TypingSession`.
+- App-wide settings that admins change live in the one `AppSetting` document (`models/app-setting.model.ts`, SCRUM-210):
+  read them with `getAppSettings()` (the model's defaults until an admin saves) and save them with `updateAppSettings(changes)`
+  (`services/app-setting.service.ts`). A new setting is a new field there, with its default, not a new collection.
 
 ## Frontend rules
 
