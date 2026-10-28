@@ -7,7 +7,7 @@ import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { AvatarSprite } from '../components/AvatarSprite';
-import { useAvatarCatalog, useUpdateAvatar } from '../hooks/use-avatar';
+import { useAvatarCatalog, useBuyItem, useUpdateAvatar } from '../hooks/use-avatar';
 import type { AvatarItem, AvatarLook, AvatarPose, AvatarSlot, AvatarUnlock } from '../types/avatar.types';
 
 const SLOTS: { slot: AvatarSlot; label: string; optional?: boolean }[] = [
@@ -33,8 +33,12 @@ const POSES: { pose: AvatarPose; label: string }[] = [
 const SLOT_NAMES = SLOTS.map(({ slot }) => slot);
 
 /** What a locked item costs: its price in coins, or the season tier that gives it. */
-const lockText = (unlock: AvatarUnlock) =>
-  unlock.kind === 'shop' ? `${unlock.price} coins` : unlock.kind === 'tier' ? `${unlock.tier[0].toUpperCase()}${unlock.tier.slice(1)} reward` : '';
+const lockText = (unlock: AvatarUnlock) => {
+  if (unlock.kind === 'shop') return `${unlock.price} coins`;
+  if (unlock.kind === 'tier') return `${unlock.tier[0].toUpperCase()}${unlock.tier.slice(1)} reward`;
+  if (unlock.kind === 'season') return 'Season reward';
+  return '';
+};
 
 const sameLook = (a: AvatarLook, b: AvatarLook) => SLOT_NAMES.every((slot) => (a[slot] ?? null) === (b[slot] ?? null));
 
@@ -45,22 +49,27 @@ interface ItemCardProps {
   onPick: () => void;
 }
 
-/** One item: the avatar wearing it, the lock (price or reward) when it is not owned. A locked item cannot be picked. */
+/**
+ * One item: the avatar wearing it, the lock (price or reward) when it is not owned. An item for sale can be picked to
+ * preview it before buying; a reward cannot.
+ */
 const ItemCard = ({ item, preview, selected, onPick }: ItemCardProps) => {
   const locked = item !== undefined && !item.owned;
+  const blocked = locked && item.unlock.kind !== 'shop';
   const name = item?.id ?? 'None';
   return (
     <button
       type="button"
       aria-label={locked ? `${name} (${lockText(item.unlock)})` : name}
       aria-pressed={selected}
-      aria-disabled={locked}
+      aria-disabled={blocked}
       title={name}
-      onClick={() => !locked && onPick()}
+      onClick={() => !blocked && onPick()}
       className={cn(
         'flex flex-col items-center gap-1 bg-primary/10 p-2 text-sm text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         selected ? 'outline outline-2 -outline-offset-2 outline-primary' : 'hover:bg-primary/20',
-        locked && 'cursor-not-allowed opacity-60 hover:bg-primary/10',
+        locked && 'opacity-60',
+        blocked && 'cursor-not-allowed hover:bg-primary/10',
       )}
     >
       <AvatarSprite look={preview} scale={1} label={name} />
@@ -83,6 +92,7 @@ const ItemCard = ({ item, preview, selected, onPick }: ItemCardProps) => {
 export const WardrobePage = () => {
   const catalog = useAvatarCatalog();
   const updateAvatar = useUpdateAvatar();
+  const buyItem = useBuyItem();
   const [draft, setDraft] = useState<AvatarLook | null>(null);
   const [slot, setSlot] = useState<AvatarSlot>('hair');
   const [pose, setPose] = useState<AvatarPose>('idle');
@@ -96,6 +106,13 @@ export const WardrobePage = () => {
   const current = SLOTS.find((entry) => entry.slot === slot)!;
   const pick = (item: string | null) => setDraft({ ...look, [slot]: item });
   const save = () => updateAvatar.mutate(look, { onSuccess: () => setDraft(null) });
+  // An item for sale being previewed: it must be bought before the look can be saved.
+  const unowned = SLOT_NAMES.flatMap((name) => {
+    const item = catalog.data.slots[name].find((entry) => entry.id === look[name]);
+    return item && !item.owned && item.unlock.kind === 'shop' ? [{ slot: name, item, price: item.unlock.price }] : [];
+  });
+  const forSale = unowned[0];
+  const coins = catalog.data.coins;
 
   return (
     <div className="space-y-6">
@@ -110,12 +127,24 @@ export const WardrobePage = () => {
               </Button>
             ))}
           </div>
-          <p className="text-lg text-primary">{catalog.data.coins} coins</p>
+          <p className="text-lg text-primary">{coins} coins</p>
+          {forSale && (
+            <div className="flex flex-col items-center gap-1">
+              <Button
+                type="button"
+                disabled={coins < forSale.price || buyItem.isPending}
+                onClick={() => buyItem.mutate(`${forSale.slot}:${forSale.item.id}`)}
+              >
+                Buy {forSale.item.id} for {forSale.price} coins
+              </Button>
+              {coins < forSale.price && <p className="text-sm text-muted-foreground">Not enough coins</p>}
+            </div>
+          )}
           <div className="flex gap-2">
             <Button type="button" variant="outline" disabled={!dirty} onClick={() => setDraft(null)}>
               Reset
             </Button>
-            <Button type="button" disabled={!dirty || updateAvatar.isPending} onClick={save}>
+            <Button type="button" disabled={!dirty || unowned.length > 0 || updateAvatar.isPending} onClick={save}>
               Save
             </Button>
           </div>

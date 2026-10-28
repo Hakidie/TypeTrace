@@ -55,6 +55,8 @@ export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResu
                 Rating {player.ratingAfter} ({formatChange(player.ratingAfter - player.ratingBefore)})
               </p>
             )}
+            {/* Only the own coins: what the other player earns is theirs. */}
+            {player === me && player.coins !== undefined && <p className="font-semibold">+{player.coins} coins</p>}
           </PlayerCard>
         ))}
       </div>

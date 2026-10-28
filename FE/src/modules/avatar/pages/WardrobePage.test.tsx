@@ -6,9 +6,10 @@ import { WardrobePage } from './WardrobePage';
 
 const catalog = vi.fn();
 const update = vi.fn();
+const buy = vi.fn();
 
 vi.mock('../api/avatar.api', () => ({
-  avatarApi: { catalog: () => catalog(), update: (look: unknown) => update(look) },
+  avatarApi: { catalog: () => catalog(), update: (look: unknown) => update(look), buy: (item: string) => buy(item) },
 }));
 
 const free = { kind: 'free' };
@@ -26,6 +27,7 @@ const slots = {
   headwear: [
     { id: 'crown', unlock: { kind: 'tier', tier: 'diamond' }, owned: true },
     { id: 'halo', unlock: { kind: 'tier', tier: 'legend' }, owned: false },
+    { id: 'tiara', unlock: { kind: 'season' }, owned: false },
   ],
   accessory: [],
   back: [],
@@ -39,6 +41,7 @@ const openTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name
 beforeEach(() => {
   catalog.mockReset();
   update.mockReset();
+  buy.mockReset();
   answer();
   update.mockImplementation(async (look: AvatarLook) => ({ _id: 'u1', email: 'demo@example.com', avatar: look }));
 });
@@ -65,19 +68,50 @@ describe('WardrobePage', () => {
     await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ hair: 'long-pink' })));
   });
 
-  it('shows locked items with their price or reward and does not pick them', async () => {
+  it('shows locked items with their price or reward; a reward cannot be picked', async () => {
     renderPage();
     await screen.findByRole('img', { name: 'Your avatar' });
 
     openTab('Hair');
-    const buns = screen.getByRole('button', { name: /buns-pink/ });
-    expect(within(buns).getByText('100 coins')).toBeInTheDocument();
-    expect(buns).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.click(buns);
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(within(screen.getByRole('button', { name: /buns-pink/ })).getByText('100 coins')).toBeInTheDocument();
 
     openTab('Headwear');
-    expect(within(screen.getByRole('button', { name: /halo/ })).getByText('Legend reward')).toBeInTheDocument();
+    const halo = screen.getByRole('button', { name: /halo/ });
+    expect(within(halo).getByText('Legend reward')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: /tiara/ })).getByText('Season reward')).toBeInTheDocument();
+    expect(halo).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(halo);
+    expect(halo).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('previews an item for sale and buys it with coins (phase 6)', async () => {
+    catalog.mockResolvedValue({ avatar: DEFAULT_AVATAR, coins: 150, slots });
+    buy.mockResolvedValue({ avatar: DEFAULT_AVATAR, coins: 50, slots: { ...slots, hair: slots.hair.map((item) => ({ ...item, owned: true })) } });
+    renderPage();
+    await screen.findByRole('img', { name: 'Your avatar' });
+
+    openTab('Hair');
+    const buns = screen.getByRole('button', { name: 'buns-pink (100 coins)' });
+    fireEvent.click(buns);
+    expect(buns).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Buy buns-pink for 100 coins' }));
+
+    await waitFor(() => expect(buy).toHaveBeenCalledWith('hair:buns-pink'));
+    expect(await screen.findByText('50 coins')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  it('cannot buy without enough coins (phase 6)', async () => {
+    catalog.mockResolvedValue({ avatar: DEFAULT_AVATAR, coins: 40, slots });
+    renderPage();
+    await screen.findByRole('img', { name: 'Your avatar' });
+
+    openTab('Hair');
+    fireEvent.click(screen.getByRole('button', { name: /buns-pink/ }));
+
+    expect(screen.getByRole('button', { name: 'Buy buns-pink for 100 coins' })).toBeDisabled();
+    expect(screen.getByText('Not enough coins')).toBeInTheDocument();
   });
 
   it('clears an optional slot with None', async () => {

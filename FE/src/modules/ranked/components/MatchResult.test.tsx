@@ -70,6 +70,16 @@ describe('MatchResult (ranked duel, phase 4)', () => {
     expect(screen.getByText('Rating 980 (−20)')).toBeInTheDocument();
   });
 
+  it('shows the coins the user earned (phase 6)', () => {
+    const match = finished('win', 'loss');
+    match.players[0] = { ...match.players[0], coins: 20 };
+    match.players[1] = { ...match.players[1], coins: 5 };
+    renderResult(match);
+
+    expect(screen.getByText('+20 coins')).toBeInTheDocument();
+    expect(screen.queryByText('+5 coins')).not.toBeInTheDocument();
+  });
+
   it('says why a match did not count (phase 5)', () => {
     renderResult({ ...finished('win', 'loss'), unratedReason: 'pair-limit' });
 
