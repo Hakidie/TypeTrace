@@ -5,7 +5,7 @@ import { UserModel } from '../models/user.model';
 import { paginate } from '../utils/pagination';
 import { LeaderboardQuery, ListSeasonsQuery } from '../validators/ranked.validator';
 import { ANONYMOUS_PLAYER_NAME } from './match.service';
-import { currentSeason, START_RATING, tierFor } from './season.service';
+import { currentSeason, startRatingFor, tierFor } from './season.service';
 
 /** A player needs this many matches in the season to be on the leaderboard. */
 export const LEADERBOARD_MIN_MATCHES = 5;
@@ -16,15 +16,15 @@ const seasonView = (season: { number: number; startsAt: Date; endsAt: Date }) =>
   endsAt: season.endsAt
 });
 
-/** The own rating in the current season; a player without a rated match yet starts at `START_RATING`. */
+/** The own rating in the current season; without a rated match yet, where the player starts it (`startRatingFor`). */
 export const getMyRanking = async (userId: string) => {
   const season = await currentSeason();
   const rating = await SeasonRatingModel.findOne({ season: season._id, user: userId });
-  const value = rating?.rating ?? START_RATING;
+  const value = rating?.rating ?? (await startRatingFor(userId, season));
   return {
     season: seasonView(season),
     rating: value,
-    peakRating: rating?.peakRating ?? START_RATING,
+    peakRating: rating?.peakRating ?? value,
     tier: tierFor(value),
     matches: rating?.matches ?? 0,
     wins: rating?.wins ?? 0,

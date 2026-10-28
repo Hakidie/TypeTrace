@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { describe, expect, it } from 'vitest';
 import { SeasonModel } from '../../src/models/season.model';
 import { SeasonRatingModel } from '../../src/models/season-rating.model';
-import { closeSeason, currentSeason, SEASON_LENGTH_MS, tierFor } from '../../src/services/season.service';
+import { closeSeason, currentSeason, SEASON_LENGTH_MS, startRatingFor, tierFor } from '../../src/services/season.service';
 
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -45,11 +45,9 @@ describe('seasons (ranked duel, phase 5)', () => {
     const next = await closeSeason(String(first._id));
 
     expect(next.number).toBe(2);
-    const ratings = await SeasonRatingModel.find({ season: next._id }).sort({ rating: -1 });
-    expect(ratings.map((entry) => [String(entry.user), entry.rating, entry.peakRating, entry.matches])).toEqual([
-      [String(strong), 1101, 1101, 0],
-      [String(weak), 950, 950, 0]
-    ]);
+    expect(await startRatingFor(strong, next)).toBe(1101);
+    expect(await startRatingFor(weak, next)).toBe(950);
+    expect(await startRatingFor(new Types.ObjectId(), next)).toBe(1000);
   });
 
   it('closes a season only once', async () => {

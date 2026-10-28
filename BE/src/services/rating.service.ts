@@ -1,6 +1,6 @@
 import { MatchDocument, MatchModel, MatchPlayer, UnratedReason } from '../models/match.model';
 import { SeasonRatingModel } from '../models/season-rating.model';
-import { currentSeason, START_RATING } from './season.service';
+import { currentSeason, startRatingFor } from './season.service';
 
 /** A pair of players counts for Elo this many times a day at most (more matches still play, without points). */
 export const PAIR_DAILY_LIMIT = 3;
@@ -41,6 +41,17 @@ const whyUnrated = async (match: MatchDocument, [a, b]: MatchPlayer[]): Promise<
 export const rateMatch = async (match: MatchDocument) => {
   if (match.status !== 'finished' || match.season) return;
   const season = await currentSeason();
+  // Claimed in the database first: a race left running by a restart is ended by whichever request reads it, and two
+  // reads at once (both players coming back) hold two copies of the match. Only the first claim rates it; the others
+  // take the settled match instead of saving their copy over it.
+  const claim = await MatchModel.updateOne({ _id: match._id, season: { $exists: false } }, { $set: { season: season._id } });
+  if (claim.modifiedCount === 0) {
+    const settled = await MatchModel.findById(match._id);
+    // ponytail: a claim whose match save failed stays unfinished here; it is then finished unrated on the next read.
+    if (settled?.status === 'finished') match.set(settled.toObject());
+    else match.season = settled?.season;
+    return;
+  }
   match.season = season._id;
   const players = [...match.players];
   const reason = await whyUnrated(match, players);
@@ -52,13 +63,14 @@ export const rateMatch = async (match: MatchDocument) => {
 
   // One open room per player, so nothing else changes these two ratings meanwhile.
   const ratings = await Promise.all(
-    players.map((player) =>
-      SeasonRatingModel.findOneAndUpdate(
+    players.map(async (player) => {
+      const start = await startRatingFor(player.user, season);
+      return SeasonRatingModel.findOneAndUpdate(
         { season: season._id, user: player.user },
-        { $setOnInsert: { rating: START_RATING, peakRating: START_RATING } },
+        { $setOnInsert: { rating: start, peakRating: start } },
         { upsert: true, new: true }
-      )
-    )
+      );
+    })
   );
   await Promise.all(
     players.map((player, index) => {

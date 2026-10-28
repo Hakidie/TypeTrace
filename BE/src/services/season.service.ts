@@ -1,3 +1,4 @@
+import type { Types } from 'mongoose';
 import { SeasonDocument, SeasonModel } from '../models/season.model';
 import { SeasonRatingModel } from '../models/season-rating.model';
 import { notFound } from '../utils/app-error';
@@ -49,8 +50,9 @@ export const currentSeason = async (): Promise<SeasonDocument> => {
 };
 
 /**
- * Closes a season (at its end, or early by an admin) and opens the next. Everyone who played starts the new season
- * halfway back to `START_RATING` (soft reset). Returns the active season; closing a closed season changes nothing.
+ * Closes a season (at its end, or early by an admin) and opens the next. Returns the active season; closing a closed
+ * season changes nothing. The soft reset is lazy too (`startRatingFor`): nothing is copied here, so a match rated while
+ * the season closes cannot miss it.
  */
 export const closeSeason = async (id: string): Promise<SeasonDocument> => {
   const closed = await SeasonModel.findOneAndUpdate({ _id: id, status: 'active' }, { status: 'closed', closedAt: new Date() }, { new: true });
@@ -58,17 +60,15 @@ export const closeSeason = async (id: string): Promise<SeasonDocument> => {
     if (!(await SeasonModel.exists({ _id: id }))) throw notFound('Season not found');
     return currentSeason();
   }
-  const next = await openSeason(closed.number + 1);
-  const players = await SeasonRatingModel.find({ season: closed._id }).select('user rating').lean();
-  if (players.length) {
-    const start = (rating: number) => Math.round(START_RATING + (rating - START_RATING) / 2);
-    // `ordered: false`: a player who already rated a match in the new season keeps that rating.
-    await SeasonRatingModel.insertMany(
-      players.map(({ user, rating }) => ({ user, season: next._id, rating: start(rating), peakRating: start(rating) })),
-      { ordered: false }
-    ).catch((error: unknown) => {
-      if (!isDuplicateKey(error)) throw error;
-    });
-  }
-  return next;
+  return openSeason(closed.number + 1);
+};
+
+/**
+ * Where a player starts a season (soft reset): halfway back to `START_RATING` from their rating at the end of the season
+ * before, or `START_RATING` without one.
+ */
+export const startRatingFor = async (userId: string | Types.ObjectId, season: SeasonDocument) => {
+  const before = await SeasonModel.findOne({ number: season.number - 1 }).select('_id');
+  const last = before && (await SeasonRatingModel.findOne({ season: before._id, user: userId }).select('rating'));
+  return last ? Math.round(START_RATING + (last.rating - START_RATING) / 2) : START_RATING;
 };

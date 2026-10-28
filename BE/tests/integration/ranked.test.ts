@@ -4,7 +4,7 @@ import { MatchModel } from '../../src/models/match.model';
 import { SeasonRatingModel } from '../../src/models/season-rating.model';
 import { matchSettings, resetMatchHub } from '../../src/services/match-hub';
 import { seedPassages } from '../../src/services/passage-seed.service';
-import { currentSeason } from '../../src/services/season.service';
+import { closeSeason, currentSeason } from '../../src/services/season.service';
 import { api } from '../helpers/api';
 import { bearerFor, createUser } from '../helpers/user-factory';
 
@@ -169,14 +169,40 @@ describe('Elo (ranked duel, phase 5)', () => {
     expect(await ratingOf(lan)).toMatchObject({ matches: 3, wins: 3 });
   });
 
-  it('settles a match once, even when it is read again after the end', async () => {
+  it('starts a player of the last season halfway back to 1000 at their first match of the new one', async () => {
     const lan = await player('Lan');
     const minh = await player('Minh');
-    const match = await win(lan, minh);
-    await room(lan.auth, match.code);
-    await room(minh.auth, match.code);
+    const first = await currentSeason();
+    await SeasonRatingModel.create({ season: first._id, user: lan.id, rating: 1500, peakRating: 1500, matches: 30 });
+    const next = await closeSeason(String(first._id));
+    // As when the match was rated while the season was still closing: no carried-over rating yet.
+    await SeasonRatingModel.deleteMany({ season: next._id });
 
-    expect(await ratingOf(lan)).toMatchObject({ rating: 1020, matches: 1 });
+    const match = await win(lan, minh);
+
+    // 1250 against 1000: E ≈ 0.81, K 40 (first match of the season) → +8.
+    expect(changes(match)[0]).toEqual(['Lan', 1250, 1258]);
+  });
+
+  it('settles a race left running by a restart once, when both players come back at the same moment', async () => {
+    const lan = await player('Lan');
+    const minh = await player('Minh');
+    const { code, words } = await race(lan, minh);
+    await progress(lan.auth, code, words.slice(0, 3));
+    // A restart: the timer that ends the race is gone, and the time is long up.
+    resetMatchHub();
+    await MatchModel.updateOne({ code, status: 'running' }, { startedAt: new Date(Date.now() - 10 * 60_000) });
+
+    await Promise.all([room(lan.auth, code), room(minh.auth, code), room(lan.auth, code)]);
+
+    expect(await ratingOf(lan)).toMatchObject({ rating: 1020, matches: 1, wins: 1 });
+    expect(await ratingOf(minh)).toMatchObject({ rating: 980, matches: 1, losses: 1 });
+    const settled = (await room(lan.auth, code)).body;
+    expect(settled).toMatchObject({ status: 'finished', rated: true });
+    expect(changes(settled)).toEqual([
+      ['Lan', 1000, 1020],
+      ['Minh', 1000, 980]
+    ]);
   });
 
   it('counts the day in Vietnam time: rated matches from before 0:00 (UTC+7) do not count', async () => {
