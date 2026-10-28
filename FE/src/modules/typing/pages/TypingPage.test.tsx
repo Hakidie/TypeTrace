@@ -137,8 +137,22 @@ describe('TypingPage', () => {
 
     expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Rank']);
     expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: 'Rank' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'Rank' })).toBeEnabled();
     expect(screen.getByText('Mùa thu Hà Nội')).toBeInTheDocument();
+  });
+
+  it('opens the ranked duels from the Rank tab, without a passage to choose or a time limit (ranked duel, phase 4)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(screen.getByRole('radio', { name: 'Rank' }));
+
+    expect(await screen.findByRole('button', { name: 'Create room' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Rank' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByRole('button', { name: 'Choose passage' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
+    expect(start).toHaveBeenCalledTimes(1);
   });
 
   it('asks first when the Placement tab is picked, and starts the placement session on Start', async () => {

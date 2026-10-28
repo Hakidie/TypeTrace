@@ -2,6 +2,7 @@ import { RotateCcw, Trophy, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
+import { RankMode } from '@/modules/ranked/components/RankMode';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -17,11 +18,11 @@ import { modeIcons } from '../typing.config';
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
 
-// Rank has no session mode yet, so its tab is only shown.
+// Rank is not a typing session: `?mode=rank` shows the ranked duels (`RankMode`) instead of a passage to practise.
 const modeTabs = [
   { value: 'practice', label: 'Practice', icon: modeIcons.practice },
   { value: 'placement', label: 'Placement', icon: modeIcons.placement },
-  { value: 'rank', label: 'Rank', icon: Trophy, disabled: true },
+  { value: 'rank', label: 'Rank', icon: Trophy },
 ];
 
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
@@ -96,6 +97,7 @@ export const TypingPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   // `/typing?mode=placement` types the placement test passage (Start on the placement intro page opens it).
   const mode: SessionMode = searchParams.get('mode') === 'placement' ? 'placement' : 'practice';
+  const ranked = searchParams.get('mode') === 'rank';
   const pageRef = useRef<HTMLDivElement>(null);
   // Asks before the placement test: when the learner picks the Placement tab, and once when a learner who has just
   // created their account lands here (`welcome`, SCRUM-157). Cancel (or closing it) stays in practice. `welcome` stays
@@ -154,11 +156,12 @@ export const TypingPage = () => {
   // The first one types the passage from the URL, if any; switching the mode starts a random one.
   const openedFor = useRef<SessionMode | null>(null);
   useEffect(() => {
-    if (openedFor.current === mode) return;
+    // The Rank tab has no typing session of its own (a duel is a match on the server).
+    if (ranked || openedFor.current === mode) return;
     const firstOpen = openedFor.current === null;
     openedFor.current = mode;
     start.mutate(firstOpen && passageId ? { mode, passageId } : { mode });
-  }, [mode, start, passageId]);
+  }, [mode, ranked, start, passageId]);
 
   // A new session on the picked passage (a random one when none is picked): used by Restart and when the time is up.
   const restart = () => start.mutate({ mode, passageId });
@@ -186,7 +189,8 @@ export const TypingPage = () => {
       {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right. */}
       <div className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 max-w-full md:justify-self-end">
-          {/* The menu opens under the whole frame (name and Random) and is as wide as it. */}
+          {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank: the room picks the passage. */}
+          {!ranked && (
           <DropdownMenu>
             <div className="flex outline outline-1 -outline-offset-1 outline-border">
               <DropdownMenuTrigger disabled={complete.isPending} title={passageTitle} aria-label="Choose passage" className={cn(chipClass, randomPassage ? 'text-muted-foreground' : 'text-primary')}>
@@ -209,15 +213,21 @@ export const TypingPage = () => {
               <PassageMenu mode={mode} selectedId={passageId} onSelect={pick} />
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
         <TabGroup
           label="Mode"
           tabs={modeTabs}
-          value={mode}
-          onChange={(value) => (value === 'practice' ? setSearchParams({}) : value !== mode && setPlacementPrompt({ open: true, welcome: false }))}
+          value={ranked ? 'rank' : mode}
+          onChange={(value) => {
+            if (value === 'practice') setSearchParams({});
+            else if (value === 'rank') setSearchParams({ mode: 'rank' });
+            else if (value !== mode || ranked) setPlacementPrompt({ open: true, welcome: false });
+          }}
         />
         <div className="md:justify-self-start">
-          <div className="flex outline outline-1 -outline-offset-1 outline-border">
+          {/* Not in Rank: a duel lasts the time the server gives it. */}
+          <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', ranked && 'hidden')}>
             <TabGroup
               label="Time"
               framed={false}
@@ -258,7 +268,9 @@ export const TypingPage = () => {
           setSearchParams({ mode: 'placement' });
         }}
       />
-      {session ? (
+      {ranked ? (
+        <RankMode />
+      ) : session ? (
         <TypingArea
           key={session._id}
           targetWords={session.targetWords}
