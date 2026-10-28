@@ -15,16 +15,19 @@ export const rankedApi = {
 };
 
 const RECONNECT_MS = 1000;
+const MAX_RECONNECT_MS = 30_000;
 
 /**
  * Listens to the events of a room. Axios cannot read a stream, so this is the one place that uses `fetch`: with the
  * `Authorization` header, never a token in the URL (an `EventSource` cannot send headers). A dropped stream (a network
- * hiccup, a server restart) reconnects after a second; a 404 or 401 stops it and calls `onGone`. Returns the function
- * that closes it.
+ * hiccup, a server restart, 429 or 5xx) reconnects after a second, waiting twice as long after each failed try (at most
+ * 30 s); any other 4xx (no such room, not a player, signed out) stops it and calls `onGone`. Returns the function that
+ * closes it.
  */
 export const openMatchStream = (code: string, onEvent: (event: MatchEvent) => void, { onGone }: { onGone?: () => void } = {}) => {
   const controller = new AbortController();
   let closed = false;
+  let delay = RECONNECT_MS;
 
   const connect = async () => {
     try {
@@ -32,11 +35,12 @@ export const openMatchStream = (code: string, onEvent: (event: MatchEvent) => vo
         headers: { Authorization: `Bearer ${tokenStore.get() ?? ''}`, Accept: 'text/event-stream' },
         signal: controller.signal,
       });
-      if (response.status === 404 || response.status === 401) {
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
         onGone?.();
         return;
       }
       if (!response.ok || !response.body) throw new Error(`Stream answered ${response.status}`);
+      delay = RECONNECT_MS;
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
       let buffer = '';
       for (;;) {
@@ -49,7 +53,9 @@ export const openMatchStream = (code: string, onEvent: (event: MatchEvent) => vo
     } catch {
       // Dropped or refused: tried again below unless closed.
     }
-    if (!closed) setTimeout(() => !closed && void connect(), RECONNECT_MS);
+    if (closed) return;
+    setTimeout(() => !closed && void connect(), delay);
+    delay = Math.min(delay * 2, MAX_RECONNECT_MS);
   };
 
   void connect();

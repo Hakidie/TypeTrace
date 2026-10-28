@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/shared/api/api-error';
 import { openMatchStream, rankedApi } from '../api/ranked.api';
 import type { MatchEvent, ProgressInput, PublicMatch, RematchInvite } from '../types/ranked.types';
 
@@ -44,7 +46,14 @@ export const useMatch = (code?: string) => {
     );
   }, [code, queryClient]);
 
-  return { match: query.data, isLoading: query.isLoading, error: query.error, invite: stream.invite, gone: stream.gone };
+  return {
+    match: query.data,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+    invite: stream.invite,
+    gone: stream.gone,
+  };
 };
 
 // Mutations: no `onError`, the shared query client toasts the backend message.
@@ -62,6 +71,15 @@ export const useLeaveMatch = () => useMatchMutation((code: string) => rankedApi.
 export const useReady = () => useMatchMutation(({ code, ready }: { code: string; ready: boolean }) => rankedApi.ready(code, ready));
 export const useRematch = () => useMatchMutation((code: string) => rankedApi.rematch(code));
 
-/** No cache write: the stream brings the new counts to both players. */
+/**
+ * No cache write: the stream brings the new counts to both players. A word the server turns down (400/409: the race is
+ * over, or the typing area restarted after a reload) is dropped silently; it would toast on every word otherwise.
+ */
 export const useSendProgress = () =>
-  useMutation({ mutationFn: ({ code, input }: { code: string; input: ProgressInput }) => rankedApi.progress(code, input) });
+  useMutation({
+    mutationFn: ({ code, input }: { code: string; input: ProgressInput }) => rankedApi.progress(code, input),
+    onError: (error) => {
+      const status = (error as { response?: { status?: number } }).response?.status;
+      if (status !== 400 && status !== 409) toast.error(getApiErrorMessage(error, 'Something went wrong'));
+    },
+  });

@@ -20,6 +20,14 @@ vi.mock('../api/typing.api', () => ({
   },
 }));
 
+vi.mock('@/modules/ranked/api/ranked.api', () => ({
+  rankedApi: {
+    get: (code: string) =>
+      Promise.resolve({ code, status: 'waiting', rated: false, passageTitle: 'A quiet morning', wordCount: 3, players: [] }),
+  },
+  openMatchStream: () => () => undefined,
+}));
+
 const session = {
   _id: 's1',
   mode: 'practice',
@@ -35,6 +43,7 @@ const renderPage = () =>
 const UrlSearch = () => <p aria-label="URL search">{useLocation().search}</p>;
 
 beforeEach(() => {
+  sessionStorage.clear();
   start.mockReset().mockResolvedValue(session);
   begin.mockReset().mockResolvedValue(session);
   complete.mockReset().mockResolvedValue({ ...session, status: 'completed' });
@@ -153,6 +162,40 @@ describe('TypingPage', () => {
     expect(screen.queryByRole('button', { name: 'Choose passage' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
     expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays in the room when the active Rank tab is clicked again (ranked duel, phase 4)', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <UrlSearch />
+        <TypingPage />
+      </>,
+      { route: '/typing?mode=rank&room=ABC234' },
+    );
+    expect(await screen.findByText('ABC234')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'Rank' }));
+
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('room=ABC234');
+  });
+
+  it('comes back to the room after a look at Practice (ranked duel, phase 4)', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <UrlSearch />
+        <TypingPage />
+      </>,
+      { route: '/typing?mode=rank&room=ABC234' },
+    );
+    expect(await screen.findByText('ABC234')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'Practice' }));
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    await user.click(screen.getByRole('radio', { name: 'Rank' }));
+
+    await waitFor(() => expect(screen.getByLabelText('URL search')).toHaveTextContent('room=ABC234'));
   });
 
   it('asks first when the Placement tab is picked, and starts the placement session on Start', async () => {

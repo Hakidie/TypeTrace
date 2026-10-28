@@ -221,7 +221,9 @@ export const TypingPage = () => {
           value={ranked ? 'rank' : mode}
           onChange={(value) => {
             if (value === 'practice') setSearchParams({});
-            else if (value === 'rank') setSearchParams({ mode: 'rank' });
+            else if (value === 'rank') {
+              if (!ranked) setSearchParams({ mode: 'rank' });
+            }
             else if (value !== mode || ranked) setPlacementPrompt({ open: true, welcome: false });
           }}
         />

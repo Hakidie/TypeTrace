@@ -1,11 +1,16 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createQueryClient } from '@/shared/api/query-client';
 import { renderWithProviders } from '@/test/render-with-providers';
 import type { PublicMatch } from '../types/ranked.types';
 import { RaceView } from './RaceView';
 
 const progress = vi.fn();
+const toastError = vi.fn();
+
+vi.mock('sonner', () => ({ toast: { error: (message: string) => toastError(message) } }));
 
 vi.mock('../api/ranked.api', () => ({
   rankedApi: { progress: (code: string, input: unknown) => progress(code, input) },
@@ -40,6 +45,7 @@ const race = (extra: Partial<PublicMatch> = {}): PublicMatch => ({
 
 beforeEach(() => {
   progress.mockReset();
+  toastError.mockReset();
   progress.mockResolvedValue({ typedCount: 1, correctWords: 1, accuracy: 0.33, wpm: 30, finished: false });
 });
 
@@ -65,6 +71,43 @@ describe('RaceView (ranked duel, phase 4)', () => {
     await waitFor(() =>
       expect(progress).toHaveBeenLastCalledWith('ABC234', expect.objectContaining({ typedWords: ['The', 'sun', 'rose.'], done: true })),
     );
+  });
+
+  it('stays quiet when the server turns a word down (the race went on without it)', async () => {
+    progress.mockRejectedValue({ response: { status: 409, data: { message: 'Progress cannot go back' } } });
+    const user = userEvent.setup();
+    renderWithProviders(<RaceView match={race()} myId="u1" />, { queryClient: createQueryClient() });
+
+    await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'The ');
+
+    await waitFor(() => expect(progress).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it('keeps the whole race time while the match updates', () => {
+    vi.useFakeTimers();
+    try {
+      // A stream event replaces the match object; the race keeps its own clock.
+      const Live = () => {
+        const [match, setMatch] = useState(race);
+        return (
+          <>
+            <button onClick={() => setMatch((current) => ({ ...current }))}>update</button>
+            <RaceView match={match} myId="u1" />
+          </>
+        );
+      };
+      renderWithProviders(<Live />);
+      fireEvent.change(screen.getByRole('textbox', { name: 'Typing area' }), { target: { value: 'T' } });
+
+      act(() => vi.advanceTimersByTime(100_000));
+      fireEvent.click(screen.getByRole('button', { name: 'update' }));
+
+      expect(screen.getByRole('textbox', { name: 'Typing area' })).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('shows how far each player is', () => {

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { TypingArea } from '@/modules/typing/components/TypingArea';
 import { useSendProgress } from '../hooks/use-match';
 import type { PublicMatch } from '../types/ranked.types';
@@ -13,6 +14,8 @@ const secondsUntil = (endsAt?: string) => (endsAt ? Math.max(1, Math.ceil((new D
  */
 export const RaceView = ({ match, myId }: { match: PublicMatch; myId?: string }) => {
   const sendProgress = useSendProgress();
+  // Once per race: the typing area counts its own seconds, so a limit recomputed on every update would shrink twice as fast.
+  const timeLimitSeconds = useMemo(() => secondsUntil(match.endsAt), [match.endsAt]);
   const me = match.players.find((player) => player.userId === myId);
   const send = (typedWords: string[], typedAtMs: number[], done?: boolean) =>
     sendProgress.mutate({ code: match.code, input: done ? { typedWords, typedAtMs, done } : { typedWords, typedAtMs } });
@@ -32,7 +35,7 @@ export const RaceView = ({ match, myId }: { match: PublicMatch; myId?: string })
         <TypingArea
           key={match.code}
           targetWords={match.targetWords}
-          timeLimitSeconds={secondsUntil(match.endsAt)}
+          timeLimitSeconds={timeLimitSeconds}
           onProgress={(typedWords, typedAtMs) => send(typedWords, typedAtMs)}
           onFinish={(typedWords, typedAtMs) => send(typedWords, typedAtMs, typedWords.length === match.targetWords!.length)}
         />

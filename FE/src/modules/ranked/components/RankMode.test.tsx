@@ -61,6 +61,7 @@ const urlParam = (name: string) => new URLSearchParams(screen.getByLabelText('UR
 
 beforeEach(() => {
   Object.values(api).forEach((fn) => fn.mockReset());
+  sessionStorage.clear();
   // The current user (who "you" are in the room) is only fetched with a token.
   tokenStore.set('test-token');
 });
@@ -106,6 +107,24 @@ describe('RankMode (ranked duel, phase 4)', () => {
 
     expect(await screen.findByRole('button', { name: 'Create room' })).toBeInTheDocument();
     await waitFor(() => expect(urlParam('room')).toBeNull());
+  });
+
+  it('goes back to the lobby when the code of the URL is not a room code', async () => {
+    api.get.mockRejectedValue(Object.assign(new Error('Invalid room code'), { response: { status: 400 } }));
+    renderAt('/typing?mode=rank&room=bad!');
+
+    expect(await screen.findByRole('button', { name: 'Create room' })).toBeInTheDocument();
+    await waitFor(() => expect(urlParam('room')).toBeNull());
+  });
+
+  it('tries the room again from Try again after a failed load', async () => {
+    api.get.mockRejectedValueOnce(Object.assign(new Error('Server error'), { response: { status: 500 } }));
+    api.get.mockResolvedValue(room());
+    renderAt('/typing?mode=rank&room=ABC234');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByText('Waiting for an opponent…')).toBeInTheDocument();
   });
 
   it('gets ready once the opponent is in, and leaves the room', async () => {

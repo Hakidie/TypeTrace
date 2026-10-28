@@ -10,6 +10,30 @@ import { RaceView } from './RaceView';
 import { RankLobby } from './RankLobby';
 import { RoomLobby } from './RoomLobby';
 
+// The last room of this tab (sessionStorage: per tab, gone when it closes). Storage can be blocked; then it is not remembered.
+const LAST_ROOM = 'ranked.room';
+const lastRoom = () => {
+  try {
+    return sessionStorage.getItem(LAST_ROOM) ?? undefined;
+  } catch {
+    return undefined;
+  }
+};
+const rememberRoom = (code: string) => {
+  try {
+    sessionStorage.setItem(LAST_ROOM, code);
+  } catch {
+    // not remembered
+  }
+};
+const forgetRoom = () => {
+  try {
+    sessionStorage.removeItem(LAST_ROOM);
+  } catch {
+    // nothing to forget
+  }
+};
+
 /**
  * The Rank tab of the Typing page (`/typing?mode=rank`). The room code lives in the URL (`&room=CODE`), so a reload comes
  * back to the same room and its stream reconnects. Without a room: create or join one; then the room as its status says.
@@ -18,10 +42,13 @@ export const RankMode = () => {
   const [params, setParams] = useSearchParams();
   const code = params.get('room') ?? undefined;
   const { data: me } = useCurrentUser();
-  const { match, isLoading, error, gone, invite } = useMatch(code);
-  const roomGone = gone || (error as { response?: { status?: number } } | null)?.response?.status === 404;
+  const { match, isLoading, error, gone, invite, refetch } = useMatch(code);
+  // 400: not a room code at all (an edited link); 404: no such room for this user.
+  const status = (error as { response?: { status?: number } } | null)?.response?.status;
+  const roomGone = gone || status === 400 || status === 404;
 
-  const setRoom = (next?: string) =>
+  const setRoom = (next?: string) => {
+    if (!next) forgetRoom();
     setParams((current) => {
       const updated = new URLSearchParams(current);
       updated.set('mode', 'rank');
@@ -29,6 +56,17 @@ export const RankMode = () => {
       else updated.delete('room');
       return updated;
     });
+  };
+
+  // The room survives a look at the other tabs: remember it, and come back to it when the Rank tab opens without one.
+  useEffect(() => {
+    if (code) rememberRoom(code);
+  }, [code]);
+  useEffect(() => {
+    const last = lastRoom();
+    if (!code && last) setRoom(last);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // An old link or a room that closed while away: back to the lobby.
   useEffect(() => {
@@ -40,7 +78,7 @@ export const RankMode = () => {
   if (!match) {
     return (
       <div className="mx-auto my-auto w-full max-w-3xl">
-        {error ? <ErrorState error={error} onRetry={() => setRoom(code)} /> : isLoading && <LoadingState rows={2} />}
+        {error ? <ErrorState error={error} onRetry={() => void refetch()} /> : isLoading && <LoadingState rows={2} />}
       </div>
     );
   }
