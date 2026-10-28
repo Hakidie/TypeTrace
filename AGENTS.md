@@ -86,6 +86,9 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Ownership: filter queries by `owner: actor.id`; another user's resource answers 404, as in `note.service.ts`.
 - Image uploads: `imageUpload.single('<field>')` (`middlewares/upload.middleware.ts`) + `uploadImage()` (`services/cloudinary.service.ts`).
 - Configuration: add variables to the Zod schema in `config/env.ts` and to `BE/.env.example`. Never read `process.env` elsewhere.
+- Realtime: server-sent events through `services/match-hub.ts` (`subscribe`, `publish`, `schedule`, `withMatchLock`); clients
+  read them with `fetch` and the `Authorization` header, never a token in a URL. The open streams and timers live in memory,
+  so the backend runs as one process.
 - The User model strips private fields in `toJSON`; keep it that way for new private fields. `.lean()` and `aggregate()`
   skip `toJSON`: with them, `.select()` the public fields explicitly.
 
