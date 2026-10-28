@@ -30,7 +30,7 @@ export const RoomLobby = ({ match, myId, onLeft }: RoomLobbyProps) => {
         <p className="text-muted-foreground">Room code</p>
         <div className="flex items-center gap-2">
           <span className="text-4xl font-bold tracking-[0.3em]">{match.code}</span>
-          <Button variant="ghost" size="icon" aria-label="Copy code" title="Copy code" onClick={copy}>
+          <Button variant="ghost" size="sm" aria-label="Copy code" title="Copy code" onClick={copy}>
             <Copy className="size-5" />
           </Button>
         </div>
