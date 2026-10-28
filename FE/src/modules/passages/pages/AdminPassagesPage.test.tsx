@@ -114,6 +114,7 @@ describe('AdminPassagesPage', () => {
         source: 'TypeTrace',
         content: 'Biển xanh bao la.',
         isPlacement: false,
+        language: 'vi',
       }),
     );
     await waitFor(() => expect(screen.getByLabelText('Title')).toHaveValue(''));
@@ -151,7 +152,7 @@ describe('AdminPassagesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Kiểm tra', source: 'TypeTrace', content: 'một hai ba', isPlacement: true }),
+      expect(create).toHaveBeenCalledWith({ title: 'Kiểm tra', source: 'TypeTrace', content: 'một hai ba', isPlacement: true, language: 'vi' }),
     );
   });
 
@@ -188,6 +189,7 @@ describe('AdminPassagesPage', () => {
         source: 'TypeTrace',
         content: 'Hà Nội mùa thu thật đẹp.',
         isPlacement: false,
+        language: 'vi',
       }),
     );
     expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
@@ -512,6 +514,71 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
     }
     fireEvent.click(screen.getByRole('button', { name: 'Edit Bài cũ' }));
     expect(screen.getByRole('button', { name: 'Delete passage' })).toBeInTheDocument();
+  });
+});
+
+describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
+  const LocationProbe = () => <output aria-label="URL">{useLocation().search}</output>;
+  const bankToolbar = () => screen.getByLabelText('Search passages').closest('div.flex')!.parentElement!;
+  const fillForm = () => {
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'A quiet morning' } });
+    fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'Written for TypeTrace' } });
+    fireEvent.change(screen.getByLabelText('Content'), { target: { value: 'The sun rose over the quiet town.' } });
+  };
+
+  it('filters the bank by language and keeps it in the URL', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <AdminPassagesPage />
+        <LocationProbe />
+      </>,
+      { route: '/admin/passages?status=published' },
+    );
+    await screen.findByText('Mùa thu Hà Nội');
+
+    await user.click(within(bankToolbar()).getByRole('button', { name: /Filter/ }));
+    await user.click(within(await screen.findByRole('group', { name: 'Language' })).getByRole('menuitemradio', { name: 'English' }));
+
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ language: 'en', status: 'published' })));
+    expect(new URLSearchParams(screen.getByLabelText('URL').textContent ?? '').get('language')).toBe('en');
+  });
+
+  it('creates an English passage', async () => {
+    create.mockResolvedValue({ ...passage, _id: 'p9', language: 'en' });
+    renderPage();
+    await screen.findByText('Mùa thu Hà Nội');
+
+    fillForm();
+    const english = screen.getByRole('switch', { name: 'English passage' });
+    expect(english).toHaveTextContent('Vietnamese');
+    fireEvent.click(english);
+    expect(english).toHaveAttribute('aria-checked', 'true');
+    expect(english).toHaveTextContent('English');
+    fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
+
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ language: 'en', isPlacement: false })));
+  });
+
+  it('turns Placement off and disables it for an English passage', async () => {
+    renderPage();
+    await screen.findByText('Mùa thu Hà Nội');
+
+    const placement = screen.getByRole('switch', { name: 'Placement passage' });
+    fireEvent.click(placement);
+    expect(placement).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('switch', { name: 'English passage' }));
+
+    expect(placement).toHaveAttribute('aria-checked', 'false');
+    expect(placement).toBeDisabled();
+  });
+
+  it('shows an EN tag on English passages', async () => {
+    answer({ bank: [{ ...passage, _id: 'p8', title: 'A quiet morning', language: 'en' }] });
+    renderPage();
+
+    expect(await screen.findByText('A quiet morning')).toBeInTheDocument();
+    expect(screen.getByText('EN')).toBeInTheDocument();
   });
 });
 
