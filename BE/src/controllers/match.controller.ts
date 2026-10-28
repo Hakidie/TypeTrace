@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as matchService from '../services/match.service';
+import { ProgressInput } from '../validators/match.validator';
 
 // `authGuard` runs first, so `req.user` is always set; `validate` upper-cased the code.
 const userOf = (req: Request) => req.user!.sub;
@@ -19,6 +20,14 @@ export const getMatch = async (req: Request, res: Response) => {
 
 export const leaveMatch = async (req: Request, res: Response) => {
   res.json(await matchService.leaveMatch(userOf(req), codeOf(req)));
+};
+
+export const setReady = async (req: Request, res: Response) => {
+  res.json(await matchService.setReady(userOf(req), codeOf(req), (req.body as { ready: boolean }).ready));
+};
+
+export const sendProgress = async (req: Request, res: Response) => {
+  res.json(await matchService.sendProgress(userOf(req), codeOf(req), req.body as ProgressInput));
 };
 
 /** An event stream (SSE): the service keeps the response open. */
