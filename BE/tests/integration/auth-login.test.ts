@@ -166,3 +166,14 @@ describe('GET /api/auth/me', () => {
     expect(response.status).toBe(404);
   });
 });
+
+describe('GET /api/auth/me: avatar fields (ranked duel, phase 2)', () => {
+  it('gives a new account the default avatar, no coins and no owned items', async () => {
+    const user = await createUser({});
+    const response = await api().get('/api/auth/me').set('Authorization', bearerFor(user));
+
+    expect(response.body.avatar).toMatchObject({ skin: 'peach', face: 'classic', hair: 'short-brown', top: 'red', bottom: 'navy', shoes: 'sneakers-brown' });
+    expect(response.body.coins).toBe(0);
+    expect(response.body.ownedItems).toEqual([]);
+  });
+});
