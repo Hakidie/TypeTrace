@@ -309,3 +309,63 @@ describe('the race (ranked duel, phase 3)', () => {
     expect(onlyResults(await resultsOf(host, code)).sort()).toEqual(['loss', 'win']);
   });
 });
+
+// ---- leaving, losing the connection, rematch (Task 4) -------------------------------------------------------------
+const rematch = (auth: string, code: string) => api().post(`/api/matches/${code}/rematch`).set('Authorization', auth);
+
+describe('leaving and coming back (ranked duel, phase 3)', () => {
+  it('makes a player who leaves during the race forfeit', async () => {
+    const { host, guest, code } = await startRace();
+
+    expect((await leave(guest, code)).body.status).toBe('finished');
+    expect(onlyResults(await resultsOf(host, code))).toEqual(['win', 'forfeit']);
+  });
+
+  it('makes a player whose stream stays closed forfeit', async () => {
+    const { host, guest, code } = await startRace();
+    matchSettings.disconnectGraceMs = 100;
+    const stream = openEvents(`/api/matches/${code}/events`, guest);
+    await stream.next('state');
+
+    stream.close();
+    await waitFor(async () => (await room(host, code)).body.status === 'finished');
+    expect(onlyResults(await resultsOf(host, code))).toEqual(['win', 'forfeit']);
+  });
+
+  it('keeps the race going when the stream comes back in time, as after a reload', async () => {
+    const { host, guest, code } = await startRace();
+    matchSettings.disconnectGraceMs = 300;
+    const first = openEvents(`/api/matches/${code}/events`, guest);
+    await first.next('state');
+
+    first.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const second = openEvents(`/api/matches/${code}/events`, guest);
+    await second.next('state');
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect((await room(host, code)).body.status).toBe('running');
+    second.close();
+  });
+
+  it('invites the other player to a rematch in a new room', async () => {
+    const { host, guest, code, words } = await startRace();
+    const stream = openEvents(`/api/matches/${code}/events`, guest);
+    await stream.next('state');
+    await progress(host, code, words, true);
+
+    const response = await rematch(host, code);
+    expect(response.status).toBe(201);
+    expect(response.body.code).not.toBe(code);
+    expect(((await stream.next('rematch')).data as { code: string }).code).toBe(response.body.code);
+    expect((await join(guest, response.body.code)).status).toBe(200);
+    stream.close();
+  });
+
+  it('offers no rematch before the race is over', async () => {
+    const { host, code } = await startRace();
+    const response = await rematch(host, code);
+
+    expect(response.status).toBe(409);
+    expect(response.body.message).toBe('The match is not over');
+  });
+});

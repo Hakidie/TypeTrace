@@ -30,6 +30,10 @@ export const sendProgress = async (req: Request, res: Response) => {
   res.json(await matchService.sendProgress(userOf(req), codeOf(req), req.body as ProgressInput));
 };
 
+export const requestRematch = async (req: Request, res: Response) => {
+  res.status(201).json(await matchService.requestRematch(userOf(req), codeOf(req)));
+};
+
 /** An event stream (SSE): the service keeps the response open. */
 export const matchEvents = async (req: Request, res: Response) => {
   await matchService.openEvents(userOf(req), codeOf(req), res);

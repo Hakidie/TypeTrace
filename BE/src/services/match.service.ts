@@ -6,7 +6,7 @@ import { splitWords } from '../models/passage.model';
 import { UserModel } from '../models/user.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { ProgressInput } from '../validators/match.validator';
-import { cancelTimer, closeStreams, matchSettings, publish, publishTo, schedule, subscribe, withMatchLock } from './match-hub';
+import { cancelTimer, closeStreams, isConnected, matchSettings, publish, publishTo, schedule, subscribe, withMatchLock } from './match-hub';
 import { generateRoomCode, pickRankedPassage, toPublicMatch } from './match-view';
 import { computeWpm, gradeWords, MAX_COUNTED_WPM, SESSION_GRACE_MS } from './typing-session.service';
 
@@ -121,8 +121,56 @@ export const leaveMatch = (userId: string, code: string) =>
       if (match.status === 'cancelled') closeStreams(match.code);
       return view;
     }
+    if (match.status === 'countdown' || match.status === 'running') {
+      forfeitPlayer(match, userId);
+      await match.save();
+      announceResult(match);
+    }
     return toPublicMatch(match);
   });
+
+/** A player who leaves (or stays disconnected) once the countdown started loses by forfeit; the other one wins. */
+const forfeitPlayer = (match: MatchDocument, userId: string) => {
+  const other = match.players.find((entry) => String(entry.user) !== userId)!;
+  finish(
+    match,
+    new Map<string, MatchResult>([
+      [userId, 'forfeit'],
+      [String(other.user), 'win']
+    ])
+  );
+};
+
+const disconnectTimer = (userId: string) => `disconnect:${userId}`;
+
+/** The stream of a player closed: during a match they forfeit unless they come back within `disconnectGraceMs`. */
+const onStreamClosed = (code: string, userId: string) => {
+  if (isConnected(code, userId)) return;
+  schedule(code, disconnectTimer(userId), matchSettings.disconnectGraceMs, () =>
+    withMatchLock(code, async () => {
+      if (isConnected(code, userId)) return;
+      const match = await MatchModel.findOne({ code, status: { $in: ['countdown', 'running'] } });
+      if (!match || !playerOf(match, userId)) return;
+      forfeitPlayer(match, userId);
+      await match.save();
+      announceResult(match);
+    })
+  );
+};
+
+/**
+ * After a match: opens a new room hosted by the asking player and invites the other one through the stream of the old
+ * room (`rematch` event with the new code).
+ */
+export const requestRematch = async (userId: string, code: string) => {
+  const match = await findRoom(code);
+  const player = match && playerOf(match, userId);
+  if (!match || !player) throw roomNotFound();
+  if (match.status !== 'finished') throw conflict('The match is not over');
+  const room = await createMatch(userId);
+  publish(match.code, 'rematch', { code: room.code, from: player.displayName });
+  return room;
+};
 
 // ---- the race ------------------------------------------------------------------------------------------------------
 
@@ -278,6 +326,8 @@ export const sendProgress = (userId: string, code: string, { typedWords, typedAt
 export const openEvents = async (userId: string, code: string, res: Response) => {
   const match = await findRoom(code);
   if (!match || !playerOf(match, userId)) throw roomNotFound();
-  subscribe(match.code, userId, res, () => undefined);
+  // Back within the grace time (a reload): the forfeit is called off.
+  cancelTimer(match.code, disconnectTimer(userId));
+  subscribe(match.code, userId, res, () => onStreamClosed(match.code, userId));
   publishTo(match.code, userId, 'state', toPublicMatch(match));
 };
