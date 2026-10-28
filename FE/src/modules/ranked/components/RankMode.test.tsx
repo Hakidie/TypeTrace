@@ -14,7 +14,10 @@ const api = {
   ready: vi.fn(),
   progress: vi.fn(),
   rematch: vi.fn(),
+  me: vi.fn(),
 };
+
+const ranking = { season: { number: 2, startsAt: '', endsAt: '' }, rating: 1262, peakRating: 1300, tier: 'Gold', matches: 14, wins: 9, losses: 5, draws: 0 };
 
 vi.mock('../api/ranked.api', () => ({
   rankedApi: new Proxy({}, { get: (_target, name: string) => (...args: unknown[]) => api[name as keyof typeof api](...args) }),
@@ -61,6 +64,7 @@ const urlParam = (name: string) => new URLSearchParams(screen.getByLabelText('UR
 
 beforeEach(() => {
   Object.values(api).forEach((fn) => fn.mockReset());
+  api.me.mockResolvedValue(ranking);
   sessionStorage.clear();
   // The current user (who "you" are in the room) is only fetched with a token.
   tokenStore.set('test-token');
@@ -73,6 +77,15 @@ describe('RankMode (ranked duel, phase 4)', () => {
     expect(screen.getByRole('button', { name: 'Create room' })).toBeInTheDocument();
     expect(screen.getByLabelText('Room code')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Join' })).toBeInTheDocument();
+  });
+
+  it('shows the own season rating and tier in the lobby, with a link to the leaderboard (phase 5)', async () => {
+    renderAt();
+
+    expect(await screen.findByText('Season 2')).toBeInTheDocument();
+    expect(screen.getByText('Gold')).toBeInTheDocument();
+    expect(screen.getByText('1262')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Leaderboard' })).toHaveAttribute('href', '/leaderboard');
   });
 
   it('creates a room, puts its code in the URL and waits for an opponent', async () => {

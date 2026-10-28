@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
+import { Link } from 'react-router-dom';
 import { useCreateMatch, useJoinMatch } from '../hooks/use-match';
+import { useRankedMe } from '../hooks/use-ranked';
 
 /** No room yet: create one (the code is then shared with a friend) or join one with its code. */
 export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
   const createMatch = useCreateMatch();
   const joinMatch = useJoinMatch();
+  const ranking = useRankedMe();
   const [code, setCode] = useState('');
   const pending = createMatch.isPending || joinMatch.isPending;
 
@@ -18,6 +21,19 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
 
   return (
     <div className="mx-auto my-auto grid w-full max-w-3xl gap-6 md:grid-cols-2">
+      {/* The own rating is extra here: while it loads, or if it fails, the lobby works without it. */}
+      {ranking.data && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 bg-primary/10 px-6 py-3 text-primary md:col-span-2">
+          <span className="text-muted-foreground">Season {ranking.data.season.number}</span>
+          <span className="font-semibold">{ranking.data.tier}</span>
+          <span className="text-2xl font-black" aria-label="Your rating">
+            {ranking.data.rating}
+          </span>
+          <Link to="/leaderboard" className="ml-auto underline-offset-4 hover:underline">
+            Leaderboard
+          </Link>
+        </div>
+      )}
       <section className="flex flex-col gap-3 bg-primary/10 p-6 text-primary">
         <h2 className="text-xl font-semibold">Duel a friend</h2>
         <p className="text-muted-foreground">Open a room and share its code. You both type the same English passage.</p>
