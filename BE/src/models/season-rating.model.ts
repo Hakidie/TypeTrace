@@ -12,6 +12,8 @@ export interface SeasonRatingDocument extends mongoose.Document {
   wins: number;
   losses: number;
   draws: number;
+  /** The tier rewards of the season were given (once, when it closed). */
+  rewardedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,7 +27,8 @@ const seasonRatingSchema = new Schema<SeasonRatingDocument>(
     matches: { type: Number, default: 0 },
     wins: { type: Number, default: 0 },
     losses: { type: Number, default: 0 },
-    draws: { type: Number, default: 0 }
+    draws: { type: Number, default: 0 },
+    rewardedAt: Date
   },
   { timestamps: true }
 );
