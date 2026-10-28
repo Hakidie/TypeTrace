@@ -8,6 +8,7 @@ import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietna
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
 import { recentProgressOf, recordCountedSession } from './daily-progress.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
+import { recordDailyTaskProgress } from './user-daily-tasks.service';
 
 /** Sessions with fewer words, or faster than this, are saved but kept out of the error profile (ASSUMPTION). */
 export const MIN_COUNTED_WORDS = 20;
@@ -171,6 +172,11 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
     // The session is saved: a failed day write must not answer 500, a retry would get 409. The rebuild adds the day.
     await recordCountedSession(userId, now).catch((error) =>
       console.error('DailyProgress not updated, npm run rebuild:progress adds the day:', error)
+    );
+    // The same for the daily tasks (SCRUM-112); they need no rebuild: each counted session works the numbers of its day
+    // out again from all the day's sessions, so the next one of the day adds this one too.
+    await recordDailyTaskProgress(userId, now).catch((error) =>
+      console.error('Daily tasks not updated, the next counted session of the day adds this one:', error)
     );
   }
   return completed;

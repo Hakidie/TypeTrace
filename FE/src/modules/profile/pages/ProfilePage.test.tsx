@@ -9,6 +9,7 @@ const getMe = vi.fn();
 const getActivity = vi.fn();
 const getSessions = vi.fn();
 const getStreak = vi.fn();
+const getDailyTasks = vi.fn();
 
 vi.mock('@/modules/auth/api/auth.api', () => ({
   authApi: { getMe: () => getMe() },
@@ -19,6 +20,7 @@ vi.mock('@/modules/profile/api/profile.api', () => ({
     getActivity: () => getActivity(),
     getSessions: (params: unknown) => getSessions(params),
     getStreak: () => getStreak(),
+    getDailyTasks: () => getDailyTasks(),
     updateSecurity: vi.fn(),
     uploadAvatar: vi.fn(),
   },
@@ -84,13 +86,20 @@ beforeEach(() => {
     sessions: [{ date: today, sessions: 2, missionCompleted: true }],
   });
   getStreak.mockReset().mockResolvedValue(streakOf(1, 4, { sessions: 2, missionCompleted: true }));
+  getDailyTasks.mockReset().mockResolvedValue({
+    date: today,
+    tasks: [
+      { id: 't1', title: 'Warm-up', description: '', type: 'sessions', target: 3, progress: 2, completed: false },
+      { id: 't2', title: 'Phân biệt hỏi/ngã', description: '', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION', progress: 92.5, completed: true },
+    ],
+  });
 });
 
 afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('ProfilePage (SCRUM-157, SCRUM-31)', () => {
+describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
   it('shows loading placeholders until the account is known', () => {
     getMe.mockReturnValue(new Promise(() => undefined));
     renderPage();
@@ -135,6 +144,21 @@ describe('ProfilePage (SCRUM-157, SCRUM-31)', () => {
     expect(await screen.findByRole('region', { name: 'Today' })).toHaveTextContent('TODAY 2 counted sessions');
     expect(within(todayRegion()).getByText('Daily mission done')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Practice now' })).not.toBeInTheDocument();
+  });
+
+  it("shows today's tasks with their progress bars under the heatmap, above the sessions", async () => {
+    renderPage();
+
+    const tasks = await screen.findByRole('region', { name: 'Daily tasks' });
+    expect(await within(tasks).findByRole('progressbar', { name: 'Warm-up' })).toHaveAttribute('aria-valuenow', '2');
+    expect(within(tasks).getByText('2 / 3 sessions')).toBeInTheDocument();
+    expect(within(tasks).getByText('Reach 90% accuracy on hỏi and ngã in a session with at least 5 words with hỏi or ngã')).toBeInTheDocument();
+    expect(within(tasks).getByText('Done')).toBeInTheDocument();
+    expect(getDailyTasks).toHaveBeenCalledOnce();
+
+    const heatmap = await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, daily mission done on 1 day` });
+    expect(heatmap.compareDocumentPosition(tasks)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(tasks.compareDocumentPosition(screen.getByRole('region', { name: 'My sessions' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('shows zeros and a way to start to a new learner, and asks for a display name instead of the email twice', async () => {

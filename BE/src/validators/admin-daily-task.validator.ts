@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { MAX_DAILY_TASK_COUNT } from '../models/app-setting.model';
 import { DAILY_TASK_TYPES } from '../models/daily-task.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
+import { WordError } from '../utils/vietnamese-errors';
 import { optionalBooleanQuerySchema } from './common.validator';
 
 const dailyTaskFields = {
@@ -10,12 +11,18 @@ const dailyTaskFields = {
   type: z.enum(DAILY_TASK_TYPES),
   /** The most of each type (`DAILY_TASK_TARGET_MAX`) is checked by the model, against the type the task ends up with. */
   target: z.number().int('Use a whole number').min(1, 'At least 1'),
+  /**
+   * The error type an accuracy task focuses on (SCRUM-112); `null` takes the focus away. That only accuracy tasks have
+   * one is checked by the model, against the type the task ends up with, like the target.
+   */
+  errorType: z.enum(WordError).nullable(),
   isActive: z.boolean()
 };
 
 export const createDailyTaskSchema = z.object({
   ...dailyTaskFields,
   description: dailyTaskFields.description.default(''),
+  errorType: dailyTaskFields.errorType.optional(),
   isActive: dailyTaskFields.isActive.default(true)
 });
 

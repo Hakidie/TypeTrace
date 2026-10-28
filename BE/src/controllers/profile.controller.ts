@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { UserModel } from '../models/user.model';
 import { deleteImage, uploadImage } from '../services/cloudinary.service';
 import * as dailyProgressService from '../services/daily-progress.service';
+import * as userDailyTasksService from '../services/user-daily-tasks.service';
 import { updateTimeZone } from '../services/user.service';
 import { badRequest, notFound } from '../utils/app-error';
 import { UpdateProfileInput, UpdateSecurityInput, UpdateSettingsInput } from '../validators/profile.validator';
@@ -43,6 +44,11 @@ export const updateSecurity = async (req: Request, res: Response) => {
 /** The learner's current and longest streak, and today's sessions and daily mission (SCRUM-31). */
 export const getStreak = async (req: Request, res: Response) => {
   res.json(await dailyProgressService.getStreak(req.user!.sub));
+};
+
+/** The learner's daily tasks of today, each with its progress (SCRUM-112). */
+export const getDailyTasks = async (req: Request, res: Response) => {
+  res.json(await userDailyTasksService.getTodayDailyTasks(req.user!.sub));
 };
 
 /** Saves the learner's time zone, which the page sends from the browser (SCRUM-31). Answers the user, like `updateProfile`. */

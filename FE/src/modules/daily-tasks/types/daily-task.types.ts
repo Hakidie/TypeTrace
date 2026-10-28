@@ -1,3 +1,5 @@
+import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
+
 /** The kinds of task, in the order the form and the filter offer them (`DAILY_TASK_TYPES` in BE/src/models/daily-task.model.ts). */
 export const DAILY_TASK_TYPES = ['sessions', 'minutes', 'wpm', 'accuracy'] as const;
 
@@ -11,6 +13,11 @@ export interface DailyTask {
   description: string;
   type: DailyTaskType;
   target: number;
+  /**
+   * The error type an accuracy task focuses on (SCRUM-112): its accuracy is measured on that error only, and learners
+   * weakest at it get the task first. Absent, or `null`, when the task has none.
+   */
+  errorType?: WordErrorType | null;
   /** Only active tasks are given to learners. */
   isActive: boolean;
   createdAt: string;
@@ -22,6 +29,8 @@ export interface DailyTaskInput {
   description: string;
   type: DailyTaskType;
   target: number;
+  /** Only an accuracy task may have one; `null` takes it away. */
+  errorType?: WordErrorType | null;
   isActive: boolean;
 }
 

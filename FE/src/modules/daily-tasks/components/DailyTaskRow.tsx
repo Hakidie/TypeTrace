@@ -14,7 +14,10 @@ interface DailyTaskRowProps {
   onDelete: (task: DailyTask) => void;
 }
 
-/** One task in the red card look of the user rows: the icon of its type, the title, its goal, the target, a kebab menu. */
+/**
+ * One task in the red card look of the user rows: the icon of its type, the title, its goal (with the focus error of an
+ * accuracy task, `goalOf`), the target, a kebab menu.
+ */
 export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTaskRowProps) => {
   const { label, stat, icon: Icon } = DAILY_TASK_TYPE_INFO[task.type];
   const goal = goalOf(task);
@@ -36,7 +39,8 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
       }
       center={
         <div className="min-w-0">
-          <p className="truncate text-lg text-muted-foreground">{goal}</p>
+          {/* One line, cut on narrower desktops (a focus goal can be long): the whole goal is its tooltip. */}
+          <p className="truncate text-lg text-muted-foreground" title={goal}>{goal}</p>
           {task.description && <p className="truncate text-base text-muted-foreground">{task.description}</p>}
         </div>
       }

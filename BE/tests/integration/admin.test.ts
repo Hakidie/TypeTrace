@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DailyProgressModel } from '../../src/models/daily-progress.model';
 import { NoteModel } from '../../src/models/note.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
+import { UserDailyTasksModel } from '../../src/models/user-daily-tasks.model';
 import { UserModel } from '../../src/models/user.model';
 import { api } from '../helpers/api';
 import { cloudinaryRecorder } from '../helpers/cloudinary-recorder';
@@ -171,7 +172,16 @@ describe('PATCH /api/admin/users/:id', () => {
 });
 
 describe('deleting users', () => {
-  it('deletes a user together with their notes, typing sessions, days (DailyProgress) and avatar', async () => {
+  /** A learner's daily tasks of one day (SCRUM-112), stored as the service stores them. */
+  const dailyTasks = (owner: unknown, date: string) => ({
+    owner,
+    date,
+    timeZone: 'Asia/Ho_Chi_Minh',
+    tasks: [{ taskId: '64b7f0a5c2a5f1a1a1a1a1a1', title: 'Ba phiên', type: 'sessions', target: 3 }],
+    progress: { sessions: 1 }
+  });
+
+  it('deletes a user together with their notes, typing sessions, days (DailyProgress), daily tasks and avatar', async () => {
     const { auth } = await signInAdmin();
     const user = await createUser({ email: 'lan@example.com' });
     await UserModel.updateOne({ _id: user._id }, { avatarPublicId: 'avatars/lan' });
@@ -181,6 +191,7 @@ describe('deleting users', () => {
       { owner: user._id, date: '2026-03-09', sessions: 1 },
       { owner: user._id, date: '2026-03-10', sessions: 2 }
     ]);
+    await UserDailyTasksModel.create([dailyTasks(user._id, '2026-03-09'), dailyTasks(user._id, '2026-03-10')]);
 
     const response = await api().delete(`/api/admin/users/${user._id}`).set('Authorization', auth);
 
@@ -189,15 +200,17 @@ describe('deleting users', () => {
     expect(await NoteModel.countDocuments()).toBe(0);
     expect(await TypingSessionModel.countDocuments()).toBe(0);
     expect(await DailyProgressModel.countDocuments()).toBe(0);
+    expect(await UserDailyTasksModel.countDocuments()).toBe(0);
     expect(cloudinaryRecorder.destroyed).toEqual(['avatars/lan']);
   });
 
-  it('bulk deletes the selected users and their days, and keeps the others', async () => {
+  it('bulk deletes the selected users, their days and daily tasks, and keeps the others', async () => {
     const { auth } = await signInAdmin();
     const a = await createUser({ email: 'a@example.com' });
     const b = await createUser({ email: 'b@example.com' });
     const keep = await createUser({ email: 'keep@example.com' });
     await DailyProgressModel.create([a, b, keep].map((user) => ({ owner: user._id, date: '2026-03-10', sessions: 1 })));
+    await UserDailyTasksModel.create([a, b, keep].map((user) => dailyTasks(user._id, '2026-03-10')));
 
     const response = await api()
       .post('/api/admin/users/bulk-delete')
@@ -207,6 +220,7 @@ describe('deleting users', () => {
     expect(response.body).toEqual({ deleted: 2 });
     expect(await UserModel.countDocuments()).toBe(2);
     expect((await DailyProgressModel.find()).map((row) => String(row.owner))).toEqual([String(keep._id)]);
+    expect((await UserDailyTasksModel.find()).map((row) => String(row.owner))).toEqual([String(keep._id)]);
   });
 
   it('never deletes the signed-in admin', async () => {

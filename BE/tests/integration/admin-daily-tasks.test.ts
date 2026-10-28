@@ -1,6 +1,8 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { AppSettingModel } from '../../src/models/app-setting.model';
 import { DailyTaskModel } from '../../src/models/daily-task.model';
+import { updateDailyTask } from '../../src/services/admin-daily-task.service';
+import type { UpdateDailyTaskInput } from '../../src/validators/admin-daily-task.validator';
 import { api } from '../helpers/api';
 import { bearerFor, createUser } from '../helpers/user-factory';
 
@@ -209,6 +211,139 @@ describe('PATCH /api/admin/daily-tasks/:id', () => {
     expect((await update(auth, task._id, { isActive: 'no' })).status).toBe(400);
     expect((await update(auth, '64b7f0a5c2a5f1a1a1a1a1a1', { title: 'Ghost' })).status).toBe(404);
     expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject(input);
+  });
+});
+
+describe('the error type an accuracy task focuses on (SCRUM-112)', () => {
+  const focused = { title: 'Hỏi hay ngã', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' };
+  const onlyAccuracy = { message: 'Validation failed', errors: [{ field: 'errorType', message: 'Only accuracy tasks can focus on an error type' }] };
+
+  it('lets an accuracy task focus on an error type', async () => {
+    const auth = await signInAdmin();
+
+    const response = await create(auth, focused);
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject(focused);
+    expect((await api().get(`/api/admin/daily-tasks/${response.body._id}`).set('Authorization', auth)).body).toMatchObject(focused);
+  });
+
+  it('stores and sends no errorType for a task without a focus, also when it is created with null', async () => {
+    const auth = await signInAdmin();
+    const unfocused = { title: 'Chính xác', type: 'accuracy', target: 95 };
+
+    for (const body of [unfocused, { ...focused, errorType: null }, { ...input, errorType: null }]) {
+      const response = await create(auth, body);
+      expect(response.status).toBe(201);
+      expect(response.body).not.toHaveProperty('errorType');
+    }
+    expect(await DailyTaskModel.countDocuments()).toBe(3);
+    expect(await DailyTaskModel.countDocuments({ errorType: { $exists: true } })).toBe(0);
+  });
+
+  it('refuses an error type on a task of another type, naming the field', async () => {
+    const auth = await signInAdmin();
+
+    for (const type of ['sessions', 'minutes', 'wpm']) {
+      const response = await create(auth, { title: 'Ba phiên', type, target: 3, errorType: 'TONE_WRONG' });
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual(onlyAccuracy);
+    }
+    const task = (await create(auth)).body;
+    const response = await update(auth, task._id, { errorType: 'TONE_WRONG' });
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual(onlyAccuracy);
+    expect(await DailyTaskModel.countDocuments({ errorType: { $exists: true } })).toBe(0);
+  });
+
+  it('refuses an error type it does not know', async () => {
+    const auth = await signInAdmin();
+    const task = (await create(auth, focused)).body;
+
+    for (const errorType of ['SPELLING', 'hoi_nga_confusion', '', 3, true]) {
+      expect((await create(auth, { ...focused, errorType })).status).toBe(400);
+      expect((await update(auth, task._id, { errorType })).status).toBe(400);
+    }
+    expect(await DailyTaskModel.countDocuments()).toBe(1);
+    expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject({ errorType: 'HOI_NGA_CONFUSION' });
+  });
+
+  it('checks the focus against the type the task ends up with', async () => {
+    const auth = await signInAdmin();
+    // A target a sessions task may have too, so only the focus stands in the way of the new type.
+    const task = (await create(auth, { ...focused, target: 20 })).body;
+
+    const typeOnly = await update(auth, task._id, { type: 'sessions' });
+    expect(typeOnly.status).toBe(400);
+    expect(typeOnly.body).toEqual(onlyAccuracy);
+    expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject({ type: 'accuracy', errorType: 'HOI_NGA_CONFUSION' });
+
+    const withoutFocus = await update(auth, task._id, { type: 'sessions', errorType: null });
+    expect(withoutFocus.status).toBe(200);
+    expect(withoutFocus.body).toMatchObject({ type: 'sessions', target: 20 });
+    expect(withoutFocus.body).not.toHaveProperty('errorType');
+    expect(await DailyTaskModel.findById(task._id).lean()).not.toHaveProperty('errorType');
+  });
+
+  it('keeps the focus when errorType is not sent, takes it away with null and changes it', async () => {
+    const auth = await signInAdmin();
+    const task = (await create(auth, focused)).body;
+
+    expect((await update(auth, task._id, { title: 'Hỏi ngã' })).body).toMatchObject({ title: 'Hỏi ngã', errorType: 'HOI_NGA_CONFUSION' });
+
+    // `{ errorType }` alone is a field to update.
+    const cleared = await update(auth, task._id, { errorType: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).toMatchObject({ title: 'Hỏi ngã', type: 'accuracy', target: 90 });
+    expect(cleared.body).not.toHaveProperty('errorType');
+    expect(await DailyTaskModel.findById(task._id).lean()).not.toHaveProperty('errorType');
+
+    expect((await update(auth, task._id, { errorType: 'TONE_WRONG' })).body).toMatchObject({ errorType: 'TONE_WRONG' });
+  });
+
+  it('deactivates a focused task with { isActive: false } alone and keeps its type, target and focus', async () => {
+    const auth = await signInAdmin();
+    const task = (await create(auth, focused)).body;
+
+    const response = await update(auth, task._id, { isActive: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ ...focused, isActive: false });
+    expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject({ ...focused, isActive: false });
+  });
+});
+
+describe('two saves of one task at the same time', () => {
+  /**
+   * Two PATCHes that both read the task before either saves: `first`, then `second` on a copy of the task read before
+   * `first` was saved. Answers the task as stored afterwards.
+   */
+  const saveBoth = async (task: object, first: UpdateDailyTaskInput, second: UpdateDailyTaskInput) => {
+    const { _id: id } = await DailyTaskModel.create(task);
+    const copies = [await DailyTaskModel.findById(id), await DailyTaskModel.findById(id)];
+    vi.spyOn(DailyTaskModel, 'findById').mockResolvedValueOnce(copies[0]).mockResolvedValueOnce(copies[1]);
+    await updateDailyTask(String(id), first);
+    await updateDailyTask(String(id), second);
+    return DailyTaskModel.findById(id).lean();
+  };
+
+  const wpmTask = { title: 'Gõ nhanh', type: 'wpm', target: 150 };
+  const toAccuracy: UpdateDailyTaskInput = { type: 'accuracy', target: 95, errorType: 'TONE_WRONG' };
+  const faster: UpdateDailyTaskInput = { target: 180 };
+
+  it('keeps the type, target and focus of one of them, never the type of one with the target of the other', async () => {
+    // Each save is valid on the task it read, but 180 % accuracy is not: the task keeps the whole set of the last save.
+    const accuracyFirst = await saveBoth(wpmTask, toAccuracy, faster);
+    expect(accuracyFirst).toMatchObject({ type: 'wpm', target: 180 });
+    expect(accuracyFirst).not.toHaveProperty('errorType');
+
+    expect(await saveBoth(wpmTask, faster, toAccuracy)).toMatchObject({ type: 'accuracy', target: 95, errorType: 'TONE_WRONG' });
+  });
+
+  it('leaves the type, target and focus to the other save when a save changes none of them', async () => {
+    const stored = await saveBoth(wpmTask, toAccuracy, { isActive: false, title: 'Chính xác' });
+
+    expect(stored).toMatchObject({ title: 'Chính xác', type: 'accuracy', target: 95, errorType: 'TONE_WRONG', isActive: false });
   });
 });
 

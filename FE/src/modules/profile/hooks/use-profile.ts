@@ -10,6 +10,7 @@ export const profileKeys = {
   activity: () => [...profileKeys.all, 'activity'] as const,
   sessions: (params: SessionListParams) => [...profileKeys.all, 'sessions', params] as const,
   streak: () => [...profileKeys.all, 'streak'] as const,
+  dailyTasks: () => [...profileKeys.all, 'daily-tasks'] as const,
 };
 
 /**
@@ -30,6 +31,12 @@ export const useSessions = (params: SessionListParams) =>
 
 /** The learner's current and longest streak and today's daily mission; asked again each time the profile page opens, like the activity. */
 export const useStreak = () => useQuery({ queryKey: profileKeys.streak(), queryFn: profileApi.getStreak, staleTime: 0 });
+
+/**
+ * The learner's tasks of today and how far they are (SCRUM-112); asked again each time the profile page opens, like the
+ * streak. Not the admins' list of task templates: that one is `useDailyTasks` of the daily-tasks module.
+ */
+export const useDailyTasks = () => useQuery({ queryKey: profileKeys.dailyTasks(), queryFn: profileApi.getDailyTasks, staleTime: 0 });
 
 /**
  * Saves the learner's time zone (`PATCH /api/profile/settings`), keeps the user it returns and refreshes the profile

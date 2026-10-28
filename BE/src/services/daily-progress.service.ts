@@ -16,8 +16,11 @@ export const DAILY_MISSION_SESSIONS = 1;
 
 type OwnerId = string | Types.ObjectId;
 
-/** A stored zone this server does not know (edited by hand, or newer than its `Intl`) counts as the default one. */
-const usableTimeZone = (name?: string | null) => (name && isValidTimeZone(name) ? name : DEFAULT_TIMEZONE);
+/**
+ * A stored zone this server does not know (edited by hand, or newer than its `Intl`) counts as the default one. Also
+ * used by the daily tasks (user-daily-tasks.service.ts), so a learner's tasks and their streak share the same days.
+ */
+export const usableTimeZone = (name?: string | null) => (name && isValidTimeZone(name) ? name : DEFAULT_TIMEZONE);
 
 /** The time zone of the learner's days: their `settings.timezone`, or the default for those who never sent one. */
 export const learnerTimeZone = async (owner: OwnerId) => {

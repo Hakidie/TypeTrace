@@ -40,6 +40,9 @@ const warmUp = task('t1', 'Warm-up');
 const speed = task('t2', 'Speed run', { type: 'wpm', target: 40, description: 'Type fast but clean.' });
 const focus = task('t3', 'Focus', { type: 'accuracy', target: 95 });
 const slowDay = task('t4', 'Slow day', { type: 'minutes', target: 10, isActive: false });
+const hoiNga = task('t5', 'Phân biệt hỏi/ngã', { type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' });
+/** The goal of `hoiNga`: only some words have hỏi or ngã, so it says how many a session needs. */
+const hoiNgaGoal = 'Reach 90% accuracy on hỏi and ngã in a session with at least 5 words with hỏi or ngã';
 
 const page = (items: DailyTask[]) => ({ items, page: 1, limit: 10, total: items.length, totalPages: 1 });
 
@@ -151,7 +154,7 @@ describe('AdminDailyTasksPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Precise', description: '', type: 'accuracy', target: 98, isActive: true }),
+      expect(create).toHaveBeenCalledWith({ title: 'Precise', description: '', type: 'accuracy', target: 98, errorType: null, isActive: true }),
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
@@ -187,6 +190,135 @@ describe('AdminDailyTasksPage', () => {
         description: 'Type fast but clean.',
         type: 'wpm',
         target: 45,
+        errorType: null,
+        isActive: true,
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('names the focus error of an accuracy task in the goal of its card, with the words a session needs when only some words have it', async () => {
+    const tones = task('t6', 'Steady tones', { type: 'accuracy', target: 85, errorType: 'TONE_WRONG' });
+    listWith([hoiNga, tones, focus]);
+    renderPage();
+
+    const cards = await screen.findByLabelText('Daily task cards');
+    // Twice: under the title (below `xl`) and in the middle column (from `xl`).
+    expect(within(cards).getAllByText(hoiNgaGoal)).toHaveLength(2);
+    // Every word has a tone, and a counted session has at least 20 words: any of them will do.
+    expect(within(cards).getAllByText('Reach 85% accuracy on tone marks in one session')).toHaveLength(2);
+    expect(within(cards).getAllByText('Reach 95% accuracy in one session')).toHaveLength(2);
+    // The middle column cuts a long goal to one line: the whole goal is its tooltip.
+    expect(within(cards).getByTitle(hoiNgaGoal)).toHaveClass('truncate');
+  });
+
+  it('offers a Focus error only while the type is Accuracy: None and the five error types', async () => {
+    renderPage();
+    await screen.findByLabelText('Daily task cards');
+
+    fireEvent.click(screen.getByRole('button', { name: 'New task' }));
+    const dialog = await screen.findByRole('dialog');
+    const type = within(dialog).getByLabelText('Type');
+    expect(type).toHaveValue('sessions');
+    expect(within(dialog).queryByLabelText('Focus error')).not.toBeInTheDocument();
+
+    fireEvent.change(type, { target: { value: 'accuracy' } });
+    const focusError = await within(dialog).findByLabelText('Focus error');
+    expect(focusError).toHaveValue('');
+    expect(within(focusError).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'None',
+      'Wrong letter',
+      'Missing stroke on đ',
+      'Wrong vowel mark (â ê ô ă ơ ư)',
+      'Wrong tone',
+      'Hỏi / ngã confusion',
+    ]);
+
+    for (const other of ['wpm', 'minutes']) {
+      fireEvent.change(type, { target: { value: other } });
+      await waitFor(() => expect(within(dialog).queryByLabelText('Focus error')).not.toBeInTheDocument());
+      fireEvent.change(type, { target: { value: 'accuracy' } });
+      await within(dialog).findByLabelText('Focus error');
+    }
+  });
+
+  it('creates an accuracy task with the focus error picked, named in the goal', async () => {
+    create.mockResolvedValue(hoiNga);
+    renderPage();
+    await screen.findByLabelText('Daily task cards');
+
+    fireEvent.click(screen.getByRole('button', { name: 'New task' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Phân biệt hỏi/ngã' } });
+    fireEvent.change(within(dialog).getByLabelText('Type'), { target: { value: 'accuracy' } });
+    fireEvent.change(within(dialog).getByLabelText('Target'), { target: { value: '90' } });
+    fireEvent.change(await within(dialog).findByLabelText('Focus error'), { target: { value: 'HOI_NGA_CONFUSION' } });
+
+    expect(await within(dialog).findByText(hoiNgaGoal)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({
+        title: 'Phân biệt hỏi/ngã',
+        description: '',
+        type: 'accuracy',
+        target: 90,
+        errorType: 'HOI_NGA_CONFUSION',
+        isActive: true,
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('sends no focus error once the type is switched away from Accuracy, though the pick waits for a switch back', async () => {
+    create.mockResolvedValue(task('t6', 'Steady'));
+    renderPage();
+    await screen.findByLabelText('Daily task cards');
+
+    fireEvent.click(screen.getByRole('button', { name: 'New task' }));
+    const dialog = await screen.findByRole('dialog');
+    const type = within(dialog).getByLabelText('Type');
+    fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Steady' } });
+    fireEvent.change(type, { target: { value: 'accuracy' } });
+    fireEvent.change(await within(dialog).findByLabelText('Focus error'), { target: { value: 'TONE_WRONG' } });
+
+    fireEvent.change(type, { target: { value: 'minutes' } });
+    await waitFor(() => expect(within(dialog).queryByLabelText('Focus error')).not.toBeInTheDocument());
+    fireEvent.change(type, { target: { value: 'accuracy' } });
+    expect(await within(dialog).findByLabelText('Focus error')).toHaveValue('TONE_WRONG');
+
+    fireEvent.change(type, { target: { value: 'minutes' } });
+    fireEvent.change(within(dialog).getByLabelText('Target'), { target: { value: '10' } });
+    expect(await within(dialog).findByText('Type 10 minutes in all')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({ title: 'Steady', description: '', type: 'minutes', target: 10, errorType: null, isActive: true }),
+    );
+  });
+
+  it('prefills the focus error of the task being edited, and None takes it away', async () => {
+    listWith([hoiNga, warmUp]);
+    update.mockResolvedValue({ ...hoiNga, errorType: undefined });
+    renderPage();
+
+    await pickAction('Phân biệt hỏi/ngã', 'Edit');
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText('Type')).toHaveValue('accuracy');
+    expect(within(dialog).getByLabelText('Focus error')).toHaveValue('HOI_NGA_CONFUSION');
+    expect(within(dialog).getByText(hoiNgaGoal)).toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText('Focus error'), { target: { value: '' } });
+    expect(await within(dialog).findByText('Reach 90% accuracy in one session')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith('t5', {
+        title: 'Phân biệt hỏi/ngã',
+        description: '',
+        type: 'accuracy',
+        target: 90,
+        errorType: null,
         isActive: true,
       }),
     );
