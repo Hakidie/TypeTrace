@@ -5,6 +5,7 @@ import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Button } from '@/shared/components/ui/button';
 import { useMatch } from '../hooks/use-match';
+import { RaceView } from './RaceView';
 import { RankLobby } from './RankLobby';
 import { RoomLobby } from './RoomLobby';
 
@@ -52,5 +53,6 @@ export const RankMode = () => {
       </div>
     );
   }
-  return <p className="mx-auto my-auto text-primary">Match in progress</p>;
+  if (match.status === 'countdown' || match.status === 'running') return <RaceView match={match} myId={me?._id} />;
+  return <p className="mx-auto my-auto text-primary">Match over</p>;
 };
