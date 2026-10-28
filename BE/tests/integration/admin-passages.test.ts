@@ -413,3 +413,37 @@ describe('passage language (ranked duel, phase 1)', () => {
     expect(back.body.tagCounts.BASE_LETTER).toBeGreaterThan(0);
   });
 });
+
+describe('passage language: review fixes (ranked duel, phase 1)', () => {
+  it('lists passages saved before the language field under the Vietnamese filter', async () => {
+    const { auth } = await signInAdmin();
+    await PassageModel.collection.insertOne({
+      title: 'Bài cũ chưa có ngôn ngữ',
+      content: 'Đường về nhà rất đẹp.',
+      source: 'Tự viết',
+      ownerName: 'TypeTrace',
+      visibility: 'public',
+      status: 'published',
+      isPlacement: false,
+      wordCount: 5,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    const vietnamese = await api().get('/api/admin/passages?language=vi').set('Authorization', auth);
+    expect(vietnamese.body.items.map((item: { title: string }) => item.title)).toContain('Bài cũ chưa có ngôn ngữ');
+    const english = await api().get('/api/admin/passages?language=en').set('Authorization', auth);
+    expect(english.body.items.map((item: { title: string }) => item.title)).not.toContain('Bài cũ chưa có ngôn ngữ');
+  });
+
+  it("refuses to make a learner's passage English", async () => {
+    const { auth } = await signInAdmin();
+    const learner = await createUser({ email: 'learner@example.com', displayName: 'Lan' });
+    const passage = await PassageModel.create({ ...input, owner: learner._id, ownerName: 'Lan', visibility: 'public', status: 'published' });
+
+    const response = await api().patch(`/api/admin/passages/${passage._id}`).set('Authorization', auth).send({ language: 'en' });
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Only TypeTrace passages can be English');
+    expect((await PassageModel.findById(passage._id))!.language).toBe('vi');
+  });
+});

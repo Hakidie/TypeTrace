@@ -1,6 +1,7 @@
 import type { QueryFilter, Types, UpdateQuery } from 'mongoose';
 import {
   computePassageStats,
+  notEnglish,
   PassageDocument,
   PassageModel,
   PassageStatus,
@@ -72,7 +73,8 @@ export const listPassages = ({ q, status, visibility, isPlacement, language, edi
   else if (status) filter.status = status;
   if (visibility) filter.visibility = visibility;
   if (isPlacement !== undefined) filter.isPlacement = isPlacement;
-  if (language) filter.language = language;
+  // `vi` also finds the passages saved before the field (they are Vietnamese, like in the learner flows).
+  if (language) Object.assign(filter, language === 'en' ? { language: 'en' } : notEnglish);
   if (q) {
     // Accents optional, like the learners' list: `ha noi` finds `Hà Nội`, in the title or the source.
     const pattern = titleSearchPattern(q);
@@ -102,11 +104,22 @@ export const createPassage = async (actorId: string, input: CreatePassageInput) 
   return PassageModel.create({ ...input, owner: actorId, ownerName: SYSTEM_OWNER_NAME, visibility: 'public' });
 };
 
+/**
+ * Only TypeTrace's own passages (seeded, or written by an admin) may become English: a learner's passage would leave their
+ * own list (learners only see Vietnamese passages) and slip into the ranked pool.
+ */
+const assertEnglishIsTypeTraces = async (passage: PassageDocument) => {
+  if (passage.language !== 'en' || !passage.isModified('language') || !passage.owner) return;
+  const owner = await UserModel.findById(passage.owner).select('role');
+  if (owner?.role !== 'admin') throw badRequest('Only TypeTrace passages can be English');
+};
+
 export const updatePassage = async (id: string, input: UpdatePassageInput) => {
   const passage = await getPassage(id);
   // save() (not findByIdAndUpdate) so the counts are computed again when the content or the language changes.
   passage.set(input);
   assertPlacementIsVietnamese(passage);
+  await assertEnglishIsTypeTraces(passage);
   return passage.save();
 };
 
