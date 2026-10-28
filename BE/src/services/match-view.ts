@@ -1,6 +1,7 @@
 import { randomInt } from 'crypto';
 import { Types } from 'mongoose';
 import { MatchDocument } from '../models/match.model';
+import { matchSettings } from './match-hub';
 import { samplePassage } from './passage.service';
 
 /** No 0, O, 1 or I: a code read aloud or copied by hand cannot be mistaken. */
@@ -29,7 +30,7 @@ export const toPublicMatch = (match: MatchDocument) => ({
   wordCount: match.targetWords.length,
   ...(match.status !== 'waiting' && { targetWords: match.targetWords }),
   ...(match.countdownEndsAt && { countdownEndsAt: match.countdownEndsAt }),
-  ...(match.startedAt && { startedAt: match.startedAt }),
+  ...(match.startedAt && { startedAt: match.startedAt, endsAt: new Date(match.startedAt.getTime() + matchSettings.durationMs) }),
   ...(match.endedAt && { endedAt: match.endedAt }),
   players: match.players.map((player) => ({
     userId: String(player.user),

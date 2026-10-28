@@ -8,7 +8,7 @@ import { badRequest, conflict, notFound } from '../utils/app-error';
 import { ProgressInput } from '../validators/match.validator';
 import { cancelTimer, closeStreams, isConnected, matchSettings, publish, publishTo, schedule, subscribe, withMatchLock } from './match-hub';
 import { generateRoomCode, pickRankedPassage, toPublicMatch } from './match-view';
-import { computeWpm, gradeWords, MAX_COUNTED_WPM, SESSION_GRACE_MS } from './typing-session.service';
+import { computeWpm, gradeWords, MAX_COUNTED_WPM, MIN_COUNTED_WORDS, SESSION_GRACE_MS } from './typing-session.service';
 
 export const ANONYMOUS_PLAYER_NAME = 'Anonymous player';
 
@@ -23,14 +23,30 @@ const announce = (match: MatchDocument) => {
   return view;
 };
 
-/** A waiting room past `waitingExpiryMs` is cancelled when it is next read (no background job needed). */
+/** How late a countdown may still start before it is taken as lost (its timer died with a restart). */
+const LOST_COUNTDOWN_MS = 5000;
+
+/**
+ * Cleans up a room when it is next read (no background job needed): a waiting room past `waitingExpiryMs` and a
+ * countdown whose timer was lost in a restart are cancelled; a race past its time limit ends by correct words, also when
+ * its timer was lost. Without this, the players of such a room could never open another one.
+ */
 const expireIfStale = async (match: MatchDocument | null) => {
-  if (match?.status !== 'waiting' || Date.now() - match.createdAt.getTime() < matchSettings.waitingExpiryMs) return match;
-  match.status = 'cancelled';
-  match.endedAt = new Date();
-  await match.save();
-  announce(match);
-  closeStreams(match.code);
+  if (!match) return match;
+  const now = Date.now();
+  const staleWaiting = match.status === 'waiting' && now - match.createdAt.getTime() >= matchSettings.waitingExpiryMs;
+  const lostCountdown = match.status === 'countdown' && now > (match.countdownEndsAt?.getTime() ?? 0) + LOST_COUNTDOWN_MS;
+  if (staleWaiting || lostCountdown) {
+    match.status = 'cancelled';
+    match.endedAt = new Date();
+    await match.save();
+    announce(match);
+    closeStreams(match.code);
+  } else if (match.status === 'running' && now > match.startedAt!.getTime() + matchSettings.durationMs + SESSION_GRACE_MS) {
+    finishByCorrectWords(match);
+    await match.save();
+    announceResult(match);
+  }
   return match;
 };
 
@@ -55,10 +71,13 @@ const newPlayer = async (userId: string) => {
 };
 
 const isDuplicateKey = (error: unknown) => (error as { code?: number }).code === 11000;
+/** The one-open-room-per-player index refused the write: two requests of the same player raced. */
+const isPlayerTaken = (error: unknown) => isDuplicateKey(error) && 'players.user' in ((error as { keyPattern?: object }).keyPattern ?? {});
+const alreadyInAnotherRoom = () => conflict('You are already in another room');
 
 /** Opens a room with a random English passage; the user is its host and waits for a guest. */
 export const createMatch = async (userId: string) => {
-  if (await findOpenMatchFor(userId)) throw conflict('You are already in another room');
+  if (await findOpenMatchFor(userId)) throw alreadyInAnotherRoom();
   const passage = await pickRankedPassage();
   if (!passage) throw notFound('No English passage available');
   const host = await newPlayer(userId);
@@ -74,6 +93,7 @@ export const createMatch = async (userId: string) => {
       });
       return toPublicMatch(match);
     } catch (error) {
+      if (isPlayerTaken(error)) throw alreadyInAnotherRoom();
       if (!isDuplicateKey(error)) throw error;
     }
   }
@@ -86,9 +106,14 @@ export const joinMatch = (userId: string, code: string) =>
     if (!match || match.status === 'cancelled') throw roomNotFound();
     if (playerOf(match, userId)) throw badRequest('You are already in this room');
     if (match.status !== 'waiting' || match.players.length >= 2) throw conflict('Room is full');
-    if (await findOpenMatchFor(userId)) throw conflict('You are already in another room');
+    if (await findOpenMatchFor(userId)) throw alreadyInAnotherRoom();
     match.players.push(await newPlayer(userId));
-    await match.save();
+    try {
+      await match.save();
+    } catch (error) {
+      if (isPlayerTaken(error)) throw alreadyInAnotherRoom();
+      throw error;
+    }
     return announce(match);
   });
 
@@ -162,15 +187,24 @@ const onStreamClosed = (code: string, userId: string) => {
  * After a match: opens a new room hosted by the asking player and invites the other one through the stream of the old
  * room (`rematch` event with the new code).
  */
-export const requestRematch = async (userId: string, code: string) => {
-  const match = await findRoom(code);
-  const player = match && playerOf(match, userId);
-  if (!match || !player) throw roomNotFound();
-  if (match.status !== 'finished') throw conflict('The match is not over');
-  const room = await createMatch(userId);
-  publish(match.code, 'rematch', { code: room.code, from: player.displayName });
-  return room;
-};
+export const requestRematch = (userId: string, code: string) =>
+  withMatchLock(code, async () => {
+    const match = await findRoom(code);
+    const player = match && playerOf(match, userId);
+    if (!match || !player) throw roomNotFound();
+    if (match.status !== 'finished') throw conflict('The match is not over');
+    // The other player asked first (both clicked Rematch): go to their room instead of opening a second one.
+    if (match.rematchCode) {
+      const rematchRoom = await findRoom(match.rematchCode);
+      if (rematchRoom && playerOf(rematchRoom, userId)) return toPublicMatch(rematchRoom);
+      return joinMatch(userId, match.rematchCode);
+    }
+    const room = await createMatch(userId);
+    match.rematchCode = room.code;
+    await match.save();
+    publish(match.code, 'rematch', { code: room.code, from: player.displayName });
+    return room;
+  });
 
 // ---- the race ------------------------------------------------------------------------------------------------------
 
@@ -297,7 +331,9 @@ export const sendProgress = (userId: string, code: string, { typedWords, typedAt
     const other = match.players.find((entry) => entry !== player)!;
 
     let ended = true;
-    if (player.wpm > MAX_COUNTED_WPM) {
+    // Like a typing session, the cap only counts from MIN_COUNTED_WORDS: a few short words right after the start are
+    // fast by nature and say nothing about cheating.
+    if (correctWords >= MIN_COUNTED_WORDS && player.wpm > MAX_COUNTED_WPM) {
       match.flagged = true;
       finish(match, resultsOf(other, player));
     } else if (done && player.accuracy >= WIN_ACCURACY) {

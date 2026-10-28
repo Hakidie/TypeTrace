@@ -43,6 +43,8 @@ export interface MatchDocument extends mongoose.Document {
   countdownEndsAt?: Date;
   startedAt?: Date;
   endedAt?: Date;
+  /** The room of the rematch, once one player asked for it: the other one is sent there too. */
+  rematchCode?: string;
   players: Types.DocumentArray<MatchPlayer & mongoose.Types.Subdocument>;
   createdAt: Date;
   updatedAt: Date;
@@ -78,6 +80,7 @@ const matchSchema = new Schema<MatchDocument>(
     countdownEndsAt: Date,
     startedAt: Date,
     endedAt: Date,
+    rematchCode: String,
     players: { type: [playerSchema], default: [] }
   },
   { timestamps: true }
@@ -85,7 +88,11 @@ const matchSchema = new Schema<MatchDocument>(
 
 // A code names one open room; finished and cancelled rooms keep theirs as history, so a code can come back later.
 matchSchema.index({ code: 1 }, { unique: true, partialFilterExpression: { status: { $in: [...OPEN_MATCH_STATUSES] } } });
-// "Is this user already in an open room?" and a player's match history.
+// "The room this code names now" (the newest match with it): every progress report reads it.
+matchSchema.index({ code: 1, createdAt: -1 });
+// One open room per player, also when two requests race (a double click): the database refuses the second one.
+matchSchema.index({ 'players.user': 1 }, { unique: true, partialFilterExpression: { status: { $in: [...OPEN_MATCH_STATUSES] } } });
+// A player's match history.
 matchSchema.index({ 'players.user': 1, status: 1 });
 
 export const MatchModel = mongoose.model<MatchDocument>('Match', matchSchema);

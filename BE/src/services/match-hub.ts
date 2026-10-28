@@ -46,13 +46,31 @@ const roomOf = (code: string) => {
   return room;
 };
 
-const write = (res: Response, event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+/** Writing to an ended stream emits an error nobody handles (a crash): skip a stream that is ended or gone. */
+const isOpen = (res: Response) => !res.writableEnded && !res.destroyed;
+
+const write = (res: Response, event: string, data: unknown) => {
+  if (isOpen(res)) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+};
+
+/** Forgets a stream: its ping stops and the room is dropped once nothing is left in it. */
+const removeStream = (code: string, stream: Stream) => {
+  clearInterval(stream.ping);
+  const room = rooms.get(code);
+  room?.streams.delete(stream);
+  if (room && room.streams.size === 0 && room.timers.size === 0) rooms.delete(code);
+};
 
 /**
  * Turns `res` into an event stream of the room for `userId`. `onClose` runs when the client goes away (closed tab,
  * reload, lost network).
  */
 export const subscribe = (code: string, userId: string, res: Response, onClose: () => void) => {
+  // The client left while the room was being read: its `close` already fired, so it would never be removed.
+  if (!isOpen(res)) {
+    onClose();
+    return;
+  }
   res.status(200).set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
@@ -61,11 +79,10 @@ export const subscribe = (code: string, userId: string, res: Response, onClose: 
     'X-Accel-Buffering': 'no'
   });
   res.flushHeaders();
-  const stream: Stream = { userId, res, ping: setInterval(() => res.write(': ping\n\n'), matchSettings.pingMs) };
+  const stream: Stream = { userId, res, ping: setInterval(() => isOpen(res) && res.write(': ping\n\n'), matchSettings.pingMs) };
   roomOf(code).streams.add(stream);
   res.on('close', () => {
-    clearInterval(stream.ping);
-    rooms.get(code)?.streams.delete(stream);
+    removeStream(code, stream);
     onClose();
   });
 };
@@ -85,14 +102,19 @@ export const isConnected = (code: string, userId: string) =>
 
 /** Ends every stream of the room. */
 export const closeStreams = (code: string) => {
-  rooms.get(code)?.streams.forEach((stream) => stream.res.end());
+  rooms.get(code)?.streams.forEach((stream) => {
+    removeStream(code, stream);
+    if (isOpen(stream.res)) stream.res.end();
+  });
 };
 
 /** Runs `fn` after `ms`, replacing a timer of the same name; an error is logged, never thrown into the process. */
 export const schedule = (code: string, name: string, ms: number, fn: () => Promise<unknown> | void) => {
   cancelTimer(code, name);
   const timer = setTimeout(() => {
-    rooms.get(code)?.timers.delete(name);
+    const room = rooms.get(code);
+    room?.timers.delete(name);
+    if (room && room.streams.size === 0 && room.timers.size === 0) rooms.delete(code);
     Promise.resolve()
       .then(fn)
       .catch((error) => console.error(`Match ${code}: timer ${name} failed`, error));
@@ -130,7 +152,7 @@ export const resetMatchHub = () => {
     room.timers.forEach((timer) => clearTimeout(timer));
     room.streams.forEach((stream) => {
       clearInterval(stream.ping);
-      stream.res.end();
+      if (isOpen(stream.res)) stream.res.end();
     });
   }
   rooms.clear();

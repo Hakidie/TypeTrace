@@ -273,7 +273,7 @@ describe('the race (ranked duel, phase 3)', () => {
   it('makes a player typing over 200 WPM lose and flags the match', async () => {
     const { host, guest, code, words } = await startRace({ startedAgoMs: 0 });
 
-    await progress(guest, code, words.slice(0, 10));
+    await progress(guest, code, words.slice(0, 25));
     expect(onlyResults(await resultsOf(host, code))).toEqual(['win', 'loss']);
     expect((await MatchModel.findOne({ code }).sort({ createdAt: -1 }))!.flagged).toBe(true);
   });
@@ -367,5 +367,71 @@ describe('leaving and coming back (ranked duel, phase 3)', () => {
 
     expect(response.status).toBe(409);
     expect(response.body.message).toBe('The match is not over');
+  });
+});
+
+// ---- review fixes ------------------------------------------------------------------------------------------------
+describe('review fixes (ranked duel, phase 3)', () => {
+  it('ends a race left running by a restart (lost timers) so its players can play again', async () => {
+    const { host, guest, code, words } = await startRace();
+    await progress(host, code, words.slice(0, 3));
+    resetMatchHub();
+    await MatchModel.updateOne({ code, status: 'running' }, { startedAt: new Date(Date.now() - 10 * 60 * 1000) });
+
+    expect((await create(host)).status).toBe(201);
+    expect((await create(guest)).status).toBe(201);
+    const old = await MatchModel.findOne({ code, status: 'finished' });
+    expect(old?.players.map((entry) => entry.result)).toEqual(['win', 'loss']);
+  });
+
+  it('cancels a countdown left behind by a restart', async () => {
+    const host = await player();
+    const guest = await player();
+    const { code } = (await create(host)).body;
+    await join(guest, code);
+    await MatchModel.updateOne({ code }, { status: 'countdown', countdownEndsAt: new Date(Date.now() - 60 * 1000) });
+
+    expect((await create(host)).status).toBe(201);
+    expect((await MatchModel.findOne({ code }).sort({ createdAt: 1 }))!.status).toBe('cancelled');
+  });
+
+  it('keeps a player in one open room when they create twice at once', async () => {
+    await MatchModel.init();
+    const host = await player();
+
+    const statuses = (await Promise.all([create(host), create(host), create(host)])).map((response) => response.status).sort();
+    expect(statuses).toEqual([201, 409, 409]);
+  });
+
+  it('puts both players in one room when both ask for a rematch at once', async () => {
+    const { host, guest, code, words } = await startRace();
+    await progress(host, code, words, true);
+
+    const [a, b] = await Promise.all([rematch(host, code), rematch(guest, code)]);
+    expect([a.status, b.status]).toEqual([201, 201]);
+    expect(a.body.code).toBe(b.body.code);
+    expect((await room(host, a.body.code)).body.players).toHaveLength(2);
+  });
+
+  it('finds a room by its code through an index', async () => {
+    await MatchModel.init();
+    const keys = (await MatchModel.collection.indexes()).map((index) => JSON.stringify(index.key));
+
+    expect(keys).toContain(JSON.stringify({ code: 1, createdAt: -1 }));
+  });
+
+  it('does not flag a fast start: the WPM cap only counts from 20 correct words', async () => {
+    const { host, code, words } = await startRace({ startedAgoMs: 0 });
+
+    expect((await progress(host, code, words.slice(0, 5))).status).toBe(200);
+    expect((await room(host, code)).body.status).toBe('running');
+    expect((await MatchModel.findOne({ code, status: 'running' }))!.flagged).toBe(false);
+  });
+
+  it('tells the players when the race ends', async () => {
+    const { host, code } = await startRace({ startedAgoMs: 0 });
+    const view = (await room(host, code)).body;
+
+    expect(new Date(view.endsAt).getTime() - new Date(view.startedAt).getTime()).toBe(matchSettings.durationMs);
   });
 });
