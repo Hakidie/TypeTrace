@@ -5,6 +5,7 @@ import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Button } from '@/shared/components/ui/button';
 import { useMatch } from '../hooks/use-match';
+import { MatchResult } from './MatchResult';
 import { RaceView } from './RaceView';
 import { RankLobby } from './RankLobby';
 import { RoomLobby } from './RoomLobby';
@@ -17,7 +18,7 @@ export const RankMode = () => {
   const [params, setParams] = useSearchParams();
   const code = params.get('room') ?? undefined;
   const { data: me } = useCurrentUser();
-  const { match, isLoading, error, gone } = useMatch(code);
+  const { match, isLoading, error, gone, invite } = useMatch(code);
   const roomGone = gone || (error as { response?: { status?: number } } | null)?.response?.status === 404;
 
   const setRoom = (next?: string) =>
@@ -54,5 +55,5 @@ export const RankMode = () => {
     );
   }
   if (match.status === 'countdown' || match.status === 'running') return <RaceView match={match} myId={me?._id} />;
-  return <p className="mx-auto my-auto text-primary">Match over</p>;
+  return <MatchResult match={match} myId={me?._id} invite={invite} onEnter={setRoom} onLeave={() => setRoom(undefined)} />;
 };
