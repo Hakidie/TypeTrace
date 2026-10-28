@@ -193,6 +193,7 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <div className="flex flex-wrap items-center justify-start gap-2">
             {full?.isPlacement && <Badge>Placement</Badge>}
+            {full?.language === 'en' && <Badge title="English passage, for ranked duels">EN</Badge>}
             {review && full?.pendingEdit && <Badge>Edited</Badge>}
             {own ? (
               own.onShowReason && learner.reviewNote ? (

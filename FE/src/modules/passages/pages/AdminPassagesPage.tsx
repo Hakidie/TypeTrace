@@ -13,7 +13,7 @@ import { PassageCard } from '../components/PassageCard';
 import { PassageForm } from '../components/PassageForm';
 import { PendingPassagesPanel } from '../components/PendingPassagesPanel';
 import { useDeletePassage, usePassages } from '../hooks/use-passages';
-import type { Passage, PassageStatus } from '../types/passage.types';
+import type { Passage, PassageLanguage, PassageStatus } from '../types/passage.types';
 
 const PAGE_SIZE = 9;
 
@@ -34,6 +34,12 @@ const STATUS_OPTIONS = [
   { value: 'archived', label: 'Archived' },
 ];
 
+// `?language=vi|en` in the URL: English passages are only used in ranked duels.
+const LANGUAGE_OPTIONS = [
+  { value: 'vi', label: 'Vietnamese' },
+  { value: 'en', label: 'English' },
+];
+
 // `?type=placement|regular` in the URL, sent as `isPlacement=true|false`.
 const TYPE_OPTIONS = [
   { value: 'placement', label: 'Placement' },
@@ -50,6 +56,7 @@ const PassageBank = () => {
   const list = useListParams({ sort: '-createdAt' });
   const status = list.get('status') as PassageStatus | '';
   const type = list.get('type');
+  const language = list.get('language') as PassageLanguage | '';
   const [editing, setEditing] = useState<Passage | null>(null);
   const [deleting, setDeleting] = useState<Passage | null>(null);
   const deletePassage = useDeletePassage();
@@ -61,6 +68,7 @@ const PassageBank = () => {
     q: list.q || undefined,
     status: status || undefined,
     isPlacement: type ? type === 'placement' : undefined,
+    language: language || undefined,
     visibility: 'public',
   });
 
@@ -135,6 +143,7 @@ const PassageBank = () => {
             filters={[
               { label: 'Status', value: status, options: STATUS_OPTIONS, onChange: (value) => list.set('status', value) },
               { label: 'Type', value: type, options: TYPE_OPTIONS, onChange: (value) => list.set('type', value) },
+              { label: 'Language', value: language, options: LANGUAGE_OPTIONS, onChange: (value) => list.set('language', value) },
             ]}
             summary={passages.data ? `${passages.data.total} ${passages.data.total === 1 ? 'passage' : 'passages'}` : 'Loading passages…'}
           />

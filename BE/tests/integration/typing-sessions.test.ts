@@ -609,3 +609,20 @@ describe('GET /api/sessions/activity (the profile page, SCRUM-157)', () => {
     expect((await api().get('/api/sessions/activity')).status).toBe(401);
   });
 });
+
+describe('English passages are not for practice (ranked duel, phase 1)', () => {
+  const english = { title: 'A quiet morning', content: 'The sun rose over the quiet town.', source: 'Written for TypeTrace', status: 'published', visibility: 'public', language: 'en' };
+
+  it('never picks an English passage at random', async () => {
+    await PassageModel.deleteMany({});
+    await PassageModel.create(english);
+
+    expect((await startSession(bearerFor(await createUser({})))).status).toBe(404);
+  });
+
+  it('refuses an English passage chosen by id', async () => {
+    const passage = await PassageModel.create(english);
+
+    expect((await startSession(bearerFor(await createUser({})), { passageId: String(passage._id) })).status).toBe(400);
+  });
+});
