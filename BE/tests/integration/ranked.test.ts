@@ -85,7 +85,8 @@ describe('Elo (ranked duel, phase 5)', () => {
       ['Minh', 1000, 980]
     ]);
     expect(await ratingOf(lan)).toMatchObject({ rating: 1020, peakRating: 1020, matches: 1, wins: 1, losses: 0 });
-    expect(await ratingOf(minh)).toMatchObject({ rating: 980, peakRating: 1000, matches: 1, wins: 0, losses: 1 });
+    // The peak is the best rating after a match: the start of the season is not one (phase 6 review).
+    expect(await ratingOf(minh)).toMatchObject({ rating: 980, peakRating: 980, matches: 1, wins: 0, losses: 1 });
   });
 
   it('uses K = 32 once a player has 10 matches in the season', async () => {

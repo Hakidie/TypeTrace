@@ -68,7 +68,8 @@ export const rateMatch = async (match: MatchDocument) => {
       const start = await startRatingFor(player.user, season);
       return SeasonRatingModel.findOneAndUpdate(
         { season: season._id, user: player.user },
-        { $setOnInsert: { rating: start, peakRating: start } },
+        // No peak yet: the start (soft reset) is not a tier reached this season; `$max` below sets it after the match.
+        { $setOnInsert: { rating: start } },
         { upsert: true, new: true }
       );
     })

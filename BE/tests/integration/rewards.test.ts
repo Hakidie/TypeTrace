@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SEASON_ITEMS } from '../../src/data/avatar-catalog';
 import { ENGLISH_PASSAGE_LIST } from '../../src/data/passages-en';
 import { MatchModel } from '../../src/models/match.model';
@@ -192,6 +192,39 @@ describe('season rewards (ranked duel, phase 6)', () => {
     await closeSeason(String(first._id));
 
     expect(await coinsOf(lan)).toBe(100);
+    expect((await ownedOf(lan)).sort()).toEqual(['effect:stars', first.rewardItem].sort());
+  });
+
+  it('does not count the start of a season (the soft reset) as a tier reached', async () => {
+    const lan = await player('Lan');
+    const minh = await player('Minh');
+    const first = await currentSeason();
+    await SeasonRatingModel.create({ season: first._id, user: lan.id, rating: 1500, peakRating: 1500, matches: 30 });
+    const second = await closeSeason(String(first._id));
+    await UserModel.updateOne({ _id: lan.id }, { ownedItems: [], coins: 0 });
+    // Lan starts season 2 at 1250 (Gold) and loses the one match she plays.
+    const { code, words } = await race(lan, minh);
+    await progress(minh.auth, code, words, true);
+
+    await closeSeason(String(second._id));
+
+    expect(await ownedOf(lan)).toEqual([]);
+  });
+
+  it('still closes the season when giving rewards fails, and gives them on the next try', async () => {
+    const lan = await player('Lan');
+    const first = await currentSeason();
+    await SeasonRatingModel.create({ season: first._id, user: lan.id, rating: 1300, peakRating: 1300, matches: 9 });
+    const failing = vi.spyOn(UserModel, 'findById').mockImplementationOnce(() => {
+      throw new Error('database hiccup');
+    });
+
+    const next = await closeSeason(String(first._id));
+    failing.mockRestore();
+
+    expect(next.number).toBe(2);
+    expect(await ownedOf(lan)).toEqual([]);
+    await closeSeason(String(first._id));
     expect((await ownedOf(lan)).sort()).toEqual(['effect:stars', first.rewardItem].sort());
   });
 

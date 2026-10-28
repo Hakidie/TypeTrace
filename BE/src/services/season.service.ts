@@ -67,12 +67,27 @@ export const currentSeason = async (): Promise<SeasonDocument> => {
 export const closeSeason = async (id: string): Promise<SeasonDocument> => {
   const closed = await SeasonModel.findOneAndUpdate({ _id: id, status: 'active' }, { status: 'closed', closedAt: new Date() }, { new: true });
   if (!closed) {
-    if (!(await SeasonModel.exists({ _id: id }))) throw notFound('Season not found');
+    const season = await SeasonModel.findById(id);
+    if (!season) throw notFound('Season not found');
+    // Closed before: give the rewards a failure left out (a player is never rewarded twice).
+    await tryGiveSeasonRewards(season);
     return currentSeason();
   }
   const next = await openSeason(closed.number + 1);
-  await giveSeasonRewards(closed);
+  await tryGiveSeasonRewards(closed);
   return next;
+};
+
+/**
+ * The rewards never fail the request that closed the season (often a player's match, through a lazy close). What a
+ * failure left out is given when the admin closes that season again (Seasons page) .
+ */
+const tryGiveSeasonRewards = async (season: SeasonDocument) => {
+  try {
+    await giveSeasonRewards(season);
+  } catch (error) {
+    console.error(`Season ${season.number}: giving the rewards failed`, error);
+  }
 };
 
 /** The reward items of a peak rating: the item of every tier reached (cumulative), and the season item from Gold up. */
@@ -87,17 +102,19 @@ const rewardsFor = (peakRating: number, season: SeasonDocument) => {
 
 /**
  * Gives every player of a closed season the rewards of the highest tier they reached; an item they already own is paid
- * in coins instead (its price, or `OWNED_REWARD_COINS`). Each player is claimed first, so a player is rewarded once.
- * ponytail: one player at a time inside the request that closes the season; a job queue if seasons get big.
+ * in coins instead (its price, or `OWNED_REWARD_COINS`). Each player is claimed right before the grant, so a player is
+ * rewarded once.
+ * ponytail: a crash between the claim and the grant loses that player's rewards; one player at a time inside the request
+ * that closes the season. A job queue if seasons get big.
  */
 const giveSeasonRewards = async (season: SeasonDocument) => {
   const players = await SeasonRatingModel.find({ season: season._id, peakRating: { $gte: tierStart('Gold') }, rewardedAt: { $exists: false } });
   for (const player of players) {
-    const claim = await SeasonRatingModel.updateOne({ _id: player._id, rewardedAt: { $exists: false } }, { rewardedAt: new Date() });
-    if (claim.modifiedCount === 0) continue;
     const user = await UserModel.findById(player.user).select('ownedItems');
     if (!user) continue;
-    const items = rewardsFor(player.peakRating, season);
+    const claim = await SeasonRatingModel.updateOne({ _id: player._id, rewardedAt: { $exists: false } }, { rewardedAt: new Date() });
+    if (claim.modifiedCount === 0) continue;
+    const items = rewardsFor(player.peakRating ?? 0, season);
     const fresh = items.filter((item) => !user.ownedItems.includes(item));
     const coins = items
       .filter((item) => user.ownedItems.includes(item))
