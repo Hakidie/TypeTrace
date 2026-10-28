@@ -7,11 +7,13 @@ export interface TypingStats {
   accuracy: number;
 }
 
-/** `GET /api/sessions/activity`: the learner's own typing activity, shown on the profile page (SCRUM-157). */
+/** `GET /api/sessions/activity`: the learner's own typing activity, shown on the profile page (SCRUM-157, SCRUM-31). */
 export interface TypingActivity {
-  /** Absent until a session is completed. */
+  /** Absent until a session is completed. Every completed session counts here, counted or not. */
   stats?: TypingStats;
-  /** Completed sessions per UTC day of the last `HEATMAP_DAYS` days. */
+  /** The learner's time zone (`settings.timezone`): the dates of `sessions` are days in it. */
+  timezone: string;
+  /** Counted sessions per day of the last `HEATMAP_DAYS` days, oldest first, with the days the daily mission was done. */
   sessions: ActivityDay[];
 }
 
@@ -45,4 +47,21 @@ export interface SessionListParams {
   mode?: SessionMode;
   /** The time the learner chose, in seconds. */
   timeLimitSeconds?: number;
+}
+
+/** `GET /api/profile/streak` (SCRUM-31): days in a row with a counted session, and today's daily mission. */
+export interface Streak {
+  /** The run that ends today, or yesterday while today has no counted session yet; 0 otherwise. */
+  current: number;
+  /** The longest run ever (at least `current`). */
+  longest: number;
+  today: {
+    /** Today in the learner's time zone, `YYYY-MM-DD`. */
+    date: string;
+    /** Counted sessions today. */
+    sessions: number;
+    /** Counted sessions the daily mission asks for (`DAILY_MISSION_SESSIONS` of the backend). */
+    missionGoal: number;
+    missionCompleted: boolean;
+  };
 }

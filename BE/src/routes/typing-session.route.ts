@@ -25,7 +25,10 @@ typingSessionRouter.use(authGuard, requireRole('user', 'admin'));
 
 typingSessionRouter.post('/', validate({ body: createSessionSchema }), createSession);
 typingSessionRouter.get('/', validate({ query: listSessionsQuerySchema }), listSessions);
-/** The learner's own `{ stats?, sessions }` for the profile page (SCRUM-157). Before `/:id`, which would take `activity` as an id. */
+/**
+ * The learner's own `{ stats?, timezone, sessions }` for the profile page (SCRUM-157, SCRUM-31): their counted sessions
+ * per day of their own time zone, from DailyProgress. Before `/:id`, which would take `activity` as an id.
+ */
 typingSessionRouter.get('/activity', getActivity);
 typingSessionRouter.get('/:id', validate({ params: idParamsSchema }), getSession);
 typingSessionRouter.get('/:id/stats', validate({ params: idParamsSchema }), getSessionStats);

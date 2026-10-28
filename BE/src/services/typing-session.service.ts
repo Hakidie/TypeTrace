@@ -6,6 +6,7 @@ import { paginate } from '../utils/pagination';
 import { titleSearchPattern } from '../utils/passage-text';
 import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
+import { recentProgressOf, recordCountedSession } from './daily-progress.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
 
 /** Sessions with fewer words, or faster than this, are saved but kept out of the error profile (ASSUMPTION). */
@@ -152,7 +153,9 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
   const correctWords = words.filter((word) => word.errorTypes.length === 0).length;
   const wpm = computeWpm(correctWords, durationMs);
 
-  session.set({
+  // One conditional write: only a request that still finds the session in progress completes it, so of two sent at the
+  // same time one gets 409. Only that request adds a counted session to the learner's day (SCRUM-31): it counts once.
+  const completed = await TypingSessionModel.findOneAndUpdate({ _id: session._id, status: 'in_progress' }, {
     status: 'completed',
     words,
     completedAt: now,
@@ -162,8 +165,15 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
     accuracy: round1((correctWords / words.length) * 100),
     ...countErrors(words),
     isCounted: isSessionCounted(words.length, wpm, elapsedMs)
-  });
-  return session.save();
+  }, { returnDocument: 'after', runValidators: true });
+  if (!completed) throw conflict('Session is not in progress');
+  if (completed.isCounted) {
+    // The session is saved: a failed day write must not answer 500, a retry would get 409. The rebuild adds the day.
+    await recordCountedSession(userId, now).catch((error) =>
+      console.error('DailyProgress not updated, npm run rebuild:progress adds the day:', error)
+    );
+  }
+  return completed;
 };
 
 /** The line chart takes one point every second, and a session shorter than 10 seconds is too short to draw. */
@@ -243,8 +253,14 @@ const timelineStatus = (words: SessionWord[], durationMs: number) => {
 export const abandonSession = async (userId: string, id: string) => {
   const session = await getSession(userId, id);
   if (session.status !== 'in_progress') throw conflict('Session is not in progress');
-  session.status = 'abandoned';
-  return session.save();
+  // Conditional, like `completeSession`: a session completed in the meantime stays completed (and counted once).
+  const abandoned = await TypingSessionModel.findOneAndUpdate(
+    { _id: session._id, status: 'in_progress' },
+    { status: 'abandoned' },
+    { returnDocument: 'after' }
+  );
+  if (!abandoned) throw conflict('Session is not in progress');
+  return abandoned;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -253,17 +269,30 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const HEATMAP_DAYS = 371;
 
 /**
- * Typing activity of each of `owners`, in two queries for all of them: `stats`, the average speed and accuracy of their
- * completed sessions (absent until one is completed), and `sessions`, their completed sessions per UTC day of the last
- * `HEATMAP_DAYS` days. Returns the activity of one owner.
+ * The average speed and accuracy of the completed sessions of each of `owners`, in one query for all of them. Returns
+ * the stats of one owner, `undefined` until they complete a session.
+ */
+const averageStatsOf = async (owners: unknown[]) => {
+  const averages = await TypingSessionModel.aggregate<{ _id: unknown; wpm: number; accuracy: number }>([
+    { $match: { owner: { $in: owners }, status: 'completed', wpm: { $exists: true } } },
+    { $group: { _id: '$owner', wpm: { $avg: '$wpm' }, accuracy: { $avg: '$accuracy' } } }
+  ]);
+  return (owner: unknown) => {
+    const average = averages.find((row) => String(row._id) === String(owner));
+    return average && { wpm: round1(average.wpm), accuracy: round1(average.accuracy) };
+  };
+};
+
+/**
+ * Typing activity of each of `owners` for the admin user list, in two queries for all of them: `stats`, the average
+ * speed and accuracy of their completed sessions (absent until one is completed), and `sessions`, their completed
+ * sessions per UTC day of the last `HEATMAP_DAYS` days, counted or not. The profile page reads DailyProgress instead
+ * (`getOwnActivity`), so its numbers can differ. Returns the activity of one owner.
  */
 export const typingActivityOf = async (owners: unknown[]) => {
   const since = new Date(Date.now() - HEATMAP_DAYS * DAY_MS);
-  const [averages, days] = await Promise.all([
-    TypingSessionModel.aggregate<{ _id: unknown; wpm: number; accuracy: number }>([
-      { $match: { owner: { $in: owners }, status: 'completed', wpm: { $exists: true } } },
-      { $group: { _id: '$owner', wpm: { $avg: '$wpm' }, accuracy: { $avg: '$accuracy' } } }
-    ]),
+  const [statsOf, days] = await Promise.all([
+    averageStatsOf(owners),
     TypingSessionModel.aggregate<{ _id: { owner: unknown; date: string }; sessions: number }>([
       { $match: { owner: { $in: owners }, status: 'completed', completedAt: { $gte: since } } },
       {
@@ -276,16 +305,22 @@ export const typingActivityOf = async (owners: unknown[]) => {
   ]);
   return (owner: unknown) => {
     const id = String(owner);
-    const average = averages.find((row) => String(row._id) === id);
+    const stats = statsOf(owner);
     return {
-      ...(average && { stats: { wpm: round1(average.wpm), accuracy: round1(average.accuracy) } }),
+      ...(stats && { stats }),
       sessions: days.filter((row) => String(row._id.owner) === id).map((row) => ({ date: row._id.date, sessions: row.sessions }))
     };
   };
 };
 
-/** The learner's own typing activity, for their profile page (SCRUM-157): the same as their row in the admin user list. */
+/**
+ * The learner's own typing activity, for their profile page (SCRUM-157): `stats` as in the admin user list, and from
+ * DailyProgress (SCRUM-31) their counted sessions per day of the last `HEATMAP_DAYS` days, with the days the daily mission
+ * was done, in their own time zone (`timezone`).
+ */
 export const getOwnActivity = async (userId: string) => {
   const owner = new Types.ObjectId(userId);
-  return (await typingActivityOf([owner]))(owner);
+  const [statsOf, progress] = await Promise.all([averageStatsOf([owner]), recentProgressOf(owner, HEATMAP_DAYS)]);
+  const stats = statsOf(owner);
+  return { ...(stats && { stats }), ...progress };
 };
