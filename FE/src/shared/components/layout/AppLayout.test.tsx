@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Home, Shield } from 'lucide-react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { tokenStore } from '@/modules/auth/store/token.store';
@@ -52,7 +52,7 @@ describe('AppLayout', () => {
     renderLayout();
 
     // The avatar fallback shows the user's initials once the user has loaded.
-    expect(await screen.findByText('A@')).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: 'Avatar' })).toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.queryByText('Admin')).not.toBeInTheDocument();
   });
@@ -79,12 +79,24 @@ describe('AppLayout', () => {
   it('does not show the Admin menu item to a learner', async () => {
     getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
     renderLayout();
-    expect(await screen.findByText('A@')).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: 'Avatar' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
 
     expect(await screen.findByRole('menuitem', { name: /Logout/ })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Admin' })).not.toBeInTheDocument();
+  });
+
+  it('shows the avatar head in the account menu button, and opens the wardrobe from the menu (ranked duel, phase 2)', async () => {
+    getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user', avatar: { skin: 'tan', face: 'cute', hair: 'long-pink', top: 'mint', bottom: 'navy', shoes: 'sneakers-brown' } });
+    renderWithProviders(<AppLayout navItems={[]} />, { route: '/', otherRoutes: { '/wardrobe': 'wardrobe page' } });
+
+    const menuButton = await screen.findByRole('button', { name: 'Account menu' });
+    expect(await within(menuButton).findByRole('img', { name: 'Avatar' })).toBeInTheDocument();
+    expect(menuButton.querySelector('img[src="/avatar/hair/long-pink.png"]')).not.toBeNull();
+    fireEvent.click(menuButton);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Wardrobe' }));
+    expect(await screen.findByText('wardrobe page')).toBeInTheDocument();
   });
 
   it('keeps the user signed in when /me fails for a reason other than 401', async () => {
@@ -107,7 +119,7 @@ describe('AppLayout', () => {
   it('opens the account menu from the avatar button with Mode and Logout', async () => {
     getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
     renderLayout();
-    await screen.findByText('A@');
+    await screen.findByRole('img', { name: 'Avatar' });
     expect(screen.queryByRole('menuitem', { name: /logout/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
