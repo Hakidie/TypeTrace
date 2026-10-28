@@ -15,6 +15,12 @@ describe('AvatarSprite', () => {
     expect(images[0].getAttribute('src')).toMatch(/\/avatar\/bottom\/navy\.png$/);
   });
 
+  it('loads its layer images lazily, so a wardrobe tab of a hundred cards does not fetch them all at once', () => {
+    const { container } = render(<AvatarSprite look={DEFAULT_AVATAR} />);
+
+    container.querySelectorAll('img').forEach((image) => expect(image).toHaveAttribute('loading', 'lazy'));
+  });
+
   it('shows only the head when cropped', () => {
     render(<AvatarSprite look={DEFAULT_AVATAR} scale={2} crop="head" label="Your avatar" />);
 

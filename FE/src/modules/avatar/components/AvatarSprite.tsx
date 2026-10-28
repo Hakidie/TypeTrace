@@ -37,6 +37,8 @@ export const AvatarSprite = ({ look, pose = 'idle', scale = 2, crop = 'full', la
             key={file}
             src={`/avatar/${file}`}
             alt=""
+            // The wardrobe shows a hundred avatars per tab: only the ones scrolled into view are fetched.
+            loading="lazy"
             draggable={false}
             className="absolute inset-0 size-full select-none"
             style={{ imageRendering: 'pixelated' }}
