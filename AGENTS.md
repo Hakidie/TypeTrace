@@ -98,6 +98,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `<feature>.module.ts` describing what it adds: `routes` + `navItems` (main app), `adminRoutes` + `adminNavItems`
   (admin area), `widgets` (floating components on every app page), a `navItems` entry `{ Component }` instead of a link puts a component in the top navigation (the chat button). Register it in `FE/src/app/modules.ts`.
 - HTTP only through the `http` instance (`shared/api/http.ts`). API functions return the response body: `http.get<T>(url).then((r) => r.data)`.
+  The one exception is a server event stream, which axios cannot read: `openMatchStream` in `modules/ranked/api/ranked.api.ts`
+  uses `fetch` with the `Authorization` header (never a token in the URL) and puts the events into the query cache.
 - Server data only through TanStack Query hooks in `hooks/use-<feature>.ts` (see `modules/notes/hooks/use-notes.ts`):
   a key factory, `useQuery` for reads, `useMutation` + `invalidateQueries` for writes. No `useEffect` + `useState` fetching.
 - The signed-in user: `useCurrentUser()`; after changing it, `useSetCurrentUser()` or invalidate `currentUserKey`.
