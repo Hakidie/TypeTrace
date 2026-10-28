@@ -26,3 +26,20 @@ export const DEFAULT_AVATAR: AvatarLook = {
   bottom: 'navy',
   shoes: 'sneakers-brown',
 };
+
+export type AvatarTier = 'gold' | 'platinum' | 'diamond' | 'legend';
+/** How an item is unlocked: a starter item, sold for coins, or a season tier reward. */
+export type AvatarUnlock = { kind: 'free' } | { kind: 'shop'; price: number } | { kind: 'tier'; tier: AvatarTier };
+
+export interface AvatarItem {
+  id: string;
+  unlock: AvatarUnlock;
+  owned: boolean;
+}
+
+/** `GET /api/avatar/catalog`. */
+export interface AvatarCatalog {
+  avatar: AvatarLook;
+  coins: number;
+  slots: Record<AvatarSlot, AvatarItem[]>;
+}

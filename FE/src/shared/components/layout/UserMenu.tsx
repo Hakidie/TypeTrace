@@ -1,4 +1,4 @@
-import { LogOut, Moon, Shield, Sun } from 'lucide-react';
+import { LogOut, Moon, Shield, Shirt, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLogout } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
@@ -26,6 +26,10 @@ export const UserMenu = ({ user }: { user?: CurrentUser }) => {
         <DropdownMenuItem onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')} className="gap-2">
           <ModeIcon className="size-4" />
           Mode: {mode === 'dark' ? 'Dark' : 'Light'}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate('/wardrobe')} className="gap-2">
+          <Shirt className="size-4" />
+          Wardrobe
         </DropdownMenuItem>
         {user?.role === 'admin' && (
           <DropdownMenuItem onClick={() => navigate('/admin')} className="gap-2">
