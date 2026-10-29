@@ -1,10 +1,9 @@
 import { DEFAULT_AVATAR } from '../data/avatar-catalog';
 import { SeasonModel } from '../models/season.model';
 import { SeasonRatingModel } from '../models/season-rating.model';
-import { UserModel } from '../models/user.model';
+import { ANONYMOUS_PLAYER_NAME, UserModel } from '../models/user.model';
 import { paginate } from '../utils/pagination';
 import { LeaderboardQuery, ListSeasonsQuery } from '../validators/ranked.validator';
-import { ANONYMOUS_PLAYER_NAME } from './match.service';
 import { currentSeason, startRatingFor, tierFor } from './season.service';
 
 /** A player needs this many matches in the season to be on the leaderboard. */

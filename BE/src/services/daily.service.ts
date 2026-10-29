@@ -3,10 +3,9 @@ import { DEFAULT_AVATAR } from '../data/avatar-catalog';
 import { DailyChallengeModel, DailyEntryDocument, DailyEntryModel } from '../models/daily.model';
 import { notEnglish } from '../models/passage.model';
 import { TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
-import { UserModel } from '../models/user.model';
+import { ANONYMOUS_PLAYER_NAME, UserModel } from '../models/user.model';
 import { conflict, notFound } from '../utils/app-error';
 import type { DailyBoardQuery } from '../validators/daily.validator';
-import { ANONYMOUS_PLAYER_NAME } from './match.service';
 import { samplePassage } from './passage.service';
 import { vietnamDayStart } from './rating.service';
 
