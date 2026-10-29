@@ -1,7 +1,9 @@
-import { RotateCcw, Trophy } from 'lucide-react';
+import { CalendarDays, CloudRain, RotateCcw, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
+import { DailyMode } from '@/modules/daily/components/DailyMode';
+import { RainMode } from '@/modules/rain/components/RainMode';
 import { RankMode } from '@/modules/ranked/components/RankMode';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
@@ -19,11 +21,13 @@ import { modeIcons } from '../typing.config';
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
 
-// Rank is not a typing session: `?mode=rank` shows the ranked duels (`RankMode`) instead of a passage to practise.
+// Rank, Rain and Daily are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=rain` the word rain minigame (`RainMode`), `?mode=daily` the daily challenge (`DailyMode`, which starts its own tries), instead of a passage to practise.
 const modeTabs = [
   { value: 'practice', label: 'Practice', icon: modeIcons.practice },
   { value: 'placement', label: 'Placement', icon: modeIcons.placement },
   { value: 'rank', label: 'Rank', icon: Trophy },
+  { value: 'rain', label: 'Rain', icon: CloudRain },
+  { value: 'daily', label: 'Daily', icon: CalendarDays },
 ];
 
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
@@ -65,6 +69,10 @@ export const TypingPage = () => {
   // `/typing?mode=placement` types the placement test passage (Start on the placement intro page opens it).
   const mode: SessionMode = searchParams.get('mode') === 'placement' ? 'placement' : 'practice';
   const ranked = searchParams.get('mode') === 'rank';
+  const rain = searchParams.get('mode') === 'rain';
+  const daily = searchParams.get('mode') === 'daily';
+  /** A tab without a typing session, a passage to choose or a time limit. */
+  const game = ranked || rain || daily;
   const pageRef = useRef<HTMLDivElement>(null);
   // Asks before the placement test: when the learner picks the Placement tab, and once when a learner who has just
   // created their account lands here (`welcome`, SCRUM-157). Cancel (or closing it) stays in practice. `welcome` stays
@@ -123,12 +131,12 @@ export const TypingPage = () => {
   // The first one types the passage from the URL, if any; switching the mode starts a random one.
   const openedFor = useRef<SessionMode | null>(null);
   useEffect(() => {
-    // The Rank tab has no typing session of its own (a duel is a match on the server).
-    if (ranked || openedFor.current === mode) return;
+    // Rank and Rain have no typing session of their own (a duel is a match on the server, a rain round stays in the browser).
+    if (game || openedFor.current === mode) return;
     const firstOpen = openedFor.current === null;
     openedFor.current = mode;
     start.mutate(firstOpen && passageId ? { mode, passageId } : { mode });
-  }, [mode, ranked, start, passageId]);
+  }, [mode, game, start, passageId]);
 
   // A new session on the picked passage (a random one when none is picked): used by Restart and when the time is up.
   const restart = () => start.mutate({ mode, passageId });
@@ -156,8 +164,8 @@ export const TypingPage = () => {
       {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right. */}
       <div className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 max-w-full md:justify-self-end">
-          {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank: the room picks the passage. */}
-          {!ranked && (
+          {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Rain. */}
+          {!game && (
           <DropdownMenu>
             <div className="flex outline outline-1 -outline-offset-1 outline-border">
               <DropdownMenuTrigger disabled={complete.isPending} title={passageTitle} aria-label="Choose passage" className={cn(chipClass, randomPassage ? 'text-muted-foreground' : 'text-primary')}>
@@ -185,18 +193,24 @@ export const TypingPage = () => {
         <TabGroup
           label="Mode"
           tabs={modeTabs}
-          value={ranked ? 'rank' : mode}
+          value={ranked ? 'rank' : rain ? 'rain' : daily ? 'daily' : mode}
           onChange={(value) => {
             if (value === 'practice') setSearchParams({});
             else if (value === 'rank') {
               if (!ranked) setSearchParams({ mode: 'rank' });
             }
-            else if (value !== mode || ranked) setPlacementPrompt({ open: true, welcome: false });
+            else if (value === 'daily') {
+              if (!daily) setSearchParams({ mode: 'daily' });
+            }
+            else if (value === 'rain') {
+              if (!rain) setSearchParams({ mode: 'rain' });
+            }
+            else if (value !== mode || game) setPlacementPrompt({ open: true, welcome: false });
           }}
         />
         <div className="md:justify-self-start">
-          {/* Not in Rank: a duel lasts the time the server gives it. */}
-          <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', ranked && 'hidden')}>
+          {/* Not in Rank (a duel lasts the time the server gives it) or Rain (a round lasts a minute). */}
+          <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', game && 'hidden')}>
             <TabGroup
               label="Time"
               framed={false}
@@ -237,7 +251,11 @@ export const TypingPage = () => {
           setSearchParams({ mode: 'placement' });
         }}
       />
-      {ranked ? (
+      {daily ? (
+        <DailyMode />
+      ) : rain ? (
+        <RainMode />
+      ) : ranked ? (
         <RankMode />
       ) : session ? (
         <TypingArea

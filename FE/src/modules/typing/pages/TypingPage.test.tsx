@@ -28,6 +28,33 @@ vi.mock('@/modules/ranked/api/ranked.api', () => ({
   openMatchStream: () => () => undefined,
 }));
 
+vi.mock('@/modules/rain/api/rain.api', () => ({
+  rainApi: { words: () => Promise.resolve({ words: ['nhà', 'cửa'], focus: [] }) },
+}));
+
+vi.mock('@/modules/daily/api/daily.api', () => ({
+  dailyApi: {
+    today: () =>
+      Promise.resolve({
+        date: '2026-10-29',
+        passageTitle: 'Hà Nội vào thu',
+        preview: 'Hà Nội vào thu',
+        seconds: 60,
+        triesLeft: 3,
+        best: null,
+        rank: null,
+        streak: 0,
+        coins: 0,
+        lastTry: null,
+        endsAt: new Date(Date.now() + 3_600_000).toISOString(),
+        yesterdayWinner: null,
+      }),
+    leaderboard: () => Promise.resolve({ date: '2026-10-29', players: 0, items: [], me: null }),
+    history: () => Promise.resolve([]),
+  },
+}));
+vi.mock('@lottiefiles/dotlottie-react', () => ({ DotLottieReact: () => null }));
+
 const session = {
   _id: 's1',
   mode: 'practice',
@@ -144,7 +171,7 @@ describe('TypingPage', () => {
     renderPage();
     await screen.findByRole('textbox', { name: 'Typing area' });
 
-    expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Rank']);
+    expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Rank', 'Rain', 'Daily']);
     expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radio', { name: 'Rank' })).toBeEnabled();
     expect(screen.getByText('Mùa thu Hà Nội')).toBeInTheDocument();
@@ -161,6 +188,47 @@ describe('TypingPage', () => {
     expect(screen.getByRole('radio', { name: 'Rank' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.queryByRole('button', { name: 'Choose passage' })).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens word rain from the Rain tab, without a passage to choose, a time limit or a typing session', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <UrlSearch />
+        <TypingPage />
+      </>,
+      { route: '/typing' },
+    );
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(screen.getByRole('radio', { name: 'Rain' }));
+
+    expect(await screen.findByRole('button', { name: 'Start' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=rain');
+    expect(screen.getByRole('radio', { name: 'Rain' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByRole('button', { name: 'Choose passage' })).not.toBeInTheDocument();
+    // Tests load no CSS: the time tabs are hidden by the `hidden` class of their frame.
+    expect(screen.getByRole('radiogroup', { name: 'Time', hidden: true }).parentElement).toHaveClass('hidden');
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the daily challenge from the Daily tab, without a practice session', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <UrlSearch />
+        <TypingPage />
+      </>,
+      { route: '/typing' },
+    );
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(screen.getByRole('radio', { name: 'Daily' }));
+
+    expect(await screen.findByRole('button', { name: 'Start try 1' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=daily');
+    expect(screen.queryByRole('button', { name: 'Choose passage' })).not.toBeInTheDocument();
     expect(start).toHaveBeenCalledTimes(1);
   });
 

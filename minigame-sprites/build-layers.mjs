@@ -113,8 +113,8 @@ const ACCESSORIES = [
   'tie-red', 'bowtie-black', 'belt-brown', 'medal-gold', 'suspenders-red', 'name-tag', 'heart-locket',
 ];
 /** Face styles of the body layer: classic (dot eyes) or cute (big shiny eyes with lashes, blush). */
-const FACES = ['classic', 'cute'];
-const bodyFile = (look, pose) => `body/${look.skin}${look.face === 'cute' ? '-cute' : ''}-${pose}.png`;
+const FACES = ['classic', 'cute', 'happy', 'cool', 'wink', 'sleepy'];
+const bodyFile = (look, pose) => `body/${look.skin}${look.face && look.face !== 'classic' ? `-${look.face}` : ''}-${pose}.png`;
 /** Worn behind the body. */
 const BACKS = ['angel-wings', 'bat-wings', 'fairy-wings', 'cape-red', 'cape-purple'];
 /** Cosmetic effects floating around the avatar, in every pose. */
@@ -348,49 +348,95 @@ const raiseArms = (g) => {
  * The cute face (big eyes with a white shine, lashes with a flick, blush, cat mouth) copies the eyes of the SpriteCook
  * girl sprite spritecook/girl-idle-raw.png, scaled to this frame.
  */
+// Round eyes 5 wide and 6 tall over the classic eyes (left x 26-30, right x 39-43): a full lash on top with a flick at
+// the outer corner, a dark iris with a 2x2 white shine high on the left (the same light on both eyes) and a warm light
+// low in the iris.
 const CUTE_EYE = { L: INK, D: '#3a1f17', I: '#7a4630', H: '#c08060', W: '#ffffff' };
 const CUTE_EYES = {
-  open: [['LLLLL', 'DWWID', 'DWIID', 'DIIHD', '.DDD.'], ['LLLLL', 'DWWID', 'DWIID', 'DHIID', '.DDD.']],
-  half: [['LLLLL', 'DIIHD', '.DDD.'], ['LLLLL', 'DHIID', '.DDD.']],
+  open: ['LLLLL', 'DWWDD', 'DWWDD', 'DDDID', 'DIHHD', '.DDD.'],
+  down: ['LLLLL', 'DWWDD', 'DIHHD', '.DDD.'],
 };
+const CUTE_BLUSH = '#f4a0ab';
 const drawCuteFace = (g, pose, skin) => {
   for (let y = 19; y <= 24; y++) for (let x = 26; x <= 43; x++) if (inEyeZone(x, y) && (g[y][x] === INK || g[y][x] === LASH)) g[y][x] = skin.h;
   for (let y = 25; y <= 29; y++) for (let x = 30; x <= 38; x++) if (g[y][x] === MOUTH) g[y][x] = skin.h;
   const eyes = (shape, y0) =>
-    CUTE_EYES[shape].forEach((rows, side) =>
-      rows.forEach((row, dy) => [...row].forEach((ch, dx) => CUTE_EYE[ch] && put(g, (side ? 39 : 26) + dx, y0 + dy, CUTE_EYE[ch]))),
+    CUTE_EYES[shape].forEach((row, dy) =>
+      [...row].forEach((ch, dx) => {
+        if (!CUTE_EYE[ch]) return;
+        put(g, 26 + dx, y0 + dy, CUTE_EYE[ch]);
+        put(g, 39 + dx, y0 + dy, CUTE_EYE[ch]);
+      }),
     );
-  const flick = (y) => pts(g, [[25, y], [44, y]], INK);
-  pts(g, [[24, 25], [25, 25], [44, 25], [45, 25]], '#f08f9a');
+  // The lash flicks up and out at the outer corners.
+  const flick = (y) => pts(g, [[25, y], [24, y - 1], [44, y], [45, y - 1]], INK);
+  rect(g, 25, 25, 3, 1, CUTE_BLUSH);
+  rect(g, 42, 25, 3, 1, CUTE_BLUSH);
   if (pose === 'idle') {
     eyes('open', 19);
-    flick(18);
-    pts(g, [[32, 26], [33, 27], [34, 26], [35, 27], [36, 26]], MOUTH);
+    flick(19);
+    pts(g, [[32, 26], [33, 27], [34, 27], [35, 26]], MOUTH);
   }
   if (pose === 'typing') {
-    eyes('half', 21);
-    flick(20);
-    rect(g, 33, 27, 3, 1, MOUTH);
+    eyes('down', 21);
+    rect(g, 33, 27, 2, 1, MOUTH);
   }
   if (pose === 'win') {
-    pts(g, [[26, 22], [27, 21], [28, 20], [29, 20], [30, 21], [31, 22]], INK);
-    pts(g, [[38, 22], [39, 21], [40, 20], [41, 20], [42, 21], [43, 22]], INK);
-    flick(23);
+    pts(g, [[26, 22], [27, 21], [28, 21], [29, 21], [30, 22], [39, 22], [40, 21], [41, 21], [42, 21], [43, 22]], INK);
+    flick(22);
     rect(g, 32, 26, 5, 1, INK);
-    rect(g, 31, 27, 7, 2, INK);
-    rect(g, 32, 29, 5, 1, INK);
-    rect(g, 33, 28, 3, 1, '#e5484d');
+    pts(g, [[32, 27], [36, 27]], INK);
+    rect(g, 33, 27, 3, 1, MOUTH);
+    pts(g, [[33, 28], [35, 28]], INK);
+    put(g, 34, 28, '#e5484d');
   }
   if (pose === 'lose') {
     for (const [x, y] of [[27, 19], [28, 20], [29, 21], [28, 22], [27, 23]]) rect(g, x, y, 2, 1, INK);
     for (const [x, y] of [[41, 19], [40, 20], [39, 21], [40, 22], [41, 23]]) rect(g, x, y, 2, 1, INK);
     pts(g, [[26, 24], [26, 25], [43, 24], [43, 25]], '#7fd4ff');
-    pts(g, [[32, 28], [33, 27], [34, 28], [35, 27], [36, 28]], MOUTH);
+    pts(g, [[33, 27], [34, 26], [35, 27]], MOUTH);
   }
 };
 
+/**
+ * The other expressions, on the classic face (eyes at x 28-29 and 40-41, rows 20-23; mouth around x 32-36, rows 26-27):
+ * drawn when idle or typing; to win or lose they make the classic faces, which are expressions already.
+ */
+const smile = [[32, 26], [33, 27], [34, 27], [35, 27], [36, 26]];
+const EXPRESSIONS = {
+  happy: (g) => {
+    pts(g, [[27, 22], [28, 21], [29, 21], [30, 22], [39, 22], [40, 21], [41, 21], [42, 22]], INK);
+    pts(g, smile, MOUTH);
+    rect(g, 33, 28, 3, 1, MOUTH);
+  },
+  cool: (g) => {
+    for (const x0 of [27, 39]) {
+      rect(g, x0, 21, 4, 1, INK);
+      rect(g, x0 + 1, 22, 2, 2, INK);
+    }
+    pts(g, [[33, 27], [34, 27], [35, 27], [36, 26], [37, 25]], MOUTH);
+  },
+  wink: (g) => {
+    rect(g, 28, 20, 2, 4, INK);
+    pts(g, [[27, 21], [27, 22]], LASH);
+    pts(g, [[39, 22], [40, 21], [41, 21], [42, 22]], INK);
+    pts(g, smile, MOUTH);
+    put(g, 34, 28, '#e5484d');
+  },
+  sleepy: (g) => {
+    rect(g, 27, 22, 4, 1, INK);
+    rect(g, 39, 22, 4, 1, INK);
+    pts(g, [[26, 21], [43, 21]], INK);
+    pts(g, [[33, 26], [34, 26], [32, 27], [35, 27], [33, 28], [34, 28]], MOUTH);
+  },
+};
 const drawFace = (g, pose, skin, face = 'classic') => {
   if (face === 'cute') return drawCuteFace(g, pose, skin);
+  if (EXPRESSIONS[face] && (pose === 'idle' || pose === 'typing')) {
+    for (let y = 19; y <= 24; y++) for (let x = 26; x <= 43; x++) if (inEyeZone(x, y) && (g[y][x] === INK || g[y][x] === LASH)) g[y][x] = skin.h;
+    for (let y = 25; y <= 29; y++) for (let x = 30; x <= 38; x++) if (g[y][x] === MOUTH) g[y][x] = skin.h;
+    return EXPRESSIONS[face](g);
+  }
   if (pose === 'idle') return;
   const clearEyes = (rows) => {
     for (const y of rows) for (let x = 26; x <= 43; x++) if (inEyeZone(x, y) && (g[y][x] === INK || g[y][x] === LASH)) g[y][x] = skin.h;
@@ -613,18 +659,26 @@ const drawHeadwear = (name) => {
     return outline(g, outsideBase);
   }
   if (name === 'headphones') {
+    // A band arching just above the hair from cup to cup, and two round cups over the ears (the head is x 13 to 48).
+    const g = tall();
+    const band = '#34343f';
     const teal = '#2ec4b6';
-    for (let x = 15; x <= 48; x++) {
-      let top = 0;
-      while (top < 20 && !base[top][x]) top++;
-      if (top < 20) rect(g, x, top + 1, 1, 3, '#2b2b36');
+    const [cx, rx, cy, ry] = [30.5, 19.5, 14, 16];
+    for (let x = 11; x <= 50; x++) {
+      const y = Math.round(cy - ry * Math.sqrt(Math.max(0, 1 - ((x - cx) / rx) ** 2)));
+      const next = Math.round(cy - ry * Math.sqrt(Math.max(0, 1 - ((x + (x < cx ? 1 : -1) - cx) / rx) ** 2)));
+      // Fill down to the neighbour's row so the steep ends of the arc stay connected.
+      for (let yy = Math.min(y, next); yy <= Math.max(y, next); yy++) rect(g, x, yy, 1, 2, band);
+      put(g, x, y, mix(band, '#ffffff', 0.25));
     }
-    for (const x0 of [10, 46]) {
-      rect(g, x0, 14, 8, 12, INK);
-      rect(g, x0 + 1, 15, 6, 10, teal);
-      rect(g, x0 + 2, 17, 4, 6, mix(teal, '#000000', 0.45));
+    for (const x0 of [8, 47]) {
+      rect(g, x0, 13, 7, 13, teal);
+      rect(g, x0, 13, 7, 1, mix(teal, '#ffffff', 0.35));
+      rect(g, x0 + (x0 < 32 ? 0 : 6), 14, 1, 11, mix(teal, '#000000', 0.25));
+      rect(g, x0 + 2, 16, 3, 7, mix(teal, '#000000', 0.45));
+      for (const [x, y] of [[x0, 13], [x0 + 6, 13], [x0, 25], [x0 + 6, 25]]) g[y + g.oy][x] = null;
     }
-    return g;
+    return outline(g);
   }
   if (name === 'glasses') {
     const frame = '#22202a';
@@ -1347,7 +1401,7 @@ writeFileSync(
         bottom: 'bottom/{bottom}.png',
         shoes: 'shoes/{shoes}.png (default sneakers-brown)',
         top: 'top/{top}-{arms}.png (arms: up in the win pose, down otherwise; dress-* items also cover the hips)',
-        body: 'body/{skin}-{pose}.png, or body/{skin}-cute-{pose}.png with the cute face',
+        body: 'body/{skin}-{pose}.png for the classic face, body/{skin}-{face}-{pose}.png for the others',
         accessory: 'accessory/{accessory}.png (optional)',
         hair: 'hair/{hair}.png',
         headwear: 'headwear/{headwear}.png (optional)',

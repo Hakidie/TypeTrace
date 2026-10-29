@@ -11,7 +11,11 @@ export const AVATAR_SLOTS = {
   ],
   "face": [
     "classic",
-    "cute"
+    "cute",
+    "happy",
+    "cool",
+    "wink",
+    "sleepy"
   ],
   "hair": [
     "short-brown",

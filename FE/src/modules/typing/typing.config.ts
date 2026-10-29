@@ -1,4 +1,4 @@
-import { ClipboardCheck, Keyboard, type LucideIcon } from 'lucide-react';
+import { CalendarDays, ClipboardCheck, Keyboard, type LucideIcon } from 'lucide-react';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 import type { SessionMode } from './types/typing.types';
 
@@ -14,12 +14,14 @@ export const errorLabels: Record<WordErrorType, string> = {
 export const modeLabels: Record<SessionMode, string> = {
   practice: 'Practice',
   placement: 'Placement',
+  daily: 'Daily',
 };
 
 /** The icons of the typing modes: on the Typing page tabs and on the session cards of the profile page. */
 export const modeIcons: Record<SessionMode, LucideIcon> = {
   practice: Keyboard,
   placement: ClipboardCheck,
+  daily: CalendarDays,
 };
 
 /** "30s", "2m": the way the Typing page names its time choices. */

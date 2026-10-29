@@ -29,7 +29,7 @@
     "bottom": "bottom/{bottom}.png",
     "shoes": "shoes/{shoes}.png (default sneakers-brown)",
     "top": "top/{top}-{arms}.png (arms: up in the win pose, down otherwise; dress-* items also cover the hips)",
-    "body": "body/{skin}-{pose}.png, or body/{skin}-cute-{pose}.png with the cute face",
+    "body": "body/{skin}-{pose}.png for the classic face, body/{skin}-{face}-{pose}.png for the others",
     "accessory": "accessory/{accessory}.png (optional)",
     "hair": "hair/{hair}.png",
     "headwear": "headwear/{headwear}.png (optional)",
@@ -48,7 +48,11 @@
     ],
     "face": [
       "classic",
-      "cute"
+      "cute",
+      "happy",
+      "cool",
+      "wink",
+      "sleepy"
     ],
     "hair": [
       "short-brown",

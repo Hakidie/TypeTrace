@@ -6,6 +6,7 @@ import { paginate } from '../utils/pagination';
 import { titleSearchPattern } from '../utils/passage-text';
 import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
+import { recordTry } from './daily.service';
 import { recentProgressOf, recordCountedSession } from './daily-progress.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
 import { recordDailyTaskProgress, taskCountsSince } from './user-daily-tasks.service';
@@ -153,20 +154,26 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
   const words = gradeWords(session.targetWords, typedWords, typedAtMs);
   const correctWords = words.filter((word) => word.errorTypes.length === 0).length;
   const wpm = computeWpm(correctWords, durationMs);
+  const { errorCounts, opportunityCounts } = countErrors(words);
 
   // One conditional write: only a request that still finds the session in progress completes it, so of two sent at the
   // same time one gets 409. Only that request adds a counted session to the learner's day (SCRUM-31): it counts once.
-  const completed = await TypingSessionModel.findOneAndUpdate({ _id: session._id, status: 'in_progress' }, {
-    status: 'completed',
-    words,
-    completedAt: now,
-    timeLimitSeconds,
-    durationMs,
-    wpm,
-    accuracy: round1((correctWords / words.length) * 100),
-    ...countErrors(words),
-    isCounted: isSessionCounted(words.length, wpm, elapsedMs)
-  }, { returnDocument: 'after', runValidators: true });
+  const completed = await TypingSessionModel.findOneAndUpdate(
+    { _id: session._id, status: 'in_progress' },
+    {
+      status: 'completed',
+      words,
+      completedAt: now,
+      timeLimitSeconds,
+      durationMs,
+      wpm,
+      accuracy: round1((correctWords / words.length) * 100),
+      errorCounts,
+      opportunityCounts,
+      isCounted: isSessionCounted(words.length, wpm, elapsedMs)
+    },
+    { returnDocument: 'after', runValidators: true }
+  );
   if (!completed) throw conflict('Session is not in progress');
   if (completed.isCounted) {
     // The session is saved: a failed day write must not answer 500, a retry would get 409. The rebuild adds the day.
@@ -179,6 +186,8 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
       console.error('Daily tasks not updated, the next counted session of the day adds this one:', error)
     );
   }
+  // A try of the daily challenge also updates the learner's day: best score, streak and coins.
+  if (completed.mode === 'daily') await recordTry(completed);
   return completed;
 };
 

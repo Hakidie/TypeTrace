@@ -3,7 +3,7 @@ import { Types } from 'mongoose';
 import { DEFAULT_AVATAR } from '../data/avatar-catalog';
 import { MatchDocument, MatchModel, MatchPlayer, MatchResult, OPEN_MATCH_STATUSES } from '../models/match.model';
 import { splitWords } from '../models/passage.model';
-import { UserModel } from '../models/user.model';
+import { ANONYMOUS_PLAYER_NAME, UserModel } from '../models/user.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { ProgressInput } from '../validators/match.validator';
 import { cancelTimer, closeStreams, isConnected, matchSettings, publish, publishTo, schedule, subscribe, withMatchLock } from './match-hub';
@@ -11,7 +11,6 @@ import { generateRoomCode, pickRankedPassage, toPublicMatch } from './match-view
 import { rateMatch } from './rating.service';
 import { computeWpm, gradeWords, MAX_COUNTED_WPM, MIN_COUNTED_WORDS, SESSION_GRACE_MS } from './typing-session.service';
 
-export const ANONYMOUS_PLAYER_NAME = 'Anonymous player';
 
 const roomNotFound = () => notFound('Room not found');
 

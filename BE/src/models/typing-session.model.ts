@@ -2,10 +2,13 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import { WordError, WordErrorType } from '../utils/vietnamese-errors';
 
-export const sessionModes = ['practice', 'placement'] as const;
+/** `daily` sessions are only started by the daily challenge (`POST /api/daily/sessions`), never by `POST /api/sessions`. */
+export const sessionModes = ['practice', 'placement', 'daily'] as const;
+export const startableModes = ['practice', 'placement'] as const;
 export const sessionStatuses = ['in_progress', 'completed', 'abandoned'] as const;
 
 export type SessionMode = (typeof sessionModes)[number];
+export type StartableMode = (typeof startableModes)[number];
 export type SessionStatus = (typeof sessionStatuses)[number];
 
 /** How many times each error type happened (or could have happened). */
@@ -27,6 +30,8 @@ export interface TypingSessionDocument extends mongoose.Document {
   passageId: string;
   /** Copy of the passage title taken when the session started (sessions from before this field have none). */
   passageTitle?: string;
+  /** The day of the daily challenge this try belongs to (`daily` sessions only), so a try finished after midnight counts for its own day. */
+  dailyDate?: string;
   /** Copy of the passage words taken when the session started. */
   targetWords: string[];
   status: SessionStatus;
@@ -68,6 +73,7 @@ const typingSessionSchema = new Schema<TypingSessionDocument>(
     mode: { type: String, enum: sessionModes, default: 'practice' },
     passageId: { type: String, required: true },
     passageTitle: String,
+    dailyDate: String,
     targetWords: { type: [String], required: true },
     status: { type: String, enum: sessionStatuses, default: 'in_progress' },
     words: { type: [wordSchema], default: [] },
