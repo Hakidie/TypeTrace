@@ -45,9 +45,9 @@ describe('seasons (ranked duel, phase 5)', () => {
     const next = await closeSeason(String(first._id));
 
     expect(next.number).toBe(2);
-    expect(await startRatingFor(strong, next)).toBe(1101);
-    expect(await startRatingFor(weak, next)).toBe(950);
-    expect(await startRatingFor(new Types.ObjectId(), next)).toBe(1000);
+    expect(await startRatingFor(strong, next, 'race')).toBe(1101);
+    expect(await startRatingFor(weak, next, 'race')).toBe(950);
+    expect(await startRatingFor(new Types.ObjectId(), next, 'race')).toBe(1000);
   });
 
   it('closes a season only once', async () => {

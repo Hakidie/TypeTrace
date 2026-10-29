@@ -1,5 +1,6 @@
 import type { Types } from 'mongoose';
 import { OWNED_REWARD_COINS, REWARD_TIERS, SEASON_ITEMS, Tier, TIER_REWARDS, unlockOfKey } from '../data/avatar-catalog';
+import type { MatchKind } from '../models/match.model';
 import { SeasonDocument, SeasonModel } from '../models/season.model';
 import { SeasonRatingModel } from '../models/season-rating.model';
 import { UserModel } from '../models/user.model';
@@ -130,8 +131,9 @@ const giveSeasonRewards = async (season: SeasonDocument) => {
  * Where a player starts a season (soft reset): halfway back to `START_RATING` from their rating at the end of the season
  * before, or `START_RATING` without one.
  */
-export const startRatingFor = async (userId: string | Types.ObjectId, season: SeasonDocument) => {
+export const startRatingFor = async (userId: string | Types.ObjectId, season: SeasonDocument, kind: MatchKind) => {
   const before = await SeasonModel.findOne({ number: season.number - 1 }).select('_id');
-  const last = before && (await SeasonRatingModel.findOne({ season: before._id, user: userId }).select('rating'));
+  // Each kind of match resets from its own rating: a strong racer starts word rain like anyone new.
+  const last = before && (await SeasonRatingModel.findOne({ season: before._id, user: userId, kind }).select('rating'));
   return last ? Math.round(START_RATING + (last.rating - START_RATING) / 2) : START_RATING;
 };

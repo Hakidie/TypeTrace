@@ -1,4 +1,5 @@
 import { DEFAULT_AVATAR } from '../data/avatar-catalog';
+import type { MatchKind } from '../models/match.model';
 import { SeasonModel } from '../models/season.model';
 import { SeasonRatingModel } from '../models/season-rating.model';
 import { ANONYMOUS_PLAYER_NAME, UserModel } from '../models/user.model';
@@ -15,11 +16,11 @@ const seasonView = (season: { number: number; startsAt: Date; endsAt: Date }) =>
   endsAt: season.endsAt
 });
 
-/** The own rating in the current season; without a rated match yet, where the player starts it (`startRatingFor`). */
-export const getMyRanking = async (userId: string) => {
+/** The own rating of one kind of match in the current season; without a rated match yet, where the player starts it (`startRatingFor`). */
+export const getMyRanking = async (userId: string, kind: MatchKind) => {
   const season = await currentSeason();
-  const rating = await SeasonRatingModel.findOne({ season: season._id, user: userId });
-  const value = rating?.rating ?? (await startRatingFor(userId, season));
+  const rating = await SeasonRatingModel.findOne({ season: season._id, user: userId, kind });
+  const value = rating?.rating ?? (await startRatingFor(userId, season, kind));
   return {
     season: seasonView(season),
     rating: value,
@@ -32,10 +33,10 @@ export const getMyRanking = async (userId: string) => {
   };
 };
 
-/** The leaderboard of the current season: display names and avatars only, never an email. */
-export const getLeaderboard = async (query: LeaderboardQuery) => {
+/** The leaderboard of one kind of match in the current season: display names and avatars only, never an email. */
+export const getLeaderboard = async ({ kind, ...query }: LeaderboardQuery) => {
   const season = await currentSeason();
-  const page = await paginate(SeasonRatingModel, { season: season._id, matches: { $gte: LEADERBOARD_MIN_MATCHES } }, query, {
+  const page = await paginate(SeasonRatingModel, { season: season._id, kind, matches: { $gte: LEADERBOARD_MIN_MATCHES } }, query, {
     select: 'user rating matches wins'
   });
   // `.lean()` skips `toJSON`: only the public fields are read.

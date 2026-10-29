@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import * as rankedService from '../services/ranked.service';
 import { closeSeason as closeSeasonById } from '../services/season.service';
-import { LeaderboardQuery, ListSeasonsQuery } from '../validators/ranked.validator';
+import { LeaderboardQuery, ListSeasonsQuery, RankingQuery } from '../validators/ranked.validator';
 
 export const getMyRanking = async (req: Request, res: Response) => {
-  res.json(await rankedService.getMyRanking(req.user!.sub));
+  res.json(await rankedService.getMyRanking(req.user!.sub, (req.query as unknown as RankingQuery).kind));
 };
 
 export const getLeaderboard = async (req: Request, res: Response) => {

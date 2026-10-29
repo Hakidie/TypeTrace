@@ -49,7 +49,7 @@ describe('LeaderboardPage (ranked duel, phase 5)', () => {
     expect(within(rows[0]).getByText('75%')).toBeInTheDocument();
     expect(within(rows[1]).getByText('(you)')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Rank S3' })).toBeInTheDocument();
-    expect(leaderboard).toHaveBeenCalledWith({ page: 1, limit: 20 });
+    expect(leaderboard).toHaveBeenCalledWith({ page: 1, limit: 20, kind: 'race' });
   });
 
   it('says when nobody has 5 matches yet', async () => {
@@ -66,7 +66,7 @@ describe('LeaderboardPage (ranked duel, phase 5)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
 
-    await waitFor(() => expect(leaderboard).toHaveBeenLastCalledWith({ page: 2, limit: 20 }));
+    await waitFor(() => expect(leaderboard).toHaveBeenLastCalledWith({ page: 2, limit: 20, kind: 'race' }));
   });
 
   it('shows an error with a way to try again', async () => {
@@ -88,5 +88,17 @@ describe('LeaderboardPage (ranked duel, phase 5)', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /^Rank/ }));
     expect(await screen.findByText('Minh')).toBeInTheDocument();
+  });
+});
+
+describe('LeaderboardPage kinds of match (rain duel)', () => {
+  it('switches to the rain board', async () => {
+    leaderboard.mockResolvedValue(board([row(1, 'u1', 'Minh', 1420, 'Platinum', 0.75)]));
+    renderPage();
+    await screen.findAllByRole('article');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Rain' }));
+
+    await waitFor(() => expect(leaderboard).toHaveBeenLastCalledWith({ page: 1, limit: 20, kind: 'rain' }));
   });
 });

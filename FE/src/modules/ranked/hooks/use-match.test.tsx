@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestQueryClient } from '@/test/render-with-providers';
 import type { MatchEvent, PublicMatch } from '../types/ranked.types';
-import { useMatch } from './use-match';
+import { matchKeys, useMatch } from './use-match';
 
 const get = vi.fn();
 const close = vi.fn();
@@ -32,6 +32,7 @@ const player = (userId: string, displayName: string) => ({
 });
 const match: PublicMatch = {
   code: 'ABC234',
+  kind: 'race',
   status: 'running',
   rated: false,
   passageTitle: 'A quiet morning',
@@ -71,5 +72,19 @@ describe('useMatch', () => {
 
     unmount();
     expect(close).toHaveBeenCalled();
+  });
+});
+
+describe('useMatch rain events (rain duel)', () => {
+  it('keeps the rain of a duel in its own cache entry', async () => {
+    get.mockResolvedValue(match);
+    const queryClient = createTestQueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    renderHook(() => useMatch('ABC234'), { wrapper });
+    await waitFor(() => expect(get).toHaveBeenCalled());
+
+    act(() => emit({ event: 'rain', data: { type: 'spawn', serverNow: 1000, side: 'u1', drop: { id: '1', text: 'wind', lane: 0, bornAt: 1000, fallMs: 7000, thrown: false } } }));
+
+    expect(queryClient.getQueryData<{ sides: Record<string, { drops: unknown[] }> }>(matchKeys.rain('ABC234'))?.sides.u1.drops).toHaveLength(1);
   });
 });

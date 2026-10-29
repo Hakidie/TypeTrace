@@ -32,7 +32,8 @@ app.use(cors({ origin: env.clientUrl }));
 app.use(express.json());
 if (!isTest) app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 // The progress of a ranked duel (several reports a second) has its own limit per player in `match.route.ts`.
-const isDuelProgress = (path: string) => /^\/api\/matches\/[^/]+\/progress$/.test(path);
+// The words of a rain duel (one request per word) too.
+const isDuelProgress = (path: string) => /^\/api\/matches\/[^/]+\/(progress|rain)$/.test(path);
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300, skip: (req) => isTest || isDuelProgress(req.path) }));
 
 // Stricter limit for credential and OTP endpoints. `/me` is read on every page
