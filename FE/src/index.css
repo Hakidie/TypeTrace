@@ -236,3 +236,81 @@ body {
     animation: duel-spark 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }
+
+/*
+ * The avatar effects move (AvatarSprite puts one class on the effect layer). Stepped timing keeps the pixel art crisp;
+ * people who ask for less motion get the still layer.
+ */
+@keyframes avatar-fx-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4%);
+  }
+}
+
+@keyframes avatar-fx-sway {
+  0% {
+    transform: translate(-2%, -3%);
+    opacity: 0;
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(2%, 0);
+  }
+  100% {
+    transform: translate(-2%, 3%);
+    opacity: 0;
+  }
+}
+
+@keyframes avatar-fx-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes avatar-fx-flicker {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.06);
+  }
+}
+
+/* Less motion: the effects stay in place and only fade slowly, so they still look alive without moving. */
+@media (prefers-reduced-motion: reduce) {
+  .avatar-fx-bob,
+  .avatar-fx-sway,
+  .avatar-fx-twinkle,
+  .avatar-fx-flicker {
+    animation: avatar-fx-twinkle 2.4s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .avatar-fx-bob {
+    animation: avatar-fx-bob 1.6s steps(4) infinite;
+  }
+  .avatar-fx-sway {
+    animation: avatar-fx-sway 2.4s steps(8) infinite;
+  }
+  .avatar-fx-twinkle {
+    animation: avatar-fx-twinkle 1.2s steps(3) infinite;
+  }
+  .avatar-fx-flicker {
+    animation: avatar-fx-flicker 0.5s steps(2) infinite;
+    transform-origin: bottom;
+  }
+}

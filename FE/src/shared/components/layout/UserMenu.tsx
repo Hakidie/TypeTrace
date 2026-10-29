@@ -8,17 +8,22 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avat
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { useThemeMode } from '@/modules/settings/hooks/use-theme-mode';
 
-/** The avatar as a button: it opens a menu with Mode (each press switches between Light and Dark), Admin (admins only: the link to the admin area) and Logout. */
+/** The avatar and the user's name as a button: it opens a menu with Mode (each press switches between Light and Dark), Admin (admins only: the link to the admin area) and Logout. */
 export const UserMenu = ({ user }: { user?: CurrentUser }) => {
   const handleLogout = useLogout();
   const navigate = useNavigate();
   const { mode, setMode } = useThemeMode();
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? '??';
+  // The user's own name (the menu is theirs alone): the display name, or the start of their email without one.
+  const name = user?.displayName || user?.email?.split('@')[0];
   const ModeIcon = mode === 'dark' ? Moon : Sun;
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger aria-label="Account menu" className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <DropdownMenuTrigger
+        aria-label="Account menu"
+        className="flex items-center gap-2 py-1 pl-1 pr-1 text-sm font-semibold text-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:pr-3"
+      >
         <Avatar className="size-9">
           <AvatarImage src={user?.avatarUrl} alt={user?.email} />
           {/* No uploaded picture: the head of the pixel avatar (36px = the 40px head at 0.9). */}
@@ -26,6 +31,8 @@ export const UserMenu = ({ user }: { user?: CurrentUser }) => {
             {user ? <AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} crop="head" scale={0.9} /> : initials}
           </AvatarFallback>
         </Avatar>
+        {/* Narrow screens keep only the avatar: the nav links need the room. */}
+        {name && <span className="hidden max-w-36 truncate xl:inline">{name}</span>}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuItem onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')} className="gap-2">

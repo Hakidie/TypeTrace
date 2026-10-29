@@ -6,6 +6,8 @@ import type { AvatarLook, AvatarPose } from '../types/avatar.types';
 const { width: FRAME_W, height: FRAME_H } = AVATAR_MANIFEST;
 /** The head in the 76x76 frame (the body frame starts 6px right, 12px down): a 40px square around the face. */
 const HEAD = { x: 18, y: 8, size: 40 };
+/** How each effect moves (`avatar-fx-*` in index.css): floating things bob, falling things sway, stars twinkle, flames flicker. */
+const EFFECT_MOTION: Record<string, string> = { hearts: 'bob', bubbles: 'bob', notes: 'bob', snow: 'sway', leaves: 'sway', stars: 'twinkle', flames: 'flicker' };
 
 interface AvatarSpriteProps {
   look: AvatarLook;
@@ -40,7 +42,7 @@ export const AvatarSprite = ({ look, pose = 'idle', scale = 2, crop = 'full', la
             // The wardrobe shows a hundred avatars per tab: only the ones scrolled into view are fetched.
             loading="lazy"
             draggable={false}
-            className="absolute inset-0 size-full select-none"
+            className={cn('absolute inset-0 size-full select-none', file.startsWith('effect/') && look.effect && `avatar-fx-${EFFECT_MOTION[look.effect] ?? 'bob'}`)}
             style={{ imageRendering: 'pixelated' }}
           />
         ))}

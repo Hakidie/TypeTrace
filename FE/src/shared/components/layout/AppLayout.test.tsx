@@ -87,6 +87,14 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('menuitem', { name: 'Admin' })).not.toBeInTheDocument();
   });
 
+  it('shows the user name beside the avatar in the account menu button', async () => {
+    getMe.mockResolvedValue({ _id: '1', email: 'lan@example.com', role: 'user', displayName: 'Lan Nguyen' });
+    renderLayout();
+
+    const menuButton = await screen.findByRole('button', { name: 'Account menu' });
+    expect(await within(menuButton).findByText('Lan Nguyen')).toBeInTheDocument();
+  });
+
   it('shows the avatar head in the account menu button, and opens the wardrobe from the menu (ranked duel, phase 2)', async () => {
     getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user', avatar: { skin: 'tan', face: 'cute', hair: 'long-pink', top: 'mint', bottom: 'navy', shoes: 'sneakers-brown' } });
     renderWithProviders(<AppLayout navItems={[]} />, { route: '/', otherRoutes: { '/wardrobe': 'wardrobe page' } });

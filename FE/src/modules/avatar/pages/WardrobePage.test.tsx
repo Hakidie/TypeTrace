@@ -61,7 +61,7 @@ describe('WardrobePage', () => {
     expect(save).toBeDisabled();
 
     openTab('Hair');
-    fireEvent.click(screen.getByRole('button', { name: 'long-pink' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Long pink' }));
     expect(save).toBeEnabled();
     fireEvent.click(save);
 
@@ -73,12 +73,12 @@ describe('WardrobePage', () => {
     await screen.findByRole('img', { name: 'Your avatar' });
 
     openTab('Hair');
-    expect(within(screen.getByRole('button', { name: /buns-pink/ })).getByText('100 coins')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: /Buns pink/ })).getByText('100 coins')).toBeInTheDocument();
 
     openTab('Headwear');
-    const halo = screen.getByRole('button', { name: /halo/ });
+    const halo = screen.getByRole('button', { name: /Halo/ });
     expect(within(halo).getByText('Legend reward')).toBeInTheDocument();
-    expect(within(screen.getByRole('button', { name: /tiara/ })).getByText('Season reward')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: /Tiara/ })).getByText('Season reward')).toBeInTheDocument();
     expect(halo).toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(halo);
     expect(halo).toHaveAttribute('aria-pressed', 'false');
@@ -91,11 +91,11 @@ describe('WardrobePage', () => {
     await screen.findByRole('img', { name: 'Your avatar' });
 
     openTab('Hair');
-    const buns = screen.getByRole('button', { name: 'buns-pink (100 coins)' });
+    const buns = screen.getByRole('button', { name: 'Buns pink (100 coins)' });
     fireEvent.click(buns);
     expect(buns).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Buy buns-pink for 100 coins' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Buy Buns pink for 100 coins' }));
 
     await waitFor(() => expect(buy).toHaveBeenCalledWith('hair:buns-pink'));
     expect(await screen.findByText('50 coins')).toBeInTheDocument();
@@ -108,9 +108,9 @@ describe('WardrobePage', () => {
     await screen.findByRole('img', { name: 'Your avatar' });
 
     openTab('Hair');
-    fireEvent.click(screen.getByRole('button', { name: /buns-pink/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Buns pink/ }));
 
-    expect(screen.getByRole('button', { name: 'Buy buns-pink for 100 coins' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Buy Buns pink for 100 coins' })).toBeDisabled();
     expect(screen.getByText('Not enough coins')).toBeInTheDocument();
   });
 
@@ -131,11 +131,32 @@ describe('WardrobePage', () => {
     await screen.findByRole('img', { name: 'Your avatar' });
 
     openTab('Hair');
-    fireEvent.click(screen.getByRole('button', { name: 'long-pink' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Long pink' }));
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
 
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'short-brown' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Short brown' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('groups the colors of a style: a style card puts it on, its colors are shown beside', async () => {
+    catalog.mockResolvedValue({
+      avatar: DEFAULT_AVATAR,
+      coins: 0,
+      slots: {
+        ...slots,
+        hair: ['short-brown', 'short-pink', 'long-brown', 'long-pink'].map((id) => ({ id, unlock: free, owned: true })),
+      },
+    });
+    renderPage();
+    await screen.findByRole('img', { name: 'Your avatar' });
+
+    openTab('Hair');
+    expect(within(screen.getByRole('region', { name: 'Short colors' })).getByRole('button', { name: 'Short pink' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Long' }));
+
+    // The brown worn stays brown in the new style.
+    expect(screen.getByRole('button', { name: 'Long brown' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('region', { name: 'Short colors' })).not.toBeInTheDocument();
   });
 
   it('shows the backend error with a retry button', async () => {
