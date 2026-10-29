@@ -47,47 +47,41 @@ beforeEach(() => {
 });
 
 describe('ProfileHeader (SCRUM-157)', () => {
-  it('shows the avatar, the name, the email and the numbers', () => {
+  it('shows the avatar, the name in the look of the numbers, the role over it, no email, and the numbers', () => {
     renderHeader(user, { stats: { wpm: 66.3, accuracy: 96.3 }, timezone: 'Asia/Ho_Chi_Minh', sessions: [] });
 
-    expect(screen.getByRole('button', { name: 'Change avatar' })).toBeInTheDocument();
-    expect(screen.getByText('Alice')).toBeInTheDocument();
-    expect(screen.getByText('alice@example.com')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Use a picture' })).toBeInTheDocument();
+    expect(screen.getByText('Alice')).toHaveClass('font-black', 'text-primary');
+    expect(screen.getByText('user')).toBeInTheDocument();
+    expect(screen.queryByText('alice@example.com')).not.toBeInTheDocument();
     expect(screen.getByText('96%')).toBeInTheDocument();
     expect(screen.getByText('66')).toBeInTheDocument();
     expect(screen.getByText('005D')).toBeInTheDocument();
   });
 
-  it('shows the current streak and, under it, the longest one, both from the streak query (SCRUM-31)', () => {
+  it('shows the current streak, and the longest one in a tooltip on STREAK (SCRUM-31)', async () => {
     // The activity has a session today, but the streak is the backend's: it is no longer counted from the heatmap days.
     const today = new Date().toISOString().slice(0, 10);
-    renderHeader(user, { timezone: 'Asia/Ho_Chi_Minh', sessions: [{ date: today, sessions: 2, missionCompleted: true }] }, streakQuery(streakOf(0, 31)));
+    renderHeader(user, { timezone: 'Asia/Ho_Chi_Minh', sessions: [{ date: today, sessions: 2 }] }, streakQuery(streakOf(0, 31)));
 
     expect(screen.getByText('STREAK')).toBeInTheDocument();
     expect(screen.getByText('000D')).toBeInTheDocument();
-    expect(screen.getByTitle('Longest streak')).toHaveTextContent(/^BEST 031D$/);
-    expect(screen.queryByText('001D')).not.toBeInTheDocument();
+    expect(screen.queryByText(/BEST/)).not.toBeInTheDocument();
+    expect(screen.queryByText('031D')).not.toBeInTheDocument();
+
+    await userEvent.setup().hover(screen.getByText('STREAK'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Longest streak: 031D');
   });
 
-  it('shows a dash for both streaks while the streak loads and when it could not load (SCRUM-31)', () => {
+  it('shows a dash for the streak while it loads and when it could not load (SCRUM-31)', () => {
     const { unmount } = renderHeader(user, undefined, streakQuery());
-    expect(screen.getAllByText('—')).toHaveLength(2);
-    expect(screen.getByTitle('Longest streak')).toHaveTextContent(/^BEST —$/);
+    expect(screen.getAllByText('—')).toHaveLength(1);
     unmount();
 
     const failed = { isError: true, error: { response: { status: 500 } }, data: undefined } as unknown as UseQueryResult<Streak>;
     renderHeader(user, undefined, failed);
-    expect(screen.getAllByText('—')).toHaveLength(2);
+    expect(screen.getAllByText('—')).toHaveLength(1);
     expect(screen.queryByText(/^\d+D$/)).not.toBeInTheDocument();
-  });
-
-  it('keeps BEST over its value on phones, the dash too, so the header does not grow when the streak comes (SCRUM-31)', () => {
-    const { unmount } = renderHeader(user, undefined, streakQuery());
-    expect(screen.getByTitle('Longest streak')).toHaveClass('flex-col', 'sm:flex-row');
-    unmount();
-
-    renderHeader(user, undefined, streakQuery(streakOf(3, 12)));
-    expect(screen.getByTitle('Longest streak')).toHaveClass('flex-col', 'sm:flex-row');
   });
 
   it('shows the day the account was made at the bottom right', () => {

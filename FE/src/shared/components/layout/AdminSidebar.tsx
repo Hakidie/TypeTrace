@@ -2,6 +2,7 @@ import { ArrowLeft, Keyboard, LogOut } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
 import type { NavItem } from '@/app/module.types';
 import { useCurrentUser, useLogout } from '@/modules/auth/hooks/use-current-user';
+import { shownPictureUrl } from '@/modules/auth/utils/avatar-picture';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
@@ -76,7 +77,7 @@ export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSid
       <div className="flex shrink-0 flex-col gap-2 border-t p-3">
         <div className={cn('flex items-center gap-2 px-1', compact && 'justify-center px-0')} title={compact ? user?.email : undefined}>
           <Avatar className="size-8">
-            <AvatarImage src={user?.avatarUrl} alt={user?.email} />
+            <AvatarImage src={shownPictureUrl(user)} alt={user?.email} />
             <AvatarFallback className="bg-primary/15 text-sm text-primary">{initials}</AvatarFallback>
           </Avatar>
           <span className={cn('min-w-0 flex-1 truncate text-sm text-muted-foreground', compact && 'sr-only')}>{user?.email}</span>

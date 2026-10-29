@@ -192,6 +192,22 @@ const tasksOfDay = async (owner: OwnerId, date: string, timeZone: string) => {
   );
 };
 
+/**
+ * For the heatmap of the profile: by day (from `from` on, 'YYYY-MM-DD'), how many tasks the learner's day had and how many of
+ * them are completed on the day's numbers. A day without tasks (made before any template was active) has no entry.
+ */
+export const taskCountsSince = async (owner: OwnerId, from: string) => {
+  const days = await UserDailyTasksModel.find({ owner, date: { $gte: from } })
+    .select('date tasks progress')
+    .lean();
+  return new Map(
+    days.map((day) => [
+      day.date,
+      { tasksTotal: day.tasks.length, tasksDone: day.tasks.filter((task) => taskProgressOf(task, day.progress).completed).length }
+    ])
+  );
+};
+
 /** `$max` of each number of the day, on the dotted paths of `progress`. */
 const maxOfNumbers = ({ bestErrorAccuracy, ...totals }: DayNumbers) =>
   Object.fromEntries([

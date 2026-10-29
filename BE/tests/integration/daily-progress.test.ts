@@ -374,7 +374,7 @@ describe('an account that never sent a time zone', () => {
 
     expect(activity.body).toEqual({
       timezone: 'Asia/Ho_Chi_Minh',
-      sessions: [{ date: '2026-03-11', sessions: 1, missionCompleted: 1 >= DAILY_MISSION_SESSIONS }]
+      sessions: [{ date: '2026-03-11', sessions: 1 }]
     });
     expect(streak.body).toMatchObject({ current: 1, longest: 1, today: { date: '2026-03-11', sessions: 1 } });
   });

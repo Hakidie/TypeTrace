@@ -1,7 +1,9 @@
 import { CircleCheck } from 'lucide-react';
-import { DAILY_TASK_TYPE_INFO, goalOf } from '@/modules/daily-tasks/daily-tasks.config';
+import { DAILY_TASK_TYPE_INFO } from '@/modules/daily-tasks/daily-tasks.config';
 import { getApiErrorMessage } from '@/shared/api/api-error';
+import { Panel } from '@/shared/components/panel';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { useDailyTasks } from '../hooks/use-profile';
 import type { DailyTaskProgress } from '../types/profile.types';
 
@@ -11,6 +13,13 @@ const linkClass = 'text-primary underline-offset-4 hover:underline';
 const gridClass = 'grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2 lg:grid-cols-3';
 // Blank tasks while they load: a row of them on wide screens.
 const BLANK_TASKS = 3;
+
+/**
+ * The tasks from the oldest template to the newest, left to right: the id of a template is a MongoDB ObjectId, which starts
+ * with its creation time, so the ids in plain order are the templates in order of creation. The backend gives the tasks in
+ * the order they were picked (weak error types first), which says nothing to the learner.
+ */
+const oldestFirst = (tasks: DailyTaskProgress[]) => [...tasks].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
 /** How far a task is, in the unit of its target: "2 / 3 sessions", "12.5 / 15 min", "38.5 / 40 WPM", "85.5% / 90%". */
 const numbersOf = ({ type, progress, target }: DailyTaskProgress) => {
@@ -38,15 +47,15 @@ const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
   const filled = task.completed ? 100 : Math.min(task.progress / task.target, 1) * 100;
 
   return (
-    <li className="flex flex-col gap-3">
-      <div className="flex min-w-0 items-start gap-3">
-        <span className="flex size-11 shrink-0 items-center justify-center bg-primary/25 text-primary" aria-hidden>
-          <Icon className="size-5" />
+    <li className="-mr-3 -ml-4 flex flex-col gap-3 py-3 pr-3 pl-4 transition-colors hover:bg-primary/15">
+      <div className="flex min-w-0 items-stretch gap-3">
+        {/* As wide as the icon, so its left edge is the left edge of the bar below. The padding and the negative margin of the card keep the content in line with the heatmap while the hover color reaches past it, like a session card. */}
+        <span className="flex w-9 shrink-0 items-center justify-center text-primary" aria-hidden>
+          <Icon className="size-9" />
         </span>
         <div className="min-w-0">
           <p className="truncate text-xl font-extrabold text-primary/80" title={task.title}>{task.title}</p>
-          <p className="text-base text-muted-foreground">{goalOf(task)}</p>
-          {task.description && <p className="line-clamp-2 text-sm text-muted-foreground">{task.description}</p>}
+          {task.description && <p className="line-clamp-2 text-base text-muted-foreground">{task.description}</p>}
         </div>
       </div>
       <div className="mt-auto space-y-2">
@@ -79,7 +88,7 @@ const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
  * The learner's tasks of today (SCRUM-112), under the heatmap and without a frame: the DAILY TASKS label in the look of
  * the TODAY one, then one item per task, in the order the backend gives them. Only today's counted sessions count, in
  * the learner's time zone (the backend measures them). While the tasks load, blank tasks hold their place so the
- * sessions under them do not jump; when they fail, the reason and a retry on one line, like `TodayProgress`; a day
+ * sessions under them do not jump; when they fail, the reason and a retry on one line; a day
  * without tasks (no task is active) is one muted line.
  */
 export const ProfileDailyTasks = () => {
@@ -108,17 +117,43 @@ export const ProfileDailyTasks = () => {
     if (dailyTasks.data.tasks.length === 0) return <p className="text-base text-muted-foreground">No daily tasks today.</p>;
     return (
       <ul className={gridClass}>
-        {dailyTasks.data.tasks.map((task) => (
+        {oldestFirst(dailyTasks.data.tasks).map((task) => (
           <DailyTaskItem key={task.id} task={task} />
         ))}
       </ul>
     );
   };
 
+  // How many of today's tasks are done, on the right of the title: "2 / 3".
+  const tasks = dailyTasks.data?.tasks ?? [];
+  const done = tasks.filter((task) => task.completed).length;
+  const allDone = tasks.length > 0 && done === tasks.length;
+
   return (
-    <section aria-label="Daily tasks" aria-busy={dailyTasks.isPending} className="space-y-4">
-      <p className="text-base font-semibold leading-none tracking-widest text-primary/70">DAILY TASKS</p>
-      {renderBody()}
+    <section aria-label="Daily tasks" aria-busy={dailyTasks.isPending}>
+      <Panel
+        title="Daily tasks"
+        bare
+        titleClassName={sectionTitleClass}
+        className="space-y-4"
+        actions={
+          tasks.length > 0 && (
+            <p className="inline-flex items-center gap-2 text-base font-medium text-primary">
+              <CircleCheck className="size-4" aria-hidden />
+              {done} / {tasks.length}
+              <span className="sr-only"> done</span>
+            </p>
+          )
+        }
+      >
+        {renderBody()}
+        {allDone && (
+          <p className="text-base text-primary">
+            <CircleCheck className="mr-1.5 inline size-4 align-text-bottom" aria-hidden />
+            Daily mission done
+          </p>
+        )}
+      </Panel>
     </section>
   );
 };

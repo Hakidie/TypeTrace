@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { Panel } from './panel';
@@ -31,5 +32,24 @@ describe('Panel', () => {
     const { container } = render(<Panel bare>content</Panel>);
     expect(container.firstChild).toHaveClass('border-0');
     expect(screen.getByText('content')).toHaveClass('p-0');
+  });
+
+  it('can center its title and description', () => {
+    render(
+      <Panel title="Join" description="With a code" centerTitle>
+        content
+      </Panel>,
+    );
+    expect(screen.getByRole('heading', { name: 'Join' }).parentElement?.parentElement).toHaveClass('text-center', 'sm:justify-center');
+  });
+
+  it('shows a tooltip on the title', async () => {
+    render(
+      <Panel title="Join" titleTip="Use the code of a friend">
+        content
+      </Panel>,
+    );
+    await userEvent.setup().hover(screen.getByText('Join'));
+    expect((await screen.findAllByRole('tooltip'))[0]).toHaveTextContent('Use the code of a friend');
   });
 });

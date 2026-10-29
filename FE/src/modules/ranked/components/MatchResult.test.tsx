@@ -86,6 +86,16 @@ describe('MatchResult (ranked duel, phase 4)', () => {
     expect(screen.getByText('Not rated: you already played 3 rated matches with this player today.')).toBeInTheDocument();
   });
 
+  it('is laid out like the lobby and shows the heading in the red of the Season title, win or lose', () => {
+    const { unmount } = renderWithProviders(<MatchResult match={finished('win', 'loss')} myId="u1" onEnter={vi.fn()} onLeave={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: 'You win' }).parentElement?.parentElement).toHaveClass('max-w-7xl', 'gap-8', '-mt-16');
+    expect(screen.getByRole('heading', { name: 'You win' }).closest('.text-primary')).not.toBeNull();
+    unmount();
+    renderWithProviders(<MatchResult match={finished('loss', 'win')} myId="u1" onEnter={vi.fn()} onLeave={vi.fn()} />);
+    expect(screen.getByRole('heading', { name: 'You lose' })).not.toHaveClass('text-foreground');
+    expect(screen.getByRole('heading', { name: 'You lose' }).closest('.text-primary')).not.toBeNull();
+  });
+
   it('names a loss, a draw and a forfeit', () => {
     const { unmount } = renderWithProviders(<MatchResult match={finished('loss', 'win')} myId="u1" onEnter={vi.fn()} onLeave={vi.fn()} />);
     expect(screen.getByRole('heading', { name: 'You lose' })).toBeInTheDocument();

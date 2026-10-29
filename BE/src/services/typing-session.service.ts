@@ -8,7 +8,7 @@ import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietna
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
 import { recentProgressOf, recordCountedSession } from './daily-progress.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
-import { recordDailyTaskProgress } from './user-daily-tasks.service';
+import { recordDailyTaskProgress, taskCountsSince } from './user-daily-tasks.service';
 
 /** Sessions with fewer words, or faster than this, are saved but kept out of the error profile (ASSUMPTION). */
 export const MIN_COUNTED_WORDS = 20;
@@ -321,12 +321,19 @@ export const typingActivityOf = async (owners: unknown[]) => {
 
 /**
  * The learner's own typing activity, for their profile page (SCRUM-157): `stats` as in the admin user list, and from
- * DailyProgress (SCRUM-31) their counted sessions per day of the last `HEATMAP_DAYS` days, with the days the daily mission
- * was done, in their own time zone (`timezone`).
+ * DailyProgress (SCRUM-31) their counted sessions per day of the last `HEATMAP_DAYS` days, in their own time zone
+ * (`timezone`), each with how many daily tasks (SCRUM-112) the day had and how many were completed (`tasksTotal` and
+ * `tasksDone`, left out on a day without tasks).
  */
 export const getOwnActivity = async (userId: string) => {
   const owner = new Types.ObjectId(userId);
   const [statsOf, progress] = await Promise.all([averageStatsOf([owner]), recentProgressOf(owner, HEATMAP_DAYS)]);
   const stats = statsOf(owner);
-  return { ...(stats && { stats }), ...progress };
+  // The days of the heatmap are the days with a counted session: their tasks are read from the first of them on.
+  const taskCounts = progress.sessions.length > 0 ? await taskCountsSince(owner, progress.sessions[0].date) : new Map();
+  return {
+    ...(stats && { stats }),
+    timezone: progress.timezone,
+    sessions: progress.sessions.map((day) => ({ ...day, ...taskCounts.get(day.date) }))
+  };
 };

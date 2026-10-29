@@ -46,22 +46,18 @@ const Sparks = () => (
   </div>
 );
 
-/** The own rating after the match: the number counts from the old rating to the new one, with the change beside it. */
+/** The own rating after the match: the number counts from the old rating to the new one, with the change on its right. */
 const RatingReward = ({ before, after }: { before: number; after: number }) => {
   const shown = useCountUp(after, before, { delay: 500 });
   const Icon = after < before ? TrendingDown : TrendingUp;
   return (
     <div className="duel-rise flex items-center gap-4 border bg-card/60 px-5 py-4 backdrop-blur-sm [animation-delay:300ms]">
-      <Icon className="size-8 shrink-0" aria-hidden="true" />
-      <div className="flex flex-col">
-        <span className="text-sm text-muted-foreground">Rating</span>
-        <span aria-hidden="true" className="text-4xl font-black leading-none tabular-nums">
-          {shown}
-        </span>
+      <Icon className="size-9 shrink-0" aria-hidden="true" />
+      <span className="text-4xl font-semibold leading-none">Rating</span>
+      <div aria-hidden="true" className="ml-auto flex items-start gap-3 text-right">
+        <span className="text-4xl font-black leading-none tabular-nums">{shown}</span>
+        <span className="text-2xl font-bold tabular-nums">{formatChange(after - before)}</span>
       </div>
-      <span aria-hidden="true" className="ml-auto text-2xl font-bold tabular-nums">
-        {formatChange(after - before)}
-      </span>
       <span className="sr-only">
         Rating {after} ({formatChange(after - before)})
       </span>
@@ -74,13 +70,11 @@ const CoinReward = ({ coins }: { coins: number }) => {
   const shown = useCountUp(coins, 0, { delay: 650 });
   return (
     <div className="duel-rise flex items-center gap-4 border bg-card/60 px-5 py-4 backdrop-blur-sm [animation-delay:450ms]">
-      <Coins className="size-8 shrink-0" aria-hidden="true" />
-      <div className="flex flex-col">
-        <span className="text-sm text-muted-foreground">Coins</span>
-        <span aria-hidden="true" className="text-4xl font-black leading-none tabular-nums">
-          +{shown}
-        </span>
-      </div>
+      <Coins className="size-9 shrink-0" aria-hidden="true" />
+      <span className="text-4xl font-semibold leading-none">Coins</span>
+      <span aria-hidden="true" className="ml-auto text-right text-4xl font-black leading-none tabular-nums">
+        +{shown}
+      </span>
       <span className="sr-only">+{coins} coins</span>
     </div>
   );
@@ -97,7 +91,8 @@ interface MatchResultProps {
 }
 
 /**
- * The end of a duel: who won (a win throws sparks), the own rating and coins counting up, each player in the win or
+ * The end of a duel, laid out like the lobby and the waiting room (`max-w-7xl`, from the top, 2rem under the tab bar and
+ * between blocks): who won, in the red of the Season title (a win throws sparks), the own rating and coins counting up, each player in the win or
  * lose pose with their numbers, Rematch and Back to lobby.
  */
 export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResultProps) => {
@@ -109,10 +104,10 @@ export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResu
   const rated = me?.ratingBefore !== undefined && me.ratingAfter !== undefined;
 
   return (
-    <div className="mx-auto my-auto flex w-full max-w-3xl flex-col items-center gap-6 text-primary">
+    <div className="mx-auto -mt-16 flex w-full max-w-7xl flex-col items-center gap-8 text-primary">
       <div className="relative flex w-full justify-center py-4">
         {won && <Sparks />}
-        <h2 className={cn('relative text-5xl font-black uppercase sm:text-6xl', won ? 'duel-slam' : 'duel-rise', !won && 'text-foreground')}>
+        <h2 className={cn('relative text-5xl font-black uppercase sm:text-6xl', won ? 'duel-slam' : 'duel-rise')}>
           {me?.result ? HEADINGS[me.result] : 'Match over'}
         </h2>
       </div>
@@ -125,13 +120,13 @@ export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResu
         </div>
       )}
       {(rated || me?.coins !== undefined) && (
-        <div className="grid w-full gap-3 sm:grid-cols-2">
+        <div className="grid w-full gap-4 sm:grid-cols-2 sm:gap-x-8">
           {rated && <RatingReward before={me.ratingBefore!} after={me.ratingAfter!} />}
           {/* Only the own coins: what the other player earns is theirs. */}
           {me?.coins !== undefined && <CoinReward coins={me.coins} />}
         </div>
       )}
-      <div className="grid w-full gap-4 sm:grid-cols-2">
+      <div className="grid w-full gap-4 sm:grid-cols-2 sm:gap-x-8">
         {ordered.map((player, index) => (
           <PlayerCard
             key={player.userId}

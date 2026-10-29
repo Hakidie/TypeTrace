@@ -4,7 +4,7 @@ import { type FilterOption, SearchInput } from '@/shared/components/data-table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 
-interface ListToolbarFilter {
+export interface ListToolbarFilter {
   /** Title of the group in the Filter menu. */
   label: string;
   /** `''` means no filter. */
@@ -52,7 +52,7 @@ const buttonClass = cn(controlClass, 'transition-colors focus-visible:outline-no
 // Like the tag badges: filled with the theme red-orange while the button holds a non-default choice.
 const activeClass = 'bg-primary text-primary-foreground hover:bg-primary hover:opacity-90';
 
-const MenuOption = ({ selected, onSelect, children }: { selected: boolean; onSelect: () => void; children: ReactNode }) => (
+export const MenuOption = ({ selected, onSelect, children }: { selected: boolean; onSelect: () => void; children: ReactNode }) => (
   <DropdownMenuItem role="menuitemradio" aria-checked={selected} className="gap-2" onClick={onSelect}>
     <Check className={cn('size-4 shrink-0', !selected && 'invisible')} />
     {children}

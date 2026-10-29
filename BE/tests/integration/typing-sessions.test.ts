@@ -1,7 +1,9 @@
+import { Types } from 'mongoose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PASSAGE_LIST } from '../../src/data/passages';
 import { DailyProgressModel } from '../../src/models/daily-progress.model';
 import { PassageModel } from '../../src/models/passage.model';
+import { UserDailyTasksModel } from '../../src/models/user-daily-tasks.model';
 import { SessionWord, TypingSessionModel } from '../../src/models/typing-session.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { timelineOf } from '../../src/services/typing-session.service';
@@ -624,7 +626,7 @@ describe('GET /api/sessions/activity (the profile page, SCRUM-157 and SCRUM-31)'
     ]);
     // The days come from DailyProgress (counted sessions only), not from the sessions above.
     await DailyProgressModel.create([
-      { owner: me._id, date: '2026-03-10', sessions: 2 }, // no mission time: the mission is not done
+      { owner: me._id, date: '2026-03-10', sessions: 2 },
       { owner: me._id, date: '2026-03-07', sessions: 4, missionCompletedAt: new Date() },
       { owner: me._id, date: '2025-03-04', sessions: 3, missionCompletedAt: new Date() }, // older than the heatmap
       { owner: other._id, date: '2026-03-10', sessions: 9, missionCompletedAt: new Date() },
@@ -638,10 +640,33 @@ describe('GET /api/sessions/activity (the profile page, SCRUM-157 and SCRUM-31)'
       stats: { wpm: 66.3, accuracy: 96.3 },
       timezone: 'Asia/Ho_Chi_Minh',
       sessions: [
-        { date: '2026-03-07', sessions: 4, missionCompleted: true },
-        { date: '2026-03-10', sessions: 2, missionCompleted: false }
+        { date: '2026-03-07', sessions: 4 },
+        { date: '2026-03-10', sessions: 2 }
       ]
     });
+  });
+
+  it('adds to each day how many daily tasks it had and how many were completed, and nothing to a day without tasks', async () => {
+    const me = await createUser({});
+    const other = await createUser({ email: 'other@example.com' });
+    await DailyProgressModel.create([
+      { owner: me._id, date: '2026-03-10', sessions: 2 },
+      { owner: me._id, date: '2026-03-09', sessions: 1 }
+    ]);
+    const task = (type: 'sessions' | 'wpm', target: number) => ({ taskId: new Types.ObjectId(), title: `${type} ${target}`, type, target });
+    await UserDailyTasksModel.create([
+      // Two sessions and a best of 40 WPM: the sessions task is done, the WPM one is not.
+      { owner: me._id, date: '2026-03-10', timeZone: 'Asia/Ho_Chi_Minh', tasks: [task('sessions', 2), task('wpm', 60)], progress: { sessions: 2, bestWpm: 40 } },
+      // Another learner's day is never mixed in.
+      { owner: other._id, date: '2026-03-09', timeZone: 'Asia/Ho_Chi_Minh', tasks: [task('sessions', 1)], progress: { sessions: 5 } }
+    ]);
+
+    const { body } = await activityOf(me);
+
+    expect(body.sessions).toEqual([
+      { date: '2026-03-09', sessions: 1 },
+      { date: '2026-03-10', sessions: 2, tasksTotal: 2, tasksDone: 1 }
+    ]);
   });
 
   it("answers the days of the last 371 days in the learner's zone, today included, oldest first", async () => {

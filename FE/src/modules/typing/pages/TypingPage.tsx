@@ -1,4 +1,4 @@
-import { RotateCcw, Trophy, type LucideIcon } from 'lucide-react';
+import { RotateCcw, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
@@ -6,6 +6,7 @@ import { RankMode } from '@/modules/ranked/components/RankMode';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
+import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
@@ -30,40 +31,6 @@ const modeTabs = [
 type TimeUnit = 'sec' | 'min';
 const timeChoices: Record<TimeUnit, number[]> = { sec: [10, 20, 30], min: [1, 2, 3] };
 const unitLabels: Record<TimeUnit, string> = { sec: 'Sec', min: 'Min' };
-
-interface TabGroupProps {
-  label: string;
-  tabs: { value: string; label: string; icon?: LucideIcon; disabled?: boolean }[];
-  value: string;
-  onChange: (value: string) => void;
-  /** `false` leaves the border to the parent, which puts more controls in the same frame. */
-  framed?: boolean;
-}
-
-/** A row of switch buttons, same look as the Theme tabs in Settings (the border is an inside outline so the height is the same as the word count's). */
-const TabGroup = ({ label, tabs, value, onChange, framed = true }: TabGroupProps) => (
-  <div role="radiogroup" aria-label={label} className={cn('flex text-[1.125rem]', framed && 'outline outline-1 -outline-offset-1 outline-border')}>
-    {tabs.map(({ icon: Icon, ...tab }) => (
-      <button
-        key={tab.value}
-        type="button"
-        role="radio"
-        aria-checked={value === tab.value}
-        disabled={tab.disabled}
-        // A click must not take the focus from the typing area, or the learner could not go on typing.
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => onChange(tab.value)}
-        className={cn(
-          'inline-flex items-center gap-2 px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-          value === tab.value ? 'text-primary' : 'text-muted-foreground enabled:hover:bg-muted enabled:hover:text-foreground',
-        )}
-      >
-        {Icon && <Icon className="size-5" />}
-        {tab.label}
-      </button>
-    ))}
-  </div>
-);
 
 /** The passages to choose from for `mode`; the picked one is red. It is only mounted while the menu is open, so the list is fetched when the learner opens it. */
 const PassageMenu = ({ mode, selectedId, onSelect }: { mode: SessionMode; selectedId?: string; onSelect: (id: string) => void }) => {
@@ -185,7 +152,7 @@ export const TypingPage = () => {
   };
 
   return (
-    <div ref={pageRef} className={`flex flex-1 flex-col gap-4 p-4 pb-0 pt-0 md:p-8 md:pb-0 md:pt-0 ${redGlassTheme}`}>
+    <div ref={pageRef} className={cn('flex flex-1 flex-col p-4 pb-0 pt-0 md:p-8 md:pb-0 md:pt-0', ranked ? 'gap-24' : 'gap-4', redGlassTheme)}>
       {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right. */}
       <div className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 max-w-full md:justify-self-end">

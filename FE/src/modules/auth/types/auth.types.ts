@@ -16,6 +16,8 @@ export interface CurrentUser {
   displayName?: string;
   bio?: string;
   avatarUrl?: string;
+  /** What the account shows: its uploaded picture or its pixel avatar (the picture is kept while the pixel avatar is shown). Missing on old data: the picture. */
+  avatarSource?: 'picture' | 'pixel';
   phone?: string;
   /** The pixel avatar the user wears (missing on old data: `DEFAULT_AVATAR`). */
   avatar?: AvatarLook;

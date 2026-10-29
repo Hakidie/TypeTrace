@@ -29,6 +29,8 @@ export interface UserDocument extends mongoose.Document {
   bio?: string;
   avatarUrl?: string;
   avatarPublicId?: string;
+  /** Which one the account shows: its uploaded picture (`avatarUrl`) or its pixel avatar (`avatar`). The picture is kept while the pixel avatar is shown. */
+  avatarSource: 'picture' | 'pixel';
   phone?: string;
   /** The mode in use and the theme chosen for each mode (`null` = the built-in fallback of that mode). */
   settings: {
@@ -73,6 +75,7 @@ const userSchema = new Schema<UserDocument>(
     bio: { type: String, maxlength: 200 },
     avatarUrl: { type: String },
     avatarPublicId: { type: String },
+    avatarSource: { type: String, enum: ['picture', 'pixel'], default: 'picture' },
     phone: { type: String, trim: true },
     settings: {
       type: new Schema(

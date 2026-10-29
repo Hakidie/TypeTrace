@@ -5,7 +5,12 @@ import * as dailyProgressService from '../services/daily-progress.service';
 import * as userDailyTasksService from '../services/user-daily-tasks.service';
 import { updateTimeZone } from '../services/user.service';
 import { badRequest, notFound } from '../utils/app-error';
-import { UpdateProfileInput, UpdateSecurityInput, UpdateSettingsInput } from '../validators/profile.validator';
+import {
+  UpdateAvatarSourceInput,
+  UpdateProfileInput,
+  UpdateSecurityInput,
+  UpdateSettingsInput
+} from '../validators/profile.validator';
 
 /**
  * Derives the Cloudinary public id from a stored URL. Only used for avatars
@@ -75,7 +80,22 @@ export const uploadAvatar = async (req: Request, res: Response) => {
   const { url, publicId } = await uploadImage(req.file.buffer, 'avatars');
   user.avatarUrl = url;
   user.avatarPublicId = publicId;
+  // A new picture is shown at once, also when the pixel avatar was.
+  user.avatarSource = 'picture';
   await user.save();
 
   return res.json({ avatarUrl: url, publicId, user });
+};
+
+/** Shows the uploaded picture or the pixel avatar; the picture is kept while the pixel avatar is shown. Answers the user. */
+export const updateAvatarSource = async (req: Request, res: Response) => {
+  const { avatarSource } = req.body as UpdateAvatarSourceInput;
+
+  const user = await UserModel.findById(req.user?.sub);
+  if (!user) throw notFound('User not found');
+  if (avatarSource === 'picture' && !user.avatarUrl) throw badRequest('Upload a picture first');
+
+  user.avatarSource = avatarSource;
+  await user.save();
+  return res.json(user);
 };

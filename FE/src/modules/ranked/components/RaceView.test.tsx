@@ -50,6 +50,14 @@ beforeEach(() => {
 });
 
 describe('RaceView (ranked duel, phase 4)', () => {
+  it('draws the lanes at the full page width and 128px high', () => {
+    renderWithProviders(<RaceView match={race()} myId="u1" />);
+
+    const lane = screen.getByRole('group', { name: 'Lan' });
+    expect(lane.parentElement).toHaveClass('max-w-7xl');
+    expect(lane.querySelector('.h-\\[98px\\]')).not.toBeNull();
+  });
+
   it('counts down with both lanes before the race', () => {
     renderWithProviders(<RaceView match={race({ status: 'countdown', countdownEndsAt: new Date(Date.now() + 2500).toISOString() })} myId="u1" />);
 

@@ -36,7 +36,8 @@ export const ListRow = ({ identity, center, extra, action, tags, meta, plain }: 
       <span className="hidden xl:block" aria-hidden />
       <div className="hidden xl:block">{center}</div>
       <span className="hidden xl:block" aria-hidden />
-      <div className="col-span-2 xl:col-span-1 xl:mr-4">{extra}</div>
+      {/* The gap to the action column only when there is an action: without one, `extra` ends at the right padding. */}
+      <div className={cn('col-span-2 xl:col-span-1', action && 'xl:mr-4')}>{extra}</div>
       <div className="col-start-2 row-start-1 self-start xl:col-start-auto xl:row-start-auto">{action}</div>
     </div>
 

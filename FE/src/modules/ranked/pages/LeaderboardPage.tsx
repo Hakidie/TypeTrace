@@ -1,22 +1,31 @@
-import { Trophy } from 'lucide-react';
+import { useState } from 'react';
+import { ClipboardCheck, Trophy } from 'lucide-react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { ListRow, ListRowStat } from '@/shared/components/list-row';
 import { LoadingState } from '@/shared/components/loading-state';
-import { PageHeader } from '@/shared/components/page-header';
 import { Pagination } from '@/shared/components/pagination';
+import { TabGroup } from '@/shared/components/tab-group';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { useLeaderboard } from '../hooks/use-ranked';
 
 const PAGE_SIZE = 20;
+
+type LeaderboardTab = 'placement' | 'rank';
 
 /** The best players of the current season (5 matches or more): display names and avatars, never an email. */
 export const LeaderboardPage = () => {
   const list = useListParams({ sort: '-rating' });
   const board = useLeaderboard({ page: list.page, limit: PAGE_SIZE });
   const { data: me } = useCurrentUser();
+  const [tab, setTab] = useState<LeaderboardTab>('rank');
+  // The Rank tab names the season: "Rank S1".
+  const tabs = [
+    { value: 'placement', label: 'Placement', icon: ClipboardCheck },
+    { value: 'rank', label: board.data ? `Rank S${board.data.season.number}` : 'Rank', icon: Trophy },
+  ];
 
   const renderList = () => {
     if (board.isPending) return <LoadingState rows={5} />;
@@ -58,11 +67,17 @@ export const LeaderboardPage = () => {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
-      <PageHeader
-        title="Leaderboard"
-        description={board.data ? `Season ${board.data.season.number} · players with 5 rated matches or more` : 'Ranked duels of this season'}
-      />
-      {renderList()}
+      {/* Same tabs as the mode tabs of the Typing page, in the center of the page. */}
+      <div className="flex justify-center">
+        <TabGroup label="Leaderboard" tabs={tabs} value={tab} onChange={(value) => setTab(value as LeaderboardTab)} />
+      </div>
+      <div role="tabpanel" aria-label={tab === 'rank' ? 'Rank' : 'Placement'}>
+        {tab === 'rank' ? (
+          renderList()
+        ) : (
+          <EmptyState icon={Trophy} title="No placement results yet" description="Placement test scores will show up here." />
+        )}
+      </div>
     </div>
   );
 };
