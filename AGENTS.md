@@ -40,6 +40,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run import:passages` | Add the starter passages (`BE/src/data/passages.ts`, source recorded, owner TypeTrace) to the passage bank as published passages; safe to run many times |
 | `npm run import:passages:en` | Add the English starter passages (`BE/src/data/passages-en.ts`, for ranked duels; never offered in Practice or Placement) as published passages; safe to run many times |
 | `npm run import:themes` | Add the starter themes (`BE/src/data/themes.ts`, owner TypeTrace) as published themes; safe to run many times |
+| `npm run rebuild:progress` | Rebuild every learner's days (`DailyProgress`: streak, daily mission, profile heatmap) from their counted sessions, in each learner's own time zone. Run it once after deploying SCRUM-31 (older sessions have no day yet) and after changing `DAILY_MISSION_SESSIONS`, while nobody is typing; safe to run many times |
 | `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together |
 | `npm test` | Run backend and frontend tests |
 | `npm run lint` | Lint the frontend |
@@ -91,12 +92,29 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   so the backend runs as one process.
 - The User model strips private fields in `toJSON`; keep it that way for new private fields. `.lean()` and `aggregate()`
   skip `toJSON`: with them, `.select()` the public fields explicitly.
+- A learner's days (streak, daily mission, profile heatmap) are calendar days in their `settings.timezone` (`DEFAULT_TIMEZONE`
+  when it is missing or unknown): cut them with `localDateKey(date, zone)` and count them with `addDays` (`utils/local-date.ts`),
+  never with `toISOString().slice(0, 10)`. They live in `DailyProgress`, which only `completeSession` writes, through
+  `recordCountedSession`. The mission goal is `DAILY_MISSION_SESSIONS` (`services/daily-progress.service.ts`), sent to the
+  frontend as `missionGoal`. The admin user list keeps its own UTC days from `TypingSession`.
+- A learner's daily tasks (SCRUM-112) live in `UserDailyTasks` (`models/user-daily-tasks.model.ts`): one document per learner
+  and local day, made by the day's first `GET /api/profile/daily-tasks` or counted session, with a snapshot of `dailyTaskCount`
+  active `DailyTask` templates (weak error types first) and the numbers of the sessions already counted that day, cut in the
+  zone it keeps as `timeZone`. It is stored once (an upsert with `$setOnInsert`) and its `tasks` are never edited afterwards:
+  template edits and a new count apply from the next day. After that upsert, its `progress` is written only by
+  `updateDayNumbers` (`services/user-daily-tasks.service.ts`), which works the day's numbers out again from its counted
+  sessions: with `$max` after each counted session (`completeSession`, through `recordDailyTaskProgress`), so recording a
+  session twice changes nothing, and replaced once, with the new `timeZone`, by the day's next counted session or `GET`
+  after the learner's zone changed.
+- App-wide settings that admins change live in the one `AppSetting` document (`models/app-setting.model.ts`, SCRUM-210):
+  read them with `getAppSettings()` (the model's defaults until an admin saves) and save them with `updateAppSettings(changes)`
+  (`services/app-setting.service.ts`). A new setting is a new field there, with its default, not a new collection.
 
 ## Frontend rules
 
 - One folder per feature in `FE/src/modules/<feature>/` with `api/ hooks/ components/ pages/ types/` and a
   `<feature>.module.ts` describing what it adds: `routes` + `navItems` (main app), `adminRoutes` + `adminNavItems`
-  (admin area), `widgets` (floating components on every app page), a `navItems` entry `{ Component }` instead of a link puts a component in the top navigation (the chat button). Register it in `FE/src/app/modules.ts`.
+  (admin area), `widgets` (components on every app page: floating UI, or one that draws nothing and keeps something in step, like `TimezoneSync`, which sends the browser's time zone), a `navItems` entry `{ Component }` instead of a link puts a component in the top navigation (the chat button). Register it in `FE/src/app/modules.ts`.
 - HTTP only through the `http` instance (`shared/api/http.ts`). API functions return the response body: `http.get<T>(url).then((r) => r.data)`.
   The one exception is a server event stream, which axios cannot read: `openMatchStream` in `modules/ranked/api/ranked.api.ts`
   uses `fetch` with the `Authorization` header (never a token in the URL) and puts the events into the query cache.
@@ -107,8 +125,10 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog` (`children` for an extra field such as a reason, `confirmDisabled` until it is filled, `cancelLabel` to rename Cancel), `Pagination`,
-  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap`, `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons + actions above a list) (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
-  shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams`, `useFitLines` (`shared/hooks/`).
+  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap` (always one tooltip for the hovered day; a learner's own days: `timeZone`, `unit`, `legend`, see `ProfileHeatmap`), `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons + actions above a list) (`shared/components/`), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
+  shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams`, `useFitLines` (`shared/hooks/`),
+  date helpers in `shared/lib/local-date.ts` (a learner's today is `dateKeyIn(new Date(), timezone)`, never `toISOString()`).
+  The daily mission goal is the backend's `missionGoal`: never write the number in the frontend.
 - Design: the TypeTrace look of the login pages applies to every page, now and for new features. Header and footer are
   `BrandHeader` / `BrandFooter` (`shared/components/layout/`; `AppLayout` already uses them, so pages
   inside them get both). Colors are only the theme tokens in `FE/src/index.css` (Blood red dark palette and Sand light palette, built from 4 theme colors; users can choose their own themes): do
@@ -167,6 +187,9 @@ A sample chat bot to customize, not a finished product:
   `tests/setup/mock-external-services.ts`; inspect them with `email-outbox.ts`, `cloudinary-recorder.ts`, `gemini-recorder.ts`.
 - Frontend tests mock the feature's `api` module and render with `renderWithProviders` from `FE/src/test/render-with-providers.tsx` (`state` for the history state of the starting URL, `otherRoutes` with an element instead of a text to read the location after a redirect).
   Assert what the user sees (`getByRole`, `findByText`).
+- Days and time zones: fix the clock by faking `Date` only (`vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(...)`,
+  then `vi.useRealTimers()` in `afterEach`), so HTTP, MongoDB and React Query keep their real timers and no test runs across
+  a midnight (see `BE/tests/integration/profile-streak.test.ts`).
 
 ## Before you finish
 

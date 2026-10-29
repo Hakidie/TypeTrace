@@ -7,6 +7,9 @@ export type UserRole = (typeof USER_ROLES)[number];
 export const USER_STATUSES = ['active', 'locked'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
+/** The zone of the days of a learner who never sent their own (SCRUM-31). Readers fall back to it: old users have none stored. */
+export const DEFAULT_TIMEZONE = 'Asia/Ho_Chi_Minh';
+
 export interface UserDocument extends mongoose.Document {
   email: string;
   password: string;
@@ -32,6 +35,8 @@ export interface UserDocument extends mongoose.Document {
     mode: 'dark' | 'light';
     darkTheme: Types.ObjectId | null;
     lightTheme: Types.ObjectId | null;
+    /** IANA time zone of the learner's days: streak, daily mission and profile heatmap (SCRUM-31). Sent by the browser. */
+    timezone: string;
   };
   /** The pixel avatar the user wears (ranked duel design, section 7). Missing on accounts saved before: `DEFAULT_AVATAR`. */
   avatar: AvatarLook;
@@ -74,7 +79,9 @@ const userSchema = new Schema<UserDocument>(
         {
           mode: { type: String, enum: ['dark', 'light'], default: 'dark' },
           darkTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null },
-          lightTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null }
+          lightTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null },
+          // Checked by `PATCH /api/profile/settings`, not here: a zone unknown to a later server must not block a save.
+          timezone: { type: String, default: DEFAULT_TIMEZONE }
         },
         { _id: false }
       ),

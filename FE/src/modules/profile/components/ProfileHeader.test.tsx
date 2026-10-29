@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { renderWithProviders } from '@/test/render-with-providers';
-import type { TypingActivity } from '../types/profile.types';
+import type { Streak, TypingActivity } from '../types/profile.types';
 import { ProfileHeader } from './ProfileHeader';
 
 const updateProfile = vi.fn();
@@ -31,9 +31,15 @@ const user: CurrentUser = {
 };
 
 const activity = (data?: TypingActivity) => ({ data }) as UseQueryResult<TypingActivity>;
+const streakQuery = (data?: Streak) => ({ data }) as UseQueryResult<Streak>;
+const streakOf = (current: number, longest: number): Streak => ({
+  current,
+  longest,
+  today: { date: '2026-10-27', sessions: 0, missionGoal: 1, missionCompleted: false },
+});
 
-const renderHeader = (account: CurrentUser = user, data?: TypingActivity) =>
-  renderWithProviders(<ProfileHeader user={account} activity={activity(data)} onAvatarChange={vi.fn()} />);
+const renderHeader = (account: CurrentUser = user, data?: TypingActivity, streak = streakQuery(streakOf(5, 12))) =>
+  renderWithProviders(<ProfileHeader user={account} activity={activity(data)} streak={streak} onAvatarChange={vi.fn()} />);
 
 beforeEach(() => {
   updateProfile.mockReset();
@@ -42,14 +48,46 @@ beforeEach(() => {
 
 describe('ProfileHeader (SCRUM-157)', () => {
   it('shows the avatar, the name, the email and the numbers', () => {
-    renderHeader(user, { stats: { wpm: 66.3, accuracy: 96.3 }, sessions: [] });
+    renderHeader(user, { stats: { wpm: 66.3, accuracy: 96.3 }, timezone: 'Asia/Ho_Chi_Minh', sessions: [] });
 
     expect(screen.getByRole('button', { name: 'Change avatar' })).toBeInTheDocument();
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
     expect(screen.getByText('96%')).toBeInTheDocument();
     expect(screen.getByText('66')).toBeInTheDocument();
+    expect(screen.getByText('005D')).toBeInTheDocument();
+  });
+
+  it('shows the current streak and, under it, the longest one, both from the streak query (SCRUM-31)', () => {
+    // The activity has a session today, but the streak is the backend's: it is no longer counted from the heatmap days.
+    const today = new Date().toISOString().slice(0, 10);
+    renderHeader(user, { timezone: 'Asia/Ho_Chi_Minh', sessions: [{ date: today, sessions: 2, missionCompleted: true }] }, streakQuery(streakOf(0, 31)));
+
+    expect(screen.getByText('STREAK')).toBeInTheDocument();
     expect(screen.getByText('000D')).toBeInTheDocument();
+    expect(screen.getByTitle('Longest streak')).toHaveTextContent(/^BEST 031D$/);
+    expect(screen.queryByText('001D')).not.toBeInTheDocument();
+  });
+
+  it('shows a dash for both streaks while the streak loads and when it could not load (SCRUM-31)', () => {
+    const { unmount } = renderHeader(user, undefined, streakQuery());
+    expect(screen.getAllByText('—')).toHaveLength(2);
+    expect(screen.getByTitle('Longest streak')).toHaveTextContent(/^BEST —$/);
+    unmount();
+
+    const failed = { isError: true, error: { response: { status: 500 } }, data: undefined } as unknown as UseQueryResult<Streak>;
+    renderHeader(user, undefined, failed);
+    expect(screen.getAllByText('—')).toHaveLength(2);
+    expect(screen.queryByText(/^\d+D$/)).not.toBeInTheDocument();
+  });
+
+  it('keeps BEST over its value on phones, the dash too, so the header does not grow when the streak comes (SCRUM-31)', () => {
+    const { unmount } = renderHeader(user, undefined, streakQuery());
+    expect(screen.getByTitle('Longest streak')).toHaveClass('flex-col', 'sm:flex-row');
+    unmount();
+
+    renderHeader(user, undefined, streakQuery(streakOf(3, 12)));
+    expect(screen.getByTitle('Longest streak')).toHaveClass('flex-col', 'sm:flex-row');
   });
 
   it('shows the day the account was made at the bottom right', () => {

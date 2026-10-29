@@ -12,10 +12,9 @@ import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { Input } from '@/shared/components/ui/input';
-import { currentStreak } from '@/shared/lib/streak';
 import { cn } from '@/shared/lib/utils';
 import { profileApi } from '../api/profile.api';
-import type { TypingActivity } from '../types/profile.types';
+import type { Streak, TypingActivity } from '../types/profile.types';
 import { AvatarUpload } from './AvatarUpload';
 
 // Same rule as the display name in `ProfileEditForm`.
@@ -155,45 +154,54 @@ const EditableBio = ({ user }: { user: CurrentUser }) => {
   );
 };
 
-// Row 1 of the header grid holds the labels (on the line of the name), row 2 the values (starting at the top of the email row).
-const statColumn = ['sm:col-start-3', 'sm:col-start-4', 'sm:col-start-5'];
-const statLabelClass = 'self-baseline text-right text-2xl font-semibold leading-none tracking-widest text-primary/70 sm:row-start-1 sm:pl-14';
-const statValueClass = 'self-start text-right text-[2.25rem] font-black leading-none text-primary sm:row-start-2 sm:pl-14';
+// Three layouts. Phones: everything stacked, the picture, the name, the email and bio, then the labels with the values
+// under them in three columns. From `sm`: the picture on the left, the name, email and bio on its right with the labels
+// and values under them. From `lg`: the numbers on the right of the name, row 1 of the grid holding the labels (on the
+// line of the name) and row 2 the values (from the top of the email row); below `lg` the name would be squeezed out.
+// On phones the labels and values are one step smaller: at full size STREAK fills its third of a 375px screen and runs
+// into ACC.
+const statColumn = ['sm:col-start-2 lg:col-start-3', 'sm:col-start-3 lg:col-start-4', 'sm:col-start-4 lg:col-start-5'];
+const statLabelClass =
+  'self-baseline text-right text-xl font-semibold leading-none tracking-widest text-primary/70 sm:row-start-3 sm:text-2xl lg:row-start-1 lg:pl-14';
+const statValueClass = 'self-start text-right text-[1.875rem] font-black leading-none text-primary sm:row-start-4 sm:text-[2.25rem] lg:row-start-2 lg:pl-14';
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
+/** A number of days the way the header writes it, `005D`; a dash while it loads or when it could not load. */
+const daysValue = (days?: number) => (days === undefined ? '—' : `${String(days).padStart(3, '0')}D`);
+
 interface ProfileHeaderProps {
   user: CurrentUser;
-  /** The learner's typing activity (`useTypingActivity`): only the numbers are used here. */
+  /** The learner's typing activity (`useTypingActivity`): only the speed and accuracy are used here. */
   activity: UseQueryResult<TypingActivity>;
+  /** The learner's streak (`useStreak`): the current one, and the longest under it. */
+  streak: UseQueryResult<Streak>;
   /** Called with the new image once the avatar is uploaded. */
   onAvatarChange: (avatarUrl: string) => void;
 }
 
 /**
  * The top of the profile page, without a frame: the avatar, the name (changed in place), the email, the bio (also changed
- * in place), the speed, accuracy and streak and the day the account was made. Sits on the page, without background,
- * padding or border.
+ * in place), the speed, the accuracy, the current streak with the longest one under it ("BEST") and the day the account
+ * was made. Sits on the page, without background, padding or border.
  */
-export const ProfileHeader = ({ user, activity, onAvatarChange }: ProfileHeaderProps) => {
+export const ProfileHeader = ({ user, activity, streak, onAvatarChange }: ProfileHeaderProps) => {
   const name = user.displayName || user.email;
-  const sessions = activity.data?.sessions;
   const stats = activity.data?.stats;
 
   const statList = [
     { label: 'WPM', value: stats ? String(Math.round(stats.wpm)) : '0000' },
     { label: 'ACC', value: stats ? `${Math.round(stats.accuracy)}%` : '000%' },
-    { label: 'STREAK', value: sessions ? `${String(currentStreak(sessions)).padStart(3, '0')}D` : '—' },
+    { label: 'STREAK', value: daysValue(streak.data?.current), best: daysValue(streak.data?.longest) },
   ];
 
-  // A grid so that the labels sit on the baseline of the name and the values at the bottom, whatever the sizes are. On
-  // phones everything is stacked: picture, name, email and bio, then the labels with the values under them.
+  // A grid so that the labels sit on the baseline of the name and the values at the bottom, whatever the sizes are.
   return (
     <section
       aria-label="Profile header"
-      className="grid grid-cols-3 gap-y-3 text-primary sm:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] sm:grid-rows-[auto_1fr] sm:gap-y-0"
+      className="grid grid-cols-3 gap-y-3 text-primary sm:grid-cols-[auto_repeat(3,minmax(0,1fr))] lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_1fr] lg:gap-y-0"
     >
-      <div className="col-span-3 flex flex-col items-start gap-2 sm:col-span-1 sm:row-span-2 sm:mr-3">
+      <div className="col-span-3 flex flex-col items-start gap-2 sm:col-span-1 sm:row-span-4 sm:mr-3 lg:row-span-2">
         {/* Without an uploaded picture the pixel avatar shows (152px = the 76px frame at 2x, inside the 192px tile). */}
         <AvatarUpload currentAvatarUrl={user.avatarUrl} userInitials={name.slice(0, 2).toUpperCase()} onUploadSuccess={onAvatarChange}
           className="size-48"
@@ -204,22 +212,38 @@ export const ProfileHeader = ({ user, activity, onAvatarChange }: ProfileHeaderP
           Change outfit
         </Link>
       </div>
-      <div className="col-span-3 min-w-0 self-baseline sm:col-span-1 sm:col-start-2 sm:row-start-1">
+      {/* `lg:col-span-1` sets `grid-column`, which drops the column start: `lg:col-start-2` gives it back. */}
+      <div className="col-span-3 min-w-0 self-baseline sm:col-start-2 sm:row-start-1 lg:col-span-1 lg:col-start-2">
         {/* 2.25rem: bigger than a panel title (`panelTitleClass`). */}
         <EditableDisplayName user={user} textClassName="text-[2.25rem] font-extrabold text-primary/80" />
       </div>
-      <div className="col-span-3 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-2">
+      <div className="col-span-3 min-w-0 sm:col-start-2 sm:row-start-2 lg:col-span-1 lg:col-start-2">
         <p className="truncate text-[1.5rem] text-muted-foreground">{user.displayName ? user.email : 'No display name yet: hover the name to add one.'}</p>
         <EditableBio key={user.bio ?? ''} user={user} />
       </div>
       {statList.map(({ label }, i) => (
         <span key={label} className={cn(statLabelClass, statColumn[i])}>{label}</span>
       ))}
-      {statList.map(({ label, value }, i) => (
-        <span key={label} className={cn(statValueClass, statColumn[i])}>{value}</span>
+      {statList.map(({ label, value, best }, i) => (
+        <div key={label} className={cn(statValueClass, statColumn[i])}>
+          {value}
+          {/* The longest streak, a smaller label and value under the current one: no fourth column to squeeze the name. On
+              phones the label always sits over the value, the dash too: "BEST 012D" does not fit a third of the screen, and
+              a line that only wraps once the streak comes would push the page down. */}
+          {best && (
+            <p
+              title="Longest streak"
+              className="mt-2 flex flex-col items-end text-base font-semibold tracking-widest text-primary/70 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-end sm:gap-x-1.5"
+            >
+              BEST <span className="text-xl font-black tracking-normal text-primary">{best}</span>
+            </p>
+          )}
+        </div>
       ))}
-      {/* The bottom right of the header: under the values from `sm` up (the same cells, the values are at the top). */}
-      <p className="col-span-3 self-end text-right text-sm text-muted-foreground sm:col-start-3 sm:row-start-2">Joined {formatDate(user.createdAt)}</p>
+      {/* The bottom right of the header: under the values (from `lg` up in the same cells, the values are at the top). */}
+      <p className="col-span-3 self-end text-right text-sm text-muted-foreground sm:col-start-2 sm:row-start-5 lg:col-start-3 lg:row-start-2">
+        Joined {formatDate(user.createdAt)}
+      </p>
     </section>
   );
 };
