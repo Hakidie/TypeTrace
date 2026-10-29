@@ -13,6 +13,9 @@ import { useRainGame } from '../hooks/use-rain-game';
 import { LIVES, ROUND_MS, targetOf } from '../lib/rain-game';
 import { RainStage } from './RainStage';
 
+/** How far (share of its fall) the framed word of Ping's tutorial falls before the rain stops. */
+const HOLD_AT = 0.35;
+
 /** Fewer lanes on a phone, so the words are not squeezed. */
 const laneCount = () => (window.matchMedia?.('(max-width: 639px)').matches ? 4 : 6);
 
@@ -48,7 +51,8 @@ export const RainMode = () => {
   const list = useMemo(() => words.data?.words ?? [], [words.data]);
   const playing = state.phase === 'playing';
   const lowest = state.drops.filter((drop) => drop.state === 'falling').sort((a, b) => a.bornAt + a.fallMs - (b.bornAt + b.fallMs))[0];
-  if (hold && playing && !heldId && lowest) setHeldId(lowest.id);
+  // It stops once the word has fallen a third of its way: in the middle of the stage, clear of Ping at the top.
+  if (hold && playing && !heldId && lowest && state.elapsed - lowest.bornAt >= HOLD_AT * lowest.fallMs) setHeldId(lowest.id);
   if (!hold && heldId) setHeldId(null);
   const heldTyped = heldId !== null && state.drops.find((drop) => drop.id === heldId)?.state !== 'falling';
   useEffect(() => {

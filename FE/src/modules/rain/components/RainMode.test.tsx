@@ -129,6 +129,9 @@ describe('RainMode', () => {
     tutorialStore.setHold('rain-word', done);
     await startRound();
     advance(300);
+    // The word falls a third of its way first, so it stands in the middle of the stage, not under Ping at the top.
+    expect(document.querySelector('[data-tutorial="rain-word"]')).toBeNull();
+    advance(3000);
     const framed = document.querySelector('[data-tutorial="rain-word"]');
     expect(framed).not.toBeNull();
     const word = framed!.textContent!;
