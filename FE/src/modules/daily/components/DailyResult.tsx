@@ -1,4 +1,4 @@
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Coins } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCountUp } from '@/modules/ranked/hooks/use-count-up';
 import { Button } from '@/shared/components/ui/button';
@@ -9,6 +9,12 @@ import { dailyGlass } from './DailyCard';
 
 /** The coins of a day are 20 plus 5 for each day of the streak before today (`coinsFor` in the backend). */
 const BASE_COINS = 20;
+
+/** ", #4 → #3" when the rank moved, ", #1 today" for the first score of the day, nothing when it stayed. */
+const rankChange = (before: number | null, after: number | null) => {
+  if (!after || before === after) return '';
+  return before ? `, #${before} → #${after}` : `, #${after} today`;
+};
 
 const Tile = ({ label, children, className }: { label: string; children: ReactNode; className?: string }) => (
   <div aria-label={label} className={cn('relative flex flex-col gap-1 bg-card/60 p-3', className)}>
@@ -42,14 +48,14 @@ interface DailyResultProps {
 
 /**
  * The result of a try: the score counting up, a new best with the change of rank (and confetti), the speed and accuracy,
- * the coins of the day (a coin spins), the streak, and another try while some are left.
+ * the coins of the day (the coin icon pops), the streak, and another try while some are left.
  */
 export const DailyResult = ({ before, after, onAgain, onBack, starting = false }: DailyResultProps) => {
   const last = after.lastTry;
   const grewStreak = after.streak > before.streak;
   return (
     <section aria-label="Your try" className={cn('relative flex flex-col gap-5 overflow-hidden p-5', dailyGlass)}>
-      {last?.newBest && <Lottie name="confetti" className="absolute inset-0 size-full" />}
+      {last?.newBest && <Lottie name="confetti" className="absolute right-2 top-2 size-28" />}
       {!last || !last.counted ? (
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-black text-primary">This try was too short to count</h2>
@@ -62,7 +68,7 @@ export const DailyResult = ({ before, after, onAgain, onBack, starting = false }
             {last.newBest && (
               <span className="duel-rise flex items-center gap-1 text-sm font-semibold text-primary">
                 <ArrowUp className="size-4" aria-hidden="true" />
-                New best{after.rank && before.rank !== after.rank ? `, #${before.rank ?? '-'} → #${after.rank}` : ''}
+                New best{rankChange(before.rank, after.rank)}
               </span>
             )}
           </div>
@@ -75,7 +81,8 @@ export const DailyResult = ({ before, after, onAgain, onBack, starting = false }
             </Tile>
             <Tile label="Coins">
               <span className="flex items-center gap-1 text-2xl font-black tabular-nums">
-                {last.coins > 0 && <Lottie name="coin" className="size-8" />}+{last.coins}
+                {/* A coin animation would weigh 130 KB or more (they embed images): the icon pops with CSS instead. */}
+                {last.coins > 0 && <Coins className="duel-pop size-6 text-primary [animation-delay:400ms]" aria-hidden="true" />}+{last.coins}
               </span>
               {last.coins > BASE_COINS && (
                 <span className="text-sm text-muted-foreground">
@@ -100,7 +107,7 @@ export const DailyResult = ({ before, after, onAgain, onBack, starting = false }
         {grewStreak && (
           <span className="duel-pop flex items-center gap-1 text-sm font-semibold text-primary">
             <Lottie name="fire-streak" loop className="size-6" />
-            Streak {after.streak} days
+            Streak {after.streak} {after.streak === 1 ? 'day' : 'days'}
           </span>
         )}
       </div>

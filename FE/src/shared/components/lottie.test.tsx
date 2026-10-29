@@ -23,9 +23,9 @@ describe('Lottie', () => {
 
   it('plays the named animation from public/lottie', () => {
     reduceMotion(false);
-    render(<Lottie name="coin" />);
+    render(<Lottie name="trophy" />);
 
-    expect(props).toHaveBeenLastCalledWith(expect.objectContaining({ src: '/lottie/coin.lottie', autoplay: true, loop: false }));
+    expect(props).toHaveBeenLastCalledWith(expect.objectContaining({ src: '/lottie/trophy.lottie', autoplay: true, loop: false }));
   });
 
   it('loops when asked', () => {
@@ -51,7 +51,7 @@ describe('Lottie', () => {
 
   it('is hidden from screen readers', () => {
     reduceMotion(false);
-    const { container } = render(<Lottie name="coin" />);
+    const { container } = render(<Lottie name="trophy" />);
 
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
   });

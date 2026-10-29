@@ -99,6 +99,20 @@ describe('DailyMode', () => {
     expect(screen.getByLabelText('Coins')).toHaveTextContent('+45');
     expect(screen.getByText('20 + streak 25')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again (1 left)' })).toBeInTheDocument();
+    expect(lottie).toHaveBeenCalledWith('/lottie/confetti.lottie');
+  });
+
+  it('names the rank of a first best of the day and a one-day streak', async () => {
+    today.mockResolvedValue(day({ best: null, rank: null, streak: 0, triesLeft: 3 }));
+    const user = userEvent.setup();
+    renderWithProviders(<DailyMode />);
+    await user.click(await screen.findByRole('button', { name: 'Start try 1' }));
+    const area = await screen.findByRole('textbox', { name: 'Typing area' });
+    today.mockResolvedValue({ ...afterBest, rank: 1, streak: 1, lastTry: { ...afterBest.lastTry!, coins: 20 } });
+    await user.type(area, 'nhà cửa ');
+
+    expect(await screen.findByText('New best, #1 today')).toBeInTheDocument();
+    expect(screen.getByText('Streak 1 day')).toBeInTheDocument();
   });
 
   it('shows confetti only for a new best', async () => {
@@ -106,7 +120,6 @@ describe('DailyMode', () => {
 
     await screen.findByLabelText('Score');
     expect(lottie).not.toHaveBeenCalledWith('/lottie/confetti.lottie');
-    expect(lottie).not.toHaveBeenCalledWith('/lottie/coin.lottie');
   });
 
   it('says when a try did not count', async () => {

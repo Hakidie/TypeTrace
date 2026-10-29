@@ -2,7 +2,7 @@ import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import { cn } from '@/shared/lib/utils';
 
 /** The animations in FE/public/lottie (sources and authors in its CREDITS.md). */
-export type LottieName = 'fire-streak' | 'coin' | 'confetti' | 'trophy';
+export type LottieName = 'fire-streak' | 'confetti' | 'trophy';
 
 interface LottieProps {
   name: LottieName;
@@ -16,7 +16,7 @@ interface LottieProps {
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 /**
- * Decorative motion that CSS cannot draw (a flame, a coin, confetti). It keeps the colors of its file, an exception to the
+ * Decorative motion that CSS cannot draw (a flame, confetti, a trophy). It keeps the colors of its file, an exception to the
  * theme tokens like the avatar sprites, is hidden from screen readers, and shows its first frame still for reduced motion.
  */
 export const Lottie = ({ name, loop = false, play = true, className }: LottieProps) => {
