@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { DEFAULT_AVATAR } from '../data/avatar-catalog';
 import { DailyChallengeModel, DailyEntryDocument, DailyEntryModel } from '../models/daily.model';
 import { notEnglish } from '../models/passage.model';
@@ -55,7 +56,7 @@ const rankOf = async (entry: DailyEntryDocument) =>
   })) + 1;
 
 /** Name and avatar of players, never their email (`.lean()` skips `toJSON`, so only these fields are read). */
-export const publicPlayers = async (userIds: unknown[]) => {
+export const publicPlayers = async (userIds: Types.ObjectId[]) => {
   const users = await UserModel.find({ _id: { $in: userIds } }).select('displayName avatar').lean();
   const byId = new Map(users.map((user) => [String(user._id), user]));
   return (id: unknown) => {

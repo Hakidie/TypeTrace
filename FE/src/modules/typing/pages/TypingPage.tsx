@@ -1,7 +1,8 @@
-import { CloudRain, RotateCcw, Trophy, type LucideIcon } from 'lucide-react';
+import { CalendarDays, CloudRain, RotateCcw, Trophy, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
+import { DailyMode } from '@/modules/daily/components/DailyMode';
 import { RainMode } from '@/modules/rain/components/RainMode';
 import { RankMode } from '@/modules/ranked/components/RankMode';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
@@ -19,12 +20,13 @@ import { modeIcons } from '../typing.config';
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
 
-// Rank and Rain are not typing sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=rain` the word rain minigame (`RainMode`), instead of a passage to practise.
+// Rank, Rain and Daily are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=rain` the word rain minigame (`RainMode`), `?mode=daily` the daily challenge (`DailyMode`, which starts its own tries), instead of a passage to practise.
 const modeTabs = [
   { value: 'practice', label: 'Practice', icon: modeIcons.practice },
   { value: 'placement', label: 'Placement', icon: modeIcons.placement },
   { value: 'rank', label: 'Rank', icon: Trophy },
   { value: 'rain', label: 'Rain', icon: CloudRain },
+  { value: 'daily', label: 'Daily', icon: CalendarDays },
 ];
 
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
@@ -101,8 +103,9 @@ export const TypingPage = () => {
   const mode: SessionMode = searchParams.get('mode') === 'placement' ? 'placement' : 'practice';
   const ranked = searchParams.get('mode') === 'rank';
   const rain = searchParams.get('mode') === 'rain';
+  const daily = searchParams.get('mode') === 'daily';
   /** A tab without a typing session, a passage to choose or a time limit. */
-  const game = ranked || rain;
+  const game = ranked || rain || daily;
   const pageRef = useRef<HTMLDivElement>(null);
   // Asks before the placement test: when the learner picks the Placement tab, and once when a learner who has just
   // created their account lands here (`welcome`, SCRUM-157). Cancel (or closing it) stays in practice. `welcome` stays
@@ -223,11 +226,14 @@ export const TypingPage = () => {
         <TabGroup
           label="Mode"
           tabs={modeTabs}
-          value={ranked ? 'rank' : rain ? 'rain' : mode}
+          value={ranked ? 'rank' : rain ? 'rain' : daily ? 'daily' : mode}
           onChange={(value) => {
             if (value === 'practice') setSearchParams({});
             else if (value === 'rank') {
               if (!ranked) setSearchParams({ mode: 'rank' });
+            }
+            else if (value === 'daily') {
+              if (!daily) setSearchParams({ mode: 'daily' });
             }
             else if (value === 'rain') {
               if (!rain) setSearchParams({ mode: 'rain' });
@@ -278,7 +284,9 @@ export const TypingPage = () => {
           setSearchParams({ mode: 'placement' });
         }}
       />
-      {rain ? (
+      {daily ? (
+        <DailyMode />
+      ) : rain ? (
         <RainMode />
       ) : ranked ? (
         <RankMode />

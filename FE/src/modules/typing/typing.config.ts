@@ -14,6 +14,7 @@ export const errorLabels: Record<WordErrorType, string> = {
 export const modeLabels: Record<SessionMode, string> = {
   practice: 'Practice',
   placement: 'Placement',
+  daily: 'Daily',
 };
 
 /** The icons of the typing modes: on the Typing page tabs and on the session cards of the profile page. */
