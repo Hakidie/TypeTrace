@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getBoard, getToday, startTry } from '../controllers/daily.controller';
+import { getBoard, getHistory, getToday, startTry } from '../controllers/daily.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
@@ -16,3 +16,5 @@ dailyRouter.get('/', getToday);
 dailyRouter.post('/sessions', startTry);
 /** The best try of each player of `day` (`today` or `yesterday`), top 20, names and avatars only, and the learner's place. */
 dailyRouter.get('/leaderboard', validate({ query: dailyBoardQuerySchema }), getBoard);
+/** The learner's best try of each of the last 14 days (`{ days: [{ date, score, wpm, accuracy }] }`, `null` on a day without one), for the progress charts. */
+dailyRouter.get('/history', getHistory);

@@ -150,6 +150,22 @@ export const getBoard = async (userId: string, day: DailyBoardQuery['day']) => {
   };
 };
 
+/** How many days the progress charts of the Daily tab show (today included). */
+export const HISTORY_DAYS = 14;
+
+/** The learner's best counted try of each of the last `HISTORY_DAYS` days, oldest first; a day without one is all `null`. */
+export const getHistory = async (userId: string) => {
+  const dates = Array.from({ length: HISTORY_DAYS }, (_, index) => dayKey(Date.now() - (HISTORY_DAYS - 1 - index) * DAY_MS));
+  const entries = await DailyEntryModel.find({ user: userId, counted: true, date: { $in: dates } });
+  const byDate = new Map(entries.map((entry) => [entry.date, entry]));
+  return {
+    days: dates.map((date) => {
+      const entry = byDate.get(date);
+      return { date, score: entry?.bestScore ?? null, wpm: entry?.bestWpm ?? null, accuracy: entry?.bestAccuracy ?? null };
+    })
+  };
+};
+
 /** Starts a try on today's passage: a typing session in `daily` mode. A try counts as soon as it starts. */
 export const startTry = async (userId: string) => {
   const date = dayKey();

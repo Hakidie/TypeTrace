@@ -50,6 +50,7 @@ vi.mock('@/modules/daily/api/daily.api', () => ({
         yesterdayWinner: null,
       }),
     leaderboard: () => Promise.resolve({ date: '2026-10-29', players: 0, items: [], me: null }),
+    history: () => Promise.resolve([]),
   },
 }));
 vi.mock('@lottiefiles/dotlottie-react', () => ({ DotLottieReact: () => null }));

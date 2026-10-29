@@ -14,3 +14,7 @@ export const startTry = async (req: Request, res: Response) => {
 export const getBoard = async (req: Request, res: Response) => {
   res.json(await dailyService.getBoard(req.user!.sub, (req.query as unknown as DailyBoardQuery).day));
 };
+
+export const getHistory = async (req: Request, res: Response) => {
+  res.json(await dailyService.getHistory(req.user!.sub));
+};

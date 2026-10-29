@@ -15,6 +15,7 @@ vi.mock('../api/daily.api', () => ({
     today: () => today(),
     leaderboard: () => Promise.resolve({ date: '2026-10-29', players: 0, items: [], me: null }),
     startTry: () => startTry(),
+    history: () => Promise.resolve([]),
   },
 }));
 vi.mock('@/modules/typing/api/typing.api', () => ({

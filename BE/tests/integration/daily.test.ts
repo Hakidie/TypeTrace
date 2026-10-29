@@ -238,3 +238,44 @@ describe('daily leaderboard', () => {
     expect((await board(bearerFor(await createUser()), 'tomorrow')).status).toBe(400);
   });
 });
+
+const history = (authorization: string) => api().get('/api/daily/history').set('Authorization', authorization);
+
+describe('daily history', () => {
+  it('answers 401 without a token', async () => {
+    expect((await api().get('/api/daily/history')).status).toBe(401);
+  });
+
+  it('lists the last 14 days, oldest first, with the best counted try of each', async () => {
+    const user = await createUser();
+    const yesterday = dayBefore(dayKey());
+    await DailyEntryModel.create({ user: user._id, date: yesterday, counted: true, streak: 1, bestScore: 40, bestWpm: 42, bestAccuracy: 95.2, bestAt: new Date() });
+    await playTry(bearerFor(user));
+
+    const { body } = await history(bearerFor(user));
+
+    expect(body.days).toHaveLength(14);
+    expect(body.days[13].date).toBe(dayKey());
+    expect(body.days[12]).toEqual({ date: yesterday, score: 40, wpm: 42, accuracy: 95.2 });
+    expect(body.days[13].wpm).toBeGreaterThan(0);
+  });
+
+  it('leaves the days without a counted try empty', async () => {
+    const user = await createUser();
+    await DailyEntryModel.create({ user: user._id, date: dayBefore(dayKey()), tries: 1, counted: false });
+
+    const { body } = await history(bearerFor(user));
+
+    expect(body.days[12]).toEqual({ date: dayBefore(dayKey()), score: null, wpm: null, accuracy: null });
+    expect(body.days.every((entry: { wpm: number | null }) => entry.wpm === null)).toBe(true);
+  });
+
+  it("never shows another player's days", async () => {
+    const other = await createUser({ email: 'other@example.com' });
+    await DailyEntryModel.create({ user: other._id, date: dayKey(), counted: true, streak: 1, bestScore: 70, bestWpm: 72, bestAccuracy: 97, bestAt: new Date() });
+
+    const { body } = await history(bearerFor(await createUser()));
+
+    expect(body.days[13].wpm).toBeNull();
+  });
+});

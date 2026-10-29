@@ -51,3 +51,11 @@ export interface DailyBoard {
   items: DailyBoardRow[];
   me: { rank: number; score: number } | null;
 }
+
+/** One day of `GET /api/daily/history`: the best counted try, all `null` on a day without one. */
+export interface DailyDayResult {
+  date: string;
+  score: number | null;
+  wpm: number | null;
+  accuracy: number | null;
+}
