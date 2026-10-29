@@ -18,14 +18,14 @@ export const updateTutorialSchema = z
 
 export type UpdateTutorialInput = z.infer<typeof updateTutorialSchema>;
 
-/** `POST /api/tutorial/coach`: the numbers of a practice duel. Missed words are lower-case words of the rain. */
+/** `POST /api/tutorial/coach`: the numbers of a practice duel. Missed words are lower-case words of the rain (Vietnamese letters too). */
 export const coachStatsSchema = z.object({
   result: z.enum(['win', 'loss', 'draw']),
   hits: z.number().int().min(0).max(500),
   thrown: z.number().int().min(0).max(500),
   livesLeft: z.number().int().min(0).max(3),
   seconds: z.number().int().min(0).max(600),
-  missedWords: z.array(z.string().regex(/^[a-z]{1,20}$/)).max(10)
+  missedWords: z.array(z.string().regex(/^\p{Ll}{1,20}$/u)).max(10)
 });
 
 export type CoachStats = z.infer<typeof coachStatsSchema>;

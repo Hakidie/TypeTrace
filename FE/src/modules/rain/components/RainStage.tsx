@@ -1,4 +1,4 @@
-import { useEffect, useState, type AnimationEvent, type CSSProperties } from 'react';
+import { useEffect, useState, type AnimationEvent, type CSSProperties, type ReactNode } from 'react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { AVATAR_MANIFEST } from '@/modules/avatar/data/avatar-manifest';
 import { preloadAvatar } from '@/modules/avatar/lib/preload';
@@ -21,6 +21,8 @@ interface RainStageProps {
   phase: RainPhase;
   /** The word being typed: the avatar slides under it. */
   targetId?: string | null;
+  /** Drawn instead of the avatar (Ping on his side of the practice duel); it moves like the avatar. */
+  character?: ReactNode;
   /** The word Ping frames in the tutorial (`data-tutorial="rain-word"` on its slot). */
   markedId?: string | null;
   /** A new `key` replays the hop (a word typed) or the shake (a word landed). */
@@ -108,6 +110,7 @@ export const RainStage = ({
   phase,
   targetId = null,
   markedId = null,
+  character,
   reaction = null,
   paused = false,
   onLand,
@@ -153,7 +156,7 @@ export const RainStage = ({
           data-testid="avatar-motion"
           className={cn('relative', reaction?.kind === 'hop' && 'rain-hop', reaction?.kind === 'shake' && 'rain-shake')}
         >
-          <AvatarSprite look={avatar} pose={rainPose(phase, reaction)} scale={scaleOf(compact)} eager />
+          {character ?? <AvatarSprite look={avatar} pose={rainPose(phase, reaction)} scale={scaleOf(compact)} eager />}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
@@ -10,6 +10,8 @@ const update = vi.fn();
 vi.mock('../api/tutorial.api', () => ({
   tutorialApi: { start: vi.fn(), update: (body: unknown) => update(body), reset: vi.fn(), coach: vi.fn() },
 }));
+
+vi.mock('@/modules/rain/api/rain.api', () => ({ rainApi: { words: async () => ({ words: ['nhà', 'cửa'], focus: [] }) } }));
 
 const user = (tutorial?: TutorialState): CurrentUser => ({
   _id: 'u1',
@@ -84,5 +86,18 @@ describe('TutorialGuide', () => {
     renderGuide({ tour: 'skipped', modes: { rain: 'skipped' } }, '/typing?mode=rain');
 
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('opens the practice duel at the end of Rank', async () => {
+    renderGuide({ tour: 'skipped', modes: {} }, '/typing?mode=rank');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Đấu tập với Ping' }));
+
+    const duel = await screen.findByRole('dialog', { name: 'Đấu tập với Ping' });
+    expect(await within(duel).findByText('Đấu tập · không tính điểm')).toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
   });
 });

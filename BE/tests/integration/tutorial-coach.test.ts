@@ -40,6 +40,12 @@ describe('POST /api/tutorial/coach', () => {
     expect(response.body.tip.length).toBeGreaterThan(10);
   });
 
+  it('takes Vietnamese words', async () => {
+    const auth = bearerFor(await createUser({}));
+
+    expect((await coach(auth, { ...STATS, missedWords: ['trường', 'đèn'] })).status).toBe(200);
+  });
+
   it('validates the numbers', async () => {
     const auth = bearerFor(await createUser({}));
 

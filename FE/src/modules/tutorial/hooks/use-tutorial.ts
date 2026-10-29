@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { tutorialApi, type TutorialUpdate } from '../api/tutorial.api';
 import type { CoachStats } from '../types/tutorial.types';
@@ -24,5 +24,9 @@ export const useResetTutorial = () => {
   return useMutation({ mutationFn: () => tutorialApi.reset(), onSuccess: setUser });
 };
 
-/** Ping's tip after the practice duel. The backend answers a written tip when the AI cannot, so it does not toast. */
-export const useCoachTip = () => useMutation({ mutationFn: (stats: CoachStats) => tutorialApi.coach(stats), onError: () => undefined });
+/**
+ * Ping's tip after a practice duel. A read (the server keeps nothing), asked once per match: the backend already answers a
+ * written tip when the AI cannot, and a failed request shows the page's own tip.
+ */
+export const useCoachTip = (stats: CoachStats) =>
+  useQuery({ queryKey: ['tutorial', 'coach', stats] as const, queryFn: () => tutorialApi.coach(stats), staleTime: Infinity, retry: false });
