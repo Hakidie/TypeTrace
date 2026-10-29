@@ -62,12 +62,13 @@ export const rateMatch = async (match: MatchDocument) => {
     return;
   }
 
-  // One open room per player, so nothing else changes these two ratings meanwhile.
+  // One open room per player, so nothing else changes these two ratings meanwhile. A match moves the rating of its kind only.
+  const kind = match.kind ?? 'race';
   const ratings = await Promise.all(
     players.map(async (player) => {
-      const start = await startRatingFor(player.user, season);
+      const start = await startRatingFor(player.user, season, kind);
       return SeasonRatingModel.findOneAndUpdate(
-        { season: season._id, user: player.user },
+        { season: season._id, user: player.user, kind },
         // No peak yet: the start (soft reset) is not a tier reached this season; `$max` below sets it after the match.
         { $setOnInsert: { rating: start } },
         { upsert: true, new: true }

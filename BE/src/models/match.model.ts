@@ -10,6 +10,9 @@ export const matchResults = ['win', 'loss', 'draw', 'forfeit'] as const;
 
 /** Why a finished match did not count for Elo: left before the race, flagged by the WPM cap, or the pair's daily limit. */
 export const unratedReasons = ['not-started', 'flagged', 'pair-limit'] as const;
+/** `race`: both type the same passage (the first ranked duel); `rain`: word rain, typed words thrown at the other player. */
+export const matchKinds = ['race', 'rain'] as const;
+export type MatchKind = (typeof matchKinds)[number];
 
 export type MatchStatus = (typeof matchStatuses)[number];
 export type MatchResult = (typeof matchResults)[number];
@@ -41,6 +44,7 @@ export interface MatchPlayer {
 
 export interface MatchDocument extends mongoose.Document {
   code: string;
+  kind: MatchKind;
   status: MatchStatus;
   /** Counted for Elo; decided once, when the match finishes (`services/rating.service.ts`). */
   rated: boolean;
@@ -86,6 +90,7 @@ const playerSchema = new Schema<MatchPlayer>(
 const matchSchema = new Schema<MatchDocument>(
   {
     code: { type: String, required: true },
+    kind: { type: String, enum: matchKinds, default: 'race' },
     status: { type: String, enum: matchStatuses, default: 'waiting' },
     rated: { type: Boolean, default: false },
     flagged: { type: Boolean, default: false },
