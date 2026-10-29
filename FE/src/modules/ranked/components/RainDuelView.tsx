@@ -1,5 +1,5 @@
 import { Heart } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RainStage } from '@/modules/rain/components/RainStage';
 import type { RainDrop, RainReaction } from '@/modules/rain/types/rain.types';
 import { cn } from '@/shared/lib/utils';
@@ -63,6 +63,13 @@ export const RainDuelView = ({ match, myId }: RainDuelViewProps) => {
   const { state, clock: serverClock } = useRainDuel(match.code);
   const send = useSendRainWord();
   const [input, setInput] = useState('');
+  const box = useRef<HTMLInputElement>(null);
+  const running = match.status === 'running';
+  // The box is disabled during the countdown, and a disabled box cannot take the focus (`autoFocus` does nothing then):
+  // it takes it as soon as the duel runs, so the first key already types.
+  useEffect(() => {
+    if (running) box.current?.focus();
+  }, [running]);
   const timeLeft = useTimeLeft(match.endsAt);
   const me = match.players.find((player) => player.userId === myId) ?? match.players[0];
   const other = match.players.find((player) => player !== me) as MatchPlayerView | undefined;
@@ -145,12 +152,12 @@ export const RainDuelView = ({ match, myId }: RainDuelViewProps) => {
         )}
       </div>
       <input
+        ref={box}
         aria-label="Type a falling word"
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        autoFocus
         value={input}
         disabled={match.status !== 'running'}
         onChange={(event) => onChange(event.target.value)}

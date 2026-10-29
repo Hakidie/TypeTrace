@@ -1,4 +1,6 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestQueryClient, renderWithProviders } from '@/test/render-with-providers';
 import { matchKeys } from '../hooks/use-match';
@@ -133,5 +135,22 @@ describe('RainDuelView moments (rain duel)', () => {
 
     expect(screen.getByRole('region', { name: "Minh's field" }).querySelector('.rain-opponent-hit')).not.toBeNull();
     expect(screen.getByRole('img', { name: 'Minh: 2 lives left' })).toBeInTheDocument();
+  });
+});
+
+describe('RainDuelView typing box (rain duel)', () => {
+  it('puts the cursor in the box when the duel starts after the countdown', () => {
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(matchKeys.rain('ABC234'), duel());
+    const countdown = { ...match, status: 'countdown' as const, countdownEndsAt: new Date(Date.now() + 3000).toISOString() };
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    const { rerender } = render(<RainDuelView match={countdown} myId="u1" />, { wrapper });
+    const box = screen.getByRole('textbox', { name: 'Type a falling word' });
+    expect(box).toBeDisabled();
+
+    rerender(<RainDuelView match={match} myId="u1" />);
+
+    expect(box).toBeEnabled();
+    expect(box).toHaveFocus();
   });
 });
