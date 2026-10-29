@@ -6,17 +6,17 @@ describe('ai service without an API key', () => {
     vi.resetModules();
   });
 
-  it('answers 503 with what to configure, without calling Gemini', async () => {
+  it('answers 503 with what to configure, without calling OpenAI', async () => {
     vi.resetModules();
     const actual = await vi.importActual<typeof import('../../src/config/env')>('../../src/config/env');
-    vi.doMock('../../src/config/env', () => ({ env: { ...actual.env, geminiApiKey: undefined } }));
+    vi.doMock('../../src/config/env', () => ({ env: { ...actual.env, openaiApiKey: undefined } }));
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { generateChatReply, isAiConfigured } = await import('../../src/services/ai.service');
 
     expect(isAiConfigured).toBe(false);
     await expect(generateChatReply([{ role: 'user', text: 'Hi' }])).rejects.toMatchObject({
       status: 503,
-      message: expect.stringContaining('GEMINI_API_KEY')
+      message: expect.stringContaining('OPENAI_API_KEY')
     });
   });
 });

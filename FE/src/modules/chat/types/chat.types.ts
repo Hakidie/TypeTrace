@@ -1,4 +1,4 @@
-/** `model` is Gemini's name for the assistant side of the conversation. */
+/** `model` is the assistant side of the conversation. */
 export type ChatRole = 'user' | 'model';
 
 export interface ChatMessage {
