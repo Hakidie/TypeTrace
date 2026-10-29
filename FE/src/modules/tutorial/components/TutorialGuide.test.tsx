@@ -100,4 +100,16 @@ describe('TutorialGuide', () => {
     expect(await within(duel).findByText('Đấu tập · không tính điểm')).toBeInTheDocument();
     expect(update).not.toHaveBeenCalled();
   });
+
+  it('moves to the top while the learner types a word, so the typing box stays visible', () => {
+    renderGuide({ tour: 'skipped', modes: {} }, '/typing?mode=rain');
+    const placeOf = () => screen.getByRole('dialog').parentElement!.className;
+    expect(placeOf()).toContain('bottom-4');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Gõ chữ đang khoanh đỏ');
+    expect(placeOf()).toContain('top-20');
+    expect(placeOf()).not.toContain('bottom-4');
+  });
 });
