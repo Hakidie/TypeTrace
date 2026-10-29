@@ -717,7 +717,78 @@ const fillHair = (g, inside, [x0, x1, y0, y1]) => {
       put(g, x, y, c);
     }
 };
-const mirrored = (inside) => (x, y) => inside(x, y) || inside(61 - x, y);
+/**
+ * The hair SpriteCook drew on the base sprite (`spritecook/<file>`, an edit of rookie-idle at the same size and place):
+ * its brown pixels that are new or were hair before, mapped to the nearest color of the hair ramp so it recolors like
+ * every hair, plus the dark outline pixels touching them. The rest of the edit (face, hoodie) is left out. `dx` moves
+ * an edit that SpriteCook drew a few pixels off back over the base (measured on the body and the eyes).
+ */
+const hairFromEdit = (file, dx = 0) => {
+  const drawn = readPng(join(HERE, 'spritecook', file));
+  const edit = drawn.map((row) => row.map((_, x) => row[x - dx] ?? null));
+  const ramp = Object.values(HAIR);
+  const distance = (a, b) => rgb(a).reduce((sum, v, i) => sum + (v - rgb(b)[i]) ** 2, 0);
+  const isBrown = (c) => {
+    const [r, g, b] = rgb(c);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max === min || max !== r || g < b) return false;
+    const hue = ((g - b) / (max - min)) * 60;
+    // From 4°: the hoodie reds (under 3°) stay out, the reddish hair shadows come in.
+    return hue >= 4 && hue <= 40 && max >= 50 && max <= 205 && (max - min) / max >= 0.2;
+  };
+  // The eyes, lashes, blush and mouth of both faces are dark or brownish too: never hair, or the hair layer (recolored
+  // with the hair) would cover the face of the body layer.
+  const isFace = (x, y) =>
+    (y >= 18 && y <= 25 && ((x >= 24 && x <= 31) || (x >= 38 && x <= 45))) || (y >= 25 && y <= 29 && x >= 30 && x <= 38);
+  const brownHere = (x, y) => {
+    const c = edit[y]?.[x];
+    return Boolean(c) && y < 56 && isBrown(c) && (c !== base[y][x] || hairLayer[y][x] === c);
+  };
+  // Only real hair: brown patches that reach the top of the head or are big (a braid behind its outline). SpriteCook
+  // also redraws cuffs and hands a little, in small brown spots. Patches go through the face zone (a lock can pass
+  // beside an eye); the face itself is left out after.
+  const joined = blank();
+  const seen = blank();
+  for (let sy = 0; sy < SIZE; sy++)
+    for (let sx = 0; sx < SIZE; sx++) {
+      if (seen[sy][sx] || !brownHere(sx, sy)) continue;
+      const patch = [];
+      const stack = [[sx, sy]];
+      while (stack.length) {
+        const [x, y] = stack.pop();
+        if (seen[y]?.[x] !== null || !brownHere(x, y)) continue;
+        seen[y][x] = true;
+        patch.push([x, y]);
+        NEIGHBORS8.forEach(([dx, dy]) => stack.push([x + dx, y + dy]));
+      }
+      if (patch.length >= 15 || patch.some(([, y]) => y <= 8)) patch.forEach(([x, y]) => (joined[y][x] = true));
+    }
+  for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) if (isFace(x, y)) joined[y][x] = null;
+  const g = blank();
+  for (let y = 0; y < SIZE; y++)
+    for (let x = 0; x < SIZE; x++) {
+      const c = edit[y][x];
+      if (joined[y][x]) g[y][x] = ramp.reduce((best, r) => (distance(c, r) < distance(c, best) ? r : best));
+      else if (c && !isFace(x, y) && rgb(c).reduce((a, b) => a + b) < 70 && NEIGHBORS.some(([dx, dy]) => joined[y + dy]?.[x + dx])) g[y][x] = INK;
+    }
+  // Holes in the head: pixels with neither new hair nor skin that the outside cannot reach. The body layer has nothing
+  // to show there, so the base hair (or a dark hair color) fills them.
+  const body = BASE_LAYERS.body;
+  const outside = blank();
+  const open = (x, y) => x >= 0 && y >= 0 && x < SIZE && y < SIZE && !g[y][x] && !body[y][x];
+  const reach = [];
+  for (let i = 0; i < SIZE; i++) reach.push([i, 0], [0, i], [SIZE - 1, i]);
+  for (let x = 0; x < SIZE; x++) reach.push([x, 30]);
+  while (reach.length) {
+    const [x, y] = reach.pop();
+    if (y > 30 || !open(x, y) || outside[y][x]) continue;
+    outside[y][x] = true;
+    NEIGHBORS.forEach(([dx, dy]) => reach.push([x + dx, y + dy]));
+  }
+  for (let y = 0; y < 30; y++) for (let x = 0; x < SIZE; x++) if (open(x, y) && !outside[y][x]) g[y][x] = hairLayer[y][x] ?? HAIR.dark;
+  return g;
+};
 const inDisc = (cx, cy, r) => (x, y) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r + r;
 const sideHair = (x, y) => x <= 18 || x >= 43;
 
@@ -725,62 +796,33 @@ const sideHair = (x, y) => x <= 18 || x >= 43;
 const HAIR_DRAW = {
   short: () => ({ front: clone(hairLayer) }),
   twintails: () => ({ front: twinTails() }),
-  long: () => {
-    const front = clone(hairLayer);
-    fillHair(front, mirrored((x, y) => y >= 12 && y <= 31 && x >= 12 + Math.max(0, y - 27) && x <= 16), [10, 51, 12, 31]);
-    const back = blank();
-    // Rounded over the head, widest at the shoulders, a wavy hem.
-    const half = (y) => (y < 16 ? 21 - Math.round((16 - y) * 0.7) : y < 30 ? 22 + Math.round((y - 16) / 5) : 25 - Math.max(0, Math.round((y - 38) * 1.4)));
-    const hem = (x) => 44 + (x % 5 === 0 ? 2 : x % 5 === 1 || x % 5 === 4 ? 1 : 0);
-    fillHair(back, (x, y) => y >= 6 && y <= hem(x) && Math.abs(x - 30.5) <= half(y), [0, 63, 6, 47]);
-    return { front, back };
-  },
-  ponytail: () => {
-    const back = blank();
-    const cx = (y) => 47 + Math.round(8 * Math.sin((Math.PI * (y - 6)) / 44));
-    const w = (y) => (y < 12 ? 3 : Math.max(1, Math.round(4 - (y - 12) / 6)));
-    fillHair(back, (x, y) => y >= 6 && y <= 36 && Math.abs(x - cx(y)) <= w(y), [30, 63, 6, 36]);
-    return { front: clone(hairLayer), back };
-  },
-  bob: () => {
-    const front = clone(hairLayer);
-    fillHair(front, mirrored((x, y) => y >= 11 && y <= 30 && x >= 12 + Math.max(0, y - 27) && x <= 17), [10, 51, 11, 30]);
-    return { front };
-  },
+  // Drawn by SpriteCook on the base sprite (spritecook/long-hair-edit.png): bangs, and straight locks that fall in front
+  // of the shoulders to the hoodie hem. All of it is in front of the body, so there is no back layer (no cape).
+  long: () => ({ front: hairFromEdit('long-hair-edit.png') }),
+  // Drawn by SpriteCook on the base sprite (spritecook/ponytail-edit.png, 2 pixels to the right): a high tail tied on
+  // the top of the head that arcs out to the left and curls at the chin. Its red tie is drawn in `finishHair`.
+  ponytail: () => ({ front: hairFromEdit('ponytail-edit.png', -2) }),
+  // Drawn by SpriteCook (spritecook/bob-edit.png, 1 pixel to the right): chin-length with blunt bangs and full sides.
+  bob: () => ({ front: hairFromEdit('bob-edit.png', -1) }),
   buns: () => {
     const front = clone(hairLayer);
     for (const [cx, cy] of [[20, 5], [42, 5]]) fillHair(front, inDisc(cx, cy, 5), [cx - 6, cx + 6, 0, 11]);
     return { front };
   },
-  braid: () => {
-    const front = clone(hairLayer);
-    for (let i = 0; i < 9; i++) {
-      const y0 = 14 + i * 3;
-      const cx = 15 + (i % 2);
-      rect(front, cx - 2, y0, 5, 3, HAIR.base);
-      pts(front, [[cx - 1, y0], [cx, y0]], HAIR.light);
-      pts(front, [[cx + 2, y0 + 2], [cx + 1, y0 + 2], [cx - 2, y0]], HAIR.darker);
-    }
-    rect(front, 14, 44, 4, 3, HAIR.base);
-    pts(front, [[14, 46], [17, 46]], HAIR.darker);
-    return { front };
-  },
-  curly: () => {
-    const front = clone(hairLayer);
-    const curls = [[20, 1], [27, 0], [34, 0], [41, 1], [14, 5], [12, 10], [12, 15], [13, 20]];
-    for (const [cx, cy] of [...curls, ...curls.map(([x, y]) => [61 - x, y])]) fillHair(front, inDisc(cx, cy, 3), [cx - 4, cx + 4, Math.max(0, cy - 4), cy + 4]);
-    return { front };
-  },
+  // Drawn by SpriteCook (spritecook/braid-edit.png): side-swept bangs and one braid over the shoulder to the waist.
+  braid: () => ({ front: hairFromEdit('braid-edit.png') }),
+  // Drawn by SpriteCook (spritecook/curly-edit.png, 1 pixel to the right): a fluffy cloud of curls down to the jaw.
+  curly: () => ({ front: hairFromEdit('curly-edit.png', -1) }),
 };
 
 /** Ties and bows in fixed colors (after the hair is recolored), then the outline. */
 const finishHair = (style, front) => {
   if (style === 'twintails') return tailBows(front);
   if (style === 'ponytail') {
-    rect(front, 45, 6, 4, 3, '#e5484d');
-    put(front, 46, 6, '#ff8a8f');
+    // The tie of ponytail-edit.png: a short diagonal band where the tail leaves the head.
+    pts(front, [[21, 7], [20, 8], [19, 9], [22, 7], [21, 8], [20, 9]], '#e5484d');
+    pts(front, [[22, 7], [21, 7]], '#ff8a8f');
   }
-  if (style === 'braid') rect(front, 14, 42, 4, 2, '#e5484d');
   return outline(front, (x, y) => outsideBase(x, y) || (sideHair(x) && y >= 9) || y <= 11);
 };
 
@@ -1056,12 +1098,38 @@ const dressStyle = (style, color) => {
   const crew = topStyle('crew', pinafore ? CREAM : color);
   const cuff = { 'dress-sailor': WHITE, 'dress-belted': CREAM, 'dress-princess': CREAM }[style];
   if (cuff) for (let y = 44; y <= 45; y++) for (let x = 0; x < SIZE; x++) if (isSleeve(x) && crew[y][x] && crew[y][x] !== INK) crew[y][x] = cuff;
+  // No hood: the hoodie's hood lies on the shoulders, so above the hanging arms only a sloping shoulder line is kept.
+  // Cut before the arms are raised, or the raised arms (above the shoulders then) would be cut too.
+  for (let y = 0; y <= 35; y++) for (let x = 0; x < SIZE; x++) if (crew[y][x] && Math.abs(x - 32) > 4 + (y - 30) * 2.6) crew[y][x] = null;
   const finish = (g) => {
-    if (!pinafore) for (let y = 46; y <= 47; y++) for (let x = 23; x <= 41; x++) if (g[y][x] && g[y][x] !== INK) g[y][x] = k;
-    const last = princess ? 57 : 56;
-    for (let y = 48; y <= last; y++) {
-      const grow = Math.round((y - 48) * (princess ? 1.25 : 0.9));
-      for (let x = 22 - grow; x <= 42 + grow; x++) g[y][x] = y === last ? j : (x - 22 + grow) % 6 === 3 ? l : k;
+    // A smooth fitted bodice: the hoodie pocket and seams go, the right side stays in shadow, a seam marks a high
+    // waist. (The pinafore keeps its cream blouse here; the brown bib goes over it below.)
+    const blouse = pinafore ? CREAM : k;
+    for (let y = 33; y <= 41; y++)
+      for (let x = 23; x <= 41; x++) {
+        if (!g[y][x] || g[y][x] === INK) continue;
+        g[y][x] = y === 41 && !pinafore ? j : x >= 40 ? mix(blouse, '#000000', 0.12) : blouse;
+      }
+    // A bell skirt gathered at the waist: it flares fast under the waist then falls straight, with soft folds that
+    // fan out (light, then shadow), a darker hem and rounded hem corners. Hanging arms stay in front of it.
+    const last = princess ? 58 : 56;
+    const flare = princess ? 9 : 6;
+    for (let y = 42; y <= last; y++) {
+      const t = (y - 42) / (last - 42);
+      const left = 23 - Math.round(flare * t ** 0.7);
+      const right = 41 + Math.round(flare * t ** 0.7);
+      const corner = y === last ? 1 : 0;
+      for (let x = left + corner; x <= right - corner; x++) {
+        if (isSleeve(x) && g[y][x] && y <= 51) continue;
+        const u = (x - left) / (right - left);
+        const fold = [0.2, 0.4, 0.6, 0.8].some((f) => Math.abs(u - f) * (right - left) < 0.5);
+        const shade = [0.2, 0.4, 0.6, 0.8].some((f) => Math.abs(u - f - 1 / (right - left)) * (right - left) < 0.5);
+        let c = x >= right - 1 ? l : k;
+        if (y >= 44 && fold) c = mix(k, '#ffffff', 0.18);
+        else if (y >= 44 && shade) c = l;
+        if (y >= last - 1) c = y === last ? i : j;
+        g[y][x] = c;
+      }
     }
     if (style === 'dress-sailor') {
       rect(g, 22, 31, 21, 4, WHITE);
@@ -1071,33 +1139,33 @@ const dressStyle = (style, color) => {
       rect(g, 34, 36, 3, 3, '#d64545');
       rect(g, 31, 36, 3, 2, '#a72934');
       pts(g, [[31, 38], [33, 38], [30, 39], [34, 39]], '#d64545');
-      for (const y of [53, 55]) for (let x = 0; x < SIZE; x++) if (g[y][x] === k || g[y][x] === l) g[y][x] = WHITE;
+      for (const y of [52, 54]) for (let x = 0; x < SIZE; x++) if (g[y][x] && g[y][x] !== INK) g[y][x] = WHITE;
     }
     if (pinafore) {
-      rect(g, 25, 37, 15, 11, k);
-      rect(g, 25, 37, 15, 1, l);
-      rect(g, 28, 40, 9, 4, l);
+      rect(g, 25, 36, 15, 6, k);
+      rect(g, 25, 36, 15, 1, l);
+      rect(g, 28, 38, 9, 2, l);
       for (const x of [26, 37]) {
-        rect(g, x, 32, 2, 5, k);
-        put(g, x, 37, '#ffd23f');
+        rect(g, x, 32, 2, 4, k);
+        put(g, x, 36, '#ffd23f');
       }
     }
     if (style === 'dress-belted') {
       for (let x = 27; x <= 37; x++) rect(g, x, 31, 1, x === 27 || x === 37 ? 2 : 3, CREAM);
-      for (const y of [37, 40, 43]) put(g, 32, y, CREAM);
-      rect(g, 23, 46, 19, 2, '#5b3a29');
-      rect(g, 30, 45, 4, 4, '#ffd23f');
-      rect(g, 31, 46, 2, 2, '#5b3a29');
-      for (let x = 13; x <= 51; x++) if (g[56][x] === j && x % 2) g[56][x] = CREAM;
+      for (const y of [35, 38]) put(g, 32, y, CREAM);
+      rect(g, 23, 40, 19, 2, '#5b3a29');
+      rect(g, 30, 39, 4, 4, '#ffd23f');
+      rect(g, 31, 40, 2, 2, '#5b3a29');
+      for (let x = 13; x <= 51; x++) if (g[56][x] === i && x % 2) g[56][x] = CREAM;
     }
     if (princess) {
-      for (let y = 51; y <= 57; y++) {
-        const half = Math.round((y - 50) * 0.9);
-        for (let x = 32 - half; x <= 32 + half; x++) if (g[y][x]) g[y][x] = y === 57 ? mix(CREAM, '#000000', 0.15) : CREAM;
+      // A cream underskirt showing in a widening slit down the front, and a bow at the waist.
+      for (let y = 46; y <= 58; y++) {
+        const half = Math.round((y - 45) * 0.7);
+        for (let x = 32 - half; x <= 32 + half; x++) if (g[y][x]) g[y][x] = y === 58 ? mix(CREAM, '#000000', 0.15) : CREAM;
       }
-      for (const x0 of [17, 41]) for (let d = 0; d < 4; d++) put(g, x0 + d * 2, 54 + (d % 2), i);
-      rect(g, 29, 46, 7, 3, l);
-      rect(g, 31, 46, 3, 3, i);
+      rect(g, 29, 40, 7, 3, l);
+      rect(g, 31, 40, 3, 3, i);
       rect(g, 31, 32, 2, 2, '#ffd23f');
     }
     if (style === 'dress-collar') {
@@ -1105,11 +1173,12 @@ const dressStyle = (style, color) => {
         rect(g, x0, 32, 6, 3, '#f7f7fb');
         rect(g, x0, 34, 6, 1, '#d7dbe8');
       }
-      for (const y of [38, 41, 44]) put(g, 32, y, '#f7f7fb');
+      for (const y of [36, 39]) put(g, 32, y, '#f7f7fb');
     }
     if (style === 'dress-polka')
       for (let y = 36; y <= 55; y++) for (let x = 0; x < SIZE; x++) if ((g[y][x] === k || g[y][x] === l) && x % 5 === 0 && y % 4 === 0) g[y][x] = '#f7f7fb';
-    return outline(g, (x, y) => y >= 46);
+    // Outlined again where the hood was cut and around the skirt.
+    return outline(g, (x, y) => y >= 42 || y <= 36);
   };
   return { down: finish(clone(crew)), up: finish(raiseArms(crew)) };
 };

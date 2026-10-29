@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { ErrorState } from '@/shared/components/error-state';
-import { LoadingState } from '@/shared/components/loading-state';
 import { Button } from '@/shared/components/ui/button';
 import { useMatch } from '../hooks/use-match';
+import { LoadingRing } from './LoadingRing';
 import { MatchResult } from './MatchResult';
 import { RaceView } from './RaceView';
 import { RankLobby } from './RankLobby';
@@ -78,7 +78,7 @@ export const RankMode = () => {
   if (!match) {
     return (
       <div className="mx-auto my-auto w-full max-w-3xl">
-        {error ? <ErrorState error={error} onRetry={() => void refetch()} /> : isLoading && <LoadingState rows={2} />}
+        {error ? <ErrorState error={error} onRetry={() => void refetch()} /> : isLoading && <LoadingRing label="Opening the room…" />}
       </div>
     );
   }
