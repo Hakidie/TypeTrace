@@ -18,7 +18,7 @@ interface PlayerCardProps {
   style?: CSSProperties;
 }
 
-/** One seat of a room: the avatar on a floor line, the name ("you" for the user) and a line under it. */
+/** One seat of a room (it fills the height its grid row gives it, so two seats side by side are equally high): the avatar on a floor line, the name ("you" for the user) and a line under it. */
 export const PlayerCard = ({ player, isMe = false, pose = 'idle', highlight = false, children, className, style }: PlayerCardProps) => (
   <div
     className={cn(
@@ -41,7 +41,7 @@ export const PlayerCard = ({ player, isMe = false, pose = 'idle', highlight = fa
         {children}
       </>
     ) : (
-      <LoadingRing label="Waiting for an opponent…" className="min-h-48 justify-center" />
+      <LoadingRing label="Waiting for an opponent…" className="min-h-48 flex-1 justify-center" />
     )}
   </div>
 );
