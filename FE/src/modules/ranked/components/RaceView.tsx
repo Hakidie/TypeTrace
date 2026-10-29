@@ -3,6 +3,7 @@ import { TypingArea } from '@/modules/typing/components/TypingArea';
 import { useSendProgress } from '../hooks/use-match';
 import type { PublicMatch } from '../types/ranked.types';
 import { Countdown } from './Countdown';
+import { LoadingRing } from './LoadingRing';
 import { RaceLanes } from './RaceLanes';
 
 /** Seconds left in the race by the server's end time (at least 1, so the typing area never starts already over). */
@@ -29,7 +30,7 @@ export const RaceView = ({ match, myId }: { match: PublicMatch; myId?: string })
         </div>
       )}
       {match.status === 'running' && me?.finished && (
-        <p className="my-auto text-center text-xl text-primary">Finished — waiting for your opponent</p>
+        <LoadingRing label="Finished — waiting for your opponent" className="my-auto text-xl text-primary" />
       )}
       {match.status === 'running' && !me?.finished && match.targetWords && (
         <TypingArea

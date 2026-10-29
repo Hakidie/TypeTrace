@@ -13,12 +13,12 @@ describe('layerFiles', () => {
     ]);
   });
 
-  it('adds the back hair, the cute face, raised arms and the pose props', () => {
+  // Long hair falls in front of the shoulders (SpriteCook's drawing), so no hair item has a back layer now.
+  it('adds the cute face, raised arms and the pose props, and no back hair for long hair', () => {
     const files = layerFiles({ ...DEFAULT_AVATAR, face: 'cute', hair: 'long-pink', headwear: 'crown', back: 'angel-wings' }, 'win');
 
     expect(files).toEqual([
       'back/angel-wings.png',
-      'hair-back/long-pink.png',
       'bottom/navy.png',
       'shoes/sneakers-brown.png',
       'top/red-up.png',
