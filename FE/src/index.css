@@ -599,3 +599,28 @@ body {
     transform-origin: bottom;
   }
 }
+
+/*
+ * Ping, the tutorial mascot (modules/tutorial, `Ping`): a strip of 4 frames played with steps(4); `--ping-strip` is the
+ * width of the strip. For reduced motion it stands on its first frame.
+ */
+@keyframes ping-play {
+  to {
+    background-position: calc(var(--ping-strip) * -1) 0;
+  }
+}
+
+.ping-sprite {
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  image-rendering: pixelated;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ping-sprite {
+    animation: ping-play 0.8s steps(4) infinite;
+  }
+  .ping-sprite-slow {
+    animation-duration: 1.4s;
+  }
+}
