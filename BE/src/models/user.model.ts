@@ -9,6 +9,16 @@ export const USER_STATUSES = ['active', 'locked'] as const;
 export const ANONYMOUS_PLAYER_NAME = 'Anonymous player';
 export type UserStatus = (typeof USER_STATUSES)[number];
 
+/** The modes Ping guides through, in the order of the tour after sign-up (Ping tutorial design). */
+export const TUTORIAL_MODES = ['practice', 'placement', 'rain', 'daily', 'rank'] as const;
+export type TutorialMode = (typeof TUTORIAL_MODES)[number];
+export type TutorialStatus = 'done' | 'skipped';
+export const TUTORIAL_TOURS = ['active', 'done', 'skipped'] as const;
+export interface TutorialState {
+  tour: (typeof TUTORIAL_TOURS)[number];
+  modes: Partial<Record<TutorialMode, TutorialStatus>>;
+}
+
 /** The zone of the days of a learner who never sent their own (SCRUM-31). Readers fall back to it: old users have none stored. */
 export const DEFAULT_TIMEZONE = 'Asia/Ho_Chi_Minh';
 
@@ -48,6 +58,11 @@ export interface UserDocument extends mongoose.Document {
   ownedItems: string[];
   /** Earned in rated duels (phase 6). Only the account itself sees it (`/me`, the avatar catalog). */
   coins: number;
+  /**
+   * Ping's tutorial: set by `POST /api/tutorial/start` right after sign-up, or by a replay in Settings. Missing on accounts
+   * from before the tutorial (they know how to play): nothing is shown to them.
+   */
+  tutorial?: TutorialState;
 }
 
 /** Fields that must never leave the server. Stripped from every JSON response. */
@@ -111,13 +126,32 @@ const userSchema = new Schema<UserDocument>(
       default: () => ({})
     },
     ownedItems: { type: [String], default: [] },
-    coins: { type: Number, default: 0, min: 0 }
+    coins: { type: Number, default: 0, min: 0 },
+    // No default: an account without it is one from before the tutorial.
+    tutorial: {
+      type: new Schema(
+        {
+          tour: { type: String, enum: TUTORIAL_TOURS, required: true },
+          modes: {
+            type: new Schema(
+              Object.fromEntries(TUTORIAL_MODES.map((mode) => [mode, { type: String, enum: ['done', 'skipped'] }])),
+              { _id: false }
+            ),
+            default: () => ({})
+          }
+        },
+        { _id: false }
+      )
+    }
   },
   {
     timestamps: true,
     toJSON: {
       transform: (_doc, ret: Record<string, unknown>) => {
         for (const field of PRIVATE_USER_FIELDS) delete ret[field];
+        // Mongoose drops an empty `modes` object on save: answer it as `{}`, so readers never check for it.
+        const tutorial = ret.tutorial as Partial<TutorialState> | undefined;
+        if (tutorial && !tutorial.modes) tutorial.modes = {};
         return ret;
       }
     }

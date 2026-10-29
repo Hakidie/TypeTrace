@@ -19,6 +19,7 @@ import { profileRouter } from './routes/profile.route';
 import { rainRouter } from './routes/rain.route';
 import { rankedRouter } from './routes/ranked.route';
 import { themeRouter } from './routes/theme.route';
+import { tutorialRouter } from './routes/tutorial.route';
 import { typingSessionRouter } from './routes/typing-session.route';
 
 export const app = express();
@@ -66,5 +67,6 @@ app.use('/api/matches', matchRouter);
 app.use('/api/ranked', rankedRouter);
 app.use('/api/rain', rainRouter);
 app.use('/api/daily', dailyRouter);
+app.use('/api/tutorial', tutorialRouter);
 app.use(notFoundHandler);
 app.use(errorMiddleware);
