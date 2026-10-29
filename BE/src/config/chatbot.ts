@@ -1,5 +1,3 @@
-import { ThinkingLevel } from '@google/genai';
-
 /**
  * Personality and behaviour of the AI chat bot. Edit this file to turn the
  * sample assistant into the bot your project needs (a math tutor, a shop
@@ -19,17 +17,12 @@ export const chatbotConfig = {
     'If you do not know something, say so instead of guessing.'
   ].join('\n'),
 
-  /**
-   * How much the model reasons before answering. LOW is quick and cheap on the
-   * free quota; MEDIUM or HIGH give better answers to hard questions (math,
-   * multi-step problems) but are slower. Options: MINIMAL, LOW, MEDIUM, HIGH.
-   * Gemini 3.5 models ignore a custom temperature, so there is none here.
-   */
-  thinkingLevel: ThinkingLevel.LOW,
+  /** The longest reply, in tokens (about 3/4 of a word each). Keeps answers short and the bill small. */
+  maxReplyTokens: 500,
 
   /**
    * How many of the latest messages are sent to the model. More context means
-   * better follow-up answers but uses more of the free quota.
+   * better follow-up answers but costs more tokens.
    */
   historyLimit: 20,
 

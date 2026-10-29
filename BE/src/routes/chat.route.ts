@@ -7,8 +7,8 @@ import { chatRequestSchema } from '../validators/chat.validator';
 
 export const chatRouter = Router();
 
-// The Gemini free tier allows only a few requests per minute for the whole key,
-// so each signed-in user gets a small share.
+// Every message costs OpenAI tokens on the project's key, so each signed-in user
+// gets a small share.
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 10,

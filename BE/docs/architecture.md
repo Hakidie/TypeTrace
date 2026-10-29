@@ -217,7 +217,7 @@ Throw `badRequest`, `unauthorized`, `forbidden`, `notFound`, `conflict` or `new 
 
 ### 10. External services
 - Email: `sendEmail(to, subject, html)`. Without `SMTP_HOST`, mail goes to nodemailer's JSON transport and is printed to the console in development; in production it throws `AppError(503)` so codes never reach the logs.
-- AI: `generateChatReply(messages)` in `services/ai.service.ts` calls Google Gemini through `@google/genai` with the system prompt and thinking level (default `LOW`) from `config/chatbot.ts`; default model `gemini-3.5-flash-lite`. Without `GEMINI_API_KEY` it throws `AppError(503)`; Gemini 429 → 429, bad key/model → 503, other failures → 502. `POST /api/chat` adds `authGuard` and a per-user limit of 10 requests per minute.
+- AI: `generateChatReply(messages)` in `services/ai.service.ts` calls OpenAI Chat Completions with `fetch` (system prompt first, then the latest `historyLimit` messages, `model` sent as `assistant`, reply capped at `maxReplyTokens`, all from `config/chatbot.ts`); default model `gpt-4.1-mini`. Without `OPENAI_API_KEY` it throws `AppError(503)`; OpenAI 429 → 429, bad key/model (400/401/403/404) → 503, other failures → 502. `POST /api/chat` adds `authGuard` and a per-user limit of 10 requests per minute.
 - Images: `uploadImage(buffer, folder)` / `deleteImage(publicId)`. Without Cloudinary variables, upload throws `AppError(503)` and delete is a no-op. Store the returned `publicId` to delete the image later.
 
 ## HTTP Response Conventions
