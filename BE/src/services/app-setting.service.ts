@@ -6,10 +6,12 @@ export const getAppSettings = async () => (await AppSettingModel.findOne({ key: 
 
 /** Saves `changes` (only the fields given, the others keep their value) and answers the settings saved. */
 export const updateAppSettings = async (changes: Partial<AppSettings>) => {
+  const safeChanges: Partial<AppSettings> = {};
+  if (changes.dailyTaskCount !== undefined) safeChanges.dailyTaskCount = changes.dailyTaskCount;
   // One atomic upsert: the first save creates the document, the unique `key` keeps it one.
   const settings = await AppSettingModel.findOneAndUpdate(
     { key: APP_SETTINGS_KEY },
-    { $set: changes },
+    { $set: safeChanges },
     { upsert: true, returnDocument: 'after', runValidators: true }
   );
   return settings!;

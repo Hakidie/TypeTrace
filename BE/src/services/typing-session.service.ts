@@ -154,6 +154,7 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
   const words = gradeWords(session.targetWords, typedWords, typedAtMs);
   const correctWords = words.filter((word) => word.errorTypes.length === 0).length;
   const wpm = computeWpm(correctWords, durationMs);
+  const { errorCounts, opportunityCounts } = countErrors(words);
 
   // One conditional write: only a request that still finds the session in progress completes it, so of two sent at the
   // same time one gets 409. Only that request adds a counted session to the learner's day (SCRUM-31): it counts once.
@@ -167,7 +168,8 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
       durationMs,
       wpm,
       accuracy: round1((correctWords / words.length) * 100),
-      ...countErrors(words),
+      errorCounts,
+      opportunityCounts,
       isCounted: isSessionCounted(words.length, wpm, elapsedMs)
     },
     { returnDocument: 'after', runValidators: true }
