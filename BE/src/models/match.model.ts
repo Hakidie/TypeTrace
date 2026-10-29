@@ -8,8 +8,12 @@ export const matchStatuses = ['waiting', 'countdown', 'running', 'finished', 'ca
 export const OPEN_MATCH_STATUSES = ['waiting', 'countdown', 'running'] as const;
 export const matchResults = ['win', 'loss', 'draw', 'forfeit'] as const;
 
+/** Why a finished match did not count for Elo: left before the race, flagged by the WPM cap, or the pair's daily limit. */
+export const unratedReasons = ['not-started', 'flagged', 'pair-limit'] as const;
+
 export type MatchStatus = (typeof matchStatuses)[number];
 export type MatchResult = (typeof matchResults)[number];
+export type UnratedReason = (typeof unratedReasons)[number];
 
 export interface MatchPlayer {
   user: Types.ObjectId;
@@ -28,13 +32,19 @@ export interface MatchPlayer {
   wpm: number;
   finishedAt?: Date;
   result?: MatchResult;
+  /** The season rating before and after this match, when it was rated. */
+  ratingBefore?: number;
+  ratingAfter?: number;
 }
 
 export interface MatchDocument extends mongoose.Document {
   code: string;
   status: MatchStatus;
-  /** Counts for Elo (phase 5). Always false until then. */
+  /** Counted for Elo; decided once, when the match finishes (`services/rating.service.ts`). */
   rated: boolean;
+  /** The season the match was settled in; set once it finished, rated or not. */
+  season?: Types.ObjectId;
+  unratedReason?: UnratedReason;
   /** A player went over `MAX_COUNTED_WPM`: the match never counts. */
   flagged: boolean;
   passageId: Types.ObjectId;
@@ -63,7 +73,9 @@ const playerSchema = new Schema<MatchPlayer>(
     accuracy: { type: Number, default: 0 },
     wpm: { type: Number, default: 0 },
     finishedAt: Date,
-    result: { type: String, enum: matchResults }
+    result: { type: String, enum: matchResults },
+    ratingBefore: Number,
+    ratingAfter: Number
   },
   { _id: false }
 );
@@ -74,6 +86,8 @@ const matchSchema = new Schema<MatchDocument>(
     status: { type: String, enum: matchStatuses, default: 'waiting' },
     rated: { type: Boolean, default: false },
     flagged: { type: Boolean, default: false },
+    season: { type: Schema.Types.ObjectId, ref: 'Season' },
+    unratedReason: { type: String, enum: unratedReasons },
     passageId: { type: Schema.Types.ObjectId, ref: 'Passage', required: true },
     passageTitle: { type: String, required: true },
     targetWords: { type: [String], required: true },

@@ -1,7 +1,7 @@
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { http } from '@/shared/api/http';
 import { parseEvents } from '../lib/sse';
-import type { MatchEvent, ProgressInput, ProgressUpdate, PublicMatch } from '../types/ranked.types';
+import type { Leaderboard, MatchEvent, Paginated, ProgressInput, ProgressUpdate, PublicMatch, RankedMe, Season } from '../types/ranked.types';
 
 /** Every function resolves with the response body (not the Axios response). */
 export const rankedApi = {
@@ -12,6 +12,11 @@ export const rankedApi = {
   ready: (code: string, ready: boolean) => http.post<PublicMatch>(`/matches/${code}/ready`, { ready }).then((r) => r.data),
   progress: (code: string, input: ProgressInput) => http.post<ProgressUpdate>(`/matches/${code}/progress`, input).then((r) => r.data),
   rematch: (code: string) => http.post<PublicMatch>(`/matches/${code}/rematch`).then((r) => r.data),
+  me: () => http.get<RankedMe>('/ranked/me').then((r) => r.data),
+  leaderboard: (params: { page: number; limit: number }) => http.get<Leaderboard>('/ranked/leaderboard', { params }).then((r) => r.data),
+  // Admin only.
+  seasons: (params: { page: number; limit: number }) => http.get<Paginated<Season>>('/admin/seasons', { params }).then((r) => r.data),
+  closeSeason: (id: string) => http.post<Season>(`/admin/seasons/${id}/close`).then((r) => r.data),
 };
 
 const RECONNECT_MS = 1000;

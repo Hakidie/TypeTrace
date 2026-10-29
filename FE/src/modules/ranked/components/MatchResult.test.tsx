@@ -54,10 +54,26 @@ describe('MatchResult (ranked duel, phase 4)', () => {
     expect(screen.getByRole('heading', { name: 'You win' })).toBeInTheDocument();
     expect(screen.getByText('52 WPM')).toBeInTheDocument();
     expect(screen.getByText('67% accuracy')).toBeInTheDocument();
-    expect(screen.getByText('Rating comes soon')).toBeInTheDocument();
     const images = [...document.querySelectorAll('img')].map((image) => image.getAttribute('src'));
     expect(images).toContain('/avatar/body/peach-win.png');
     expect(images).toContain('/avatar/body/peach-lose.png');
+  });
+
+  it('shows how the rating of each player moved (phase 5)', () => {
+    const match = finished('win', 'loss');
+    match.rated = true;
+    match.players[0] = { ...match.players[0], ratingBefore: 1000, ratingAfter: 1020 };
+    match.players[1] = { ...match.players[1], ratingBefore: 1000, ratingAfter: 980 };
+    renderResult(match);
+
+    expect(screen.getByText('Rating 1020 (+20)')).toBeInTheDocument();
+    expect(screen.getByText('Rating 980 (−20)')).toBeInTheDocument();
+  });
+
+  it('says why a match did not count (phase 5)', () => {
+    renderResult({ ...finished('win', 'loss'), unratedReason: 'pair-limit' });
+
+    expect(screen.getByText('Not rated: you already played 3 rated matches with this player today.')).toBeInTheDocument();
   });
 
   it('names a loss, a draw and a forfeit', () => {

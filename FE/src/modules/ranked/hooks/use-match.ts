@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { openMatchStream, rankedApi } from '../api/ranked.api';
 import type { MatchEvent, ProgressInput, PublicMatch, RematchInvite } from '../types/ranked.types';
+import { rankedKeys } from './use-ranked';
 
 /** Cache keys. */
 export const matchKeys = {
@@ -41,6 +42,8 @@ export const useMatch = (code?: string) => {
       (event) => {
         if (event.event === 'rematch') setStream((current) => ({ ...current, invite: event.data }));
         else queryClient.setQueryData<PublicMatch>(matchKeys.detail(code), (match) => applyEvent(match, event));
+        // The match is settled: the own rating moved.
+        if (event.event === 'result') void queryClient.invalidateQueries({ queryKey: rankedKeys.me() });
       },
       { onGone: () => setStream((current) => ({ ...current, gone: true })) },
     );

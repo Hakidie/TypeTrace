@@ -26,6 +26,7 @@ export const toPublicMatch = (match: MatchDocument) => ({
   code: match.code,
   status: match.status,
   rated: match.rated,
+  ...(match.unratedReason && { unratedReason: match.unratedReason }),
   passageTitle: match.passageTitle,
   wordCount: match.targetWords.length,
   ...(match.status !== 'waiting' && { targetWords: match.targetWords }),
@@ -42,7 +43,8 @@ export const toPublicMatch = (match: MatchDocument) => ({
     accuracy: player.accuracy,
     wpm: player.wpm,
     finished: Boolean(player.finishedAt),
-    ...(player.result && { result: player.result })
+    ...(player.result && { result: player.result }),
+    ...(player.ratingAfter !== undefined && { ratingBefore: player.ratingBefore, ratingAfter: player.ratingAfter })
   }))
 });
 

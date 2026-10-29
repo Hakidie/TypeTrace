@@ -15,6 +15,7 @@ import { noteRouter } from './routes/note.route';
 import { passageRouter } from './routes/passage.route';
 import { placementRouter } from './routes/placement.route';
 import { profileRouter } from './routes/profile.route';
+import { rankedRouter } from './routes/ranked.route';
 import { themeRouter } from './routes/theme.route';
 import { typingSessionRouter } from './routes/typing-session.route';
 
@@ -59,5 +60,6 @@ app.use('/api/passages', passageRouter);
 app.use('/api/themes', themeRouter);
 app.use('/api/avatar', avatarRouter);
 app.use('/api/matches', matchRouter);
+app.use('/api/ranked', rankedRouter);
 app.use(notFoundHandler);
 app.use(errorMiddleware);

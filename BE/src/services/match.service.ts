@@ -8,6 +8,7 @@ import { badRequest, conflict, notFound } from '../utils/app-error';
 import { ProgressInput } from '../validators/match.validator';
 import { cancelTimer, closeStreams, isConnected, matchSettings, publish, publishTo, schedule, subscribe, withMatchLock } from './match-hub';
 import { generateRoomCode, pickRankedPassage, toPublicMatch } from './match-view';
+import { rateMatch } from './rating.service';
 import { computeWpm, gradeWords, MAX_COUNTED_WPM, MIN_COUNTED_WORDS, SESSION_GRACE_MS } from './typing-session.service';
 
 export const ANONYMOUS_PLAYER_NAME = 'Anonymous player';
@@ -44,6 +45,7 @@ const expireIfStale = async (match: MatchDocument | null) => {
     closeStreams(match.code);
   } else if (match.status === 'running' && now > match.startedAt!.getTime() + matchSettings.durationMs + SESSION_GRACE_MS) {
     finishByCorrectWords(match);
+    await rateMatch(match);
     await match.save();
     announceResult(match);
   }
@@ -148,6 +150,7 @@ export const leaveMatch = (userId: string, code: string) =>
     }
     if (match.status === 'countdown' || match.status === 'running') {
       forfeitPlayer(match, userId);
+      await rateMatch(match);
       await match.save();
       announceResult(match);
     }
@@ -177,6 +180,7 @@ const onStreamClosed = (code: string, userId: string) => {
       const match = await MatchModel.findOne({ code, status: { $in: ['countdown', 'running'] } });
       if (!match || !playerOf(match, userId)) return;
       forfeitPlayer(match, userId);
+      await rateMatch(match);
       await match.save();
       announceResult(match);
     })
@@ -258,6 +262,7 @@ const timeOut = (code: string) =>
     const match = await MatchModel.findOne({ code, status: 'running' });
     if (!match) return;
     finishByCorrectWords(match);
+    await rateMatch(match);
     await match.save();
     announceResult(match);
   });
@@ -305,6 +310,7 @@ export const sendProgress = (userId: string, code: string, { typedWords, typedAt
     if (match.status !== 'running') throw notRunning();
     if (isOver(match)) {
       finishByCorrectWords(match);
+      await rateMatch(match);
       await match.save();
       announceResult(match);
       throw notRunning();
@@ -344,6 +350,7 @@ export const sendProgress = (userId: string, code: string, { typedWords, typedAt
       if (other.finishedAt) finishByCorrectWords(match);
       else ended = false;
     } else ended = false;
+    await rateMatch(match);
     await match.save();
 
     const update = {

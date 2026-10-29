@@ -1,9 +1,18 @@
 import { Button } from '@/shared/components/ui/button';
 import { useJoinMatch, useRematch } from '../hooks/use-match';
-import type { MatchResult as Result, PublicMatch, RematchInvite } from '../types/ranked.types';
+import type { MatchResult as Result, PublicMatch, RematchInvite, UnratedReason } from '../types/ranked.types';
 import { PlayerCard } from './PlayerCard';
 
 const HEADINGS: Record<Result, string> = { win: 'You win', loss: 'You lose', draw: 'Draw', forfeit: 'You forfeited' };
+
+const UNRATED: Record<UnratedReason, string> = {
+  'not-started': 'the race never started.',
+  flagged: 'a player went over 200 WPM.',
+  'pair-limit': 'you already played 3 rated matches with this player today.',
+};
+
+/** +20, −20 (a real minus sign) or ±0. */
+const formatChange = (change: number) => (change > 0 ? `+${change}` : change < 0 ? `−${-change}` : '±0');
 
 interface MatchResultProps {
   match: PublicMatch;
@@ -41,11 +50,15 @@ export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResu
             <p className="text-sm text-muted-foreground">
               {player.correctWords}/{match.wordCount} correct words
             </p>
+            {player.ratingAfter !== undefined && player.ratingBefore !== undefined && (
+              <p className="font-semibold">
+                Rating {player.ratingAfter} ({formatChange(player.ratingAfter - player.ratingBefore)})
+              </p>
+            )}
           </PlayerCard>
         ))}
       </div>
-      {/* Elo comes in phase 5 of the ranked duel design. */}
-      <p className="text-sm text-muted-foreground">Rating comes soon</p>
+      {match.unratedReason && <p className="text-sm text-muted-foreground">Not rated: {UNRATED[match.unratedReason]}</p>}
       <div className="flex gap-2">
         <Button variant="outline" onClick={onLeave}>
           Back to lobby

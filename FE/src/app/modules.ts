@@ -5,6 +5,7 @@ import { homeModule } from '@/modules/home/home.module';
 import { notesModule } from '@/modules/notes/notes.module';
 import { passagesModule } from '@/modules/passages/passages.module';
 import { profileModule } from '@/modules/profile/profile.module';
+import { rankedModule } from '@/modules/ranked/ranked.module';
 import { settingsModule } from '@/modules/settings/settings.module';
 import { typingModule } from '@/modules/typing/typing.module';
 import type { AppModule } from './module.types';
@@ -14,7 +15,7 @@ import type { AppModule } from './module.types';
  * entry here; its routes, nav links, admin pages and widgets are picked up automatically.
  * Order decides the order of the navigation links.
  */
-export const appModules: AppModule[] = [homeModule, notesModule, typingModule, profileModule, adminModule, passagesModule, chatModule, settingsModule, avatarModule];
+export const appModules: AppModule[] = [homeModule, notesModule, typingModule, rankedModule, profileModule, adminModule, passagesModule, chatModule, settingsModule, avatarModule];
 
 export const protectedRoutes = appModules.flatMap((module) => module.routes);
 export const navItems = appModules.flatMap((module) => module.navItems ?? []);
