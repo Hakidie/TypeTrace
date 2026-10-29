@@ -57,3 +57,11 @@ describe('applyRainEvent', () => {
     expect(state.sides.u2.lives).toBe(3);
   });
 });
+
+describe('applyRainEvent thrown words', () => {
+  it('keeps whether a word was thrown', () => {
+    const state = applyRainEvent(undefined, spawn('u2', '9', { thrown: true }));
+
+    expect(state.sides.u2.drops[0].thrown).toBe(true);
+  });
+});

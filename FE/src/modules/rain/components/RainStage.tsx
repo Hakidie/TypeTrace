@@ -84,7 +84,10 @@ const Word = ({ drop, targeted, compact, clockNow, onLand }: WordProps) => {
 const tileLook = (drop: RainDrop, targeted: boolean) => {
   if (drop.state === 'popped') return 'rain-pop border-primary bg-primary/15';
   if (drop.state === 'missed') return 'rain-splat border-primary/40 text-muted-foreground line-through';
-  return cn('rain-heat backdrop-blur-sm', targeted ? 'scale-110 border-primary bg-primary/15' : 'border-foreground/15 bg-background/70 text-foreground/85');
+  if (targeted) return 'rain-heat backdrop-blur-sm scale-110 border-primary bg-primary/15';
+  // A word thrown by the other player in a duel: a dashed red border, so it reads as the dangerous one.
+  if (drop.thrown) return 'rain-heat backdrop-blur-sm border-dashed border-primary bg-background/70 text-primary';
+  return 'rain-heat backdrop-blur-sm border-foreground/15 bg-background/70 text-foreground/85';
 };
 
 /**

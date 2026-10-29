@@ -29,7 +29,7 @@ const laneX = (lane: number) => ((lane + 0.5) / LANES) * 100;
 const empty = (): RainDuelState => ({ startedAt: 0, endsAt: 0, sides: {} });
 const sideOf = (state: RainDuelState, side: string): RainDuelSide => state.sides[side] ?? { lives: 3, hits: 0, drops: [] };
 
-const toDrop = (drop: { id: string; text: string; lane: number; bornAt: number; fallMs: number }): RainDrop => ({
+const toDrop = (drop: { id: string; text: string; lane: number; bornAt: number; fallMs: number; thrown: boolean }): RainDrop => ({
   id: drop.id,
   text: drop.text,
   x: laneX(drop.lane),
@@ -37,6 +37,7 @@ const toDrop = (drop: { id: string; text: string; lane: number; bornAt: number; 
   bornAt: drop.bornAt,
   typed: 0,
   state: 'falling',
+  thrown: drop.thrown,
 });
 
 const withSide = (state: RainDuelState, side: string, change: (current: RainDuelSide) => RainDuelSide) => ({

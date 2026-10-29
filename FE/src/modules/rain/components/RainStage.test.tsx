@@ -153,3 +153,12 @@ describe('RainStage on the server clock (rain duel)', () => {
     expect(screen.getByTestId('rain-stage')).not.toHaveClass('rain-sky');
   });
 });
+
+describe('RainStage thrown words (rain duel)', () => {
+  it('outlines a thrown word with a dashed red border', () => {
+    renderStage({ drops: [drop({ id: 't', thrown: true }), drop({ id: 'r' })] });
+
+    expect(screen.getByTestId('tile-t')).toHaveClass('border-dashed');
+    expect(screen.getByTestId('tile-r')).not.toHaveClass('border-dashed');
+  });
+});
