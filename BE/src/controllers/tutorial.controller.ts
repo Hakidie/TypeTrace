@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import * as tutorialService from '../services/tutorial.service';
-import { UpdateTutorialInput } from '../validators/tutorial.validator';
+import { CoachStats, UpdateTutorialInput } from '../validators/tutorial.validator';
 
 export const startTutorial = async (req: Request, res: Response) => {
   res.json(await tutorialService.startTutorial(req.user!.sub));
@@ -12,4 +12,8 @@ export const updateTutorial = async (req: Request, res: Response) => {
 
 export const resetTutorial = async (req: Request, res: Response) => {
   res.json(await tutorialService.resetTutorial(req.user!.sub));
+};
+
+export const getCoachTip = async (req: Request, res: Response) => {
+  res.json(await tutorialService.coachTip(req.body as CoachStats));
 };

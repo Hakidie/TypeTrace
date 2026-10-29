@@ -29,8 +29,11 @@ const toAppError = (status: number, detail: string) => {
   return new AppError(502, 'The AI did not answer. Please try again.');
 };
 
-/** Sends the conversation (latest messages only) to OpenAI Chat Completions and returns the reply text. */
-export const generateChatReply = async (messages: ChatMessage[]): Promise<string> => {
+/**
+ * Sends the conversation (latest messages only) to OpenAI Chat Completions and returns the reply text. `systemPrompt`
+ * gives another voice than the chat bot's (Ping, the tutorial coach).
+ */
+export const generateChatReply = async (messages: ChatMessage[], systemPrompt = chatbotConfig.systemPrompt): Promise<string> => {
   if (!isAiConfigured) {
     throw new AppError(503, 'The AI chat is not configured. Set OPENAI_API_KEY in BE/.env.');
   }
@@ -45,7 +48,7 @@ export const generateChatReply = async (messages: ChatMessage[]): Promise<string
     headers: { Authorization: `Bearer ${env.openaiApiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: env.openaiModel,
-      messages: [{ role: 'system', content: chatbotConfig.systemPrompt }, ...history],
+      messages: [{ role: 'system', content: systemPrompt }, ...history],
       max_completion_tokens: chatbotConfig.maxReplyTokens
     })
   }).catch((error: unknown) => {

@@ -9,7 +9,7 @@ export const chatRouter = Router();
 
 // Every message costs OpenAI tokens on the project's key, so each signed-in user
 // gets a small share.
-const chatLimiter = rateLimit({
+export const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 10,
   standardHeaders: true,
