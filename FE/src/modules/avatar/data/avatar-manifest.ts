@@ -34,7 +34,11 @@ export const AVATAR_MANIFEST = {
     ],
     "face": [
       "classic",
-      "cute"
+      "cute",
+      "happy",
+      "cool",
+      "wink",
+      "sleepy"
     ],
     "hair": [
       "short-brown",

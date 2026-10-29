@@ -29,6 +29,10 @@ describe('layerFiles', () => {
     ]);
   });
 
+  it('uses the body of the chosen expression', () => {
+    expect(layerFiles({ ...DEFAULT_AVATAR, face: 'wink' }, 'idle')).toContain('body/peach-wink-idle.png');
+  });
+
   it('keeps the trousers under a dress', () => {
     const files = layerFiles({ ...DEFAULT_AVATAR, top: 'dress-sailor-navy', bottom: 'tights-white' }, 'typing');
 

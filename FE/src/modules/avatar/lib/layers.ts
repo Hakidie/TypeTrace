@@ -15,7 +15,7 @@ export const layerFiles = (look: AvatarLook, pose: AvatarPose): string[] => {
     bottom: `bottom/${look.bottom}.png`,
     shoes: `shoes/${look.shoes || 'sneakers-brown'}.png`,
     top: `top/${look.top}-${pose === 'win' ? 'up' : 'down'}.png`,
-    body: `body/${look.skin}${look.face === 'cute' ? '-cute' : ''}-${pose}.png`,
+    body: `body/${look.skin}${look.face && look.face !== 'classic' ? `-${look.face}` : ''}-${pose}.png`,
     accessory: look.accessory ? `accessory/${look.accessory}.png` : null,
     hair: `hair/${look.hair}.png`,
     headwear: look.headwear ? `headwear/${look.headwear}.png` : null,
