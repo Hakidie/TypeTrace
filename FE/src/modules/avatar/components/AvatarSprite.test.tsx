@@ -21,6 +21,12 @@ describe('AvatarSprite', () => {
     container.querySelectorAll('img').forEach((image) => expect(image).toHaveAttribute('loading', 'lazy'));
   });
 
+  it('does not load lazily when eager', () => {
+    const { container } = render(<AvatarSprite look={DEFAULT_AVATAR} eager />);
+
+    container.querySelectorAll('img').forEach((image) => expect(image).not.toHaveAttribute('loading'));
+  });
+
   it('shows only the head when cropped', () => {
     render(<AvatarSprite look={DEFAULT_AVATAR} scale={2} crop="head" label="Your avatar" />);
 
