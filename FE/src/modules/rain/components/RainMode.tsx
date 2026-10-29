@@ -33,7 +33,7 @@ const Overlay = ({ children }: { children: ReactNode }) => (
 
 /**
  * The Rain tab of the Typing page (`?mode=rain`): a round of word rain. The words come from `GET /api/rain/words`, the
- * rules from `useRainGame`, the drawing from `RainStage`. Enter starts, Escape pauses, space or Enter clears the box.
+ * rules from `useRainGame`, the drawing from `RainStage`. Enter starts, Escape pauses, space or Enter sends the word in the box.
  */
 export const RainMode = () => {
   const words = useRainWords();
@@ -101,7 +101,7 @@ export const RainMode = () => {
         {state.phase === 'ready' && (
           <Overlay>
             <h2 className="text-2xl font-black text-primary">Word rain</h2>
-            <p className="text-muted-foreground">Type the falling words before they reach your head. Three misses end the round.</p>
+            <p className="text-muted-foreground">Type a falling word and press space before it reaches your head. Three misses end the round.</p>
             <Button onClick={begin}>Start</Button>
           </Overlay>
         )}
@@ -140,7 +140,8 @@ export const RainMode = () => {
           value={state.input}
           disabled={paused}
           onChange={(event) => input(event.target.value)}
-          onKeyDown={(event) => event.key === 'Enter' && input('\n')}
+          // Enter sends the word like space does. While a Vietnamese keyboard is still composing, its Enter only confirms the letters.
+          onKeyDown={(event) => event.key === 'Enter' && !event.nativeEvent.isComposing && input(`${event.currentTarget.value}\n`)}
           className={cn(
             'h-14 w-full border bg-background/60 px-4 text-center font-mono text-2xl backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             missing ? 'border-primary text-primary' : 'border-foreground/15',

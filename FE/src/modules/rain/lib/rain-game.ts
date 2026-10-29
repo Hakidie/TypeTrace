@@ -86,14 +86,20 @@ const tick = (state: RainState, dt: number, rand: number): RainState => {
   return elapsed >= ROUND_MS ? { ...next, phase: 'won' } : next;
 };
 
+/**
+ * A word counts only when space or Enter follows it, never as soon as the letters match: a Vietnamese keyboard (Telex,
+ * VNI, or one that composes the word in a box) still holds the word until a word break, and would put it back in a box
+ * the game had already cleared. Space or Enter after a wrong word clears it; what was typed after the space is kept.
+ */
 const input = (state: RainState, text: string): RainState => {
-  if (/\s/.test(text)) return retarget({ ...state, input: '' });
-  const typed = { ...state, input: text };
-  const target = targetOf(typed);
-  if (!target || exact(target.text) !== exact(text)) return retarget(typed);
+  const gap = text.search(/\s/);
+  if (gap < 0) return retarget({ ...state, input: text });
+  const word = text.slice(0, gap);
+  const rest = { ...state, input: text.slice(gap).trimStart() };
+  const target = targetOf({ ...state, input: word });
+  if (!target || exact(target.text) !== exact(word)) return retarget(rest);
   return retarget({
-    ...typed,
-    input: '',
+    ...rest,
     score: state.score + 1,
     typedChars: state.typedChars + target.text.length,
     reaction: react(state, 'hop'),

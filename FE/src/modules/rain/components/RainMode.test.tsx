@@ -74,10 +74,34 @@ describe('RainMode', () => {
     advance(200);
     const text = screen.getByTestId('tile-1').textContent!;
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Type a falling word' }), { target: { value: text } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Type a falling word' }), { target: { value: `${text} ` } });
 
     expect(screen.getByLabelText('Score')).toHaveTextContent('1');
     expect(screen.getByRole('textbox', { name: 'Type a falling word' })).toHaveValue('');
+  });
+
+  it('scores the word in the box with Enter', async () => {
+    await startRound();
+    advance(200);
+    const box = screen.getByRole('textbox', { name: 'Type a falling word' });
+    fireEvent.change(box, { target: { value: screen.getByTestId('tile-1').textContent } });
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0');
+
+    fireEvent.keyDown(box, { key: 'Enter' });
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('1');
+    expect(box).toHaveValue('');
+  });
+
+  it('lets the keyboard finish its word when Enter only confirms it', async () => {
+    await startRound();
+    advance(200);
+    const box = screen.getByRole('textbox', { name: 'Type a falling word' });
+    fireEvent.change(box, { target: { value: screen.getByTestId('tile-1').textContent } });
+
+    fireEvent.keyDown(box, { key: 'Enter', isComposing: true });
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0');
   });
 
   it('pauses with Escape and resumes', async () => {

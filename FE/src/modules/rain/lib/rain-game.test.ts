@@ -64,27 +64,45 @@ describe('rainReducer', () => {
     const partial = type(falling, 'tie');
     expect(targetOf(partial)?.text).toBe('tiếng');
     expect(partial.drops[0].typed).toBe(3);
-    expect(type(falling, 'tieng').drops[0].state).toBe('falling');
-    expect(type(falling, 'tiếng').drops[0].state).toBe('popped');
+    expect(type(falling, 'tieng ').drops[0].state).toBe('falling');
+    expect(type(falling, 'tiếng ').drops[0].state).toBe('popped');
+  });
+
+  it('waits for space before a word counts, so the IME can finish it and the box is cleared after the IME is done', () => {
+    const state = type(withFalling(['nhà']), 'nhà');
+
+    expect(state.drops[0].state).toBe('falling');
+    expect(state.input).toBe('nhà');
+    expect(state.score).toBe(0);
   });
 
   it('pops a word typed in its decomposed form', () => {
-    expect(type(withFalling(['tiếng']), 'tiếng'.normalize('NFD')).drops[0].state).toBe('popped');
+    expect(type(withFalling(['tiếng']), `${'tiếng'.normalize('NFD')} `).drops[0].state).toBe('popped');
   });
 
-  it('scores a typed word', () => {
+  it('scores a typed word on space or Enter', () => {
     const before = withFalling(['nhà']);
-    const state = type(before, 'nhà');
+    const state = type(before, 'nhà ');
 
     expect(state).toMatchObject({ score: 1, typedChars: 3, input: '' });
     expect(state.reaction?.kind).toBe('hop');
     expect(state.reaction?.key).not.toBe(before.reaction?.key);
+    expect(type(before, 'nhà\n').score).toBe(1);
   });
 
-  it('clears the input on space or Enter', () => {
+  it('keeps the letters typed after the space for the next word', () => {
+    const state = type(withFalling(['nhà', 'cửa']), 'nhà c');
+
+    expect(state.score).toBe(1);
+    expect(state.input).toBe('c');
+    expect(targetOf(state)?.text).toBe('cửa');
+  });
+
+  it('clears a wrong word on space or Enter', () => {
     const state = withFalling(['nhà']);
 
     expect(type(state, 'nh ').input).toBe('');
+    expect(type(state, 'nh ').drops[0].state).toBe('falling');
     expect(type(state, 'nh\n').input).toBe('');
   });
 
@@ -107,7 +125,7 @@ describe('rainReducer', () => {
   });
 
   it('ignores a late landing', () => {
-    const popped = type(withFalling(['nhà']), 'nhà');
+    const popped = type(withFalling(['nhà']), 'nhà ');
 
     expect(land(popped, popped.drops[0].id)).toBe(popped);
     expect(land(popped, 'nope')).toBe(popped);
@@ -116,7 +134,7 @@ describe('rainReducer', () => {
   });
 
   it('removes a settled word after 400 ms', () => {
-    const popped = type(withFalling(['nhà']), 'nhà');
+    const popped = type(withFalling(['nhà']), 'nhà ');
     const settledAt = popped.drops[0].settledAt!;
 
     expect(SETTLE_MS).toBe(400);
