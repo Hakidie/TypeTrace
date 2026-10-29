@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { MAX_PASSAGE_WORDS, MIN_USER_PASSAGE_WORDS, passageVisibilities, splitWords } from '../models/passage.model';
-import { sessionModes } from '../models/typing-session.model';
+import { startableModes } from '../models/typing-session.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { cleanPassageText } from '../utils/passage-text';
 import { optionalBooleanQuerySchema } from './common.validator';
 
 export const listPassagesQuerySchema = paginationQuerySchema.extend({
-  mode: z.enum(sessionModes).default('practice'),
+  mode: z.enum(startableModes).default('practice'),
   /** Text searched in the title (`titleSearchPattern`: without accents it finds every accented form). */
   q: z.string().trim().max(100).optional(),
   /** `private` = only the learner's own private passages, `public` = only the public ones (TypeTrace's and approved ones). Missing = both. */
