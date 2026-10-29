@@ -1,5 +1,38 @@
 [
-  {"asset_id":"79077198-9819-4ec9-964d-7f71107fc246","label":"rookie-idle (base of every layer)"},
-  {"asset_id":"995d35a8-527f-466c-96a2-7a02fca30328","label":"girl-idle-raw (reference for twintails/skirt, 76x76, not stacked)"},
-  {"asset_id":"7c15aea8-3300-4f65-a71a-b88ce81bd757","label":"skirts-dresses-ref (reference for tiered/buttoned/frilly skirts and sailor/pinafore/belted/princess dresses)"}
+  {
+    "asset_id": "79077198-9819-4ec9-964d-7f71107fc246",
+    "label": "rookie-idle (base of every layer)"
+  },
+  {
+    "asset_id": "995d35a8-527f-466c-96a2-7a02fca30328",
+    "label": "girl-idle-raw (reference for twintails/skirt, 76x76, not stacked)"
+  },
+  {
+    "asset_id": "7c15aea8-3300-4f65-a71a-b88ce81bd757",
+    "label": "skirts-dresses-ref (reference for tiered/buttoned/frilly skirts and sailor/pinafore/belted/princess dresses)"
+  },
+  {
+    "asset_id": "d0f08957-9ae3-4dbc-925f-73ccf949ff53",
+    "label": "hair-styles-ref (reference for long, ponytail, bob, braid hair)"
+  },
+  {
+    "asset_id": "29664b3f-66d1-42dd-a1d4-a002c22fe95a",
+    "label": "long-hair-edit (rookie-idle edited to long hair; the long hair layers are taken from it)"
+  },
+  {
+    "asset_id": "4f5237fb-7434-4853-8373-038b34d72796",
+    "label": "ponytail-edit (rookie-idle edited to a ponytail, drawn 2 px to the right; the ponytail layers are taken from it)"
+  },
+  {
+    "asset_id": "a08af482-748e-4b59-b07c-74db16b8f8d6",
+    "label": "braid-edit (rookie-idle edited to a braid; the braid layers are taken from it)"
+  },
+  {
+    "asset_id": "dc356965-fe62-4818-a47f-e2f74ad87175",
+    "label": "bob-edit (rookie-idle edited to a bob, 66 wide, drawn 1 px to the right; the bob layers are taken from it)"
+  },
+  {
+    "asset_id": "8f6e7079-eb41-451c-b504-d7c7bba6c2b6",
+    "label": "curly-edit (rookie-idle edited to curly hair, 67 wide, drawn 1 px to the right; the curly layers are taken from it)"
+  }
 ]

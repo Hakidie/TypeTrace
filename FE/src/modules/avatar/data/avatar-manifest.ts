@@ -22,20 +22,7 @@ export const AVATAR_MANIFEST = {
     "win",
     "lose"
   ],
-  "hairWithBack": [
-    "long-brown",
-    "long-pink",
-    "long-ginger",
-    "long-midnight",
-    "long-silver",
-    "long-espresso",
-    "ponytail-brown",
-    "ponytail-pink",
-    "ponytail-ginger",
-    "ponytail-midnight",
-    "ponytail-silver",
-    "ponytail-espresso"
-  ],
+  "hairWithBack": [],
   "slots": {
     "skin": [
       "peach",
