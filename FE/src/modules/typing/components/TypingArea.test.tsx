@@ -28,6 +28,22 @@ describe('TypingArea', () => {
     expect(wordAt(1).className).toContain('bg-destructive/15'); // the next word is now the current one
   });
 
+  it('reports the progress once per finished word, for ranked duels', async () => {
+    const user = userEvent.setup();
+    const onProgress = vi.fn();
+    render(<TypingArea targetWords={words} onFinish={vi.fn()} onProgress={onProgress} />);
+    const area = screen.getByRole('textbox', { name: 'Typing area' });
+
+    await user.type(area, 'Tiếng Vi');
+    expect(onProgress).toHaveBeenCalledTimes(1);
+    expect(onProgress).toHaveBeenLastCalledWith(['Tiếng'], [expect.any(Number)]);
+    await user.type(area, 'ệt ');
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    expect(onProgress).toHaveBeenLastCalledWith(['Tiếng', 'Việt'], [expect.any(Number), expect.any(Number)]);
+    await user.type(area, 'đ');
+    expect(onProgress).toHaveBeenCalledTimes(2);
+  });
+
   it('finishes with the typed words when the last word is closed by a space', async () => {
     const user = userEvent.setup();
     const { area, onFinish } = renderArea();
