@@ -90,3 +90,18 @@ describe('PassageModel', () => {
     expect(passage.ownerName).toBe('TypeTrace');
   });
 });
+
+describe('PassageModel language (ranked duel, phase 1)', () => {
+  it('is Vietnamese by default', async () => {
+    const passage = await PassageModel.create(base);
+
+    expect(passage.language).toBe('vi');
+  });
+
+  it('counts no error tags in an English passage', async () => {
+    const passage = await PassageModel.create({ ...base, language: 'en', content: 'Hôm nay trời đẹp quá' });
+
+    expect(passage.wordCount).toBe(5);
+    expect(passage.tagCounts).toMatchObject({ BASE_LETTER: 0, TONE_WRONG: 0, D_MISSING: 0, MARK_WRONG: 0, HOI_NGA_CONFUSION: 0 });
+  });
+});

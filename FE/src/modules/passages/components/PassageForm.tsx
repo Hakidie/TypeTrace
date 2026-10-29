@@ -22,6 +22,8 @@ const schema = z.object({
     .max(5000, 'Max 5000 characters')
     .refine((text) => countWords(text) <= MAX_PASSAGE_WORDS, `At most ${MAX_PASSAGE_WORDS} words`),
   isPlacement: z.boolean(),
+  // English passages are for ranked duels; the backend refuses an English placement passage.
+  language: z.enum(['vi', 'en']),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -33,7 +35,7 @@ const fieldClass = 'border-0 text-[1.125rem]';
 // `field-sizing-content`: the field is as wide as its text (the placeholder while empty); the wrapper caps it at half the row.
 const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-primary/15 focus-visible:ring-0 px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary/60';
 
-const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false };
+const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false, language: 'vi' };
 
 const CONTENT_PLACEHOLDER = 'Hà Nội vào thu, gió heo may se lạnh, hoa sữa thơm nồng trên từng con phố nhỏ.';
 
@@ -63,14 +65,21 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
   const updatePassage = useUpdatePassage();
   const setStatus = useSetPassageStatus();
   const isPending = createPassage.isPending || updatePassage.isPending || setStatus.isPending;
-  const { register, control, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
+  const { register, control, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: passage
-      ? { title: passage.title, source: passage.source, content: passage.content, isPlacement: passage.isPlacement }
+      ? {
+          title: passage.title,
+          source: passage.source,
+          content: passage.content,
+          isPlacement: passage.isPlacement,
+          language: passage.language ?? 'vi',
+        }
       : emptyValues,
   });
 
   const content = useWatch({ control, name: 'content' });
+  const isEnglish = useWatch({ control, name: 'language' }) === 'en';
 
   // The status button flips between the saved status and the next one; the change is saved with the form.
   const [status, setStatusChoice] = useState<PassageStatus>(passage?.status ?? 'draft');
@@ -132,6 +141,32 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
         <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <Controller
             control={control}
+            name="language"
+            render={({ field }) => (
+              // English passages are for ranked duels: they can never be placement passages, so Placement turns off.
+              <button
+                type="button"
+                role="switch"
+                aria-checked={field.value === 'en'}
+                aria-label="English passage"
+                title="English passages are only used in ranked duels."
+                onClick={() => {
+                  const english = field.value !== 'en';
+                  field.onChange(english ? 'en' : 'vi');
+                  if (english) setValue('isPlacement', false);
+                }}
+                className={cn(
+                  'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  field.value === 'en' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {field.value === 'en' && <CheckCircle2 className="size-5" />}
+                {field.value === 'en' ? 'English' : 'Vietnamese'}
+              </button>
+            )}
+          />
+          <Controller
+            control={control}
             name="isPlacement"
             render={({ field }) => (
               // The name stays "Placement passage"; `aria-checked` tells the state, the visible words show it.
@@ -140,11 +175,12 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
                 role="switch"
                 aria-checked={field.value}
                 aria-label="Placement passage"
-                title="Used for the placement test."
+                title={isEnglish ? 'English passages cannot be placement passages.' : 'Used for the placement test.'}
+                disabled={isEnglish}
                 onClick={() => field.onChange(!field.value)}
                 className={cn(
-                  'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  field.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
+                  'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                  field.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground enabled:hover:text-foreground',
                 )}
               >
                 {field.value && <CheckCircle2 className="size-5" />}

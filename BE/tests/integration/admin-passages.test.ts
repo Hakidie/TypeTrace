@@ -358,3 +358,92 @@ describe('what learners can practise', () => {
     expect((await start()).status).toBe(404);
   });
 });
+
+describe('passage language (ranked duel, phase 1)', () => {
+  const english = { title: 'A quiet morning', content: 'The sun rose over the quiet town.', source: 'Written for TypeTrace' };
+  const zeroTags = { BASE_LETTER: 0, TONE_WRONG: 0, D_MISSING: 0, MARK_WRONG: 0, HOI_NGA_CONFUSION: 0 };
+  const editPassage = (auth: string, id: string, body: object) => api().patch(`/api/admin/passages/${id}`).set('Authorization', auth).send(body);
+
+  it('creates an English passage with no error tags', async () => {
+    const { auth } = await signInAdmin();
+    const response = await api().post('/api/admin/passages').set('Authorization', auth).send({ ...english, language: 'en' });
+
+    expect(response.status).toBe(201);
+    expect(response.body.language).toBe('en');
+    expect(response.body.tagCounts).toMatchObject(zeroTags);
+  });
+
+  it('creates a Vietnamese passage when no language is sent', async () => {
+    const { auth } = await signInAdmin();
+
+    expect((await createPassage(auth)).language).toBe('vi');
+  });
+
+  it('filters the list by language', async () => {
+    const { auth } = await signInAdmin();
+    await createPassage(auth);
+    await createPassage(auth, { ...english, language: 'en' });
+
+    const response = await api().get('/api/admin/passages?language=en').set('Authorization', auth);
+    expect(response.body.items.map((item: { title: string }) => item.title)).toEqual(['A quiet morning']);
+    expect((await api().get('/api/admin/passages?language=fr').set('Authorization', auth)).status).toBe(400);
+  });
+
+  it('refuses an English placement passage', async () => {
+    const { auth } = await signInAdmin();
+    const created = await api().post('/api/admin/passages').set('Authorization', auth).send({ ...english, language: 'en', isPlacement: true });
+    expect(created.status).toBe(400);
+    expect(created.body.message).toBe('English passages cannot be placement passages');
+
+    const placement = await createPassage(auth, { ...input, isPlacement: true });
+    expect((await editPassage(auth, placement._id, { language: 'en' })).status).toBe(400);
+    expect((await PassageModel.findById(placement._id))!.language).toBe('vi');
+
+    const englishPassage = await createPassage(auth, { ...english, language: 'en' });
+    expect((await editPassage(auth, englishPassage._id, { isPlacement: true })).status).toBe(400);
+  });
+
+  it('counts the tags again when the language changes', async () => {
+    const { auth } = await signInAdmin();
+    const passage = await createPassage(auth);
+
+    const toEnglish = await editPassage(auth, passage._id, { language: 'en' });
+    expect(toEnglish.body.tagCounts).toMatchObject(zeroTags);
+    const back = await editPassage(auth, passage._id, { language: 'vi' });
+    expect(back.body.tagCounts.BASE_LETTER).toBeGreaterThan(0);
+  });
+});
+
+describe('passage language: review fixes (ranked duel, phase 1)', () => {
+  it('lists passages saved before the language field under the Vietnamese filter', async () => {
+    const { auth } = await signInAdmin();
+    await PassageModel.collection.insertOne({
+      title: 'Bài cũ chưa có ngôn ngữ',
+      content: 'Đường về nhà rất đẹp.',
+      source: 'Tự viết',
+      ownerName: 'TypeTrace',
+      visibility: 'public',
+      status: 'published',
+      isPlacement: false,
+      wordCount: 5,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    const vietnamese = await api().get('/api/admin/passages?language=vi').set('Authorization', auth);
+    expect(vietnamese.body.items.map((item: { title: string }) => item.title)).toContain('Bài cũ chưa có ngôn ngữ');
+    const english = await api().get('/api/admin/passages?language=en').set('Authorization', auth);
+    expect(english.body.items.map((item: { title: string }) => item.title)).not.toContain('Bài cũ chưa có ngôn ngữ');
+  });
+
+  it("refuses to make a learner's passage English", async () => {
+    const { auth } = await signInAdmin();
+    const learner = await createUser({ email: 'learner@example.com', displayName: 'Lan' });
+    const passage = await PassageModel.create({ ...input, owner: learner._id, ownerName: 'Lan', visibility: 'public', status: 'published' });
+
+    const response = await api().patch(`/api/admin/passages/${passage._id}`).set('Authorization', auth).send({ language: 'en' });
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Only TypeTrace passages can be English');
+    expect((await PassageModel.findById(passage._id))!.language).toBe('vi');
+  });
+});

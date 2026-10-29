@@ -5,6 +5,9 @@
  */
 export type PassageStatus = 'draft' | 'published' | 'pending' | 'rejected' | 'archived';
 
+/** `vi`: practice and the placement test; `en`: ranked duels only (never a placement passage). */
+export type PassageLanguage = 'vi' | 'en';
+
 /**
  * The status the status button switches to, from each status: draft → published → archived → draft (the backend lets
  * these three switch freely). None from `pending`: an
@@ -49,6 +52,8 @@ export interface Passage {
   pendingEdit?: PassageEdit;
   /** A passage of the placement test. */
   isPlacement: boolean;
+  /** Missing on passages saved before the field: they are Vietnamese. */
+  language?: PassageLanguage;
   /** Counted by the backend when the passage is saved. */
   wordCount: number;
   createdAt: string;
@@ -63,6 +68,7 @@ export interface PassageInput {
   source: string;
   /** The passage of the placement test. */
   isPlacement: boolean;
+  language: PassageLanguage;
 }
 
 export interface PassageListParams {
@@ -77,6 +83,7 @@ export interface PassageListParams {
   visibility?: PassageVisibility;
   /** `true` = only the placement passages, `false` = only the regular ones. */
   isPlacement?: boolean;
+  language?: PassageLanguage;
   /** With `status: 'pending'`: `true` = only learners' edits of public passages, `false` = only requests to make a passage public. */
   edited?: boolean;
 }
