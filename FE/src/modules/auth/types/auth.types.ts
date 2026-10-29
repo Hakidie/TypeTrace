@@ -15,6 +15,8 @@ export interface CurrentUser {
   bio?: string;
   avatarUrl?: string;
   phone?: string;
+  /** Only what the frontend reads: the IANA time zone the learner's days are counted in (`Asia/Ho_Chi_Minh` until the browser sends its own). */
+  settings?: { timezone?: string };
   createdAt: string;
   updatedAt: string;
 }

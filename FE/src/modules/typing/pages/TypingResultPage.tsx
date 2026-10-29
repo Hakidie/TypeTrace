@@ -35,7 +35,7 @@ export const TypingResultPage = () => {
       {!session.isCounted && !noticeClosed && (
         <div className="flex flex-col gap-3 border border-dashed p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-muted-foreground">
-            This session is saved but not counted in your error profile: it needs at least 20 words and at most 200 WPM.
+            This session is saved but not counted in your error profile, streak or daily mission: it needs at least 20 words and at most 200 WPM.
           </p>
           <Button variant="outline" size="sm" className="shrink-0" onClick={() => setNoticeClosed(true)}>
             OK

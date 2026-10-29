@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { env } from '../config/env';
 import { UserModel } from '../models/user.model';
+import { notFound } from '../utils/app-error';
 import { hashPassword } from '../utils/hash';
 import { generateOtp } from '../utils/otp';
 import { sendOtpEmail, sendResetTokenEmail } from './email.service';
@@ -47,5 +48,19 @@ export const issueResetToken = async (email: string) => {
   await user.save();
 
   await sendResetTokenEmail(email, token);
+  return user;
+};
+
+/**
+ * Saves the learner's time zone (SCRUM-31): their days, streak and daily mission follow it from now on. The dotted
+ * `$set` leaves the other settings (mode and themes) as they are.
+ */
+export const updateTimeZone = async (userId: string, timezone: string) => {
+  const user = await UserModel.findByIdAndUpdate(
+    userId,
+    { $set: { 'settings.timezone': timezone } },
+    { returnDocument: 'after' }
+  );
+  if (!user) throw notFound('User not found');
   return user;
 };

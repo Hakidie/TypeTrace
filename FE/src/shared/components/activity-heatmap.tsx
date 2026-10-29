@@ -1,10 +1,14 @@
-import { useState, type MouseEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { addDays, dateKeyIn, dayInWords, MONTHS } from '@/shared/lib/local-date';
 import { cn } from '@/shared/lib/utils';
 
 export interface ActivityDay {
-  /** `YYYY-MM-DD` (UTC). */
+  /** `YYYY-MM-DD`: a UTC day, or a day in the heatmap's `timeZone` when it has one. */
   date: string;
   sessions: number;
+  /** The daily mission was done that day: the cell gets a mark. */
+  missionCompleted?: boolean;
 }
 
 // 53 weeks, so a whole year (365 or 366 days) fits, in 4 blocks of about a quarter: the last one has the extra week.
@@ -14,6 +18,11 @@ export const HEATMAP_DAYS = BLOCK_WEEKS.reduce((total, weeks) => total + weeks, 
 
 // Cells, from no activity to the most: the red of the Passages card in five steps.
 const HEAT_CLASSES = ['bg-primary/10', 'bg-primary/30', 'bg-primary/50', 'bg-primary/75', 'bg-primary'];
+// The mark of a day whose mission was done: a square small enough to leave the steps readable (4px, and 2px on phones,
+// where a cell is about 4px wide), in the text color, and in the page color on the darkest step, where the text color of
+// a light theme fades into the red: at least 3:1 on every step of Blood red, Sand and the starter themes.
+const missionMarkClass = (level: number) =>
+  cn('size-0.5 max-w-full sm:size-1', level === HEAT_CLASSES.length - 1 ? 'bg-background' : 'bg-foreground');
 
 const heatLevel = (sessions: number) => {
   if (sessions <= 0) return 0;
@@ -27,8 +36,6 @@ const dayKey = (date: Date) => date.toISOString().slice(0, 10);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Fixed three-letter names: `toLocaleDateString` gives "Sept" for September in some locales.
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const monthOf = (key: string) => MONTHS[Number(key.slice(5, 7)) - 1];
 
 /** The months a block covers: "Nov – Jan", or just "Nov" when it stays in one. */
@@ -43,12 +50,11 @@ const QUARTER_LABELS = ['Jan – Mar', 'Apr – Jun', 'Jul – Sep', 'Oct – De
 interface Cell {
   key: string;
   level: number;
-  /** Shown in the tooltip: the day and what happened on it, e.g. "27 Oct 2026: 2 sessions". */
-  tip: string;
+  /** The line of the tooltip under the date, e.g. "2 sessions", "2 counted sessions", "Upcoming". */
+  text: string;
+  /** The daily mission was done that day. */
+  mission: boolean;
 }
-
-/** `2026-10-27` as "27 Oct 2026". */
-const formatDay = (key: string) => `${key.slice(8, 10)} ${monthOf(key)} ${key.slice(0, 4)}`;
 
 interface Block {
   /** Left to right, 7 to a column; `null` is a day outside the year, drawn as an empty cell without a tooltip so the columns look full. */
@@ -57,6 +63,78 @@ interface Block {
   weeks: number;
   label: string;
 }
+
+/** A cell of the middle step with the mission mark, for the legend and the tooltip. */
+const MissionSwatch = () => (
+  <span className={cn('flex size-2.5 shrink-0 items-center justify-center', HEAT_CLASSES[2])}>
+    <span className={missionMarkClass(2)} />
+  </span>
+);
+
+/** Under the grid: the five steps from less to more, then the mission mark. A picture only: screen readers get the `label`. */
+const Legend = () => (
+  <div aria-hidden className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm leading-none text-muted-foreground">
+    <span className="flex items-center gap-1">
+      <span>Less</span>
+      {HEAT_CLASSES.map((heat) => (
+        <span key={heat} data-swatch className={cn('size-2.5', heat)} />
+      ))}
+      <span>More</span>
+    </span>
+    <span className="flex items-center gap-1">
+      <MissionSwatch />
+      Mission done
+    </span>
+  </div>
+);
+
+// Pixels kept between the tooltip and the window edge, and between the tooltip and its cell.
+const EDGE = 8;
+const GAP = 6;
+
+interface HeatmapTooltipProps {
+  cell: Cell;
+  /** Where the hovered cell is on the screen. */
+  rect: DOMRect;
+  isToday: boolean;
+}
+
+/**
+ * The one tooltip of a heatmap, drawn in `document.body` over the hovered cell (under it when there is no room above)
+ * and kept inside the window. Placed before it is painted, without animation; the mouse goes through it.
+ */
+const HeatmapTooltip = ({ cell, rect, isToday }: HeatmapTooltipProps) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const tooltip = ref.current;
+    if (!tooltip) return;
+    const { width, height } = tooltip.getBoundingClientRect();
+    const maxLeft = document.documentElement.clientWidth - width - EDGE;
+    const above = rect.top - GAP - height;
+    tooltip.style.left = `${Math.max(EDGE, Math.min(rect.left + rect.width / 2 - width / 2, maxLeft))}px`;
+    tooltip.style.top = `${above >= EDGE ? above : rect.bottom + GAP}px`;
+  }, [cell, rect]);
+
+  return createPortal(
+    // The look of the menus (`dropdown-menu.tsx`): the page background, see-through and blurred, and the panel border.
+    <div
+      ref={ref}
+      role="tooltip"
+      className="pointer-events-none fixed top-0 left-0 z-50 border border-border bg-background/75 px-2.5 py-1.5 text-sm whitespace-nowrap text-popover-foreground shadow-md backdrop-blur-xs"
+    >
+      <p className="font-medium text-foreground">{isToday ? `Today · ${dayInWords(cell.key)}` : dayInWords(cell.key)}</p>
+      <p className="text-muted-foreground">{cell.text}</p>
+      {cell.mission && (
+        <p className="flex items-center gap-1.5 text-primary">
+          <MissionSwatch />
+          Mission done
+        </p>
+      )}
+    </div>,
+    document.body,
+  );
+};
 
 interface ActivityHeatmapProps {
   /** Sessions per day. Without it every cell is empty and says "no data yet". */
@@ -72,25 +150,51 @@ interface ActivityHeatmapProps {
   /**
    * The current calendar year instead of the last 371 days: whole weeks (Monday on top) from the one of 1 January to the
    * one of 31 December, cut into four blocks, one per quarter (Jan – Mar, ...). Only the first and the last column can have
-   * days outside the year, drawn as empty cells; the days still to come look empty too (tooltip "upcoming"). Needs the sessions of the whole year, which `HEATMAP_DAYS` covers.
+   * days outside the year, drawn as empty cells; the days still to come look empty too (tooltip "Upcoming"). Needs the sessions of the whole year, which `HEATMAP_DAYS` covers.
    */
   calendarYear?: boolean;
+  /** The IANA zone the `days` are dates in (the learner's, e.g. `Asia/Ho_Chi_Minh`): today and `since` are taken in it. Without it, UTC days. */
+  timeZone?: string;
+  /** What a session is called in the tooltip: "counted session" gives "2 counted sessions". Default "session". */
+  unit?: string;
+  /** Under the grid: "Less", the five steps, "More", and the mission mark with its name. */
+  legend?: boolean;
 }
 
 /**
  * A GitHub-style grid in 4 blocks (about a quarter each), oldest on the left. By default 53 weeks of 7 days in blocks of
  * 13, 13, 13 and 14 weeks, today at the bottom right; with `calendarYear` the quarters of this year. Cells and gaps make it 61px high.
+ * One tooltip follows the cell the pointer is over (one for the whole grid, not one per cell): the day in words, its
+ * sessions and, on a day with `missionCompleted` (which also gets a small mark in its cell), "Mission done".
  */
-export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear }: ActivityHeatmapProps) => {
+export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear, timeZone, unit = 'session', legend }: ActivityHeatmapProps) => {
+  const [hovered, setHovered] = useState<{ key: string; rect: DOMRect } | null>(null);
+  const open = hovered !== null;
+
+  // The tooltip is placed once: it is hidden when the page scrolls under it.
+  useEffect(() => {
+    if (!open) return;
+    const hide = () => setHovered(null);
+    window.addEventListener('scroll', hide, { capture: true, passive: true });
+    return () => window.removeEventListener('scroll', hide, { capture: true });
+  }, [open]);
+
   const sessionsByDay = new Map((days ?? []).map((day) => [day.date, day.sessions]));
-  const first = since ? dayKey(new Date(since)) : '';
-  const today = new Date();
-  const todayKey = dayKey(today);
+  const missionDays = new Set((days ?? []).filter((day) => day.missionCompleted).map((day) => day.date));
+  const first = since ? dateKeyIn(new Date(since), timeZone) : '';
+  const todayKey = dateKeyIn(new Date(), timeZone);
+
+  // What the tooltip says under the date.
+  const describe = (key: string, sessions: number) => {
+    if (key > todayKey) return 'Upcoming';
+    if (!days) return 'No data yet';
+    if (sessions > 0) return `${sessions} ${unit}${sessions > 1 ? 's' : ''}`;
+    return `No ${unit}s`;
+  };
 
   const cellOf = (key: string): Cell => {
     const sessions = key < first ? 0 : (sessionsByDay.get(key) ?? 0);
-    const text = days ? (sessions > 0 ? `${sessions} session${sessions > 1 ? 's' : ''}` : 'no activity') : 'no data yet';
-    return { key, level: heatLevel(sessions), tip: `${formatDay(key)}: ${text}` };
+    return { key, level: heatLevel(sessions), text: describe(key, sessions), mission: key >= first && key <= todayKey && missionDays.has(key) };
   };
 
   const blocks: Block[] = [];
@@ -110,20 +214,11 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
       block.weeks += 1;
       for (let day = 0; day < 7; day += 1) {
         const time = monday + day * DAY_MS;
-        if (time < yearStart || time > yearEnd) {
-          block.cells.push(null);
-          continue;
-        }
-        const key = dayKey(new Date(time));
-        block.cells.push(key > todayKey ? { ...cellOf(key), tip: `${formatDay(key)}: upcoming` } : cellOf(key));
+        block.cells.push(time < yearStart || time > yearEnd ? null : cellOf(dayKey(new Date(time))));
       }
     }
   } else {
-    const cells = Array.from({ length: HEATMAP_DAYS }, (_, index) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() - (HEATMAP_DAYS - 1 - index));
-      return cellOf(dayKey(date));
-    });
+    const cells = Array.from({ length: HEATMAP_DAYS }, (_, index) => cellOf(addDays(todayKey, index - (HEATMAP_DAYS - 1))));
     BLOCK_WEEKS.forEach((weeks, block) => {
       const start = BLOCK_WEEKS.slice(0, block).reduce((total, w) => total + w, 0) * 7;
       const blockCells = cells.slice(start, start + weeks * 7);
@@ -131,32 +226,24 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
     });
   }
 
-  // The tooltip follows the cell the pointer is over (one for the whole grid, not one per cell), above it, at once. It looks like a dropdown menu: see-through page background with blur, panel border, muted text.
-  const [tip, setTip] = useState<{ text: string; left: number; top: number }>();
-  const showTip = (event: MouseEvent<HTMLDivElement>) => {
-    const cell = (event.target as HTMLElement).closest<HTMLElement>('[data-tip]');
-    if (!cell) return setTip(undefined);
-    const box = cell.getBoundingClientRect();
-    const grid = event.currentTarget.getBoundingClientRect();
-    setTip({ text: cell.dataset.tip ?? '', left: box.left - grid.left + box.width / 2, top: box.top - grid.top });
+  // A cell shows its tooltip; a blank cell or a month name hides it; the gaps between cells keep it, so it does not blink.
+  const showTooltip = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    const cell = target.closest<HTMLElement>('[data-date]');
+    const key = cell?.dataset.date;
+    if (cell && key) setHovered({ key, rect: cell.getBoundingClientRect() });
+    else if (target.tagName === 'SPAN') setHovered(null);
   };
+  const hoveredCell = hovered ? blocks.flatMap((block) => block.cells).find((cell) => cell?.key === hovered.key) : undefined;
 
-  return (
+  const grid = (
     <div
-      className={cn('relative flex gap-1.5', fill && 'h-full')}
+      className={cn('flex gap-1.5', fill && (legend ? 'min-h-0 flex-1' : 'h-full'))}
       role="img"
       aria-label={label}
-      onMouseOver={showTip}
-      onMouseLeave={() => setTip(undefined)}
+      onMouseOver={showTooltip}
+      onMouseLeave={() => setHovered(null)}
     >
-      {tip && (
-        <span
-          style={{ left: tip.left, top: tip.top }}
-          className="pointer-events-none absolute z-10 -mt-1 -translate-x-1/2 -translate-y-full whitespace-nowrap border border-border bg-background/75 px-3 py-1.5 text-base text-muted-foreground shadow-md backdrop-blur-xs"
-        >
-          {tip.text}
-        </span>
-      )}
       {blocks.map((block, index) => (
         // Wider by its weeks, so every cell has the same width.
         <div key={index} style={{ flexGrow: block.weeks }} className="flex min-w-0 basis-0 flex-col gap-1">
@@ -165,9 +252,11 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
               cell ? (
                 <span
                   key={cell.key}
-                  data-tip={cell.tip}
-                  className={cn(!fill && 'h-[7px]', HEAT_CLASSES[cell.level])}
-                />
+                  data-date={cell.key}
+                  className={cn(!fill && 'h-[7px]', HEAT_CLASSES[cell.level], cell.mission && 'flex items-center justify-center')}
+                >
+                  {cell.mission && <span data-mission className={missionMarkClass(cell.level)} />}
+                </span>
               ) : (
                 <span key={`blank-${cellIndex}`} aria-hidden className={cn(!fill && 'h-[7px]', HEAT_CLASSES[0])} />
               ),
@@ -177,5 +266,19 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
         </div>
       ))}
     </div>
+  );
+
+  return (
+    <>
+      {legend ? (
+        <div className={cn('flex flex-col gap-2', fill && 'h-full')}>
+          {grid}
+          <Legend />
+        </div>
+      ) : (
+        grid
+      )}
+      {hoveredCell && hovered && <HeatmapTooltip cell={hoveredCell} rect={hovered.rect} isToday={hoveredCell.key === todayKey} />}
+    </>
   );
 };

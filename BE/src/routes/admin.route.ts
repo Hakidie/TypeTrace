@@ -11,6 +11,15 @@ import {
   setPassageStatus,
   updatePassage
 } from '../controllers/admin-passage.controller';
+import {
+  createDailyTask,
+  deleteDailyTask,
+  getDailyTask,
+  getDailyTaskSettings,
+  listDailyTasks,
+  updateDailyTask,
+  updateDailyTaskSettings
+} from '../controllers/admin-daily-task.controller';
 import { createTheme, deleteTheme, listThemes, updateTheme } from '../controllers/admin-theme.controller';
 import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, setUserStatus, updateUser } from '../controllers/admin.controller';
 import { authGuard } from '../middlewares/auth.middleware';
@@ -24,6 +33,12 @@ import {
   setPassageStatusSchema,
   updatePassageSchema
 } from '../validators/admin-passage.validator';
+import {
+  createDailyTaskSchema,
+  dailyTaskSettingsSchema,
+  listDailyTasksQuerySchema,
+  updateDailyTaskSchema
+} from '../validators/admin-daily-task.validator';
 import { createAdminThemeSchema, listAdminThemesQuerySchema, updateAdminThemeSchema } from '../validators/admin-theme.validator';
 import { adminUpdateUserSchema, listUsersQuerySchema, setUserStatusSchema } from '../validators/admin-user.validator';
 import { bulkIdsSchema, idParamsSchema } from '../validators/common.validator';
@@ -61,3 +76,12 @@ adminRouter.get('/themes', validate({ query: listAdminThemesQuerySchema }), list
 adminRouter.post('/themes', validate({ body: createAdminThemeSchema }), createTheme);
 adminRouter.patch('/themes/:id', validate({ params: idParamsSchema, body: updateAdminThemeSchema }), updateTheme);
 adminRouter.delete('/themes/:id', validate({ params: idParamsSchema }), deleteTheme);
+
+// Daily tasks (SCRUM-210). The settings come before `/daily-tasks/:id`, which would take `settings` for an id.
+adminRouter.get('/daily-tasks/settings', getDailyTaskSettings);
+adminRouter.put('/daily-tasks/settings', validate({ body: dailyTaskSettingsSchema }), updateDailyTaskSettings);
+adminRouter.get('/daily-tasks', validate({ query: listDailyTasksQuerySchema }), listDailyTasks);
+adminRouter.post('/daily-tasks', validate({ body: createDailyTaskSchema }), createDailyTask);
+adminRouter.get('/daily-tasks/:id', validate({ params: idParamsSchema }), getDailyTask);
+adminRouter.patch('/daily-tasks/:id', validate({ params: idParamsSchema, body: updateDailyTaskSchema }), updateDailyTask);
+adminRouter.delete('/daily-tasks/:id', validate({ params: idParamsSchema }), deleteDailyTask);
