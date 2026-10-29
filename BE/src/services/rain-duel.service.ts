@@ -114,7 +114,7 @@ const addDrop = (duel: Duel, side: Side, text: string, lane: number, fallMs: num
   side.drops.set(drop.id, drop);
   send(duel, { type: 'spawn', side: side.userId, drop });
   // The grace time is in the timer: a word typed up to `graceMs` after it landed still counts, for both players alike.
-  later(duel, `rain:land:${drop.id}`, fallMs + rainDuelSettings.graceMs, () => land(duel, side, drop.id));
+  later(duel, `rain:land:${drop.id}`, fallMs + rainDuelSettings.graceMs, () => land(duel));
 };
 
 /** The lane with the fewest words falling, for a thrown word (it does not follow the shared rain). */
@@ -138,14 +138,30 @@ const releaseQueue = (duel: Duel, side: Side) => {
   if (text) throwTo(duel, side, text);
 };
 
-const land = async (duel: Duel, side: Side, id: string) => {
-  const drop = side.drops.get(id);
-  if (!drop) return;
-  side.drops.delete(id);
-  side.lives -= 1;
-  send(duel, { type: 'land', side: side.userId, id, lives: side.lives });
-  if (drop.thrown) releaseQueue(duel, side);
-  await settle(duel);
+/** Words due to land this close together (the same word of the shared rain on both sides) land as one moment. */
+const LAND_TOGETHER_MS = 25;
+
+/**
+ * A landing timer went off: every word of both sides due by now lands, and only then is the end checked. The same word
+ * of the rain lands on both sides at the same moment; checking after the first one would end the duel on whichever side
+ * happened to be handled first, when both players lost their last life together (a draw).
+ */
+const land = async (duel: Duel) => {
+  const now = Date.now() + LAND_TOGETHER_MS;
+  let landed = false;
+  for (const side of duel.sides) {
+    for (const drop of [...side.drops.values()]) {
+      if (drop.bornAt + drop.fallMs + rainDuelSettings.graceMs > now) continue;
+      side.drops.delete(drop.id);
+      cancelTimer(duel.code, `rain:land:${drop.id}`);
+      duel.timers.delete(`rain:land:${drop.id}`);
+      side.lives -= 1;
+      landed = true;
+      send(duel, { type: 'land', side: side.userId, id: drop.id, lives: side.lives });
+      if (drop.thrown) releaseQueue(duel, side);
+    }
+  }
+  if (landed) await settle(duel);
 };
 
 /** Drops every spawn that is due on both sides, then waits for the next one. */

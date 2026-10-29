@@ -225,6 +225,22 @@ describe('the end of a rain duel', () => {
     guestStream.close();
   });
 
+  it('draws when both players lose their last life at the same moment', async () => {
+    rainDuelSettings.lives = 1;
+    rainDuelSettings.fallFromMs = rainDuelSettings.fallToMs = 150;
+    rainDuelSettings.graceMs = 20;
+    const { host, code, hostStream, guestStream } = await startDuel();
+
+    // Nobody types: the same word lands on both sides at the same moment.
+    await waitFor(async () => (await room(host.auth, code)).body.status === 'finished');
+
+    const players = (await room(host.auth, code)).body.players as { result: string; lives: number }[];
+    expect(players.map((entry) => entry.result)).toEqual(['draw', 'draw']);
+    expect(players.map((entry) => entry.lives)).toEqual([0, 0]);
+    hostStream.close();
+    guestStream.close();
+  });
+
   it('ends a timed-out match by lives, then words typed', async () => {
     rainDuelSettings.durationMs = 600;
     const { host, guest, code, hostStream, guestStream } = await startDuel();
