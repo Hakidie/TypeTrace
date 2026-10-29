@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ENGLISH_PASSAGE_LIST } from '../../src/data/passages-en';
 import { SeasonRatingModel } from '../../src/models/season-rating.model';
+import { currentSeason } from '../../src/services/season.service';
 import { matchSettings, resetMatchHub } from '../../src/services/match-hub';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { isRaining, resetRainDuel } from '../../src/services/rain-duel.service';
-import { rainDuelSettings, resetRainDuelSettings } from '../../src/services/rain-duel-rules';
+import { RainPace, rainDuelSettings, resetRainDuelSettings } from '../../src/services/rain-duel-rules';
 import { api } from '../helpers/api';
 import { openEvents } from '../helpers/sse';
 import { bearerFor, createUser } from '../helpers/user-factory';
@@ -18,6 +19,9 @@ const ready = (auth: string, code: string) => api().post(`/api/matches/${code}/r
 const leave = (auth: string, code: string) => api().post(`/api/matches/${code}/leave`).set('Authorization', auth);
 const room = (auth: string, code: string) => api().get(`/api/matches/${code}`).set('Authorization', auth);
 const type = (auth: string, code: string, text: string) => api().post(`/api/matches/${code}/rain`).set('Authorization', auth).send({ text });
+
+/** Sets these numbers for the rain of every tier. */
+const setPace = (pace: Partial<RainPace>) => Object.values(rainDuelSettings.paces).forEach((tier) => Object.assign(tier, pace));
 
 let people = 0;
 const person = async (displayName: string) => {
@@ -43,11 +47,15 @@ const nextRain = async (stream: Stream, wanted: string, match: (event: RainEvent
   }
 };
 
-/** Two players in a running rain duel, each with an open stream. */
-const startDuel = async () => {
+/** Two players in a running rain duel, each with an open stream; `ratings` gives them a rain rating this season first. */
+const startDuel = async (ratings?: [number, number]) => {
   matchSettings.countdownMs = 20;
   const host = await person('Lan');
   const guest = await person('Minh');
+  if (ratings) {
+    const season = await currentSeason();
+    await SeasonRatingModel.create([host, guest].map((player, index) => ({ season: season._id, user: player.id, kind: 'rain', rating: ratings[index] })));
+  }
   const { code } = (await create(host.auth, 'rain')).body;
   await join(guest.auth, code);
   const hostStream = openEvents(`/api/matches/${code}/events`, host.auth);
@@ -62,7 +70,8 @@ const startDuel = async () => {
 
 beforeEach(async () => {
   await seedPassages(ENGLISH_PASSAGE_LIST);
-  Object.assign(rainDuelSettings, { spawnFromMs: 60, spawnToMs: 60, fallFromMs: 2000, fallToMs: 2000, durationMs: 5000 });
+  setPace({ spawnFromMs: 60, spawnToMs: 60, fallFromMs: 2000, fallToMs: 2000 });
+  rainDuelSettings.durationMs = 5000;
 });
 
 afterEach(() => {
@@ -119,7 +128,7 @@ describe('the rain duel', () => {
   });
 
   it('takes a life when a word lands', async () => {
-    rainDuelSettings.fallFromMs = rainDuelSettings.fallToMs = 150;
+    setPace({ fallFromMs: 150, fallToMs: 150 });
     rainDuelSettings.graceMs = 20;
     const { host, hostStream, guestStream } = await startDuel();
 
@@ -130,7 +139,7 @@ describe('the rain duel', () => {
     guestStream.close();
   });
 
-  it('throws a typed word to the opponent', async () => {
+  it('throws a new word to the opponent for a typed one', async () => {
     const { host, guest, code, hostStream, guestStream } = await startDuel();
     const word = await nextRain(hostStream, 'spawn', (event) => event.side === host.id);
 
@@ -140,7 +149,9 @@ describe('the rain duel', () => {
     const hit = await nextRain(guestStream, 'hit', (event) => event.side === host.id);
     expect(hit).toMatchObject({ id: word.drop!.id, thrownTo: guest.id });
     const thrown = await nextRain(guestStream, 'spawn', (event) => event.side === guest.id && event.drop!.thrown);
-    expect(thrown.drop!.text).toBe(word.drop!.text);
+    // Not the typed word: that one of the shared rain still falls on the guest's side, and two copies only confuse.
+    expect(thrown.drop!.text).not.toBe(word.drop!.text);
+    expect(thrown.drop!.text).toMatch(/^[a-z]{3,10}$/);
     hostStream.close();
     guestStream.close();
   });
@@ -151,7 +162,6 @@ describe('the rain duel', () => {
     await type(host.auth, code, word.drop!.text);
     const thrown = await nextRain(guestStream, 'spawn', (event) => event.side === guest.id && event.drop!.thrown);
 
-    // The guest now has the word twice (the rain's and the thrown one); the thrown one lands first, so it is the one hit.
     expect((await type(guest.auth, code, thrown.drop!.text)).body).toEqual({ hit: true });
     const hit = await nextRain(hostStream, 'hit', (event) => event.side === guest.id);
     expect(hit.id).toBe(thrown.drop!.id);
@@ -170,7 +180,7 @@ describe('the rain duel', () => {
   });
 
   it('holds back a thrown word while the side has too many', async () => {
-    rainDuelSettings.maxThrownFalling = 1;
+    setPace({ maxThrownFalling: 1 });
     const { host, guest, code, hostStream, guestStream } = await startDuel();
     const first = await nextRain(hostStream, 'spawn', (event) => event.side === host.id);
     const second = await nextRain(hostStream, 'spawn', (event) => event.side === host.id);
@@ -179,17 +189,18 @@ describe('the rain duel', () => {
 
     const thrown = await nextRain(guestStream, 'spawn', (event) => event.side === guest.id && event.drop!.thrown);
     // The second throw waits: the first thrown word must go before it falls.
+    const gone = Date.now();
     await type(guest.auth, code, thrown.drop!.text);
     const next = await nextRain(guestStream, 'spawn', (event) => event.side === guest.id && event.drop!.thrown);
 
-    expect(thrown.drop!.text).toBe(first.drop!.text);
-    expect(next.drop!.text).toBe(second.drop!.text);
+    expect(next.drop!.bornAt).toBeGreaterThanOrEqual(gone);
+    expect(next.drop!.id).not.toBe(thrown.drop!.id);
     hostStream.close();
     guestStream.close();
   });
 
   it('counts a hit within the grace time', async () => {
-    rainDuelSettings.fallFromMs = rainDuelSettings.fallToMs = 200;
+    setPace({ fallFromMs: 200, fallToMs: 200 });
     rainDuelSettings.graceMs = 400;
     const { host, code, hostStream, guestStream } = await startDuel();
     const word = await nextRain(hostStream, 'spawn', (event) => event.side === host.id);
@@ -201,10 +212,33 @@ describe('the rain duel', () => {
   });
 });
 
+describe('the difficulty of a rain duel', () => {
+  it('rains at Bronze for two new players, with short words', async () => {
+    const { host, code, hostStream, guestStream } = await startDuel();
+
+    expect((await room(host.auth, code)).body.rainTier).toBe('Bronze');
+    for (let i = 0; i < 5; i += 1) {
+      const word = await nextRain(hostStream, 'spawn', (event) => event.side === host.id);
+      expect(word.drop!.text.length).toBeLessThanOrEqual(rainDuelSettings.paces.Bronze.maxWordLength);
+    }
+    hostStream.close();
+    guestStream.close();
+  });
+
+  it('follows the average rain rating of the two players', async () => {
+    // 1300 and 1900: their average 1600 is Diamond, though one of them alone is Gold.
+    const { host, code, hostStream, guestStream } = await startDuel([1300, 1900]);
+
+    expect((await room(host.auth, code)).body.rainTier).toBe('Diamond');
+    hostStream.close();
+    guestStream.close();
+  });
+});
+
 describe('the end of a rain duel', () => {
   it('ends by K.O. and rates the rain rating', async () => {
     rainDuelSettings.lives = 1;
-    rainDuelSettings.fallFromMs = rainDuelSettings.fallToMs = 150;
+    setPace({ fallFromMs: 150, fallToMs: 150 });
     rainDuelSettings.graceMs = 20;
     const { host, guest, code, hostStream, guestStream } = await startDuel();
     // The guest keeps typing the words of their side: only the host loses lives.
@@ -227,7 +261,7 @@ describe('the end of a rain duel', () => {
 
   it('draws when both players lose their last life at the same moment', async () => {
     rainDuelSettings.lives = 1;
-    rainDuelSettings.fallFromMs = rainDuelSettings.fallToMs = 150;
+    setPace({ fallFromMs: 150, fallToMs: 150 });
     rainDuelSettings.graceMs = 20;
     const { host, code, hostStream, guestStream } = await startDuel();
 

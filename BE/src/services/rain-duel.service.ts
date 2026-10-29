@@ -3,7 +3,8 @@
 // ends unrated (`interrupted`, see `match.service.ts`).
 import type { MatchDocument, MatchResult } from '../models/match.model';
 import { cancelTimer, publish, publishTo, schedule } from './match-hub';
-import { buildRainSchedule, isInTime, rainDuelSettings, rainOutcome, RainSpawn, thrownFallMsAt } from './rain-duel-rules';
+import { buildRainSchedule, isInTime, pickThrownWord, RainPace, rainDuelSettings, rainOutcome, RainSpawn, thrownFallMsAt, wordsForPace } from './rain-duel-rules';
+import type { TierName } from './season.service';
 
 export interface RainDrop {
   id: string;
@@ -22,8 +23,8 @@ interface Side {
   hits: number;
   thrown: number;
   drops: Map<string, RainDrop>;
-  /** Thrown words waiting for a place (`maxThrownFalling`). */
-  queue: string[];
+  /** How many thrown words wait for a place (`maxThrownFalling`); each gets its word when it falls. */
+  waiting: number;
 }
 
 export interface RainSideResult {
@@ -42,6 +43,9 @@ interface Duel {
   code: string;
   startedAt: number;
   endsAt: number;
+  pace: RainPace;
+  /** The words of this rain, also where thrown words come from. */
+  words: string[];
   schedule: RainSpawn[];
   next: number;
   sides: [Side, Side];
@@ -124,18 +128,25 @@ const quietLane = (side: Side) => {
   return counts.indexOf(Math.min(...counts));
 };
 
-const throwTo = (duel: Duel, side: Side, text: string) => {
-  if (thrownFalling(side) >= rainDuelSettings.maxThrownFalling) {
-    side.queue.push(text);
+/**
+ * Throws a word onto a side: a word of the rain not falling there yet, so it is a new word to type, never a second copy
+ * of one already on the screen (the word just typed still falls on the other side, the rain being the same).
+ */
+const throwTo = (duel: Duel, side: Side) => {
+  if (thrownFalling(side) >= duel.pace.maxThrownFalling) {
+    side.waiting += 1;
     return;
   }
-  addDrop(duel, side, text, quietLane(side), thrownFallMsAt(Date.now() - duel.startedAt), true);
+  const falling = new Set([...side.drops.values()].map((drop) => drop.text));
+  const text = pickThrownWord(duel.words, falling, Math.random);
+  addDrop(duel, side, text, quietLane(side), thrownFallMsAt(Date.now() - duel.startedAt, duel.pace), true);
 };
 
 /** A thrown word left this side: the next one waiting falls. */
 const releaseQueue = (duel: Duel, side: Side) => {
-  const text = side.queue.shift();
-  if (text) throwTo(duel, side, text);
+  if (side.waiting === 0) return;
+  side.waiting -= 1;
+  throwTo(duel, side);
 };
 
 /** Words due to land this close together (the same word of the shared rain on both sides) land as one moment. */
@@ -177,17 +188,22 @@ const spawnDue = (duel: Duel) => {
 };
 
 /**
- * Starts the rain of a match about to run, from its words (`targetWords`): one schedule for both players. Called inside
- * the match lock, before the match is saved as running, so no request ever sees a running rain match without its rain.
+ * Starts the rain of a match about to run, from its words (`targetWords`) at the pace of `tier`: one schedule for both
+ * players. Called inside the match lock, before the match is saved as running, so no request ever sees a running rain
+ * match without its rain.
  */
-export const startRainDuel = (match: MatchDocument, lock: MatchLock, onEnd: EndRainDuel) => {
+export const startRainDuel = (match: MatchDocument, tier: TierName, lock: MatchLock, onEnd: EndRainDuel) => {
   const startedAt = Date.now();
-  const side = (userId: string): Side => ({ userId, lives: rainDuelSettings.lives, hits: 0, thrown: 0, drops: new Map(), queue: [] });
+  const pace = rainDuelSettings.paces[tier];
+  const words = wordsForPace(match.targetWords, pace);
+  const side = (userId: string): Side => ({ userId, lives: rainDuelSettings.lives, hits: 0, thrown: 0, drops: new Map(), waiting: 0 });
   const duel: Duel = {
     code: match.code,
     startedAt,
     endsAt: startedAt + rainDuelSettings.durationMs,
-    schedule: buildRainSchedule(match.targetWords, Math.random),
+    pace,
+    words,
+    schedule: buildRainSchedule(words, Math.random, pace),
     next: 0,
     sides: [side(String(match.players[0].user)), side(String(match.players[1].user))],
     lastId: 0,
@@ -225,7 +241,7 @@ export const hitRainWord = async (code: string, userId: string, text: string) =>
   if (drop.thrown) releaseQueue(duel, side);
   else {
     side.thrown += 1;
-    throwTo(duel, other, drop.text);
+    throwTo(duel, other);
   }
   await settle(duel);
   return { hit: true };

@@ -50,6 +50,8 @@ export interface MatchPlayer {
 export interface MatchDocument extends mongoose.Document {
   code: string;
   kind: MatchKind;
+  /** A rain duel: the tier its rain follows (the two players' average rain rating when it started). */
+  rainTier?: string;
   status: MatchStatus;
   /** Counted for Elo; decided once, when the match finishes (`services/rating.service.ts`). */
   rated: boolean;
@@ -100,6 +102,7 @@ const matchSchema = new Schema<MatchDocument>(
   {
     code: { type: String, required: true },
     kind: { type: String, enum: matchKinds, default: 'race' },
+    rainTier: String,
     status: { type: String, enum: matchStatuses, default: 'waiting' },
     rated: { type: Boolean, default: false },
     flagged: { type: Boolean, default: false },

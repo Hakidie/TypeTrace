@@ -36,6 +36,8 @@ export type UnratedReason = 'not-started' | 'flagged' | 'pair-limit' | 'interrup
 export interface PublicMatch {
   code: string;
   kind: MatchKind;
+  /** A rain duel once it runs: the tier its rain follows (the two players' average rain rating). */
+  rainTier?: Tier;
   status: MatchStatus;
   rated: boolean;
   unratedReason?: UnratedReason;

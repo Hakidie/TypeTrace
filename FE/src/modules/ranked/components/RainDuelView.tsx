@@ -81,9 +81,9 @@ export const RainDuelView = ({ match, myId }: RainDuelViewProps) => {
   const myDrops: RainDrop[] = (mine?.drops ?? []).map((drop) => ({ ...drop, typed: drop.id === target?.id ? typed.length : 0 }));
 
   // The moments (rain duel design, four moments): a word I threw flies across, a word thrown at me is announced, the
-  // other player's field flashes when they lose a life. Each is keyed by its server time, so a new one replays.
-  const lastHit = state?.lastHit;
-  const flying = lastHit?.side === me.userId && lastHit.thrownTo ? { at: lastHit.at, text: mine?.drops.find((drop) => drop.id === lastHit.id)?.text } : undefined;
+  // other player's field flashes when they lose a life. Each is keyed by its server time, so a new one replays. A throw
+  // is a new word picked by the server (not the one typed), so the flight shows the word that lands over there.
+  const flying = other && state?.lastThrow?.to === other.userId ? state.lastThrow : undefined;
   const incoming = state?.lastThrow?.to === me.userId ? state.lastThrow : undefined;
   const opponentHit = other && state?.lastLand?.side === other.userId ? state.lastLand : undefined;
 
@@ -102,21 +102,24 @@ export const RainDuelView = ({ match, myId }: RainDuelViewProps) => {
     <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-3 py-4">
       <div className="grid gap-3 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)]">
         <section aria-label="Your field" className="relative order-2 flex min-w-0 flex-col gap-2 lg:order-1">
-          {incoming && (
-            <>
-              <div key={`flash-${incoming.at}`} aria-hidden="true" className="rain-incoming pointer-events-none absolute inset-x-0 top-7 z-10 h-2 bg-primary" />
-              <p key={`banner-${incoming.at}`} role="status" className="rain-banner absolute inset-x-0 top-9 z-10 mx-auto w-fit bg-primary/80 px-3 py-1 text-sm font-semibold text-primary-foreground">
-                {other?.displayName ?? 'Your opponent'} threw: {incoming.text}
-              </p>
-            </>
-          )}
-          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2 font-semibold text-foreground">
+          {incoming && <div key={`flash-${incoming.at}`} aria-hidden="true" className="rain-incoming pointer-events-none absolute inset-x-0 top-7 z-10 h-2 bg-primary" />}
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span className="flex shrink-0 items-center gap-2 font-semibold text-foreground">
               You <Lives who="You" lives={mine?.lives ?? LIVES} />
             </span>
-            <span className="tabular-nums">{mine?.hits ?? 0} words</span>
+            {/* The throw is told in the HUD line, never over the field where it would hide the top words. The live region
+                stays, so a screen reader hears each throw; the words inside fade and come back with the next one. */}
+            <p role="status" className="min-w-0 flex-1 truncate text-center">
+              {incoming && (
+                <span key={incoming.at} className="rain-banner bg-primary/80 px-2 py-0.5 font-semibold text-primary-foreground">
+                  {other?.displayName ?? 'Your opponent'} threw: {incoming.text}
+                </span>
+              )}
+            </p>
+            <span className="shrink-0 tabular-nums">{mine?.hits ?? 0} words</span>
+            {match.rainTier && <span className="shrink-0" aria-label={`${match.rainTier} rain`}>{match.rainTier}</span>}
             {timeLeft !== undefined && (
-              <span aria-label="Time left" className="font-semibold tabular-nums text-foreground">
+              <span aria-label="Time left" className="shrink-0 font-semibold tabular-nums text-foreground">
                 {clock(timeLeft)}
               </span>
             )}

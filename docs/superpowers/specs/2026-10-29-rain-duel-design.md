@@ -59,15 +59,26 @@ ném sang.
 |---|---|
 | Mạng | 3 |
 | Làn | 6 trên máy tính; sân hẹp chỉ thu nhỏ hình vẽ, không đổi số làn (hai người phải cùng luật) |
-| Thời gian rơi | 7000 → 3500 ms, giảm tuyến tính theo thời gian trận |
-| Khoảng sinh từ | 1800 → 700 ms |
+| Thời gian rơi, khoảng sinh từ, trần từ bị ném, độ dài từ | theo bậc của trận (bảng dưới), giảm tuyến tính theo thời gian trận |
 | Thời lượng tối đa | 120 s; hết giờ mà chưa ai K.O. thì xem §5 "Kết thúc" |
 | Từ bị ném | rơi bằng tốc độ hiện tại của trận × 1,15, viền đứt nét |
-| Trần từ bị ném | tối đa 3 từ bị ném đang rơi trên một sân; từ thứ 4 xếp hàng, rơi khi có chỗ |
+| Trần từ bị ném | quá trần thì từ ném sau xếp hàng, rơi khi có chỗ |
 | Ân hạn độ trễ | 150 ms (xem §6) |
 
+**Độ khó theo bậc** (`rainDuelSettings.paces`): một cơn mưa chung cho cả hai, theo bậc của **trung bình rating Rain** của
+hai người lúc trận bắt đầu (`tierFor`), lưu ở `match.rainTier` và hiện trên HUD. Người mới (1000, Bronze) được mưa nhẹ.
+
+| Bậc | Khoảng sinh từ | Thời gian rơi | Trần từ bị ném | Độ dài từ |
+|---|---|---|---|---|
+| Bronze | 2800 → 1600 ms | 9000 → 6000 ms | 1 | 3–6 chữ |
+| Silver | 2400 → 1300 ms | 8000 → 5000 ms | 2 | 3–7 |
+| Gold | 2100 → 1100 ms | 7500 → 4500 ms | 2 | 3–8 |
+| Platinum | 1900 → 900 ms | 7000 → 4000 ms | 3 | 3–9 |
+| Diamond, Legend | 1800 → 800 ms | 6500 → 3500 ms | 3 | 3–10 |
+
 - **Gõ trúng** (cách hoặc Enter, như mưa chữ một người; so khớp chính xác, chữ thường): từ biến mất khỏi sân mình và
-  một bản sao rơi ở sân đối thủ, làn ngẫu nhiên do server chọn trong các làn trống. Một từ bị ném sang mình, khi mình
+  một **từ khác** của cơn mưa rơi ở sân đối thủ, do server chọn trong các từ chưa rơi ở sân đó (từ vừa gõ vẫn đang rơi
+  bên kia vì mưa chung, hai bản giống nhau chỉ gây rối), ở làn ít từ nhất. Một từ bị ném sang mình, khi mình
   gõ trúng, **không** ném ngược lại (chặn vòng ném qua ném lại vô tận); nó chỉ tính điểm.
 - **Nhắm từ** chạy ở trình duyệt như mưa chữ một người (chỉ để tô chữ); server tự tìm từ khớp khi nhận lần gửi.
 - **Chạm đất:** hẹn giờ của từ trên server kêu → mất một mạng. Hết mạng → thua.
@@ -112,7 +123,7 @@ ném sang.
 - Chuyển động mới (CSS, theo các class `rain-*` và `duel-*` có sẵn):
   - `rain-throw`: bản sao bay theo đường cong từ sân mình sang sân nhỏ (0,45 s), làm bằng một phần tử phủ toàn màn,
     `offset-path` hoặc transform hai bước.
-  - `rain-incoming`: viền trên sân lóe đỏ và dải "Lan ném sang: trăng" (1,2 s).
+  - `rain-incoming`: viền trên sân lóe đỏ, và dòng HUD (không phủ lên sân, để không che các từ trên cùng) báo "Lan ném sang: trăng" (1,6 s).
   - `rain-opponent-hit`: sân nhỏ lóe đỏ, rung, trái tim vỡ.
   - K.O.: dùng lại `duel-slam` và tư thế `win` / `lose`, rồi `MatchResult` có sẵn.
   - Giảm chuyển động: bỏ đường bay và rung, giữ màu lóe và dải chữ (đó là thông tin).

@@ -106,19 +106,21 @@ describe('RainDuelView (rain duel)', () => {
 });
 
 describe('RainDuelView moments (rain duel)', () => {
-  it('throws a typed word with a flying copy', () => {
+  it('flies the word my throw sends to the other player', () => {
     const { container } = renderView(
       duel({
         sides: { u1: { lives: 3, hits: 1, drops: [{ ...falling('1', 'wind'), state: 'popped' }] }, u2: { lives: 3, hits: 0, drops: [] } },
         lastHit: { side: 'u1', id: '1', thrownTo: 'u2', at: 5000 },
+        // The server throws a new word, not the one typed.
+        lastThrow: { to: 'u2', text: 'river', at: 5000 },
       }),
     );
 
-    expect(container.querySelector('.rain-throw')).toHaveTextContent('wind');
+    expect(container.querySelector('.rain-throw')).toHaveTextContent('river');
   });
 
-  it('does not fly a word hit by the other player', () => {
-    const { container } = renderView(duel({ lastHit: { side: 'u2', id: '2', thrownTo: 'u1', at: 5000 } }));
+  it('does not fly a word thrown at me', () => {
+    const { container } = renderView(duel({ lastThrow: { to: 'u1', text: 'moon', at: 5000 } }));
 
     expect(container.querySelector('.rain-throw')).toBeNull();
   });
@@ -128,6 +130,21 @@ describe('RainDuelView moments (rain duel)', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('Minh threw: moon');
     expect(screen.getByRole('region', { name: 'Your field' }).querySelector('.rain-incoming')).not.toBeNull();
+  });
+
+  it('tells the throw in the HUD line, not over the field', () => {
+    renderView(duel({ lastThrow: { to: 'u1', text: 'moon', at: 6000 } }));
+
+    const status = screen.getByRole('status');
+    expect(status.closest('.absolute')).toBeNull();
+    // In the line with my lives and words, not in a box laid over the stage.
+    expect(status.parentElement).toHaveTextContent('0 words');
+  });
+
+  it('shows the tier of the rain', () => {
+    renderWithProviders(<RainDuelView match={{ ...match, rainTier: 'Bronze' }} myId="u1" />);
+
+    expect(screen.getByLabelText('Bronze rain')).toHaveTextContent('Bronze');
   });
 
   it("flashes the other player's field when they lose a life", () => {

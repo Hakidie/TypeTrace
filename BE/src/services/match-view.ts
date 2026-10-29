@@ -38,6 +38,7 @@ export const pickRainWords = async () => {
 export const toPublicMatch = (match: MatchDocument) => ({
   code: match.code,
   kind: match.kind ?? 'race',
+  ...(match.rainTier && { rainTier: match.rainTier }),
   status: match.status,
   rated: match.rated,
   ...(match.unratedReason && { unratedReason: match.unratedReason }),

@@ -10,7 +10,9 @@ import { cancelTimer, closeStreams, isConnected, matchSettings, publish, publish
 import { generateRoomCode, pickRainWords, pickRankedPassage, toPublicMatch } from './match-view';
 import { EndRainDuel, hitRainWord, sendRainSnapshot, startRainDuel, stopRainDuel, wasStartedHere } from './rain-duel.service';
 import { rainDuelSettings } from './rain-duel-rules';
+import { getMyRanking } from './ranked.service';
 import { rateMatch } from './rating.service';
+import { tierFor } from './season.service';
 import { computeWpm, gradeWords, MAX_COUNTED_WPM, MIN_COUNTED_WORDS, SESSION_GRACE_MS } from './typing-session.service';
 
 
@@ -295,8 +297,12 @@ const startRace = (code: string) =>
     if (!match) return;
     match.status = 'running';
     if (match.kind === 'rain') {
+      // One rain for both, as hard as the tier of their average rain rating: a Bronze pair gets a gentle rain.
+      const ratings = await Promise.all(match.players.map((player) => getMyRanking(String(player.user), 'rain')));
+      const tier = tierFor((ratings[0].rating + ratings[1].rating) / 2);
+      match.rainTier = tier;
       // The rain exists before the match is saved as running, so no reader ever takes it for an interrupted duel.
-      match.startedAt = startRainDuel(match, (task) => withMatchLock(code, task), endRainDuel(code)).startedAt;
+      match.startedAt = startRainDuel(match, tier, (task) => withMatchLock(code, task), endRainDuel(code)).startedAt;
       match.players.forEach((player) => Object.assign(player, { lives: rainDuelSettings.lives, hits: 0, thrown: 0 }));
     } else match.startedAt = new Date();
     await match.save();
