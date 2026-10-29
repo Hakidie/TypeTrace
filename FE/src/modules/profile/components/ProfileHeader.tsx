@@ -4,10 +4,13 @@ import { useMutation } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Pencil, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
+import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
+import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { Input } from '@/shared/components/ui/input';
 import { cn } from '@/shared/lib/utils';
 import { profileApi } from '../api/profile.api';
@@ -198,11 +201,16 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange }: Profil
       aria-label="Profile header"
       className="grid grid-cols-3 gap-y-3 text-primary sm:grid-cols-[auto_repeat(3,minmax(0,1fr))] lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_1fr] lg:gap-y-0"
     >
-      <div className="col-span-3 sm:col-span-1 sm:row-span-4 sm:mr-3 lg:row-span-2">
+      <div className="col-span-3 flex flex-col items-start gap-2 sm:col-span-1 sm:row-span-4 sm:mr-3 lg:row-span-2">
+        {/* Without an uploaded picture the pixel avatar shows (152px = the 76px frame at 2x, inside the 192px tile). */}
         <AvatarUpload currentAvatarUrl={user.avatarUrl} userInitials={name.slice(0, 2).toUpperCase()} onUploadSuccess={onAvatarChange}
           className="size-48"
           initialsClassName="text-6xl"
+          fallback={<AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} scale={2} label="Your avatar" />}
         />
+        <Link to="/wardrobe" className="text-sm text-primary underline-offset-4 hover:underline">
+          Change outfit
+        </Link>
       </div>
       {/* `lg:col-span-1` sets `grid-column`, which drops the column start: `lg:col-start-2` gives it back. */}
       <div className="col-span-3 min-w-0 self-baseline sm:col-start-2 sm:row-start-1 lg:col-span-1 lg:col-start-2">

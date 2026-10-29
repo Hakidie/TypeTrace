@@ -22,6 +22,7 @@ import {
 } from '../controllers/admin-daily-task.controller';
 import { createTheme, deleteTheme, listThemes, updateTheme } from '../controllers/admin-theme.controller';
 import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, setUserStatus, updateUser } from '../controllers/admin.controller';
+import { closeSeason, listSeasons } from '../controllers/ranked.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
@@ -42,6 +43,7 @@ import {
 import { createAdminThemeSchema, listAdminThemesQuerySchema, updateAdminThemeSchema } from '../validators/admin-theme.validator';
 import { adminUpdateUserSchema, listUsersQuerySchema, setUserStatusSchema } from '../validators/admin-user.validator';
 import { bulkIdsSchema, idParamsSchema } from '../validators/common.validator';
+import { listSeasonsQuerySchema } from '../validators/ranked.validator';
 
 export const adminRouter = Router();
 
@@ -71,6 +73,10 @@ adminRouter.patch('/passages/:id/approve', validate({ params: idParamsSchema }),
 adminRouter.patch('/passages/:id/reject', validate({ params: idParamsSchema, body: rejectPassageSchema }), rejectPassage);
 adminRouter.post('/passages/bulk-approve', validate({ body: bulkIdsSchema }), bulkApprovePassages);
 adminRouter.post('/passages/bulk-reject', validate({ body: bulkRejectPassagesSchema }), bulkRejectPassages);
+
+// Ranked seasons: there is always one active season, so closing one (early) opens the next; no separate "open".
+adminRouter.get('/seasons', validate({ query: listSeasonsQuerySchema }), listSeasons);
+adminRouter.post('/seasons/:id/close', validate({ params: idParamsSchema }), closeSeason);
 
 adminRouter.get('/themes', validate({ query: listAdminThemesQuerySchema }), listThemes);
 adminRouter.post('/themes', validate({ body: createAdminThemeSchema }), createTheme);

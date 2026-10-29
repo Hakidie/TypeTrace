@@ -8,11 +8,14 @@ import { errorMiddleware } from './middlewares/error.middleware';
 import { notFoundHandler } from './middlewares/not-found.middleware';
 import { adminRouter } from './routes/admin.route';
 import { authRouter } from './routes/auth.route';
+import { avatarRouter } from './routes/avatar.route';
 import { chatRouter } from './routes/chat.route';
+import { matchRouter } from './routes/match.route';
 import { noteRouter } from './routes/note.route';
 import { passageRouter } from './routes/passage.route';
 import { placementRouter } from './routes/placement.route';
 import { profileRouter } from './routes/profile.route';
+import { rankedRouter } from './routes/ranked.route';
 import { themeRouter } from './routes/theme.route';
 import { typingSessionRouter } from './routes/typing-session.route';
 
@@ -26,7 +29,9 @@ app.use(helmet());
 app.use(cors({ origin: env.clientUrl }));
 app.use(express.json());
 if (!isTest) app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
-app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300, skip: () => isTest }));
+// The progress of a ranked duel (several reports a second) has its own limit per player in `match.route.ts`.
+const isDuelProgress = (path: string) => /^\/api\/matches\/[^/]+\/progress$/.test(path);
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 300, skip: (req) => isTest || isDuelProgress(req.path) }));
 
 // Stricter limit for credential and OTP endpoints. `/me` is read on every page
 // load, so it is left to the global limiter.
@@ -53,5 +58,8 @@ app.use('/api/sessions', typingSessionRouter);
 app.use('/api/placement', placementRouter);
 app.use('/api/passages', passageRouter);
 app.use('/api/themes', themeRouter);
+app.use('/api/avatar', avatarRouter);
+app.use('/api/matches', matchRouter);
+app.use('/api/ranked', rankedRouter);
 app.use(notFoundHandler);
 app.use(errorMiddleware);

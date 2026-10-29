@@ -34,6 +34,8 @@ interface TypingAreaProps {
   onTimeUp?: () => void;
   /** Shown under the card, at its right, e.g. a Restart button. */
   actions?: ReactNode;
+  /** Called each time one more word is finished (a ranked duel sends it to the server), never after the end. */
+  onProgress?: (typedWords: string[], typedAtMs: number[]) => void;
 }
 
 /**
@@ -67,7 +69,16 @@ export const TypingStatus = ({ typed, total, seconds, finished }: TypingStatusPr
   </div>
 );
 
-export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, onTimeUp, timeLimitSeconds = SESSION_TIME_LIMIT_SECONDS, actions }: TypingAreaProps) => {
+export const TypingArea = ({
+  targetWords,
+  disabled = false,
+  onStart,
+  onFinish,
+  onTimeUp,
+  timeLimitSeconds = SESSION_TIME_LIMIT_SECONDS,
+  actions,
+  onProgress,
+}: TypingAreaProps) => {
   const [text, setText] = useState('');
   const [committed, setCommitted] = useState('');
   const [lastWordDone, setLastWordDone] = useState(false);
@@ -107,7 +118,12 @@ export const TypingArea = ({ targetWords, disabled = false, onStart, onFinish, o
   const commit = (value: string) => {
     setCommitted(value);
     const typedWords = splitTyped(value).done;
+    const before = wordTimes.current.length;
     while (wordTimes.current.length < typedWords.length) wordTimes.current.push(Date.now() - startTime.current);
+    // One report per newly finished word (the last one is reported by `onFinish`).
+    if (!isFinished && typedWords.length > before && typedWords.length < targetWords.length) {
+      onProgress?.(typedWords, wordTimes.current.slice(0, typedWords.length));
+    }
     if (!isFinished && typedWords.length >= targetWords.length) {
       setLastWordDone(true);
       onFinish(typedWords.slice(0, targetWords.length), wordTimes.current.slice(0, targetWords.length));

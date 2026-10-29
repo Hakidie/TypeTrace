@@ -195,3 +195,17 @@ describe('ProfileHeader (SCRUM-157)', () => {
     expect(updateProfile).not.toHaveBeenCalled();
   });
 });
+
+describe('ProfileHeader: pixel avatar (ranked duel, phase 2)', () => {
+  it('shows the pixel avatar when there is no uploaded picture', async () => {
+    renderHeader({ ...user, avatar: { skin: 'tan', face: 'cute', hair: 'long-pink', top: 'mint', bottom: 'navy', shoes: 'sneakers-brown' } });
+
+    expect(await screen.findByRole('img', { name: 'Your avatar' })).toBeInTheDocument();
+  });
+
+  it('links to the wardrobe', () => {
+    renderHeader();
+
+    expect(screen.getByRole('link', { name: 'Change outfit' })).toHaveAttribute('href', '/wardrobe');
+  });
+});
