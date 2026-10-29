@@ -1,9 +1,10 @@
 import { DEFAULT_AVATAR } from '../data/avatar-catalog';
 import { DailyChallengeModel, DailyEntryDocument, DailyEntryModel } from '../models/daily.model';
 import { notEnglish } from '../models/passage.model';
-import { TypingSessionModel } from '../models/typing-session.model';
+import { TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
 import { conflict, notFound } from '../utils/app-error';
+import type { DailyBoardQuery } from '../validators/daily.validator';
 import { ANONYMOUS_PLAYER_NAME } from './match.service';
 import { samplePassage } from './passage.service';
 import { vietnamDayStart } from './rating.service';
@@ -18,7 +19,13 @@ const VIETNAM_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 /** The day of `now` in Vietnam time, as `YYYY-MM-DD` (the days of the challenge change at 0:00 there). */
 export const dayKey = (now = Date.now()) => new Date(vietnamDayStart(now).getTime() + VIETNAM_OFFSET_MS).toISOString().slice(0, 10);
-const dayBefore = (date: string) => new Date(Date.parse(date) - DAY_MS).toISOString().slice(0, 10);
+export const dayBefore = (date: string) => new Date(Date.parse(date) - DAY_MS).toISOString().slice(0, 10);
+
+/** Fast and careless does not win: 60 WPM at 95% scores 57. */
+export const scoreOf = (wpm: number, accuracy: number) => Math.round((wpm * accuracy) / 100);
+/** The coins of the first counted try of a day: 20, and 5 more for each day of the streak before today, at most 50. */
+export const coinsFor = (streak: number) => Math.min(50, 20 + 5 * (streak - 1));
+const BOARD_SIZE = 20;
 
 /**
  * The passage of `date`. The first request of the day picks a random public practice passage and stores a copy of it;
@@ -87,6 +94,59 @@ export const getToday = async (userId: string) => {
     lastTry: entry?.lastTry ?? null,
     endsAt: new Date(vietnamDayStart().getTime() + DAY_MS).toISOString(),
     yesterdayWinner: await winnerOf(dayBefore(date))
+  };
+};
+
+/**
+ * Records a finished `daily` session on the day it started (`dailyDate`). Only a counted session (`isCounted`) scores.
+ * Every step is one conditional update, so two tries finished at once cannot both give the coins or grow the streak twice.
+ */
+export const recordTry = async (session: TypingSessionDocument) => {
+  const { owner: user, dailyDate: date, wpm = 0, accuracy = 0 } = session;
+  if (!date) return;
+  if (!session.isCounted) {
+    await DailyEntryModel.updateOne({ user, date }, { $set: { lastTry: { score: 0, wpm, accuracy, counted: false, newBest: false, coins: 0 } } });
+    return;
+  }
+  const score = scoreOf(wpm, accuracy);
+  const better = await DailyEntryModel.updateOne(
+    // Only a higher score replaces the best, so a lower try finishing at the same time never overwrites it.
+    { user, date, bestScore: { $lt: score } },
+    { $set: { bestScore: score, bestWpm: wpm, bestAccuracy: accuracy, bestAt: new Date() } }
+  );
+  const yesterday = await DailyEntryModel.findOne({ user, date: dayBefore(date), counted: true });
+  const streak = (yesterday?.streak ?? 0) + 1;
+  // Only the first counted try of the day flips `counted`, and only that request gives the coins.
+  const first = await DailyEntryModel.updateOne({ user, date, counted: false }, { $set: { counted: true, streak, coins: coinsFor(streak) } });
+  const coins = first.modifiedCount ? coinsFor(streak) : 0;
+  if (coins) await UserModel.updateOne({ _id: user }, { $inc: { coins } });
+  await DailyEntryModel.updateOne(
+    { user, date },
+    { $set: { lastTry: { score, wpm, accuracy, counted: true, newBest: better.modifiedCount === 1, coins } } }
+  );
+};
+
+/** The board of today or yesterday: the best counted try of each player, names and avatars only, and the learner's place. */
+export const getBoard = async (userId: string, day: DailyBoardQuery['day']) => {
+  const date = day === 'yesterday' ? dayBefore(dayKey()) : dayKey();
+  const [entries, players, own] = await Promise.all([
+    DailyEntryModel.find({ date, counted: true }).sort({ bestScore: -1, bestAt: 1 }).limit(BOARD_SIZE),
+    DailyEntryModel.countDocuments({ date, counted: true }),
+    DailyEntryModel.findOne({ user: userId, date, counted: true })
+  ]);
+  const playerOf = await publicPlayers(entries.map((entry) => entry.user));
+  return {
+    date,
+    players,
+    items: entries.map((entry, index) => ({
+      rank: index + 1,
+      ...playerOf(entry.user),
+      score: entry.bestScore,
+      wpm: entry.bestWpm,
+      accuracy: entry.bestAccuracy,
+      isMe: String(entry.user) === userId
+    })),
+    me: own ? { rank: await rankOf(own), score: own.bestScore } : null
   };
 };
 

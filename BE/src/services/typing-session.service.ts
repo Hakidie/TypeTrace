@@ -6,6 +6,7 @@ import { paginate } from '../utils/pagination';
 import { titleSearchPattern } from '../utils/passage-text';
 import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
+import { recordTry } from './daily.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
 
 /** Sessions with fewer words, or faster than this, are saved but kept out of the error profile (ASSUMPTION). */
@@ -163,7 +164,10 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
     ...countErrors(words),
     isCounted: isSessionCounted(words.length, wpm, elapsedMs)
   });
-  return session.save();
+  const saved = await session.save();
+  // A try of the daily challenge also updates the learner's day: best score, streak and coins.
+  if (saved.mode === 'daily') await recordTry(saved);
+  return saved;
 };
 
 /** The line chart takes one point every second, and a session shorter than 10 seconds is too short to draw. */

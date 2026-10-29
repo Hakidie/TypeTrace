@@ -1,7 +1,9 @@
 import { Router } from 'express';
-import { getToday, startTry } from '../controllers/daily.controller';
+import { getBoard, getToday, startTry } from '../controllers/daily.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
+import { validate } from '../middlewares/validate.middleware';
+import { dailyBoardQuerySchema } from '../validators/daily.validator';
 
 export const dailyRouter = Router();
 
@@ -12,3 +14,5 @@ dailyRouter.use(authGuard, requireRole('user', 'admin'));
 dailyRouter.get('/', getToday);
 /** Starts a try (a `daily` typing session on today's passage); 409 when the 3 tries of the day are used. */
 dailyRouter.post('/sessions', startTry);
+/** The best try of each player of `day` (`today` or `yesterday`), top 20, names and avatars only, and the learner's place. */
+dailyRouter.get('/leaderboard', validate({ query: dailyBoardQuerySchema }), getBoard);
