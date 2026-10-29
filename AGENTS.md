@@ -161,7 +161,7 @@ reason, which makes them `rejected`, SCRUM-176). Two lists on one page keep thei
 **Access: admins only.** The lock is one line on each side: `requireRole('admin')` in `BE/src/routes/admin.route.ts`
 (others get 403) and `<ProtectedRoute roles={['admin']}>` around `AdminLayout` in `FE/src/App.tsx` (others are sent to `/`).
 The "Admin" item in the avatar menu (`UserMenu`, top right of the main app) is also admins only. After login or registration, admins land on `/admin`; everyone else on `/typing` in Practice mode (`afterLoginPathFor` in
-`FE/src/modules/auth/utils/home-path.ts`); `/` also opens `/typing`. A learner who has just created an account (registration, or a first Google login: `useFinishLogin(token, { newAccount: true })`) lands there with the history state `AfterLoginState`, and the Typing page asks once to take the placement test (SCRUM-157). The placement test is the Placement tab on the Typing page (a confirm modal first). Make the first
+`FE/src/modules/auth/utils/home-path.ts`); `/` also opens `/typing`. A learner who has just created an account (registration, or a first Google login: `useFinishLogin(token, { newAccount: true })`) lands there with the history state `AfterLoginState`, and the Typing page starts Ping's tour once (`POST /api/tutorial/start`, see "Tutorial (Ping)"), which brings the placement test in its turn. The placement test is the Placement tab on the Typing page (a confirm modal first). Make the first
 admin with `npm run seed` (`admin@example.com`) or by setting `role: 'admin'` in the database. Keep the server-side checks that stop
 an account from deleting itself or removing its own admin role.
 
@@ -173,6 +173,22 @@ To add an admin page for a feature module:
    `adminNavItems: [{ to: '/admin/<plural>', label, icon }]`. Build the page like `AdminUsersPage`: a `ListToolbar` (search, sort, filters),
    a list of `ListRow` cards (or a `DataTable` with column config for plain tables), `Pagination` (`variant="toolbar"` = right-aligned, styled like the `ListToolbar` buttons; `accent` = red text on transparent buttons), `ConfirmDialog`, and `useListParams`
    to keep search, filters, sort and page in the URL.
+
+## Tutorial (Ping)
+
+The mascot Ping guides new learners (`docs/superpowers/specs/2026-10-30-ping-tutorial-design.md`):
+
+- State: `user.tutorial = { tour: 'active' | 'done' | 'skipped', modes: { practice?, placement?, rain?, daily?, rank?: 'done' | 'skipped' } }`.
+  **Missing = an account from before the tutorial: nothing is shown.** Never give it a default. `/api/tutorial`
+  (`routes/tutorial.route.ts`): `POST /start` (after sign-up, keeps an existing state), `PATCH /` (`{ mode, status }` and/or
+  `{ tour }`, 400 without a state), `POST /reset` (Settings "Xem lại hướng dẫn"), `POST /coach` (Ping's tip after the practice
+  duel: `generateChatReply` with `config/ping-coach.ts`, a written tip when the AI cannot answer; shares the chat limiter).
+- Frontend: `modules/tutorial` (a widget, `TutorialGuide`, on /typing only). The steps of each mode are in `steps.ts`
+  (`MODE_STEPS`, Vietnamese, Ping's voice); the tour chains them in `TOUR_ORDER`. A step frames `[data-tutorial="<id>"]` with
+  `Spotlight`; add that attribute to what a new step points at. A step that waits for the learner sets `tutorialStore`'s hold
+  (`rain-word`: `RainMode` freezes the rain and frames its lowest word until it is typed). Skipping is a button, never Escape.
+- The practice duel against Ping-bot (`lib/practice-duel.ts`, Bronze pace, words of `GET /api/rain/words`) runs in the browser
+  only: it never calls `/api/matches` or `/api/ranked` and never changes a rating.
 
 ## AI chat bot (OpenAI)
 
