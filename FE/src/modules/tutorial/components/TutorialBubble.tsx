@@ -17,9 +17,12 @@ interface TutorialBubbleProps {
   className?: string;
 }
 
-/** Enter in a text box belongs to the box (it sends a word in word rain), not to the guide. */
-const typingIn = (target: EventTarget | null) =>
-  target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+/**
+ * Enter in a text box belongs to the box (it sends a word in word rain), and Enter on a button already clicks it (the
+ * next button would go on twice): only an Enter elsewhere is the guide's.
+ */
+const ownEnter = (target: EventTarget | null) =>
+  target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'BUTTON' || target.isContentEditable);
 
 /**
  * What Ping says: a speech bubble in the Panel look (see-through, blurred, panel border), a progress bar, and the
@@ -29,7 +32,7 @@ export const TutorialBubble = ({ step, total, label, children, onNext, onSkip, n
   useEffect(() => {
     if (!onNext) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Enter' && !typingIn(event.target)) onNext();
+      if (event.key === 'Enter' && !ownEnter(event.target)) onNext();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);

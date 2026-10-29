@@ -101,6 +101,14 @@ describe('TutorialGuide', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('talks from the top when what it frames is at the bottom', () => {
+    renderGuide({ tour: 'skipped', modes: {} }, '/typing');
+    fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('số từ đã gõ và thời gian');
+    expect(screen.getByRole('dialog').parentElement!.className).toContain('top-20');
+  });
+
   it('moves to the top while the learner types a word, so the typing box stays visible', () => {
     renderGuide({ tour: 'skipped', modes: {} }, '/typing?mode=rain');
     const placeOf = () => screen.getByRole('dialog').parentElement!.className;

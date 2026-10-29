@@ -107,8 +107,9 @@ export const TutorialGuide = () => {
   return (
     <>
       {step.target && <Spotlight target={step.target} />}
-      {/* While the learner types the framed word, Ping talks from the top: at the bottom he would cover the typing box. */}
-      <div className={cn('fixed inset-x-4 z-50 flex items-end gap-2 sm:right-auto sm:max-w-xl', step.waitFor ? 'top-20' : 'bottom-4')}>
+      {/* Ping talks from the top while the learner types the framed word (at the bottom he would cover the typing box) and
+          when what he frames is at the bottom. */}
+      <div className={cn('fixed inset-x-4 z-50 flex items-end gap-2 sm:right-auto sm:max-w-xl', step.waitFor || step.place === 'top' ? 'top-20' : 'bottom-4')}>
         <Ping move={step.move} size={2} className="hidden sm:block" />
         <Ping move={step.move} className="sm:hidden" />
         <TutorialBubble

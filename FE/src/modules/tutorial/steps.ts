@@ -22,7 +22,7 @@ export const WELCOME_STEP: TutorialStep = {
 export const MODE_STEPS: Record<TutorialMode, TutorialStep[]> = {
   practice: [
     { id: 'practice-passage', mode: 'practice', move: 'point', target: 'typing-passage', text: 'Đây là đoạn văn để luyện. Cứ gõ theo: chữ đúng sáng lên, chữ sai hiện đỏ, sai thì Backspace sửa lại.' },
-    { id: 'practice-stats', mode: 'practice', move: 'talk', target: 'typing-stats', text: 'Dưới đây là số từ đã gõ và thời gian. Gõ xong, màn kết quả cho bạn WPM (số từ mỗi phút) và độ chính xác. Gõ đúng trước, tốc độ tự lên!' },
+    { id: 'practice-stats', mode: 'practice', move: 'talk', target: 'typing-stats', place: 'top', text: 'Dưới đây là số từ đã gõ và thời gian. Gõ xong, màn kết quả cho bạn WPM (số từ mỗi phút) và độ chính xác. Gõ đúng trước, tốc độ tự lên!' },
     { id: 'practice-try', mode: 'practice', move: 'happy', text: 'Gõ thử vài từ đi. Xong thì bấm "Hiểu rồi" nhé.', next: 'Hiểu rồi' },
   ],
   placement: [

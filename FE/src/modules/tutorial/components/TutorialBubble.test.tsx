@@ -44,6 +44,18 @@ describe('TutorialBubble', () => {
     box.remove();
   });
 
+  it('goes on once when Enter presses the focused next button', () => {
+    const { onNext } = renderBubble();
+    const next = screen.getByRole('button', { name: 'Tiếp' });
+    next.focus();
+
+    // The browser clicks a focused button on Enter; the shortcut must not count it a second time.
+    fireEvent.keyDown(next, { key: 'Enter' });
+    fireEvent.click(next);
+
+    expect(onNext).toHaveBeenCalledOnce();
+  });
+
   it('has no next button while Ping waits for the learner', () => {
     renderBubble({ onNext: undefined });
 
