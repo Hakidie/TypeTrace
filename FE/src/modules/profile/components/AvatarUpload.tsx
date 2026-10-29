@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Loader2, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { profileApi } from '@/modules/profile/api/profile.api';
@@ -14,9 +14,11 @@ interface AvatarUploadProps {
   className?: string;
   /** Size of the initials shown without a picture (default `text-xl`). */
   initialsClassName?: string;
+  /** Shown without a picture instead of the initials (the profile page: the pixel avatar). */
+  fallback?: ReactNode;
 }
 
-export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSuccess, className, initialsClassName }: AvatarUploadProps) => {
+export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSuccess, className, initialsClassName, fallback }: AvatarUploadProps) => {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -60,7 +62,7 @@ export const AvatarUpload = ({ currentAvatarUrl, userInitials = '??', onUploadSu
       >
         <Avatar className={cn('size-[61px]', className)}>
           <AvatarImage src={currentAvatarUrl} alt="Profile avatar" />
-          <AvatarFallback className={cn('bg-primary/25 text-xl font-black text-primary', initialsClassName)}>{userInitials}</AvatarFallback>
+          <AvatarFallback className={cn('bg-primary/25 text-xl font-black text-primary', initialsClassName)}>{fallback ?? userInitials}</AvatarFallback>
         </Avatar>
 
         <span

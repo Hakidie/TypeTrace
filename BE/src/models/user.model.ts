@@ -1,4 +1,5 @@
 import mongoose, { Schema, Types } from 'mongoose';
+import { AvatarLook, DEFAULT_AVATAR } from '../data/avatar-catalog';
 
 export const USER_ROLES = ['user', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -32,6 +33,12 @@ export interface UserDocument extends mongoose.Document {
     darkTheme: Types.ObjectId | null;
     lightTheme: Types.ObjectId | null;
   };
+  /** The pixel avatar the user wears (ranked duel design, section 7). Missing on accounts saved before: `DEFAULT_AVATAR`. */
+  avatar: AvatarLook;
+  /** The avatar items bought or won, as `slot:item` (`itemKey`); the free items are never listed. */
+  ownedItems: string[];
+  /** Earned in rated duels (phase 6). Only the account itself sees it (`/me`, the avatar catalog). */
+  coins: number;
 }
 
 /** Fields that must never leave the server. Stripped from every JSON response. */
@@ -72,7 +79,27 @@ const userSchema = new Schema<UserDocument>(
         { _id: false }
       ),
       default: () => ({})
-    }
+    },
+    avatar: {
+      type: new Schema(
+        {
+          skin: { type: String, default: DEFAULT_AVATAR.skin },
+          face: { type: String, default: DEFAULT_AVATAR.face },
+          hair: { type: String, default: DEFAULT_AVATAR.hair },
+          top: { type: String, default: DEFAULT_AVATAR.top },
+          bottom: { type: String, default: DEFAULT_AVATAR.bottom },
+          shoes: { type: String, default: DEFAULT_AVATAR.shoes },
+          headwear: { type: String, default: null },
+          accessory: { type: String, default: null },
+          back: { type: String, default: null },
+          effect: { type: String, default: null }
+        },
+        { _id: false }
+      ),
+      default: () => ({})
+    },
+    ownedItems: { type: [String], default: [] },
+    coins: { type: Number, default: 0, min: 0 }
   },
   {
     timestamps: true,

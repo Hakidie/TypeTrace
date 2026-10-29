@@ -1,3 +1,5 @@
+import type { AvatarLook } from '@/modules/avatar/types/avatar.types';
+
 export interface AuthPayload {
   email: string;
   password: string;
@@ -15,6 +17,12 @@ export interface CurrentUser {
   bio?: string;
   avatarUrl?: string;
   phone?: string;
+  /** The pixel avatar the user wears (missing on old data: `DEFAULT_AVATAR`). */
+  avatar?: AvatarLook;
+  /** Earned in rated duels; only the user sees their own. */
+  coins?: number;
+  /** Bought or won avatar items, as `slot:item`. */
+  ownedItems?: string[];
   createdAt: string;
   updatedAt: string;
 }
