@@ -1,7 +1,8 @@
 import { CloudRain, Heart, Pause, Play } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
+import { tutorialStore, useTutorialHold } from '@/modules/tutorial/lib/tutorial-store';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -38,10 +39,21 @@ const Overlay = ({ children }: { children: ReactNode }) => (
 export const RainMode = () => {
   const words = useRainWords();
   const { data: me } = useCurrentUser();
-  const { state, paused, start, input, land, togglePause } = useRainGame();
+  // Ping's tutorial step "type the framed word": the first falling word is framed and the rain stands still (the box
+  // still takes words) until it is typed.
+  const hold = useTutorialHold() === 'rain-word';
+  const [heldId, setHeldId] = useState<string | null>(null);
+  const { state, paused, start, input, land, togglePause } = useRainGame(hold && heldId !== null);
   const box = useRef<HTMLInputElement>(null);
   const list = useMemo(() => words.data?.words ?? [], [words.data]);
   const playing = state.phase === 'playing';
+  const lowest = state.drops.filter((drop) => drop.state === 'falling').sort((a, b) => a.bornAt + a.fallMs - (b.bornAt + b.fallMs))[0];
+  if (hold && playing && !heldId && lowest) setHeldId(lowest.id);
+  if (!hold && heldId) setHeldId(null);
+  const heldTyped = heldId !== null && state.drops.find((drop) => drop.id === heldId)?.state !== 'falling';
+  useEffect(() => {
+    if (heldTyped) tutorialStore.completeHold();
+  }, [heldTyped]);
 
   const begin = useCallback(() => start(shuffled(list), laneCount()), [start, list]);
 
@@ -94,8 +106,9 @@ export const RainMode = () => {
           avatar={me?.avatar ?? DEFAULT_AVATAR}
           phase={state.phase}
           targetId={targetOf(state)?.id}
+          markedId={hold ? heldId : null}
           reaction={state.reaction}
-          paused={paused || !playing}
+          paused={paused || !playing || (hold && heldId !== null)}
           onLand={land}
         />
         {state.phase === 'ready' && (

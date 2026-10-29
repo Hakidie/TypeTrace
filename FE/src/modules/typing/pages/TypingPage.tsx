@@ -2,6 +2,7 @@ import { CalendarDays, CloudRain, RotateCcw, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
+import { useStartTutorial } from '@/modules/tutorial/hooks/use-tutorial';
 import { DailyMode } from '@/modules/daily/components/DailyMode';
 import { RainMode } from '@/modules/rain/components/RainMode';
 import { RankMode } from '@/modules/ranked/components/RankMode';
@@ -74,18 +75,16 @@ export const TypingPage = () => {
   /** A tab without a typing session, a passage to choose or a time limit. */
   const game = ranked || rain || daily;
   const pageRef = useRef<HTMLDivElement>(null);
-  // Asks before the placement test: when the learner picks the Placement tab, and once when a learner who has just
-  // created their account lands here (`welcome`, SCRUM-157). Cancel (or closing it) stays in practice. `welcome` stays
-  // as it was while the dialog closes, so its text does not change on the way out.
-  const [placementPrompt, setPlacementPrompt] = useState(() => {
-    const welcome = (location.state as AfterLoginState | null)?.newAccount === true;
-    return { open: welcome, welcome };
-  });
-  // Asked once: the state leaves the history entry at once, so a reload or Back does not ask again.
+  // Asks before the placement test when the learner picks the Placement tab. Cancel (or closing it) stays in practice.
+  const [placementPrompt, setPlacementPrompt] = useState({ open: false });
+  // A learner who has just created their account starts Ping's tour (it brings the placement test in its turn), once:
+  // the state leaves the history entry at once, so a reload or Back does not start it again.
+  const { mutate: startTutorial } = useStartTutorial();
   useEffect(() => {
     if (!(location.state as AfterLoginState | null)?.newAccount) return;
     navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
-  }, [location, navigate]);
+    startTutorial();
+  }, [location, navigate, startTutorial]);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('sec');
   const [timeIndex, setTimeIndex] = useState(1);
   const timeSeconds = timeChoices[timeUnit][timeIndex] * (timeUnit === 'min' ? 60 : 1);
@@ -205,7 +204,7 @@ export const TypingPage = () => {
             else if (value === 'rain') {
               if (!rain) setSearchParams({ mode: 'rain' });
             }
-            else if (value !== mode || game) setPlacementPrompt({ open: true, welcome: false });
+            else if (value !== mode || game) setPlacementPrompt({ open: true });
           }}
         />
         <div className="md:justify-self-start">
@@ -232,22 +231,18 @@ export const TypingPage = () => {
       </div>
       <ConfirmDialog
         open={placementPrompt.open}
-        onOpenChange={(open) => setPlacementPrompt((prompt) => ({ ...prompt, open }))}
-        title={placementPrompt.welcome ? 'Welcome! Take the placement test?' : 'Start the placement test?'}
-        description={
-          placementPrompt.welcome
-            ? 'A short typing test shows the speed and accuracy you start from. Your result is saved and counts toward your all-time average WPM and accuracy. You can also take it later from the Placement tab.'
-            : 'Your result is saved and counts toward your all-time average WPM and accuracy. Press Start to begin, or Cancel to go back to practice.'
-        }
-        confirmLabel={placementPrompt.welcome ? 'Start the test' : 'Start'}
-        cancelLabel={placementPrompt.welcome ? 'Not now' : 'Cancel'}
+        onOpenChange={(open) => setPlacementPrompt({ open })}
+        title="Start the placement test?"
+        description="Your result is saved and counts toward your all-time average WPM and accuracy. Press Start to begin, or Cancel to go back to practice."
+        confirmLabel="Start"
+        cancelLabel="Cancel"
         // Back to the typing area, so the learner can type at once (a new session's area takes the focus itself when it opens).
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           pageRef.current?.querySelector('textarea')?.focus();
         }}
         onConfirm={() => {
-          setPlacementPrompt((prompt) => ({ ...prompt, open: false }));
+          setPlacementPrompt({ open: false });
           setSearchParams({ mode: 'placement' });
         }}
       />

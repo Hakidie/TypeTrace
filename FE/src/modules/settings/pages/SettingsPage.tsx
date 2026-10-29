@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
+import { TutorialReplay } from '@/modules/tutorial/components/TutorialReplay';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -115,6 +116,10 @@ export const SettingsPage = () => {
 
       <Panel title="Security" bare titleClassName={panelTitleClass} className={panelBodyClass}>
         {user ? <SecuritySettings user={user} /> : <LoadingState rows={1} />}
+      </Panel>
+
+      <Panel title="Tutorial" bare titleClassName={panelTitleClass} className={panelBodyClass}>
+        <TutorialReplay />
       </Panel>
 
       <ConfirmDialog

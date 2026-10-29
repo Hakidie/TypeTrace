@@ -21,6 +21,8 @@ interface RainStageProps {
   phase: RainPhase;
   /** The word being typed: the avatar slides under it. */
   targetId?: string | null;
+  /** The word Ping frames in the tutorial (`data-tutorial="rain-word"` on its slot). */
+  markedId?: string | null;
   /** A new `key` replays the hop (a word typed) or the shake (a word landed). */
   reaction?: RainReaction | null;
   /** Freezes every falling word and the sky (the game is paused, or the tab is hidden). */
@@ -41,6 +43,8 @@ interface RainStageProps {
 interface WordProps {
   drop: RainDrop;
   targeted: boolean;
+  /** Framed by Ping in the tutorial (`data-tutorial="rain-word"`). */
+  marked: boolean;
   compact: boolean;
   clockNow?: () => number;
   onLand?: (id: string) => void;
@@ -50,7 +54,7 @@ interface WordProps {
  * One word. On the server clock of a duel its age is taken once, when it is first drawn, and given to its animations as a
  * negative delay: the word starts where the server has it. Changing the delay of a running animation would move it.
  */
-const Word = ({ drop, targeted, compact, clockNow, onLand }: WordProps) => {
+const Word = ({ drop, targeted, marked, compact, clockNow, onLand }: WordProps) => {
   const [delay] = useState(() => (clockNow && drop.bornAt !== undefined ? `-${Math.max(0, clockNow() - drop.bornAt)}ms` : undefined));
   const x = clamp(drop.x);
   const falling = drop.state === 'falling';
@@ -60,7 +64,7 @@ const Word = ({ drop, targeted, compact, clockNow, onLand }: WordProps) => {
   };
   return (
     // The word keeps falling while it pops, or stays where it landed while it is squashed, so it does not jump back up.
-    <div data-testid={`slot-${drop.id}`} className={cn('absolute top-0', targeted && 'z-10')} style={{ left: `${x}%`, transform: `translateX(-${x}%)` }}>
+    <div data-testid={`slot-${drop.id}`} data-tutorial={marked ? 'rain-word' : undefined} className={cn('absolute top-0', targeted && 'z-10')} style={{ left: `${x}%`, transform: `translateX(-${x}%)` }}>
       <div data-testid={`fall-${drop.id}`} className="rain-fall" style={{ animationDuration: `${drop.fallMs}ms`, animationDelay: delay }} onAnimationEnd={onFallEnd}>
         <div
           data-testid={`tile-${drop.id}`}
@@ -103,6 +107,7 @@ export const RainStage = ({
   avatar,
   phase,
   targetId = null,
+  markedId = null,
   reaction = null,
   paused = false,
   onLand,
@@ -132,7 +137,7 @@ export const RainStage = ({
       )}
 
       {drops.map((drop) => (
-        <Word key={drop.id} drop={drop} targeted={drop.id === targetId && drop.state === 'falling'} compact={compact} clockNow={clockNow} onLand={onLand} />
+        <Word key={drop.id} drop={drop} targeted={drop.id === targetId && drop.state === 'falling'} marked={drop.id === markedId} compact={compact} clockNow={clockNow} onLand={onLand} />
       ))}
 
       <div
