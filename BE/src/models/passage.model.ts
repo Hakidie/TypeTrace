@@ -4,9 +4,12 @@ import { tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 
 export const passageVisibilities = ['public', 'private'] as const;
 export const passageStatuses = ['draft', 'published', 'pending', 'rejected', 'archived'] as const;
+/** `vi`: practice and the placement test (the error tags only mean something in Vietnamese); `en`: ranked duels. */
+export const passageLanguages = ['vi', 'en'] as const;
 
 export type PassageVisibility = (typeof passageVisibilities)[number];
 export type PassageStatus = (typeof passageStatuses)[number];
+export type PassageLanguage = (typeof passageLanguages)[number];
 
 /** How many times each error type could happen in the passage ("error opportunities"). */
 export type TagCounts = Record<WordErrorType, number>;
@@ -53,6 +56,8 @@ export interface PassageDocument extends mongoose.Document {
    * for every error type.
    */
   isPlacement: boolean;
+  /** Missing on passages saved before the field: they are Vietnamese (see `notEnglish`). */
+  language: PassageLanguage;
   /** Filled from `content` on save, do not set it by hand. */
   tagCounts: TagCounts;
   /** Filled from `content` on save, do not set it by hand. */
@@ -99,13 +104,20 @@ export const publicOwnerName = (author?: { role: string; displayName?: string } 
   return author?.displayName?.trim() || ANONYMOUS_OWNER_NAME;
 };
 
+/**
+ * What every learner flow (practice, placement, the passage list) adds to its query: English passages are for ranked duels
+ * only. `$ne` (not `'vi'`) so passages saved before the `language` field still count as Vietnamese.
+ */
+export const notEnglish = { language: { $ne: 'en' as const } };
+
 /** Words are separated by spaces and punctuation stays attached to its word, as in a typing session. */
 export const splitWords = (content: string) => content.split(/\s+/).filter(Boolean);
 
-/** Counts the words and, for each error type, how often it could happen in `content`. */
-export const computePassageStats = (content: string) => {
+/** Counts the words and, for each error type, how often it could happen in `content` (never in English). */
+export const computePassageStats = (content: string, language: PassageLanguage = 'vi') => {
   const words = splitWords(content);
   const tagCounts = Object.fromEntries(Object.values(WordError).map((type) => [type, 0])) as TagCounts;
+  if (language === 'en') return { wordCount: words.length, tagCounts };
   for (const word of words) tagWord(word).forEach((type) => (tagCounts[type] += 1));
   return { wordCount: words.length, tagCounts };
 };
@@ -135,6 +147,7 @@ const passageSchema = new Schema<PassageDocument>(
       )
     },
     isPlacement: { type: Boolean, default: false },
+    language: { type: String, enum: passageLanguages, default: 'vi' },
     tagCounts: { type: new Schema(tagCountsDefinition, { _id: false }), default: () => ({}) },
     wordCount: { type: Number, default: 0 }
   },
@@ -149,9 +162,11 @@ const passageSchema = new Schema<PassageDocument>(
   }
 );
 
-// Keeps the counts true whenever `content` changes through save() or create().
+// Keeps the counts true whenever `content` or `language` changes through save() or create().
 passageSchema.pre('validate', function () {
-  if (this.isNew || this.isModified('content')) Object.assign(this, computePassageStats(this.content));
+  if (this.isNew || this.isModified('content') || this.isModified('language')) {
+    Object.assign(this, computePassageStats(this.content, this.language));
+  }
 });
 
 // Matches the practice list: published passages by visibility, newest first, and "pick a placement passage".
@@ -167,5 +182,7 @@ passageSchema.index({ status: 1, updatedAt: 1 });
 // The learner's own passages (`owner` comes first, so this also serves every query on `owner` alone): what they can
 // type while one waits for review, and what the limit counts.
 passageSchema.index({ owner: 1, visibility: 1, status: 1 });
+// The ranked duel picks a random published public English passage of a given length.
+passageSchema.index({ language: 1, status: 1, visibility: 1, wordCount: 1 });
 
 export const PassageModel = mongoose.model<PassageDocument>('Passage', passageSchema);

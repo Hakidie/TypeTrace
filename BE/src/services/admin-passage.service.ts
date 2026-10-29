@@ -1,6 +1,7 @@
 import type { QueryFilter, Types, UpdateQuery } from 'mongoose';
 import {
   computePassageStats,
+  notEnglish,
   PassageDocument,
   PassageModel,
   PassageStatus,
@@ -10,7 +11,7 @@ import {
 } from '../models/passage.model';
 import { TypingSessionModel } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
-import { conflict, notFound } from '../utils/app-error';
+import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
 import { titleSearchPattern } from '../utils/passage-text';
 import { CreatePassageInput, ListPassagesQuery, UpdatePassageInput } from '../validators/admin-passage.validator';
@@ -63,7 +64,7 @@ const publicNamesOf = async (owners: (Types.ObjectId | undefined)[]) => {
   return (owner?: Types.ObjectId) => names.get(String(owner)) ?? publicOwnerName();
 };
 
-export const listPassages = ({ q, status, visibility, isPlacement, edited, ...pagination }: ListPassagesQuery) => {
+export const listPassages = ({ q, status, visibility, isPlacement, language, edited, ...pagination }: ListPassagesQuery) => {
   const filter: QueryFilter<PassageDocument> = {};
   // The review queue holds the edits of public passages too; `edited` keeps only one kind.
   if (status === 'pending') {
@@ -72,6 +73,8 @@ export const listPassages = ({ q, status, visibility, isPlacement, edited, ...pa
   else if (status) filter.status = status;
   if (visibility) filter.visibility = visibility;
   if (isPlacement !== undefined) filter.isPlacement = isPlacement;
+  // `vi` also finds the passages saved before the field (they are Vietnamese, like in the learner flows).
+  if (language) Object.assign(filter, language === 'en' ? { language: 'en' } : notEnglish);
   if (q) {
     // Accents optional, like the learners' list: `ha noi` finds `Hà Nội`, in the title or the source.
     const pattern = titleSearchPattern(q);
@@ -89,15 +92,34 @@ export const getPassage = async (id: string) => {
   return passage;
 };
 
+/** The placement test grades Vietnamese error types, so an English passage can never be one of its passages. */
+const assertPlacementIsVietnamese = ({ language, isPlacement }: { language?: string; isPlacement?: boolean }) => {
+  if (language === 'en' && isPlacement) throw badRequest('English passages cannot be placement passages');
+};
+
 /** Admins write for TypeTrace: the owner is the admin, the name shown to everyone is `TypeTrace`, and it is always public. */
-export const createPassage = (actorId: string, input: CreatePassageInput) =>
+export const createPassage = async (actorId: string, input: CreatePassageInput) => {
+  assertPlacementIsVietnamese(input);
   // create() runs the model hook that counts the words and the error tags.
-  PassageModel.create({ ...input, owner: actorId, ownerName: SYSTEM_OWNER_NAME, visibility: 'public' });
+  return PassageModel.create({ ...input, owner: actorId, ownerName: SYSTEM_OWNER_NAME, visibility: 'public' });
+};
+
+/**
+ * Only TypeTrace's own passages (seeded, or written by an admin) may become English: a learner's passage would leave their
+ * own list (learners only see Vietnamese passages) and slip into the ranked pool.
+ */
+const assertEnglishIsTypeTraces = async (passage: PassageDocument) => {
+  if (passage.language !== 'en' || !passage.isModified('language') || !passage.owner) return;
+  const owner = await UserModel.findById(passage.owner).select('role');
+  if (owner?.role !== 'admin') throw badRequest('Only TypeTrace passages can be English');
+};
 
 export const updatePassage = async (id: string, input: UpdatePassageInput) => {
   const passage = await getPassage(id);
-  // save() (not findByIdAndUpdate) so the counts are computed again when the content changes.
+  // save() (not findByIdAndUpdate) so the counts are computed again when the content or the language changes.
   passage.set(input);
+  assertPlacementIsVietnamese(passage);
+  await assertEnglishIsTypeTraces(passage);
   return passage.save();
 };
 

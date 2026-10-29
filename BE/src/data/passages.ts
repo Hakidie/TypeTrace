@@ -1,5 +1,7 @@
 // Starter passages for the passage bank (SCRUM-95, US6.2). Every text is written for TypeTrace, so it is free to reuse.
 // Add passages here and run `npm run import:passages`: passages already in the bank (same title) are left untouched.
+import type { PassageLanguage } from '../models/passage.model';
+
 export const PASSAGE_SOURCE = 'Tự biên soạn cho TypeTrace';
 
 export interface PassageSeed {
@@ -7,6 +9,8 @@ export interface PassageSeed {
   content: string;
   source: string;
   isPlacement?: boolean;
+  /** Missing = Vietnamese. The English passages (for ranked duels) are in `passages-en.ts`. */
+  language?: PassageLanguage;
 }
 
 export const PASSAGE_LIST: readonly PassageSeed[] = [

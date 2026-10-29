@@ -68,3 +68,26 @@ describe('GET /api/placement', () => {
     expect(response.body.message).toBe('No placement passage');
   });
 });
+
+describe('English passages are not for the placement test (ranked duel, phase 1)', () => {
+  it('ignores English passages for the placement test', async () => {
+    await PassageModel.deleteMany({});
+    await PassageModel.collection.insertOne({
+      title: 'An English placement',
+      content: 'The sun rose over the quiet town.',
+      source: 'Written for TypeTrace',
+      ownerName: 'TypeTrace',
+      visibility: 'public',
+      status: 'published',
+      isPlacement: true,
+      language: 'en',
+      wordCount: 7,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    const auth = bearerFor(await createUser({}));
+
+    expect((await getPlacement(auth)).status).toBe(404);
+    expect((await api().post('/api/sessions').set('Authorization', auth).send({ mode: 'placement' })).status).toBe(404);
+  });
+});

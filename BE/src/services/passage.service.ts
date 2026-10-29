@@ -2,6 +2,7 @@ import type { QueryFilter, Types } from 'mongoose';
 import {
   computePassageStats,
   MAX_USER_PASSAGES,
+  notEnglish,
   ownerFieldsFor,
   PassageDocument,
   PassageModel,
@@ -44,7 +45,7 @@ export const samplePassage = async <T = { _id: Types.ObjectId; content: string }
 
 /** The passage of the placement test: one of the published placement passages (`isPlacement`), at random. */
 export const getPlacementPassage = async () => {
-  const passage = await samplePassage<PublicPassage>({ isPlacement: true }, publicFields);
+  const passage = await samplePassage<PublicPassage>({ isPlacement: true, ...notEnglish }, publicFields);
   if (!passage) throw notFound('No placement passage');
   return passage;
 };
@@ -65,9 +66,10 @@ const OWN_EDITABLE_STATUSES = ['published', 'rejected'] as const;
  */
 export const learnerPassageFilter = (userId: string, mode: SessionMode) =>
   mode === 'placement'
-    ? { status: 'published' as const, isPlacement: true, visibility: 'public' as const }
+    ? { status: 'published' as const, isPlacement: true, visibility: 'public' as const, ...notEnglish }
     : {
         isPlacement: false,
+        ...notEnglish,
         $or: [
           { status: 'published' as const, visibility: 'public' as const },
           { owner: userId, status: { $in: [...OWN_TYPEABLE_STATUSES] } }

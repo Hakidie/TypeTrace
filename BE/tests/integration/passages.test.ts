@@ -500,3 +500,40 @@ describe('POST /api/sessions with a passageId and a mode', () => {
     expect((await startSession(auth, { mode: 'practice', passageId: String(placement._id) })).status).toBe(400);
   });
 });
+
+describe('English passages (ranked duel, phase 1)', () => {
+  const english = { title: 'A quiet morning', content: 'The sun rose over the quiet town.', source: 'Written for TypeTrace', status: 'published', visibility: 'public', language: 'en' };
+
+  it('never lists English passages to learners', async () => {
+    await PassageModel.create(english);
+    await PassageModel.create({ ...english, title: 'An English placement', isPlacement: true });
+    const auth = bearerFor(await createUser({}));
+
+    expect(titlesOf(await listPassages(auth))).not.toContain('A quiet morning');
+    expect(titlesOf(await listPassages(auth, '?mode=placement'))).not.toContain('An English placement');
+  });
+
+  it('treats passages saved before the language field as Vietnamese', async () => {
+    await PassageModel.collection.insertOne({
+      title: 'Bài cũ chưa có ngôn ngữ',
+      content: 'Đường về nhà rất đẹp.',
+      source: 'Tự viết',
+      ownerName: 'TypeTrace',
+      visibility: 'public',
+      status: 'published',
+      isPlacement: false,
+      wordCount: 5,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    expect(titlesOf(await listPassages(bearerFor(await createUser({}))))).toContain('Bài cũ chưa có ngôn ngữ');
+  });
+
+  it('ignores a language sent by a learner', async () => {
+    const response = await addPassage(bearerFor(await createUser({})), newPassage({ language: 'en' }));
+
+    expect(response.status).toBe(201);
+    expect((await PassageModel.findById(response.body._id))!.language).toBe('vi');
+  });
+});

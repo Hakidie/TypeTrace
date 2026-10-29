@@ -1,5 +1,5 @@
 import { QueryFilter, Types } from 'mongoose';
-import { PassageModel, splitWords } from '../models/passage.model';
+import { notEnglish, PassageModel, splitWords } from '../models/passage.model';
 import { ErrorCounts, SessionWord, TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
@@ -68,11 +68,11 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
     return passage;
   }
   if (mode === 'placement') {
-    const placement = await samplePassage<PickedPassage>({ isPlacement: true }, pickedFields);
+    const placement = await samplePassage<PickedPassage>({ isPlacement: true, ...notEnglish }, pickedFields);
     if (!placement) throw notFound('No placement passage');
     return placement;
   }
-  const random = await samplePassage<PickedPassage>({ visibility: 'public', isPlacement: false }, pickedFields);
+  const random = await samplePassage<PickedPassage>({ visibility: 'public', isPlacement: false, ...notEnglish }, pickedFields);
   if (!random) throw notFound('No passage available');
   return random;
 };
