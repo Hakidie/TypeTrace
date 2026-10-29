@@ -29,7 +29,7 @@ describe('RainStage', () => {
     const onLand = vi.fn();
     renderStage({ drops: [drop({ id: 'a' })], onLand });
 
-    endAnimation(screen.getByTestId('fall-a'), 'rain-gone');
+    endAnimation(screen.getByTestId('fall-a'), 'rain-pop');
     expect(onLand).not.toHaveBeenCalled();
     endAnimation(screen.getByTestId('fall-a'), 'rain-fall');
 
@@ -103,11 +103,32 @@ describe('RainStage', () => {
     expect(container.querySelectorAll('[data-testid^="fall-"]')).toHaveLength(2);
   });
 
-  it('fades typed and missed drops out instead of keeping them as falling words', () => {
+  it('pops typed drops and squashes missed ones instead of keeping them as falling words', () => {
     renderStage({ drops: [drop({ id: 'p', state: 'popped' }), drop({ id: 'm', state: 'missed' }), drop({ id: 'f' })] });
 
-    expect(screen.getByTestId('tile-p')).toHaveClass('rain-gone');
-    expect(screen.getByTestId('tile-m')).toHaveClass('rain-gone', 'text-destructive');
-    expect(screen.getByTestId('tile-f')).not.toHaveClass('rain-gone');
+    expect(screen.getByTestId('tile-p')).toHaveClass('rain-pop');
+    expect(screen.getByTestId('tile-m')).toHaveClass('rain-splat', 'line-through');
+    expect(screen.getByTestId('tile-f')).toHaveClass('rain-heat');
+    expect(screen.getByTestId('tile-f')).not.toHaveClass('rain-pop', 'rain-splat');
+  });
+
+  it('heats a falling word for as long as it falls, and lets a popped word keep its own timing', () => {
+    renderStage({ drops: [drop({ id: 'f', fallMs: 5000 }), drop({ id: 'p', state: 'popped', fallMs: 5000 })] });
+
+    expect(screen.getByTestId('tile-f')).toHaveStyle({ animationDuration: '5000ms' });
+    expect(screen.getByTestId('tile-p').style.animationDuration).toBe('');
+  });
+
+  it('marks the word being typed', () => {
+    renderStage({ drops: [drop({ id: 'a' }), drop({ id: 'b', x: 70 })], targetId: 'b' });
+
+    expect(screen.getByTestId('tile-b')).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByTestId('tile-a')).not.toHaveAttribute('aria-current');
+  });
+
+  it('flashes the ground when a word lands', () => {
+    const { container } = renderStage({ reaction: { kind: 'shake', key: 1 } });
+
+    expect(container.querySelector('.rain-flash')).toBeInTheDocument();
   });
 });

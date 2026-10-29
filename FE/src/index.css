@@ -238,9 +238,10 @@ body {
 }
 
 /*
- * Word rain motion (modules/rain). The fall is the rule of the game, so it always runs; the rest is decoration and
- * is skipped for people who ask for less motion. Every decoration shows its final look without the animation: a typed
- * or missed word is simply gone, the avatar simply stands.
+ * Word rain (modules/rain). The fall and the heat of a word close to the ground are the rules of the game, so they
+ * always run (the heat only changes a color). The rest is decoration, skipped for people who ask for less motion, and
+ * every decoration shows its final look without the animation: a typed or missed word is simply gone, the avatar
+ * simply stands, the sky is still.
  */
 @keyframes rain-fall {
   from {
@@ -251,10 +252,55 @@ body {
   }
 }
 
-@keyframes rain-gone {
+/* A word in the last third of its fall gets a red bar at its foot that grows until it lands. */
+@keyframes rain-heat {
+  0%,
+  65% {
+    box-shadow: inset 0 0 0 var(--primary);
+  }
+  100% {
+    box-shadow: inset 0 -4px 0 var(--primary);
+  }
+}
+
+@keyframes rain-pop {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes rain-ring {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
   to {
     opacity: 0;
-    transform: scale(1.3);
+    transform: scale(1.9, 2.6);
+  }
+}
+
+@keyframes rain-splat {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(4px) scale(1.15, 0.7);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scale(1.25, 0.5);
   }
 }
 
@@ -263,8 +309,20 @@ body {
   100% {
     transform: translateY(0);
   }
-  50% {
-    transform: translateY(-8px);
+  45% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes rain-hop-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  45% {
+    transform: scaleX(0.6);
+    opacity: 0.5;
   }
 }
 
@@ -273,11 +331,29 @@ body {
   100% {
     transform: translateX(0);
   }
-  25% {
-    transform: translateX(-4px);
+  20%,
+  60% {
+    transform: translateX(-5px);
   }
-  75% {
-    transform: translateX(4px);
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes rain-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Moves a whole number of dash periods (10), so the loop has no visible jump. */
+@keyframes rain-streaks {
+  to {
+    transform: translateY(var(--rain-drift));
   }
 }
 
@@ -285,24 +361,74 @@ body {
   animation: rain-fall linear both;
 }
 
-[data-paused='true'] .rain-fall {
+.rain-heat {
+  animation: rain-heat linear both;
+}
+
+[data-paused='true'] :is(.rain-fall, .rain-heat),
+[data-paused='true'].rain-sky::before,
+[data-paused='true'].rain-sky::after {
   animation-play-state: paused;
 }
 
-.rain-gone {
+.rain-pop,
+.rain-splat,
+.rain-flash {
   opacity: 0;
 }
 
+/* Two layers of thin streaks fall behind the words at different speeds; a mask cuts the dashes into columns. */
+.rain-sky::before,
+.rain-sky::after {
+  content: '';
+  position: absolute;
+  inset: -1130px 0 0;
+  pointer-events: none;
+  background-image: linear-gradient(to bottom, transparent 0 65%, color-mix(in srgb, var(--foreground) 9%, transparent) 65% 100%);
+  background-size: 100% 72px;
+  mask-image: repeating-linear-gradient(to right, black 0 1px, transparent 1px 41px);
+  --rain-drift: 720px;
+}
+
+.rain-sky::after {
+  --rain-drift: 1130px;
+  background-size: 100% 113px;
+  background-position: 0 37px;
+  mask-image: repeating-linear-gradient(to right, transparent 0 19px, black 19px 20px, transparent 20px 67px);
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  .rain-gone {
-    opacity: 1;
-    animation: rain-gone 0.3s ease-out both;
+  .rain-sky::before {
+    animation: rain-streaks 9s linear infinite;
+  }
+  .rain-sky::after {
+    animation: rain-streaks 14s linear infinite;
+  }
+  .rain-pop {
+    animation: rain-pop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .rain-pop::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--primary);
+    animation: rain-ring 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .rain-splat {
+    animation: rain-splat 0.4s cubic-bezier(0.3, 0, 0.7, 1) both;
+    transform-origin: bottom;
   }
   .rain-hop {
-    animation: rain-hop 0.25s steps(4) both;
+    animation: rain-hop 0.28s steps(5) both;
+  }
+  .rain-hop-shadow {
+    animation: rain-hop-shadow 0.28s steps(5) both;
   }
   .rain-shake {
-    animation: rain-shake 0.3s steps(6) both;
+    animation: rain-shake 0.32s steps(8) both;
+  }
+  .rain-flash {
+    animation: rain-flash 0.5s ease-out both;
   }
 }
 
