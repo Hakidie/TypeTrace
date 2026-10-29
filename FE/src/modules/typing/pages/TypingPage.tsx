@@ -162,7 +162,7 @@ export const TypingPage = () => {
   return (
     <div ref={pageRef} className={cn('flex flex-1 flex-col p-4 pb-0 pt-0 md:p-8 md:pb-0 md:pt-0', ranked ? 'gap-24' : 'gap-4', redGlassTheme)}>
       {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right. */}
-      <div className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
+      <div data-tutorial="mode-tabs" className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 max-w-full md:justify-self-end">
           {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Rain. */}
           {!game && (

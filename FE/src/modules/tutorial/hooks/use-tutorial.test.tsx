@@ -12,7 +12,7 @@ vi.mock('../api/tutorial.api', () => ({
   tutorialApi: { start: () => start(), update: (body: unknown) => update(body), reset: vi.fn(), coach: vi.fn() },
 }));
 
-const user = { _id: 'u1', email: 'a@example.com', isEmailVerified: true, role: 'user', loginOtpEnabled: false, createdAt: '' };
+const user = { _id: 'u1', email: 'a@example.com', isEmailVerified: true, role: 'user', loginOtpEnabled: false, createdAt: '', updatedAt: '' };
 
 describe('tutorial hooks', () => {
   beforeEach(() => {

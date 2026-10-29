@@ -88,7 +88,7 @@ export const RainMode = () => {
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative" data-tutorial="rain-stage">
         <RainStage
           drops={state.drops}
           avatar={me?.avatar ?? DEFAULT_AVATAR}

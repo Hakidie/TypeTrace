@@ -90,7 +90,7 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-x-12 gap-y-24 md:grid-cols-2">
-      <div className="flex justify-center md:col-span-2">
+      <div data-tutorial="rank-kind" className="flex justify-center md:col-span-2">
         <TabGroup
           label="Kind of match"
           tabs={KINDS}
