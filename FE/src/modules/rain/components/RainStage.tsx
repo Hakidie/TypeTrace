@@ -23,7 +23,7 @@ interface RainStageProps {
   targetId?: string | null;
   /** Drawn instead of the avatar (Ping on his side of the practice duel); it moves like the avatar. */
   character?: ReactNode;
-  /** The word Ping frames in the tutorial (`data-tutorial="rain-word"` on its slot). */
+  /** The word Ping frames in the tutorial (`data-tutorial="rain-word"` on its falling tile). */
   markedId?: string | null;
   /** A new `key` replays the hop (a word typed) or the shake (a word landed). */
   reaction?: RainReaction | null;
@@ -66,10 +66,12 @@ const Word = ({ drop, targeted, marked, compact, clockNow, onLand }: WordProps) 
   };
   return (
     // The word keeps falling while it pops, or stays where it landed while it is squashed, so it does not jump back up.
-    <div data-testid={`slot-${drop.id}`} data-tutorial={marked ? 'rain-word' : undefined} className={cn('absolute top-0', targeted && 'z-10')} style={{ left: `${x}%`, transform: `translateX(-${x}%)` }}>
+    <div data-testid={`slot-${drop.id}`} className={cn('absolute top-0', targeted && 'z-10')} style={{ left: `${x}%`, transform: `translateX(-${x}%)` }}>
       <div data-testid={`fall-${drop.id}`} className="rain-fall" style={{ animationDuration: `${drop.fallMs}ms`, animationDelay: delay }} onAnimationEnd={onFallEnd}>
         <div
           data-testid={`tile-${drop.id}`}
+          // On the tile, which falls: Ping's spotlight frames the word where it is.
+          data-tutorial={marked ? 'rain-word' : undefined}
           aria-current={targeted || undefined}
           className={cn(
             'relative border font-mono font-semibold tracking-tight whitespace-nowrap transition-[scale,background-color,border-color] duration-150',
