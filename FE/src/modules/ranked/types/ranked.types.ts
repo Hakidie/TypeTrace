@@ -2,6 +2,8 @@ import type { AvatarLook } from '@/modules/avatar/types/avatar.types';
 
 export type MatchStatus = 'waiting' | 'countdown' | 'running' | 'finished' | 'cancelled';
 export type MatchResult = 'win' | 'loss' | 'draw' | 'forfeit';
+/** `race`: both type the same passage; `rain`: word rain, typed words thrown at the other player. */
+export type MatchKind = 'race' | 'rain';
 
 /** A player as the room shows them: never the email or the words they typed. */
 export interface MatchPlayerView {
@@ -21,14 +23,19 @@ export interface MatchPlayerView {
   ratingAfter?: number;
   /** Coins earned by this match (rated matches only). */
   coins?: number;
+  /** Rain duels, once ended: lives left, words typed in time, words thrown to the other player. */
+  lives?: number;
+  hits?: number;
+  thrown?: number;
 }
 
 /** Why a finished match did not count for Elo. */
-export type UnratedReason = 'not-started' | 'flagged' | 'pair-limit';
+export type UnratedReason = 'not-started' | 'flagged' | 'pair-limit' | 'interrupted';
 
 /** Mirrors `toPublicMatch` of the backend (`BE/src/services/match-view.ts`). */
 export interface PublicMatch {
   code: string;
+  kind: MatchKind;
   status: MatchStatus;
   rated: boolean;
   unratedReason?: UnratedReason;

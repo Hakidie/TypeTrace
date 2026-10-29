@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { openMatchStream, rankedApi } from '../api/ranked.api';
-import type { MatchEvent, ProgressInput, PublicMatch, RematchInvite } from '../types/ranked.types';
+import type { MatchEvent, MatchKind, ProgressInput, PublicMatch, RematchInvite } from '../types/ranked.types';
 import { rankedKeys } from './use-ranked';
 
 /** Cache keys. */
@@ -68,7 +68,7 @@ const useMatchMutation = <TInput,>(mutationFn: (input: TInput) => Promise<Public
   });
 };
 
-export const useCreateMatch = () => useMatchMutation<void>(() => rankedApi.create());
+export const useCreateMatch = () => useMatchMutation((kind: MatchKind) => rankedApi.create(kind));
 export const useJoinMatch = () => useMatchMutation((code: string) => rankedApi.join(code));
 export const useLeaveMatch = () => useMatchMutation((code: string) => rankedApi.leave(code));
 export const useReady = () => useMatchMutation(({ code, ready }: { code: string; ready: boolean }) => rankedApi.ready(code, ready));

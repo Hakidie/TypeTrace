@@ -28,6 +28,7 @@ const player = (userId: string, displayName: string, result: 'win' | 'loss' | 'd
 });
 const finished = (mine: 'win' | 'loss' | 'draw' | 'forfeit', theirs: 'win' | 'loss' | 'draw' | 'forfeit'): PublicMatch => ({
   code: 'ABC234',
+  kind: 'race',
   status: 'finished',
   rated: false,
   passageTitle: 'A quiet morning',
@@ -133,5 +134,33 @@ describe('MatchResult (ranked duel, phase 4)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to lobby' }));
     expect(onLeave).toHaveBeenCalled();
+  });
+});
+
+describe('MatchResult of a rain duel', () => {
+  const rainDuel = (extra: Partial<PublicMatch> = {}): PublicMatch => ({
+    ...finished('win', 'loss'),
+    kind: 'rain',
+    wordCount: 120,
+    players: [
+      player('u1', 'Lan', 'win', { lives: 2, hits: 14, thrown: 12 }),
+      player('u2', 'Minh', 'loss', { lives: 0, hits: 9, thrown: 9 }),
+    ],
+    ...extra,
+  });
+
+  it('shows the words typed and the lives left instead of the speed', () => {
+    renderResult(rainDuel());
+
+    expect(screen.getByText('14 words typed')).toBeInTheDocument();
+    expect(screen.getByText('2 lives left')).toBeInTheDocument();
+    expect(screen.getByText('0 lives left')).toBeInTheDocument();
+    expect(screen.queryByText(/WPM/)).not.toBeInTheDocument();
+  });
+
+  it('explains an interrupted match', () => {
+    renderResult(rainDuel({ unratedReason: 'interrupted' }));
+
+    expect(screen.getByText(/the match was interrupted/i)).toBeInTheDocument();
   });
 });

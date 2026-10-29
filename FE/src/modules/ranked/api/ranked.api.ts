@@ -1,19 +1,19 @@
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { http } from '@/shared/api/http';
 import { parseEvents } from '../lib/sse';
-import type { Leaderboard, MatchEvent, Paginated, ProgressInput, ProgressUpdate, PublicMatch, RankedMe, Season } from '../types/ranked.types';
+import type { Leaderboard, MatchEvent, MatchKind, Paginated, ProgressInput, ProgressUpdate, PublicMatch, RankedMe, Season } from '../types/ranked.types';
 
 /** Every function resolves with the response body (not the Axios response). */
 export const rankedApi = {
-  create: () => http.post<PublicMatch>('/matches').then((r) => r.data),
+  create: (kind: MatchKind) => http.post<PublicMatch>('/matches', { kind }).then((r) => r.data),
   join: (code: string) => http.post<PublicMatch>(`/matches/${code}/join`).then((r) => r.data),
   get: (code: string) => http.get<PublicMatch>(`/matches/${code}`).then((r) => r.data),
   leave: (code: string) => http.post<PublicMatch>(`/matches/${code}/leave`).then((r) => r.data),
   ready: (code: string, ready: boolean) => http.post<PublicMatch>(`/matches/${code}/ready`, { ready }).then((r) => r.data),
   progress: (code: string, input: ProgressInput) => http.post<ProgressUpdate>(`/matches/${code}/progress`, input).then((r) => r.data),
   rematch: (code: string) => http.post<PublicMatch>(`/matches/${code}/rematch`).then((r) => r.data),
-  me: () => http.get<RankedMe>('/ranked/me').then((r) => r.data),
-  leaderboard: (params: { page: number; limit: number }) => http.get<Leaderboard>('/ranked/leaderboard', { params }).then((r) => r.data),
+  me: (kind: MatchKind) => http.get<RankedMe>('/ranked/me', { params: { kind } }).then((r) => r.data),
+  leaderboard: (params: { page: number; limit: number; kind: MatchKind }) => http.get<Leaderboard>('/ranked/leaderboard', { params }).then((r) => r.data),
   // Admin only.
   seasons: (params: { page: number; limit: number }) => http.get<Paginated<Season>>('/admin/seasons', { params }).then((r) => r.data),
   closeSeason: (id: string) => http.post<Season>(`/admin/seasons/${id}/close`).then((r) => r.data),

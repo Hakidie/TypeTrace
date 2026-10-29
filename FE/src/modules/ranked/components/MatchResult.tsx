@@ -13,6 +13,7 @@ const UNRATED: Record<UnratedReason, string> = {
   'not-started': 'the race never started.',
   flagged: 'a player went over 200 WPM.',
   'pair-limit': 'you already played 3 rated matches with this player today.',
+  interrupted: 'the match was interrupted (the server restarted).',
 };
 
 /** +20, −20 (a real minus sign) or ±0. */
@@ -138,11 +139,22 @@ export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResu
             // The cards come in after the rewards.
             style={{ animationDelay: `${600 + index * 120}ms` }}
           >
-            <p className="text-sm text-muted-foreground tabular-nums">{Math.round(player.wpm)} WPM</p>
-            <p className="text-sm text-muted-foreground tabular-nums">{Math.round(player.accuracy * 100)}% accuracy</p>
-            <p className="text-sm text-muted-foreground tabular-nums">
-              {player.correctWords}/{match.wordCount} correct words
-            </p>
+            {match.kind === 'rain' ? (
+              <>
+                <p className="text-sm text-muted-foreground tabular-nums">{player.hits ?? 0} words typed</p>
+                <p className="text-sm text-muted-foreground tabular-nums">
+                  {player.lives ?? 0} {player.lives === 1 ? 'life' : 'lives'} left
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground tabular-nums">{Math.round(player.wpm)} WPM</p>
+                <p className="text-sm text-muted-foreground tabular-nums">{Math.round(player.accuracy * 100)}% accuracy</p>
+                <p className="text-sm text-muted-foreground tabular-nums">
+                  {player.correctWords}/{match.wordCount} correct words
+                </p>
+              </>
+            )}
             {/* The own rating is the reward above. */}
             {player !== me && ratingLine(player) && <p className="font-semibold tabular-nums">{ratingLine(player)}</p>}
           </PlayerCard>

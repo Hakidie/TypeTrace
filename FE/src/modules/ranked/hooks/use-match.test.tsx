@@ -32,6 +32,7 @@ const player = (userId: string, displayName: string) => ({
 });
 const match: PublicMatch = {
   code: 'ABC234',
+  kind: 'race',
   status: 'running',
   rated: false,
   passageTitle: 'A quiet morning',

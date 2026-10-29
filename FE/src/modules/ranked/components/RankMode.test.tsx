@@ -44,6 +44,7 @@ const player = (userId: string, displayName: string, extra = {}) => ({
 });
 const room = (extra: Partial<PublicMatch> = {}): PublicMatch => ({
   code: 'ABC234',
+  kind: 'race',
   status: 'waiting',
   rated: false,
   passageTitle: 'A quiet morning',
@@ -265,5 +266,37 @@ describe('RankMode (ranked duel, phase 4)', () => {
     expect(await screen.findByText('This room was closed.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Back to lobby' }));
     await waitFor(() => expect(urlParam('room')).toBeNull());
+  });
+});
+
+describe('RankMode kinds of match (rain duel)', () => {
+  it('creates a rain room from the lobby', async () => {
+    api.create.mockResolvedValue(room({ kind: 'rain' }));
+    api.get.mockResolvedValue(room({ kind: 'rain' }));
+    renderAt();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Rain' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create room' }));
+
+    await waitFor(() => expect(api.create).toHaveBeenCalledWith('rain'));
+  });
+
+  it('creates a race room by default', async () => {
+    api.create.mockResolvedValue(room());
+    api.get.mockResolvedValue(room());
+    renderAt();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create room' }));
+
+    await waitFor(() => expect(api.create).toHaveBeenCalledWith('race'));
+  });
+
+  it('shows the rating of the chosen kind', async () => {
+    renderAt();
+    await waitFor(() => expect(api.me).toHaveBeenCalledWith('race'));
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Rain' }));
+
+    await waitFor(() => expect(api.me).toHaveBeenCalledWith('rain'));
   });
 });

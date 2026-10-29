@@ -32,6 +32,7 @@ const player = (userId: string, displayName: string, extra = {}) => ({
 });
 const race = (extra: Partial<PublicMatch> = {}): PublicMatch => ({
   code: 'ABC234',
+  kind: 'race',
   status: 'running',
   rated: false,
   passageTitle: 'A quiet morning',
