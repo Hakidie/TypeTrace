@@ -12,6 +12,8 @@ export const rankedApi = {
   ready: (code: string, ready: boolean) => http.post<PublicMatch>(`/matches/${code}/ready`, { ready }).then((r) => r.data),
   progress: (code: string, input: ProgressInput) => http.post<ProgressUpdate>(`/matches/${code}/progress`, input).then((r) => r.data),
   rematch: (code: string) => http.post<PublicMatch>(`/matches/${code}/rematch`).then((r) => r.data),
+  /** A word typed in a rain duel (on space or Enter); the server says whether it hit. */
+  sendRainWord: (code: string, text: string) => http.post<{ hit: boolean }>(`/matches/${code}/rain`, { text }).then((r) => r.data),
   me: (kind: MatchKind) => http.get<RankedMe>('/ranked/me', { params: { kind } }).then((r) => r.data),
   leaderboard: (params: { page: number; limit: number; kind: MatchKind }) => http.get<Leaderboard>('/ranked/leaderboard', { params }).then((r) => r.data),
   // Admin only.

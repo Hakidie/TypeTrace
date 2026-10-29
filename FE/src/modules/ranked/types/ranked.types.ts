@@ -68,6 +68,7 @@ export type MatchEvent =
   | { event: 'state' | 'result'; data: PublicMatch }
   | { event: 'countdown'; data: { countdownEndsAt: string } }
   | { event: 'progress'; data: ProgressUpdate & { userId: string } }
+  | { event: 'rain'; data: RainServerEvent }
   | { event: 'rematch'; data: RematchInvite };
 
 export type Tier = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond' | 'Legend';
@@ -126,3 +127,20 @@ export interface ProgressInput {
   typedAtMs: number[];
   done?: boolean;
 }
+
+/** A word of a rain duel as the server sends it (`BE/src/services/rain-duel.service.ts`). Times are server times. */
+export interface RainDuelDrop {
+  id: string;
+  text: string;
+  lane: number;
+  bornAt: number;
+  fallMs: number;
+  thrown: boolean;
+}
+
+/** The `rain` events of a rain duel; every one carries the server time it was sent. */
+export type RainServerEvent =
+  | { type: 'spawn'; serverNow: number; side: string; drop: RainDuelDrop }
+  | { type: 'hit'; serverNow: number; side: string; id: string; thrownTo?: string }
+  | { type: 'land'; serverNow: number; side: string; id: string; lives: number }
+  | { type: 'snapshot'; serverNow: number; startedAt: number; endsAt: number; sides: Record<string, { lives: number; hits: number; drops: RainDuelDrop[] }> };

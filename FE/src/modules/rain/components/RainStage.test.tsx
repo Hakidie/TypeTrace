@@ -132,3 +132,24 @@ describe('RainStage', () => {
     expect(container.querySelector('.rain-flash')).toBeInTheDocument();
   });
 });
+
+describe('RainStage on the server clock (rain duel)', () => {
+  it('places a server word by its age', () => {
+    renderStage({ drops: [drop({ id: 'a', bornAt: 5000, fallMs: 7000 })], clockNow: () => 6500 });
+
+    expect(screen.getByTestId('fall-a').style.animationDelay).toBe('-1500ms');
+    expect(screen.getByTestId('tile-a').style.animationDelay).toBe('-1500ms');
+  });
+
+  it('works without a landing callback', () => {
+    renderStage({ drops: [drop({ id: 'a' })], onLand: undefined });
+
+    endAnimation(screen.getByTestId('fall-a'), 'rain-fall');
+  });
+
+  it('draws a compact stage without the sky', () => {
+    renderStage({ compact: true });
+
+    expect(screen.getByTestId('rain-stage')).not.toHaveClass('rain-sky');
+  });
+});

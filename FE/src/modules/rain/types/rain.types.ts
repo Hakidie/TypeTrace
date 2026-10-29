@@ -14,6 +14,8 @@ export interface RainDrop {
   /** How many letters from the start were typed right. */
   typed: number;
   state: RainDropState;
+  /** When the word appeared: round time in word rain alone, server time in a duel (the stage then places it by age). */
+  bornAt?: number;
 }
 
 /** What just happened to the player: a word was typed (`hop`) or reached the ground (`shake`). A new `key` replays the motion. */
