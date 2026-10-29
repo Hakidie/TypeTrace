@@ -1,13 +1,15 @@
 import type { Response } from 'express';
 import { Types } from 'mongoose';
 import { DEFAULT_AVATAR } from '../data/avatar-catalog';
-import { MatchDocument, MatchModel, MatchPlayer, MatchResult, OPEN_MATCH_STATUSES } from '../models/match.model';
+import { MatchDocument, MatchKind, MatchModel, MatchPlayer, MatchResult, OPEN_MATCH_STATUSES } from '../models/match.model';
 import { splitWords } from '../models/passage.model';
 import { ANONYMOUS_PLAYER_NAME, UserModel } from '../models/user.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { ProgressInput } from '../validators/match.validator';
 import { cancelTimer, closeStreams, isConnected, matchSettings, publish, publishTo, schedule, subscribe, withMatchLock } from './match-hub';
-import { generateRoomCode, pickRankedPassage, toPublicMatch } from './match-view';
+import { generateRoomCode, pickRainWords, pickRankedPassage, toPublicMatch } from './match-view';
+import { EndRainDuel, hitRainWord, sendRainSnapshot, startRainDuel, stopRainDuel, wasStartedHere } from './rain-duel.service';
+import { rainDuelSettings } from './rain-duel-rules';
 import { rateMatch } from './rating.service';
 import { computeWpm, gradeWords, MAX_COUNTED_WPM, MIN_COUNTED_WORDS, SESSION_GRACE_MS } from './typing-session.service';
 
@@ -42,7 +44,17 @@ const expireIfStale = async (match: MatchDocument | null) => {
     await match.save();
     announce(match);
     closeStreams(match.code);
-  } else if (match.status === 'running' && now > match.startedAt!.getTime() + matchSettings.durationMs + SESSION_GRACE_MS) {
+  } else if (match.status === 'running' && match.kind === 'rain' && !wasStartedHere(match.code)) {
+    // The rain lived in memory and a restart lost it: nobody can win this duel any more, so it does not count.
+    match.status = 'finished';
+    match.endedAt = new Date();
+    match.rated = false;
+    match.unratedReason = 'interrupted';
+    match.players.forEach((player) => (player.result = 'draw'));
+    await match.save();
+    announceResult(match);
+    closeStreams(match.code);
+  } else if (match.status === 'running' && match.kind !== 'rain' && now > match.startedAt!.getTime() + matchSettings.durationMs + SESSION_GRACE_MS) {
     finishByCorrectWords(match);
     await rateMatch(match);
     await match.save();
@@ -76,22 +88,30 @@ const isDuplicateKey = (error: unknown) => (error as { code?: number }).code ===
 const isPlayerTaken = (error: unknown) => isDuplicateKey(error) && 'players.user' in ((error as { keyPattern?: object }).keyPattern ?? {});
 const alreadyInAnotherRoom = () => conflict('You are already in another room');
 
-/** Opens a room with a random English passage; the user is its host and waits for a guest. */
-export const createMatch = async (userId: string) => {
-  if (await findOpenMatchFor(userId)) throw alreadyInAnotherRoom();
+/** A rain duel needs at least this many different words (one schedule wraps around them). */
+const MIN_RAIN_WORDS = 20;
+
+/** What a new room of `kind` plays: a random English passage for a race, the English words for a rain duel. */
+const contentFor = async (kind: MatchKind) => {
+  if (kind === 'rain') {
+    const words = await pickRainWords();
+    if (words.length < MIN_RAIN_WORDS) throw notFound('No English words available');
+    return { kind, passageTitle: 'Word rain', targetWords: words };
+  }
   const passage = await pickRankedPassage();
   if (!passage) throw notFound('No English passage available');
+  return { kind, passageId: passage._id, passageTitle: passage.title, targetWords: splitWords(passage.content) };
+};
+
+/** Opens a room of `kind` (a race on a random English passage, or a rain duel); the user is its host and waits for a guest. */
+export const createMatch = async (userId: string, kind: MatchKind = 'race') => {
+  if (await findOpenMatchFor(userId)) throw alreadyInAnotherRoom();
+  const content = await contentFor(kind);
   const host = await newPlayer(userId);
   // A new code is drawn again in the rare case it is already used by an open room.
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      const match = await MatchModel.create({
-        code: generateRoomCode(),
-        passageId: passage._id,
-        passageTitle: passage.title,
-        targetWords: splitWords(passage.content),
-        players: [host]
-      });
+      const match = await MatchModel.create({ code: generateRoomCode(), ...content, players: [host] });
       return toPublicMatch(match);
     } catch (error) {
       if (isPlayerTaken(error)) throw alreadyInAnotherRoom();
@@ -202,7 +222,7 @@ export const requestRematch = (userId: string, code: string) =>
       if (rematchRoom && playerOf(rematchRoom, userId)) return toPublicMatch(rematchRoom);
       return joinMatch(userId, match.rematchCode);
     }
-    const room = await createMatch(userId);
+    const room = await createMatch(userId, match.kind ?? 'race');
     match.rematchCode = room.code;
     await match.save();
     publish(match.code, 'rematch', { code: room.code, from: player.displayName });
@@ -223,6 +243,8 @@ const finish = (match: MatchDocument, results: Map<string, MatchResult>) => {
   match.players.forEach((player) => (player.result = results.get(String(player.user))));
   cancelTimer(match.code, 'timeout');
   cancelTimer(match.code, 'start');
+  // A rain duel stops raining whatever ended it (K.O., time, forfeit).
+  stopRainDuel(match.code);
   schedule(match.code, 'close', matchSettings.rematchStreamMs, () => closeStreams(match.code));
 };
 
@@ -272,10 +294,37 @@ const startRace = (code: string) =>
     const match = await MatchModel.findOne({ code, status: 'countdown' });
     if (!match) return;
     match.status = 'running';
-    match.startedAt = new Date();
+    if (match.kind === 'rain') {
+      // The rain exists before the match is saved as running, so no reader ever takes it for an interrupted duel.
+      match.startedAt = startRainDuel(match, (task) => withMatchLock(code, task), endRainDuel(code)).startedAt;
+      match.players.forEach((player) => Object.assign(player, { lives: rainDuelSettings.lives, hits: 0, thrown: 0 }));
+    } else match.startedAt = new Date();
     await match.save();
     announce(match);
-    schedule(code, 'timeout', matchSettings.durationMs, () => timeOut(code));
+    if (match.kind !== 'rain') schedule(code, 'timeout', matchSettings.durationMs, () => timeOut(code));
+  });
+
+/** How a rain duel ends (K.O. or time), inside the lock its timer or request already holds. */
+const endRainDuel =
+  (code: string): EndRainDuel =>
+  async (results, sides) => {
+    const match = await MatchModel.findOne({ code, status: 'running' });
+    if (!match) return;
+    sides.forEach(({ userId, lives, hits, thrown }) => Object.assign(playerOf(match, userId)!, { lives, hits, thrown }));
+    finish(match, results);
+    await rateMatch(match);
+    await match.save();
+    announceResult(match);
+  };
+
+/** A typed word of a rain duel (sent on space or Enter); the server alone decides whether it hit. */
+export const submitRainWord = (userId: string, code: string, text: string) =>
+  withMatchLock(code, async () => {
+    const match = await findRoom(code);
+    if (!match || !playerOf(match, userId)) throw roomNotFound();
+    if (match.kind !== 'rain') throw badRequest('This match is a race');
+    if (match.status !== 'running') throw notRunning();
+    return hitRainWord(code, userId, text);
   });
 
 /** Ready (or not). When both players are ready the server counts down, then starts the race. */
@@ -306,6 +355,7 @@ export const sendProgress = (userId: string, code: string, { typedWords, typedAt
     const match = await findRoom(code);
     const player = match && playerOf(match, userId);
     if (!match || !player) throw roomNotFound();
+    if (match.kind === 'rain') throw badRequest('This match is a rain duel');
     if (match.status !== 'running') throw notRunning();
     if (isOver(match)) {
       finishByCorrectWords(match);
@@ -372,4 +422,6 @@ export const openEvents = async (userId: string, code: string, res: Response) =>
   cancelTimer(match.code, disconnectTimer(userId));
   subscribe(match.code, userId, res, () => onStreamClosed(match.code, userId));
   publishTo(match.code, userId, 'state', toPublicMatch(match));
+  // A reload in the middle of a rain duel: the player gets the whole duel at once, not only the events from now on.
+  if (match.kind === 'rain' && match.status === 'running') sendRainSnapshot(match.code, userId);
 };

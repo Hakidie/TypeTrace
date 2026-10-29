@@ -9,7 +9,8 @@ export const OPEN_MATCH_STATUSES = ['waiting', 'countdown', 'running'] as const;
 export const matchResults = ['win', 'loss', 'draw', 'forfeit'] as const;
 
 /** Why a finished match did not count for Elo: left before the race, flagged by the WPM cap, or the pair's daily limit. */
-export const unratedReasons = ['not-started', 'flagged', 'pair-limit'] as const;
+/** `interrupted`: a rain duel whose rain was lost (the server restarted while it ran). */
+export const unratedReasons = ['not-started', 'flagged', 'pair-limit', 'interrupted'] as const;
 /** `race`: both type the same passage (the first ranked duel); `rain`: word rain, typed words thrown at the other player. */
 export const matchKinds = ['race', 'rain'] as const;
 export type MatchKind = (typeof matchKinds)[number];
@@ -34,6 +35,10 @@ export interface MatchPlayer {
   accuracy: number;
   wpm: number;
   finishedAt?: Date;
+  /** Rain duels: lives left, words typed in time and words thrown to the other player, saved when the duel ends. */
+  lives?: number;
+  hits?: number;
+  thrown?: number;
   result?: MatchResult;
   /** The season rating before and after this match, when it was rated. */
   ratingBefore?: number;
@@ -53,7 +58,8 @@ export interface MatchDocument extends mongoose.Document {
   unratedReason?: UnratedReason;
   /** A player went over `MAX_COUNTED_WPM`: the match never counts. */
   flagged: boolean;
-  passageId: Types.ObjectId;
+  /** Missing on rain duels. */
+  passageId?: Types.ObjectId;
   passageTitle: string;
   targetWords: string[];
   countdownEndsAt?: Date;
@@ -79,6 +85,9 @@ const playerSchema = new Schema<MatchPlayer>(
     accuracy: { type: Number, default: 0 },
     wpm: { type: Number, default: 0 },
     finishedAt: Date,
+    lives: Number,
+    hits: Number,
+    thrown: Number,
     result: { type: String, enum: matchResults },
     ratingBefore: Number,
     ratingAfter: Number,
@@ -96,7 +105,8 @@ const matchSchema = new Schema<MatchDocument>(
     flagged: { type: Boolean, default: false },
     season: { type: Schema.Types.ObjectId, ref: 'Season' },
     unratedReason: { type: String, enum: unratedReasons },
-    passageId: { type: Schema.Types.ObjectId, ref: 'Passage', required: true },
+    // A rain duel has no passage: its words come from every English passage.
+    passageId: { type: Schema.Types.ObjectId, ref: 'Passage', required: function (this: MatchDocument) { return this.kind !== 'rain'; } },
     passageTitle: { type: String, required: true },
     targetWords: { type: [String], required: true },
     countdownEndsAt: Date,
