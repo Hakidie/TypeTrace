@@ -16,6 +16,8 @@ export interface CurrentUser {
   displayName?: string;
   bio?: string;
   avatarUrl?: string;
+  /** What the account shows: its uploaded picture or its pixel avatar (the picture is kept while the pixel avatar is shown). Missing on old data: the picture. */
+  avatarSource?: 'picture' | 'pixel';
   phone?: string;
   /** The pixel avatar the user wears (missing on old data: `DEFAULT_AVATAR`). */
   avatar?: AvatarLook;
@@ -23,6 +25,8 @@ export interface CurrentUser {
   coins?: number;
   /** Bought or won avatar items, as `slot:item`. */
   ownedItems?: string[];
+  /** Only what the frontend reads: the IANA time zone the learner's days are counted in (`Asia/Ho_Chi_Minh` until the browser sends its own). */
+  settings?: { timezone?: string };
   createdAt: string;
   updatedAt: string;
 }

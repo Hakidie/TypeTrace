@@ -102,5 +102,8 @@ const typingSessionSchema = new Schema<TypingSessionDocument>(
 // Matches the history list (one owner's sessions, newest first) and "find the session in progress".
 typingSessionSchema.index({ owner: 1, createdAt: -1 });
 typingSessionSchema.index({ owner: 1, status: 1 });
+// One owner's sessions by completion time: the sessions of one of their days and their last counted sessions, which the
+// daily tasks read at each counted session (SCRUM-112). Without it every completed session of the learner is read.
+typingSessionSchema.index({ owner: 1, completedAt: -1 });
 
 export const TypingSessionModel = mongoose.model<TypingSessionDocument>('TypingSession', typingSessionSchema);

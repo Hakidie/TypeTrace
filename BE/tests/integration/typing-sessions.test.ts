@@ -1,6 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { Types } from 'mongoose';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PASSAGE_LIST } from '../../src/data/passages';
+import { DailyProgressModel } from '../../src/models/daily-progress.model';
 import { PassageModel } from '../../src/models/passage.model';
+import { UserDailyTasksModel } from '../../src/models/user-daily-tasks.model';
 import { SessionWord, TypingSessionModel } from '../../src/models/typing-session.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { timelineOf } from '../../src/services/typing-session.service';
@@ -520,6 +523,23 @@ describe('abandon, read and history', () => {
     expect(second.status).toBe(409);
   });
 
+  it('never abandons a session completed while the request was on its way: 409, and it stays completed and counted once', async () => {
+    const user = await createUser({});
+    const auth = bearerFor(user);
+    const session = await startOn(auth, 'Tiếng Việt rất đẹp');
+    await TypingSessionModel.findByIdAndUpdate(session._id, { startedAt: new Date(Date.now() - 120_000) });
+    // What the abandon request read, before the completion below was saved.
+    const stale = await TypingSessionModel.findById(session._id);
+    expect((await complete(auth, session._id, session.targetWords)).body.isCounted).toBe(true);
+    vi.spyOn(TypingSessionModel, 'findOne').mockResolvedValueOnce(stale);
+
+    const response = await api().patch(`/api/sessions/${session._id}/abandon`).set('Authorization', auth);
+
+    expect(response.status).toBe(409);
+    expect((await TypingSessionModel.findById(session._id))!.status).toBe('completed');
+    expect(await DailyProgressModel.find({ owner: user._id })).toMatchObject([{ sessions: 1 }]);
+  });
+
   it("does not let another learner abandon someone else's session", async () => {
     const owner = bearerFor(await createUser({ email: 'owner@example.com' }));
     const stranger = bearerFor(await createUser({ email: 'stranger@example.com' }));
@@ -576,36 +596,106 @@ describe('abandon, read and history', () => {
   });
 });
 
-describe('GET /api/sessions/activity (the profile page, SCRUM-157)', () => {
-  it("answers the learner's own average speed, accuracy and completed sessions per day, never another learner's", async () => {
+describe('GET /api/sessions/activity (the profile page, SCRUM-157 and SCRUM-31)', () => {
+  // Today is fixed, so no test runs across a midnight: 10 March 2026, 15:00 in Vietnam.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-03-10T08:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const activityOf = (user: { _id: unknown; email: string }) =>
+    api().get('/api/sessions/activity').set('Authorization', bearerFor(user));
+
+  it("answers the learner's own averages, zone and days from DailyProgress, never another learner's", async () => {
     const me = await createUser({});
     const other = await createUser({ email: 'other@example.com' });
     const base = { owner: me._id, passageId: 'p1', targetWords: ['a'] };
     await TypingSessionModel.create([
       { ...base, status: 'completed', wpm: 40, accuracy: 90, completedAt: new Date() },
       { ...base, status: 'completed', wpm: 60, accuracy: 100, completedAt: new Date() },
-      // Neither one counts: still in progress, or left.
+      // In neither the average nor the days: still in progress, or left.
       { ...base, status: 'in_progress' },
       { ...base, status: 'abandoned' },
-      // Older than the heatmap: in the average, not in the days.
+      // Older than the heatmap: still in the average.
       { ...base, status: 'completed', wpm: 99, accuracy: 99, completedAt: new Date('2020-01-01') },
       { ...base, owner: other._id, status: 'completed', wpm: 10, accuracy: 10, completedAt: new Date() }
     ]);
+    // The days come from DailyProgress (counted sessions only), not from the sessions above.
+    await DailyProgressModel.create([
+      { owner: me._id, date: '2026-03-10', sessions: 2 },
+      { owner: me._id, date: '2026-03-07', sessions: 4, missionCompletedAt: new Date() },
+      { owner: me._id, date: '2025-03-04', sessions: 3, missionCompletedAt: new Date() }, // older than the heatmap
+      { owner: other._id, date: '2026-03-10', sessions: 9, missionCompletedAt: new Date() },
+      { owner: other._id, date: '2026-03-09', sessions: 1, missionCompletedAt: new Date() }
+    ]);
 
-    const response = await api().get('/api/sessions/activity').set('Authorization', bearerFor(me));
+    const response = await activityOf(me);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       stats: { wpm: 66.3, accuracy: 96.3 },
-      sessions: [{ date: new Date().toISOString().slice(0, 10), sessions: 2 }]
+      timezone: 'Asia/Ho_Chi_Minh',
+      sessions: [
+        { date: '2026-03-07', sessions: 4 },
+        { date: '2026-03-10', sessions: 2 }
+      ]
     });
   });
 
+  it('adds to each day how many daily tasks it had and how many were completed, and nothing to a day without tasks', async () => {
+    const me = await createUser({});
+    const other = await createUser({ email: 'other@example.com' });
+    await DailyProgressModel.create([
+      { owner: me._id, date: '2026-03-10', sessions: 2 },
+      { owner: me._id, date: '2026-03-09', sessions: 1 }
+    ]);
+    const task = (type: 'sessions' | 'wpm', target: number) => ({ taskId: new Types.ObjectId(), title: `${type} ${target}`, type, target });
+    await UserDailyTasksModel.create([
+      // Two sessions and a best of 40 WPM: the sessions task is done, the WPM one is not.
+      { owner: me._id, date: '2026-03-10', timeZone: 'Asia/Ho_Chi_Minh', tasks: [task('sessions', 2), task('wpm', 60)], progress: { sessions: 2, bestWpm: 40 } },
+      // Another learner's day is never mixed in.
+      { owner: other._id, date: '2026-03-09', timeZone: 'Asia/Ho_Chi_Minh', tasks: [task('sessions', 1)], progress: { sessions: 5 } }
+    ]);
+
+    const { body } = await activityOf(me);
+
+    expect(body.sessions).toEqual([
+      { date: '2026-03-09', sessions: 1 },
+      { date: '2026-03-10', sessions: 2, tasksTotal: 2, tasksDone: 1 }
+    ]);
+  });
+
+  it("answers the days of the last 371 days in the learner's zone, today included, oldest first", async () => {
+    // 17:30 UTC on 10 March: already 11 March in Vietnam, still 10 March in UTC.
+    vi.setSystemTime(new Date('2026-03-10T17:30:00.000Z'));
+    const vietnam = await createUser({ email: 'vn@example.com' });
+    const london = await createUser({ email: 'london@example.com' });
+    await api().patch('/api/profile/settings').set('Authorization', bearerFor(london)).send({ timezone: 'UTC' });
+    // The 371 days up to 11 March 2026 start on 6 March 2025; up to 10 March 2026, on 5 March 2025.
+    const dates = ['2026-03-11', '2025-03-05', '2026-03-10', '2025-03-06'];
+    await DailyProgressModel.create(
+      [vietnam._id, london._id].flatMap((owner) => dates.map((date) => ({ owner, date, sessions: 1, missionCompletedAt: new Date() })))
+    );
+
+    const inVietnam = (await activityOf(vietnam)).body;
+    const inLondon = (await activityOf(london)).body;
+
+    expect(inVietnam.timezone).toBe('Asia/Ho_Chi_Minh');
+    expect(inVietnam.sessions.map((day: { date: string }) => day.date)).toEqual(['2025-03-06', '2026-03-10', '2026-03-11']);
+    // In UTC today is 10 March: 11 March has not come yet, and the 371 days start a day earlier.
+    expect(inLondon.timezone).toBe('UTC');
+    expect(inLondon.sessions.map((day: { date: string }) => day.date)).toEqual(['2025-03-05', '2025-03-06', '2026-03-10']);
+  });
+
   it('has no stats and no days for a new learner, and needs a signed-in account', async () => {
-    const response = await api().get('/api/sessions/activity').set('Authorization', bearerFor(await createUser({})));
+    const response = await activityOf(await createUser({}));
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ sessions: [] });
+    expect(response.body).toEqual({ timezone: 'Asia/Ho_Chi_Minh', sessions: [] });
     expect((await api().get('/api/sessions/activity')).status).toBe(401);
   });
 });

@@ -2,10 +2,12 @@ import { History } from 'lucide-react';
 import { useEffect } from 'react';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
-import { ListToolbar } from '@/shared/components/list-toolbar';
+import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
+import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { modeLabels, formatTimeLimit } from '@/modules/typing/typing.config';
 import type { SessionMode } from '@/modules/typing/types/typing.types';
 import { useSessions } from '../hooks/use-profile';
@@ -28,7 +30,7 @@ const TIME_OPTIONS = [10, 20, 30, 60, 120, 180].map((seconds) => ({ value: Strin
 
 /**
  * The learner's completed typing sessions (SCRUM-157 profile page): a toolbar with search (by passage name), Sort, Filter (mode and time chosen) and pages, built like My Passages
- * (`ListToolbar`, a list of cards built like the user cards of the admin area, `Pagination`). A card opens the result page of its session.
+ * (`CompactToolbar`, a list of cards built like the user cards of the admin area, `Pagination`). A card opens the result page of its session.
  */
 export const ProfileSessions = () => {
   const list = useListParams({ sort: '-createdAt', prefix: 'sessions' });
@@ -69,31 +71,37 @@ export const ProfileSessions = () => {
             <SessionCard key={session._id} session={session} />
           ))}
         </div>
-        <Pagination page={sessions.data.page} totalPages={sessions.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
+        <Pagination page={sessions.data.page} totalPages={sessions.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
       </>
     );
   };
 
   return (
-    <section aria-label="My sessions" className="space-y-3">
-      <ListToolbar
+    <section aria-label="My sessions">
+      <Panel
         title="My Sessions"
-        plain
-        search={{
-          label: 'Search sessions',
-          icon: false,
-          placeholder: 'Passage name',
-          defaultValue: list.q,
-          onSearch: (value) => list.set('q', value),
-        }}
-        sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-        summary={sessions.data ? `${sessions.data.total} sessions` : 'Loading sessions…'}
-        filters={[
-          { label: 'Mode', value: mode, options: MODE_OPTIONS, onChange: (value) => list.set('mode', value) },
-          { label: 'Time', value: time, options: TIME_OPTIONS, onChange: (value) => list.set('time', value) },
-        ]}
-      />
-      {renderList()}
+        bare
+        titleClassName={sectionTitleClass}
+        className="space-y-3"
+        actions={
+          <CompactToolbar
+            search={{
+              label: 'Search sessions',
+              placeholder: 'Passage name',
+              defaultValue: list.q,
+              onSearch: (value) => list.set('q', value),
+            }}
+            sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
+            filters={[
+              { label: 'Mode', value: mode, options: MODE_OPTIONS, onChange: (value) => list.set('mode', value) },
+              { label: 'Time', value: time, options: TIME_OPTIONS, onChange: (value) => list.set('time', value) },
+            ]}
+            count={{ icon: History, value: sessions.data?.total ?? '…', label: 'Sessions' }}
+          />
+        }
+      >
+        {renderList()}
+      </Panel>
     </section>
   );
 };

@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { describe, expect, it } from 'vitest';
 import { api } from '../helpers/api';
 import { UserModel } from '../../src/models/user.model';
@@ -69,6 +70,128 @@ describe('PATCH /api/profile', () => {
       .send({ displayName: 'Alice' });
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe('PATCH /api/profile/settings (SCRUM-31)', () => {
+  const patchSettings = (authorization: string, body: Record<string, unknown>) =>
+    api().patch('/api/profile/settings').set('Authorization', authorization).send(body);
+
+  it('saves the time zone as the browser wrote it (trimmed) and answers the user without secret fields', async () => {
+    const user = await createUser({});
+
+    // Node 24 calls this zone Asia/Calcutta: the browser would then see another zone and send its own again.
+    const response = await patchSettings(bearerFor(user), { timezone: '  Asia/Kolkata ' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ _id: String(user._id), email: user.email });
+    expect(response.body.settings.timezone).toBe('Asia/Kolkata');
+    for (const field of SECRET_FIELDS) {
+      expect(response.body).not.toHaveProperty(field);
+    }
+    expect((await UserModel.findById(user._id))!.settings.timezone).toBe('Asia/Kolkata');
+  });
+
+  it('keeps the mode and the themes, whatever else the body says', async () => {
+    const user = await createUser({});
+    const lightTheme = new Types.ObjectId();
+    await UserModel.updateOne({ _id: user._id }, { $set: { 'settings.mode': 'light', 'settings.lightTheme': lightTheme } });
+
+    const response = await patchSettings(bearerFor(user), { timezone: 'UTC', mode: 'dark', darkTheme: String(new Types.ObjectId()) });
+
+    expect(response.status).toBe(200);
+    expect(response.body.settings).toEqual({ mode: 'light', darkTheme: null, lightTheme: String(lightTheme), timezone: 'UTC' });
+  });
+
+  it('answers 400 for a missing, empty, unknown or too long zone, and keeps the saved one', async () => {
+    const user = await createUser({});
+    // Not the default zone, so a reset to the default would show.
+    expect((await patchSettings(bearerFor(user), { timezone: 'UTC' })).status).toBe(200);
+    const bodies = [{}, { timezone: '' }, { timezone: '   ' }, { timezone: 'Mars/Olympus' }, { timezone: 'A'.repeat(65) }, { timezone: 7 }];
+
+    for (const body of bodies) {
+      const response = await patchSettings(bearerFor(user), body);
+      expect(response.status).toBe(400);
+      expect(response.body.errors[0].field).toBe('timezone');
+    }
+    expect((await UserModel.findById(user._id))!.settings.timezone).toBe('UTC');
+  });
+
+  it('requires authentication', async () => {
+    expect((await api().patch('/api/profile/settings').send({ timezone: 'UTC' })).status).toBe(401);
+  });
+
+  it('answers 404 when the signed-in user no longer exists', async () => {
+    const user = await createUser({});
+    const authorization = bearerFor(user);
+    await UserModel.deleteOne({ _id: user._id });
+
+    expect((await patchSettings(authorization, { timezone: 'UTC' })).status).toBe(404);
+  });
+
+  it('sends the zone with every user, the default one for an account that never sent one', async () => {
+    const user = await createUser({});
+    const old = await createUser({ email: 'old@example.com' });
+    await UserModel.collection.updateOne({ _id: old._id }, { $unset: { 'settings.timezone': '' } });
+    const ancient = await createUser({ email: 'ancient@example.com' });
+    await UserModel.collection.updateOne({ _id: ancient._id }, { $unset: { settings: '' } });
+
+    for (const account of [user, old, ancient]) {
+      const me = await api().get('/api/auth/me').set('Authorization', bearerFor(account));
+      expect(me.body.settings.timezone).toBe('Asia/Ho_Chi_Minh');
+    }
+    const updated = await api().patch('/api/profile').set('Authorization', bearerFor(old)).send({ displayName: 'Old' });
+    expect(updated.body.settings.timezone).toBe('Asia/Ho_Chi_Minh');
+  });
+});
+
+describe('PATCH /api/profile/avatar-source', () => {
+  const PICTURE = 'https://res.cloudinary.com/test-cloud/image/upload/v1700000000/avatars/me.png';
+  const choose = (user: { _id: unknown; email: string }, body: unknown) =>
+    api().patch('/api/profile/avatar-source').set('Authorization', bearerFor(user)).send(body as object);
+
+  it('starts on the picture, switches to the pixel avatar and back, and keeps the picture meanwhile', async () => {
+    const user = await createUser({ avatarUrl: PICTURE });
+    expect((await UserModel.findById(user._id))?.avatarSource).toBe('picture');
+
+    const pixel = await choose(user, { avatarSource: 'pixel' });
+    expect(pixel.status).toBe(200);
+    expect(pixel.body).toMatchObject({ avatarSource: 'pixel', avatarUrl: PICTURE });
+    for (const field of SECRET_FIELDS) expect(pixel.body).not.toHaveProperty(field);
+    expect(cloudinaryRecorder.destroyed).toEqual([]);
+
+    const picture = await choose(user, { avatarSource: 'picture' });
+    expect(picture.body).toMatchObject({ avatarSource: 'picture', avatarUrl: PICTURE });
+  });
+
+  it('refuses the picture when none was uploaded, but accepts the pixel avatar', async () => {
+    const user = await createUser({});
+
+    const picture = await choose(user, { avatarSource: 'picture' });
+    expect(picture.status).toBe(400);
+    expect(picture.body).toEqual({ message: 'Upload a picture first' });
+
+    expect((await choose(user, { avatarSource: 'pixel' })).status).toBe(200);
+  });
+
+  it('rejects another value, and needs a token', async () => {
+    const user = await createUser({ avatarUrl: PICTURE });
+
+    expect((await choose(user, { avatarSource: 'robot' })).status).toBe(400);
+    expect((await choose(user, {})).status).toBe(400);
+    expect((await api().patch('/api/profile/avatar-source').send({ avatarSource: 'pixel' })).status).toBe(401);
+  });
+
+  it('shows a new upload at once, also when the pixel avatar was chosen', async () => {
+    const user = await createUser({ avatarUrl: PICTURE });
+    await choose(user, { avatarSource: 'pixel' });
+
+    await api()
+      .post('/api/profile/avatar')
+      .set('Authorization', bearerFor(user))
+      .attach('avatar', pngBuffer(), { filename: 'avatar.png', contentType: 'image/png' });
+
+    expect((await UserModel.findById(user._id))?.avatarSource).toBe('picture');
   });
 });
 

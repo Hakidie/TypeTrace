@@ -2,6 +2,7 @@ import { LogOut, Moon, Shield, Shirt, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLogout } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
+import { shownPictureUrl } from '@/modules/auth/utils/avatar-picture';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
@@ -25,9 +26,9 @@ export const UserMenu = ({ user }: { user?: CurrentUser }) => {
         className="flex items-center gap-2 py-1 pl-1 pr-1 text-sm font-semibold text-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:pr-3"
       >
         <Avatar className="size-9">
-          <AvatarImage src={user?.avatarUrl} alt={user?.email} />
+          <AvatarImage src={shownPictureUrl(user)} alt={user?.email} />
           {/* No uploaded picture: the head of the pixel avatar (36px = the 40px head at 0.9). */}
-          <AvatarFallback className="bg-primary/15 text-sm text-primary">
+          <AvatarFallback className="bg-transparent text-sm text-primary">
             {user ? <AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} crop="head" scale={0.9} /> : initials}
           </AvatarFallback>
         </Avatar>

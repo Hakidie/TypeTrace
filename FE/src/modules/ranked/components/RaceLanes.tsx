@@ -5,10 +5,11 @@ import type { PublicMatch } from '../types/ranked.types';
 
 /**
  * One lane per player: the avatar (typing pose) runs from left to right as the words are finished, over a track that
- * fills up to the finish flag, with the words and the speed. The user's lane is marked "You".
+ * fills up to the finish flag, with the words and the speed. The user's lane is marked "You". Each lane is 128px high:
+ * 2px of border, 4px of padding, the 20px line of the name, the 98px track and the 4px progress bar.
  */
 export const RaceLanes = ({ match, myId }: { match: PublicMatch; myId?: string }) => (
-  <div className="mx-auto flex w-full max-w-5xl flex-col gap-2">
+  <div className="mx-auto flex w-full max-w-7xl flex-col gap-2">
     {match.players.map((player) => {
       const share = match.wordCount ? Math.min(1, player.typedCount / match.wordCount) : 0;
       const mine = player.userId === myId;
@@ -32,7 +33,7 @@ export const RaceLanes = ({ match, myId }: { match: PublicMatch; myId?: string }
             </span>
           </div>
           {/* The avatar is 76px wide: the lane leaves room for it at the far end. */}
-          <div className="relative h-20">
+          <div className="relative h-[98px]">
             <Flag className="absolute bottom-2 right-0 size-5 text-muted-foreground" aria-hidden="true" />
             <div className="absolute bottom-1 transition-[left] duration-300 ease-out" style={{ left: `calc(${share * 100}% - ${share * 76}px)` }}>
               <AvatarSprite look={player.avatar} pose={player.finished ? 'win' : 'typing'} scale={1} label={`${player.displayName}'s avatar`} />

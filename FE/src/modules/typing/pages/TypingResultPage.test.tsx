@@ -91,6 +91,8 @@ describe('TypingResultPage', () => {
     renderPage();
 
     expect(await screen.findByText(/not counted in your error profile/)).toBeInTheDocument();
+    // Since SCRUM-31 a counted session is also what the streak and the daily mission need.
+    expect(screen.getByText(/not counted in your error profile, streak or daily mission/)).toBeInTheDocument();
   });
 
   it('hides the not-counted note with the OK button', async () => {

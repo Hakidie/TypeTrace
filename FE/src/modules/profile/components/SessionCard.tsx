@@ -16,14 +16,14 @@ export const SessionCard = ({ session }: { session: SessionSummary }) => {
     <Link
       to={`/typing/result/${session._id}`}
       aria-label={`Open the result of ${title}`}
-      className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="-mr-3 -ml-4 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <ListRow
         plain
         identity={
           <div className="flex min-w-0 items-center gap-3">
-            {/* The icon of the mode, 61px = the height of the speed line, no background. */}
-            <span className="flex size-[61px] shrink-0 items-center justify-center text-primary" aria-hidden>
+            {/* The icon of the mode: 61px high = the height of the speed line, as wide as the icon, no background. */}
+            <span className="flex h-[61px] w-9 shrink-0 items-center justify-center text-primary" aria-hidden>
               <ModeIcon className="size-9" />
             </span>
             <div className="min-w-0">
