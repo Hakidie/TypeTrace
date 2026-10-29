@@ -44,7 +44,7 @@ src/
 ├── shared/
 │   ├── api/                 # http.ts (axios), query-client.ts, api-error.ts, types.ts (Paginated<T>)
 │   ├── components/          # panel, page-header, empty-state, error-state, loading-state, confirm-dialog,
-│   │   │                    # form-field, pagination
+│   │   │                    # form-field, pagination, lottie (`Lottie name loop play`: a file of FE/public/lottie, aria-hidden, still for reduced motion; see AGENTS.md)
 │   │   ├── data-table/      # DataTable, SearchInput, FilterSelect, TableToolbar (list and admin pages)
 │   │   ├── layout/          # AppLayout (BrandHeader with the navigation and the avatar `UserMenu` with Mode, Admin (admins only) and Logout, BrandFooter, module widgets), AdminLayout (AdminSidebar with its own logo header and Logout footer, no BrandHeader/BrandFooter, /admin)
 │   │   └── ui/              # shadcn/ui primitives (button, input, dialog, switch, ...)
