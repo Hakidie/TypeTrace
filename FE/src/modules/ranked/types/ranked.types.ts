@@ -19,6 +19,8 @@ export interface MatchPlayerView {
   /** The season rating around this match, when it was rated. */
   ratingBefore?: number;
   ratingAfter?: number;
+  /** Coins earned by this match (rated matches only). */
+  coins?: number;
 }
 
 /** Why a finished match did not count for Elo. */

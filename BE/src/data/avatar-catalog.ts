@@ -22,16 +22,27 @@ export const DEFAULT_AVATAR = {
   shoes: 'sneakers-brown'
 } as const satisfies AvatarLook;
 
-export type Tier = 'gold' | 'platinum' | 'diamond' | 'legend';
-export type Unlock = { kind: 'free' } | { kind: 'shop'; price: number } | { kind: 'tier'; tier: Tier };
+/** The tiers that give an item, lowest first. */
+export const REWARD_TIERS = ['gold', 'platinum', 'diamond', 'legend'] as const;
+export type Tier = (typeof REWARD_TIERS)[number];
+export type Unlock = { kind: 'free' } | { kind: 'shop'; price: number } | { kind: 'tier'; tier: Tier } | { kind: 'season' };
 
 /** The items only a season tier gives (never sold). */
-const TIER_REWARDS: Record<string, Tier> = {
+export const TIER_REWARDS: Record<string, Tier> = {
   'headwear:halo': 'legend',
   'headwear:crown': 'diamond',
   'back:angel-wings': 'platinum',
   'effect:stars': 'gold'
 };
+
+/**
+ * The item of each season for Gold and up (`Season.rewardItem`), in turn: season 1 gets the first, and so on. Never sold,
+ * so a season item shows that its owner reached Gold in that season.
+ */
+export const SEASON_ITEMS = ['effect:flames', 'headwear:tiara', 'back:fairy-wings', 'accessory:medal-gold', 'effect:snow'];
+
+/** What an item already owned is worth when a reward gives it again: its price, or this for an item not sold. */
+export const OWNED_REWARD_COINS = 100;
 
 /** The price of a shop item, by slot (dresses cost more than the other tops). */
 const SLOT_PRICES: Record<AvatarSlot, number> = {
@@ -76,8 +87,15 @@ export const unlockOf = (slot: AvatarSlot, item: string): Unlock | undefined => 
   if (isFree(slot, item)) return { kind: 'free' };
   const tier = TIER_REWARDS[itemKey(slot, item)];
   if (tier) return { kind: 'tier', tier };
+  if (SEASON_ITEMS.includes(itemKey(slot, item))) return { kind: 'season' };
   return { kind: 'shop', price: slot === 'top' && item.startsWith('dress-') ? DRESS_PRICE : SLOT_PRICES[slot] };
 };
 
 /** How an owned item is saved in `User.ownedItems`. */
 export const itemKey = (slot: AvatarSlot, item: string) => `${slot}:${item}`;
+
+/** The unlock of an item key (`slot:item`), `undefined` for an unknown slot or item. */
+export const unlockOfKey = (key: string) => {
+  const [slot, item] = key.split(':');
+  return (AVATAR_SLOT_NAMES as readonly string[]).includes(slot) && item ? unlockOf(slot as AvatarSlot, item) : undefined;
+};

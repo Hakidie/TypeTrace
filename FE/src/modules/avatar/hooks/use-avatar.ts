@@ -11,6 +11,18 @@ export const avatarKeys = {
 /** Every item with how it is unlocked and whether it is owned, the look worn and the coins. */
 export const useAvatarCatalog = () => useQuery({ queryKey: avatarKeys.catalog, queryFn: avatarApi.catalog });
 
+// No `onError`: the shared query client toasts the backend message (e.g. "Not enough coins").
+export const useBuyItem = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: avatarApi.buy,
+    onSuccess: (catalog) => {
+      queryClient.setQueryData(avatarKeys.catalog, catalog);
+      toast.success('Item bought.');
+    },
+  });
+};
+
 // No `onError`: the shared query client toasts the backend message.
 export const useUpdateAvatar = () => {
   const queryClient = useQueryClient();

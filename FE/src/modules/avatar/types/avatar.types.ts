@@ -28,8 +28,8 @@ export const DEFAULT_AVATAR: AvatarLook = {
 };
 
 export type AvatarTier = 'gold' | 'platinum' | 'diamond' | 'legend';
-/** How an item is unlocked: a starter item, sold for coins, or a season tier reward. */
-export type AvatarUnlock = { kind: 'free' } | { kind: 'shop'; price: number } | { kind: 'tier'; tier: AvatarTier };
+/** How an item is unlocked: a starter item, sold for coins, a season tier reward, or the item of a season (Gold and up). */
+export type AvatarUnlock = { kind: 'free' } | { kind: 'shop'; price: number } | { kind: 'tier'; tier: AvatarTier } | { kind: 'season' };
 
 export interface AvatarItem {
   id: string;

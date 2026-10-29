@@ -1,7 +1,7 @@
 import { AVATAR_SLOTS } from '../data/avatar-items';
-import { AVATAR_SLOT_NAMES, AvatarSlot, itemKey, unlockOf } from '../data/avatar-catalog';
+import { AVATAR_SLOT_NAMES, AvatarSlot, itemKey, unlockOf, unlockOfKey } from '../data/avatar-catalog';
 import { UserModel } from '../models/user.model';
-import { badRequest, notFound } from '../utils/app-error';
+import { badRequest, conflict, notFound } from '../utils/app-error';
 import { AvatarLookInput } from '../validators/avatar.validator';
 
 const findUser = async (userId: string) => {
@@ -27,6 +27,26 @@ export const getCatalog = async (userId: string) => {
     ])
   );
   return { avatar: user.avatar, coins: user.coins, slots };
+};
+
+/**
+ * Buys a shop item with coins and answers the catalog. Spending and adding the item are one conditional update, so two
+ * buys at once can neither spend below zero nor buy the same item twice.
+ */
+export const buyItem = async (userId: string, key: string) => {
+  const unlock = unlockOfKey(key);
+  if (!unlock) throw badRequest(`Unknown item: ${key}`);
+  if (unlock.kind !== 'shop') throw badRequest('This item is not sold');
+  const bought = await UserModel.updateOne(
+    { _id: userId, coins: { $gte: unlock.price }, ownedItems: { $ne: key } },
+    { $inc: { coins: -unlock.price }, $push: { ownedItems: key } }
+  );
+  if (bought.modifiedCount === 0) {
+    const user = await findUser(userId);
+    if (user.ownedItems.includes(key)) throw conflict('You already own this item');
+    throw badRequest('Not enough coins');
+  }
+  return getCatalog(userId);
 };
 
 /** Puts on a whole look. Every item must exist in its slot and be owned; nothing is saved otherwise. */

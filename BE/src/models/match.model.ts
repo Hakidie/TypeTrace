@@ -35,6 +35,8 @@ export interface MatchPlayer {
   /** The season rating before and after this match, when it was rated. */
   ratingBefore?: number;
   ratingAfter?: number;
+  /** Coins earned by this match (rated matches only, within the daily limit). */
+  coins?: number;
 }
 
 export interface MatchDocument extends mongoose.Document {
@@ -75,7 +77,8 @@ const playerSchema = new Schema<MatchPlayer>(
     finishedAt: Date,
     result: { type: String, enum: matchResults },
     ratingBefore: Number,
-    ratingAfter: Number
+    ratingAfter: Number,
+    coins: Number
   },
   { _id: false }
 );

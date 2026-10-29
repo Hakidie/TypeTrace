@@ -44,7 +44,8 @@ export const toPublicMatch = (match: MatchDocument) => ({
     wpm: player.wpm,
     finished: Boolean(player.finishedAt),
     ...(player.result && { result: player.result }),
-    ...(player.ratingAfter !== undefined && { ratingBefore: player.ratingBefore, ratingAfter: player.ratingAfter })
+    ...(player.ratingAfter !== undefined && { ratingBefore: player.ratingBefore, ratingAfter: player.ratingAfter }),
+    ...(player.coins !== undefined && { coins: player.coins })
   }))
 });
 

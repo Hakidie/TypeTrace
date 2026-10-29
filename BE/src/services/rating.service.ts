@@ -1,5 +1,6 @@
 import { MatchDocument, MatchModel, MatchPlayer, UnratedReason } from '../models/match.model';
 import { SeasonRatingModel } from '../models/season-rating.model';
+import { UserModel } from '../models/user.model';
 import { currentSeason, startRatingFor } from './season.service';
 
 /** A pair of players counts for Elo this many times a day at most (more matches still play, without points). */
@@ -67,7 +68,8 @@ export const rateMatch = async (match: MatchDocument) => {
       const start = await startRatingFor(player.user, season);
       return SeasonRatingModel.findOneAndUpdate(
         { season: season._id, user: player.user },
-        { $setOnInsert: { rating: start, peakRating: start } },
+        // No peak yet: the start (soft reset) is not a tier reached this season; `$max` below sets it after the match.
+        { $setOnInsert: { rating: start } },
         { upsert: true, new: true }
       );
     })
@@ -87,4 +89,27 @@ export const rateMatch = async (match: MatchDocument) => {
     })
   );
   match.rated = true;
+  await Promise.all(players.map((player) => awardCoins(player)));
+};
+
+/** Coins for a rated match (ranked duel design, section 7), and at most this many a day (Vietnam time). */
+export const MATCH_COINS = { win: 20, draw: 10, loss: 5, forfeit: 5 } as const;
+export const DAILY_COIN_LIMIT = 200;
+
+/** Coins a player earned today in rated matches (read from the matches, so nothing else needs to be kept). */
+const coinsEarnedToday = async (userId: MatchPlayer['user']) => {
+  const [today] = await MatchModel.aggregate<{ total: number }>([
+    { $match: { rated: true, endedAt: { $gte: vietnamDayStart() }, 'players.user': userId } },
+    { $unwind: '$players' },
+    { $match: { 'players.user': userId } },
+    { $group: { _id: null, total: { $sum: { $ifNull: ['$players.coins', 0] } } } }
+  ]);
+  return today?.total ?? 0;
+};
+
+/** Gives a player the coins of their result, up to what is left of `DAILY_COIN_LIMIT` today. */
+const awardCoins = async (player: MatchPlayer) => {
+  const coins = Math.min(MATCH_COINS[player.result ?? 'draw'], Math.max(0, DAILY_COIN_LIMIT - (await coinsEarnedToday(player.user))));
+  player.coins = coins;
+  if (coins > 0) await UserModel.updateOne({ _id: player.user }, { $inc: { coins } });
 };

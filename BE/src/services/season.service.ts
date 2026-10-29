@@ -1,6 +1,8 @@
 import type { Types } from 'mongoose';
+import { OWNED_REWARD_COINS, REWARD_TIERS, SEASON_ITEMS, Tier, TIER_REWARDS, unlockOfKey } from '../data/avatar-catalog';
 import { SeasonDocument, SeasonModel } from '../models/season.model';
 import { SeasonRatingModel } from '../models/season-rating.model';
+import { UserModel } from '../models/user.model';
 import { notFound } from '../utils/app-error';
 
 export const SEASON_LENGTH_MS = 8 * 7 * 24 * 60 * 60 * 1000;
@@ -16,9 +18,12 @@ const TIERS = [
   { name: 'Bronze', from: -Infinity }
 ] as const;
 
-export type Tier = (typeof TIERS)[number]['name'];
+export type TierName = (typeof TIERS)[number]['name'];
 
-export const tierFor = (rating: number): Tier => TIERS.find((tier) => rating >= tier.from)!.name;
+export const tierFor = (rating: number): TierName => TIERS.find((tier) => rating >= tier.from)!.name;
+
+/** The lowest rating of a tier. */
+const tierStart = (name: TierName) => TIERS.find((tier) => tier.name === name)!.from;
 
 const isDuplicateKey = (error: unknown) => (error as { code?: number }).code === 11000;
 
@@ -26,7 +31,12 @@ const isDuplicateKey = (error: unknown) => (error as { code?: number }).code ===
 const openSeason = async (number: number): Promise<SeasonDocument> => {
   const startsAt = new Date();
   try {
-    return await SeasonModel.create({ number, startsAt, endsAt: new Date(startsAt.getTime() + SEASON_LENGTH_MS) });
+    return await SeasonModel.create({
+      number,
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + SEASON_LENGTH_MS),
+      rewardItem: SEASON_ITEMS[(number - 1) % SEASON_ITEMS.length]
+    });
   } catch (error) {
     if (!isDuplicateKey(error)) throw error;
     const active = await SeasonModel.findOne({ status: 'active' });
@@ -57,10 +67,63 @@ export const currentSeason = async (): Promise<SeasonDocument> => {
 export const closeSeason = async (id: string): Promise<SeasonDocument> => {
   const closed = await SeasonModel.findOneAndUpdate({ _id: id, status: 'active' }, { status: 'closed', closedAt: new Date() }, { new: true });
   if (!closed) {
-    if (!(await SeasonModel.exists({ _id: id }))) throw notFound('Season not found');
+    const season = await SeasonModel.findById(id);
+    if (!season) throw notFound('Season not found');
+    // Closed before: give the rewards a failure left out (a player is never rewarded twice).
+    await tryGiveSeasonRewards(season);
     return currentSeason();
   }
-  return openSeason(closed.number + 1);
+  const next = await openSeason(closed.number + 1);
+  await tryGiveSeasonRewards(closed);
+  return next;
+};
+
+/**
+ * The rewards never fail the request that closed the season (often a player's match, through a lazy close). What a
+ * failure left out is given when the admin closes that season again (Seasons page) .
+ */
+const tryGiveSeasonRewards = async (season: SeasonDocument) => {
+  try {
+    await giveSeasonRewards(season);
+  } catch (error) {
+    console.error(`Season ${season.number}: giving the rewards failed`, error);
+  }
+};
+
+/** The reward items of a peak rating: the item of every tier reached (cumulative), and the season item from Gold up. */
+const rewardsFor = (peakRating: number, season: SeasonDocument) => {
+  const reached = REWARD_TIERS.slice(0, REWARD_TIERS.indexOf(tierFor(peakRating).toLowerCase() as Tier) + 1);
+  if (!reached.length) return [];
+  const items = Object.entries(TIER_REWARDS)
+    .filter(([, tier]) => reached.includes(tier))
+    .map(([item]) => item);
+  return season.rewardItem ? [...items, season.rewardItem] : items;
+};
+
+/**
+ * Gives every player of a closed season the rewards of the highest tier they reached; an item they already own is paid
+ * in coins instead (its price, or `OWNED_REWARD_COINS`). Each player is claimed right before the grant, so a player is
+ * rewarded once.
+ * ponytail: a crash between the claim and the grant loses that player's rewards; one player at a time inside the request
+ * that closes the season. A job queue if seasons get big.
+ */
+const giveSeasonRewards = async (season: SeasonDocument) => {
+  const players = await SeasonRatingModel.find({ season: season._id, peakRating: { $gte: tierStart('Gold') }, rewardedAt: { $exists: false } });
+  for (const player of players) {
+    const user = await UserModel.findById(player.user).select('ownedItems');
+    if (!user) continue;
+    const claim = await SeasonRatingModel.updateOne({ _id: player._id, rewardedAt: { $exists: false } }, { rewardedAt: new Date() });
+    if (claim.modifiedCount === 0) continue;
+    const items = rewardsFor(player.peakRating ?? 0, season);
+    const fresh = items.filter((item) => !user.ownedItems.includes(item));
+    const coins = items
+      .filter((item) => user.ownedItems.includes(item))
+      .reduce((sum, item) => {
+        const unlock = unlockOfKey(item);
+        return sum + (unlock?.kind === 'shop' ? unlock.price : OWNED_REWARD_COINS);
+      }, 0);
+    await UserModel.updateOne({ _id: player.user }, { $addToSet: { ownedItems: { $each: fresh } }, $inc: { coins } });
+  }
 };
 
 /**
