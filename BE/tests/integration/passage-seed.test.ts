@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PASSAGE_LIST, PASSAGE_SOURCE } from '../../src/data/passages';
-import { PassageModel } from '../../src/models/passage.model';
+import { ENGLISH_PASSAGE_LIST, ENGLISH_PASSAGE_SOURCE } from '../../src/data/passages-en';
+import { PassageModel, splitWords } from '../../src/models/passage.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { WordError } from '../../src/utils/vietnamese-errors';
 
@@ -79,5 +80,39 @@ describe('the starter passages', () => {
 
     expect(first.added).toBe(PASSAGE_LIST.length);
     expect(second).toEqual({ added: 0, skipped: PASSAGE_LIST.length });
+  });
+});
+
+describe('English starter passages (ranked duel, phase 1)', () => {
+  it('ships 20 English starter passages that a ranked match can use', () => {
+    expect(ENGLISH_PASSAGE_LIST).toHaveLength(20);
+    for (const passage of ENGLISH_PASSAGE_LIST) {
+      const words = splitWords(passage.content).length;
+      expect(passage.language).toBe('en');
+      expect(words, passage.title).toBeGreaterThanOrEqual(30);
+      expect(words, passage.title).toBeLessThanOrEqual(80);
+      expect(passage.content, passage.title).toMatch(/^[\x20-\x7E]+$/);
+      expect(passage.source).toBe(ENGLISH_PASSAGE_SOURCE);
+      expect(passage.isPlacement).toBeUndefined();
+    }
+    const titles = ENGLISH_PASSAGE_LIST.map((passage) => passage.title);
+    expect(new Set(titles).size).toBe(titles.length);
+    expect(titles.filter((title) => PASSAGE_LIST.some((passage) => passage.title === title))).toEqual([]);
+  });
+
+  it('seeds the English passages as published and public', async () => {
+    expect((await seedPassages(ENGLISH_PASSAGE_LIST)).added).toBe(20);
+
+    const saved = await PassageModel.find({ title: { $in: ENGLISH_PASSAGE_LIST.map((passage) => passage.title) } });
+    expect(saved).toHaveLength(20);
+    expect(saved.every((passage) => passage.language === 'en' && passage.status === 'published' && passage.visibility === 'public')).toBe(true);
+  });
+
+  it('does not duplicate or overwrite English passages on a second run', async () => {
+    await seedPassages(ENGLISH_PASSAGE_LIST);
+    const edited = await PassageModel.findOneAndUpdate({ title: ENGLISH_PASSAGE_LIST[0].title }, { content: 'Edited by an admin.' }, { returnDocument: 'after' });
+
+    expect(await seedPassages(ENGLISH_PASSAGE_LIST)).toEqual({ added: 0, skipped: 20 });
+    expect((await PassageModel.findById(edited!._id))!.content).toBe('Edited by an admin.');
   });
 });
