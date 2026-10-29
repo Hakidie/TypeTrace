@@ -134,7 +134,19 @@ body {
   }
 }
 
+/* A collapsible search box (SearchInput) extends from the width of its magnifier button. */
+@keyframes search-extend {
+  from {
+    width: 2.5rem;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
+  .search-extend {
+    animation: search-extend 0.2s ease-out;
+    overflow: hidden;
+  }
+
   .word-reveal {
     animation: word-in 0.3s ease-out both;
   }

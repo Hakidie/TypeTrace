@@ -40,4 +40,24 @@ describe('SearchInput', () => {
     fireEvent.keyDown(screen.getByLabelText('Search'), { key: 'Enter' });
     expect(onSearch).toHaveBeenCalledWith('lan');
   });
+
+  it('collapsible: shows only the magnifier, extends and takes the focus on click, and shrinks back when left empty', () => {
+    render(<SearchInput collapsible onSearch={vi.fn()} />);
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    const box = screen.getByRole('textbox', { name: 'Search' });
+    expect(box).toHaveFocus();
+
+    fireEvent.blur(box);
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('collapsible: stays open while it holds text, and starts open with a starting search', () => {
+    render(<SearchInput collapsible defaultValue="lan" onSearch={vi.fn()} />);
+    const box = screen.getByRole('textbox', { name: 'Search' });
+
+    fireEvent.blur(box);
+    expect(screen.getByRole('textbox', { name: 'Search' })).toHaveValue('lan');
+  });
 });

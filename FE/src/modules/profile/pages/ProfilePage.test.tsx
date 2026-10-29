@@ -71,8 +71,6 @@ const renderPage = () => renderWithProviders(<ProfilePage />, { route: '/profile
 
 /** The top of the page: who the learner is and how they type. */
 const header = () => screen.getByRole('region', { name: 'Profile header' });
-/** Today's counted sessions and daily mission, over the heatmap. */
-const todayRegion = () => screen.getByRole('region', { name: 'Today' });
 const year = new Date().getUTCFullYear();
 const hoverDay = (date: string) => fireEvent.mouseOver(document.querySelector(`[data-date="${date}"]`) as HTMLElement);
 
@@ -83,14 +81,14 @@ beforeEach(() => {
   getActivity.mockReset().mockResolvedValue({
     stats: { wpm: 66.3, accuracy: 96.3 },
     timezone: 'UTC',
-    sessions: [{ date: today, sessions: 2, missionCompleted: true }],
+    sessions: [{ date: today, sessions: 2, tasksTotal: 2, tasksDone: 1 }],
   });
   getStreak.mockReset().mockResolvedValue(streakOf(1, 4, { sessions: 2, missionCompleted: true }));
   getDailyTasks.mockReset().mockResolvedValue({
     date: today,
     tasks: [
       { id: 't1', title: 'Warm-up', description: '', type: 'sessions', target: 3, progress: 2, completed: false },
-      { id: 't2', title: 'Phân biệt hỏi/ngã', description: '', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION', progress: 92.5, completed: true },
+      { id: 't2', title: 'Phân biệt hỏi/ngã', description: 'Practise hỏi and ngã.', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION', progress: 92.5, completed: true },
     ],
   });
 });
@@ -108,14 +106,15 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(screen.queryByRole('region', { name: 'Profile header' })).not.toBeInTheDocument();
   });
 
-  it('has the header, today and the heatmap, and no Profile, Edit profile or Security panel (Security is on the Settings page)', async () => {
+  it('has the header, the daily progress and the heatmap, and no Profile, Edit profile or Security panel (Security is on the Settings page)', async () => {
     renderPage();
 
     expect(await screen.findByRole('region', { name: 'Profile header' })).toBeInTheDocument();
     // Screen readers get the year in words.
-    expect(await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, daily mission done on 1 day` })).toBeInTheDocument();
-    expect(await screen.findByRole('region', { name: 'Today' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` })).toBeInTheDocument();
+    // The mission is done in these fixtures, so there is no line of today.
+    expect(screen.queryByRole('region', { name: 'Today' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual(['Daily tasks', 'Daily Progress', 'My Sessions']);
     expect(screen.queryByRole('switch', { name: 'Email code at login' })).not.toBeInTheDocument();
   });
 
@@ -125,58 +124,62 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
 
     const card = header();
     expect(within(card).getByText('Alice')).toBeInTheDocument();
-    expect(within(card).getByText('alice@example.com')).toBeInTheDocument();
+    expect(within(card).queryByText('alice@example.com')).not.toBeInTheDocument();
     expect(within(card).getByRole('textbox', { name: 'Description' })).toHaveValue('Hello');
     expect(await within(card).findByText('001D')).toBeInTheDocument();
-    expect(within(card).getByTitle('Longest streak')).toHaveTextContent('BEST 004D');
+    expect(within(card).queryByText(/BEST/)).not.toBeInTheDocument();
     expect(within(card).getByText('66')).toBeInTheDocument();
     expect(within(card).getByText('Joined 15 Jan 2026')).toBeInTheDocument();
-    expect(within(card).getByRole('button', { name: 'Change avatar' })).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Use a picture' })).toBeInTheDocument();
     hoverDay(today);
     expect(screen.getByRole('tooltip')).toHaveTextContent('2 counted sessions');
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Mission done');
+    expect(screen.getByRole('tooltip')).toHaveTextContent('1 / 2 daily tasks done');
     expect(getMe).toHaveBeenCalledOnce();
   });
 
-  it("shows today's counted sessions and the daily mission done next to the heatmap", async () => {
+  it('has no TODAY or daily mission line, shows the legend in the title row, and the done mission only with the daily tasks once all are done', async () => {
     renderPage();
 
-    expect(await screen.findByRole('region', { name: 'Today' })).toHaveTextContent('TODAY 2 counted sessions');
-    expect(within(todayRegion()).getByText('Daily mission done')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Practice now' })).not.toBeInTheDocument();
+    const title = await screen.findByRole('heading', { name: 'Daily Progress' });
+    expect(screen.queryByText('TODAY')).not.toBeInTheDocument();
+    // The legend is on the right of the title.
+    expect(within(title.parentElement?.parentElement as HTMLElement).getByText('Less')).toBeInTheDocument();
+    // One of the two tasks is not done: no "Daily mission done" anywhere.
+    await screen.findByRole('region', { name: 'Daily tasks' });
+    expect(screen.queryByText('Daily mission done')).not.toBeInTheDocument();
   });
 
-  it("shows today's tasks with their progress bars under the heatmap, above the sessions", async () => {
+  it("shows today's tasks with their progress bars above the heatmap, which is above the sessions", async () => {
     renderPage();
 
     const tasks = await screen.findByRole('region', { name: 'Daily tasks' });
+    expect(screen.getByRole('heading', { name: 'Daily tasks' })).toBeInTheDocument();
     expect(await within(tasks).findByRole('progressbar', { name: 'Warm-up' })).toHaveAttribute('aria-valuenow', '2');
     expect(within(tasks).getByText('2 / 3 sessions')).toBeInTheDocument();
-    expect(within(tasks).getByText('Reach 90% accuracy on hỏi and ngã in a session with at least 5 words with hỏi or ngã')).toBeInTheDocument();
+    expect(within(tasks).getByText('Practise hỏi and ngã.')).toBeInTheDocument();
     expect(within(tasks).getByText('Done')).toBeInTheDocument();
     expect(getDailyTasks).toHaveBeenCalledOnce();
 
-    const heatmap = await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, daily mission done on 1 day` });
-    expect(heatmap.compareDocumentPosition(tasks)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(tasks.compareDocumentPosition(screen.getByRole('region', { name: 'My sessions' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    const heatmap = await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` });
+    expect(tasks.compareDocumentPosition(heatmap)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(heatmap.compareDocumentPosition(screen.getByRole('region', { name: 'My sessions' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('shows zeros and a way to start to a new learner, and asks for a display name instead of the email twice', async () => {
+  it('shows zeros to a new learner, and asks for a display name instead of the email twice', async () => {
     getMe.mockResolvedValue({ ...profile, displayName: undefined, bio: undefined });
     getActivity.mockResolvedValue({ timezone: 'UTC', sessions: [] });
     getStreak.mockResolvedValue(streakOf(0, 0, { sessions: 0, missionCompleted: false }));
     getSessions.mockResolvedValue(page([]));
     renderPage();
 
-    expect(await screen.findByText('No counted sessions this year: your practice days show here.')).toBeInTheDocument();
-    const card = header();
-    expect(await within(card).findAllByText('000D')).toHaveLength(2);
+    const card = await screen.findByRole('region', { name: 'Profile header' });
+    expect(await within(card).findByText('000D')).toBeInTheDocument();
     expect(within(card).getByText('000%')).toBeInTheDocument();
     expect(within(card).getByText('0000')).toBeInTheDocument();
-    // One way to start, in the line of today: the heatmap does not add a second link for the same thing.
-    expect(todayRegion()).toHaveTextContent('Daily mission: 0 / 1 counted session · Practice now');
-    expect(within(todayRegion()).getByRole('link', { name: 'Practice now' })).toHaveAttribute('href', '/typing');
-    expect(screen.getAllByRole('link', { name: /practice/i })).toHaveLength(1);
+    // No line about the day's mission and no message about an empty year: the heatmap shows empty cells.
+    expect(screen.queryByText(/Daily mission/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No counted sessions this year/)).not.toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: `Counted sessions in ${year}: 0 on 0 days, 0 daily tasks done` })).toBeInTheDocument();
     expect(within(card).getAllByText('alice@example.com')).toHaveLength(1);
     expect(within(card).getByText('No display name yet: hover the name to add one.')).toBeInTheDocument();
     expect(within(card).getByRole('textbox', { name: 'Description' })).toHaveAttribute('placeholder', 'No description');
@@ -191,7 +194,7 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(screen.getByRole('button', { name: 'Edit display name' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
-    expect(await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, daily mission done on 1 day` })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` })).toBeInTheDocument();
     expect(screen.queryByText('Database offline')).not.toBeInTheDocument();
   });
 
@@ -210,7 +213,7 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(within(cards[0]).getByText('30s')).toBeInTheDocument();
     expect(within(cards[0]).queryByText('Practice', { exact: false })).not.toBeInTheDocument(); // the mode is only the icon
     expect(within(cards[0]).getByRole('img', { name: 'Speed and errors over time' })).toBeInTheDocument();
-    expect(screen.getByText('2 sessions')).toBeInTheDocument();
+    expect(screen.getByText('Sessions').parentElement).toHaveTextContent('2Sessions');
     expect(getSessions).toHaveBeenCalledWith({ page: 1, limit: 3, sort: '-createdAt', status: 'completed' });
 
     expect(within(cards[1]).getByText('Untitled passage')).toBeInTheDocument();
@@ -244,7 +247,8 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     renderPage();
     await screen.findByRole('article');
 
-    await user.type(screen.getByLabelText('Search sessions'), 'thu{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Search sessions' }));
+    await user.type(screen.getByRole('textbox', { name: 'Search sessions' }), 'thu{Enter}');
     await waitFor(() => expect(getSessions).toHaveBeenLastCalledWith({ page: 1, limit: 3, sort: '-createdAt', status: 'completed', q: 'thu' }));
 
     await user.click(screen.getByRole('button', { name: /Filter/ }));
@@ -264,7 +268,8 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     renderPage();
     expect(await screen.findByText('No sessions yet')).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText('Search sessions'), 'zzz{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Search sessions' }));
+    await user.type(screen.getByRole('textbox', { name: 'Search sessions' }), 'zzz{Enter}');
     expect(await screen.findByText('No matching sessions')).toBeInTheDocument();
   });
 
@@ -283,27 +288,20 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(await screen.findByRole('article')).toBeInTheDocument();
   });
 
-  it('shows dashes in the header and in the line of today while the streak loads', async () => {
+  it('shows a dash in the header while the streak loads', async () => {
     getStreak.mockReturnValue(new Promise(() => undefined));
     renderPage();
 
     const card = await screen.findByRole('region', { name: 'Profile header' });
-    expect(within(card).getAllByText('—')).toHaveLength(2);
-    expect(todayRegion()).toHaveAttribute('aria-busy', 'true');
-    expect(todayRegion()).toHaveTextContent('TODAY — counted sessions');
+    expect(within(card).getAllByText('—')).toHaveLength(1);
   });
 
-  it('shows dashes and why the streak could not load, with a retry that brings it', async () => {
-    getStreak.mockRejectedValueOnce({ response: { status: 500, data: { message: 'Streak offline' } } });
-    const user = userEvent.setup();
+  it('shows a dash in the header when the streak could not load', async () => {
+    getStreak.mockRejectedValue({ response: { status: 500, data: { message: 'Streak offline' } } });
     renderPage();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent("Today's progress could not load. Streak offline");
-    expect(within(header()).getAllByText('—')).toHaveLength(2);
-    await user.click(screen.getByRole('button', { name: 'Try again' }));
-
-    expect(await within(header()).findByText('001D')).toBeInTheDocument();
-    expect(todayRegion()).toHaveTextContent('Daily mission done');
+    await waitFor(() => expect(getStreak).toHaveBeenCalled());
+    expect(within(await screen.findByRole('region', { name: 'Profile header' })).getAllByText('—')).toHaveLength(1);
     expect(screen.queryByText('Streak offline', { exact: false })).not.toBeInTheDocument();
   });
 
@@ -314,12 +312,12 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     getActivity.mockResolvedValue({
       stats: { wpm: 66.3, accuracy: 96.3 },
       timezone: 'Asia/Ho_Chi_Minh',
-      sessions: [{ date: '2026-03-11', sessions: 2, missionCompleted: true }],
+      sessions: [{ date: '2026-03-11', sessions: 2, tasksTotal: 1, tasksDone: 1 }],
     });
     renderPage();
 
     await within(await screen.findByRole('region', { name: 'Profile header' })).findByText('96%');
-    expect(screen.getByRole('img', { name: 'Counted sessions in 2026: 2 on 1 day, daily mission done on 1 day' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Counted sessions in 2026: 2 on 1 day, 1 daily task done' })).toBeInTheDocument();
     hoverDay('2026-03-11');
     expect(screen.getByRole('tooltip')).toHaveTextContent('Today · Wed, 11 Mar 2026');
     expect(screen.getByRole('tooltip')).toHaveTextContent('2 counted sessions');

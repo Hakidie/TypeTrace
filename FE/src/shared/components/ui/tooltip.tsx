@@ -9,13 +9,14 @@ const TooltipTrigger = TooltipPrimitive.Trigger;
 const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
+>(({ className, sideOffset = 6, ...props }, ref) => (
   <TooltipPrimitive.Portal>
     <TooltipPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 overflow-hidden border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
+        // The look of the heatmap tooltip and the dropdown menus: see-through page background with blur, panel border.
+        'z-50 border border-border bg-background/75 px-2.5 py-1.5 text-sm whitespace-nowrap text-popover-foreground shadow-md backdrop-blur-xs animate-in fade-in-0',
         className
       )}
       {...props}

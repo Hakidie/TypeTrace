@@ -117,74 +117,54 @@ describe('ActivityHeatmap', () => {
     });
   });
 
-  describe('daily mission mark (SCRUM-31)', () => {
-    it('marks the days whose mission was done, and no other day', () => {
+  describe('daily tasks in the tooltip (SCRUM-112)', () => {
+    it('says how many of the daily tasks of a day were done, only on a day that had some, and draws no mark in the cells', () => {
       atEveningOf10March();
       render(
         <ActivityHeatmap
           label="Sessions"
           days={[
-            { date: '2026-03-02', sessions: 1, missionCompleted: true },
+            { date: '2026-03-02', sessions: 1, tasksTotal: 3, tasksDone: 2 },
             { date: '2026-03-03', sessions: 3 },
-            { date: '2026-03-04', sessions: 2, missionCompleted: false },
-            { date: '2026-03-09', sessions: 7, missionCompleted: true },
+            { date: '2026-03-04', sessions: 2, tasksTotal: 0, tasksDone: 0 },
           ]}
+          unit="counted session"
           calendarYear
         />,
       );
 
-      const marked = Array.from(screen.getByRole('img', { name: 'Sessions' }).querySelectorAll('[data-mission]'));
-      expect(marked.map((mark) => mark.parentElement?.getAttribute('data-date'))).toEqual(['2026-03-02', '2026-03-09']);
+      expect(tooltipOver(cell('2026-03-02'))).toHaveTextContent('2 / 3 daily tasks done');
+      expect(tooltipOver(cell('2026-03-03'))).not.toHaveTextContent('daily tasks');
+      expect(tooltipOver(cell('2026-03-04'))).not.toHaveTextContent('daily tasks');
+      expect(document.querySelector('[data-mission]')).not.toBeInTheDocument();
     });
 
-    it('draws the mark in the text color, and in the page color on the darkest step, where the text color would fade', () => {
+    it('does not count the tasks of a day before the start date', () => {
       atEveningOf10March();
-      render(
-        <ActivityHeatmap
-          label="Sessions"
-          days={[
-            { date: '2026-03-02', sessions: 1, missionCompleted: true },
-            { date: '2026-03-03', sessions: 6, missionCompleted: true },
-            { date: '2026-03-09', sessions: 7, missionCompleted: true },
-          ]}
-          calendarYear
-        />,
-      );
+      render(<ActivityHeatmap label="Sessions" days={[{ date: '2026-03-02', sessions: 1, tasksTotal: 3, tasksDone: 3 }]} since="2026-03-05T00:00:00Z" calendarYear />);
 
-      expect(cell('2026-03-02').querySelector('[data-mission]')).toHaveClass('bg-foreground');
-      expect(cell('2026-03-03').querySelector('[data-mission]')).toHaveClass('bg-foreground');
-      expect(cell('2026-03-09')).toHaveClass('bg-primary');
-      expect(cell('2026-03-09').querySelector('[data-mission]')).toHaveClass('bg-background');
-      expect(cell('2026-03-09').querySelector('[data-mission]')).not.toHaveClass('bg-foreground');
-    });
-
-    it('does not mark a day before the start date', () => {
-      atEveningOf10March();
-      render(<ActivityHeatmap label="Sessions" days={[{ date: '2026-03-02', sessions: 1, missionCompleted: true }]} since="2026-03-05T00:00:00Z" calendarYear />);
-
-      expect(cell('2026-03-02').querySelector('[data-mission]')).not.toBeInTheDocument();
       const tooltip = tooltipOver(cell('2026-03-02'));
       expect(tooltip).toHaveTextContent('No sessions');
-      expect(tooltip).not.toHaveTextContent('Mission done');
+      expect(tooltip).not.toHaveTextContent('daily tasks');
     });
   });
 
   describe('tooltip of a learner day (SCRUM-31)', () => {
     const days = [
-      { date: '2026-03-11', sessions: 3, missionCompleted: true },
+      { date: '2026-03-11', sessions: 3, tasksTotal: 2, tasksDone: 1 },
       { date: '2026-03-09', sessions: 1 },
     ];
     const renderLearnerDays = () =>
       render(<ActivityHeatmap label="Sessions" days={days} timeZone="Asia/Ho_Chi_Minh" unit="counted session" calendarYear />);
 
-    it('is one tooltip over the hovered cell: the day in words, the sessions and the mission', () => {
+    it('is one tooltip over the hovered cell: the day in words, the sessions and the daily tasks done', () => {
       atEveningOf10March();
       renderLearnerDays();
 
       const tooltip = tooltipOver(cell('2026-03-11'));
       expect(tooltip).toHaveTextContent('Today · Wed, 11 Mar 2026');
       expect(tooltip).toHaveTextContent('3 counted sessions');
-      expect(tooltip).toHaveTextContent('Mission done');
+      expect(tooltip).toHaveTextContent('1 / 2 daily tasks done');
       expect(tooltip).toHaveClass('pointer-events-none');
       expect(tooltip.parentElement).toBe(document.body);
 
@@ -192,7 +172,7 @@ describe('ActivityHeatmap', () => {
       expect(screen.getAllByRole('tooltip')).toHaveLength(1);
       expect(screen.getByRole('tooltip')).toHaveTextContent('Mon, 9 Mar 2026');
       expect(screen.getByRole('tooltip')).toHaveTextContent('1 counted session');
-      expect(screen.getByRole('tooltip')).not.toHaveTextContent('Mission done');
+      expect(screen.getByRole('tooltip')).not.toHaveTextContent('daily tasks');
       expect(screen.getByRole('tooltip')).not.toHaveTextContent('Today');
     });
 
@@ -218,7 +198,7 @@ describe('ActivityHeatmap', () => {
     });
   });
 
-  it('draws the legend when asked: the five steps with the colors of the cells, and the mission mark', () => {
+  it('draws the legend when asked: the five steps with the colors of the cells', () => {
     atEveningOf10March();
     const steps = [0, 1, 2, 4, 7];
     const days = steps.map((sessions, index) => ({ date: `2026-03-0${index + 1}`, sessions }));
@@ -226,7 +206,7 @@ describe('ActivityHeatmap', () => {
 
     expect(screen.getByText('Less')).toBeInTheDocument();
     expect(screen.getByText('More')).toBeInTheDocument();
-    expect(screen.getByText('Mission done').querySelector('[class*="bg-foreground"]')).toBeInTheDocument();
+    expect(screen.queryByText('Mission done')).not.toBeInTheDocument();
     const swatches = Array.from(document.querySelectorAll('[data-swatch]'));
     expect(swatches).toHaveLength(5);
     swatches.forEach((swatch, level) => {
@@ -235,12 +215,12 @@ describe('ActivityHeatmap', () => {
     });
   });
 
-  it('without the learner options, as in the admin user list: sessions in the tooltip, no legend, no mark', () => {
+  it('without the learner options, as in the admin user list: sessions in the tooltip, no legend, no tasks', () => {
     render(<ActivityHeatmap label="Sessions" days={[{ date: today(), sessions: 2 }]} since="2020-01-01T00:00:00.000Z" />);
 
     expect(cellsOf()).toHaveLength(HEATMAP_DAYS);
     expect(tooltipOver(cellsOf()[HEATMAP_DAYS - 1])).toHaveTextContent('2 sessions');
     expect(screen.queryByText('Less')).not.toBeInTheDocument();
-    expect(document.querySelector('[data-mission]')).not.toBeInTheDocument();
+    expect(screen.queryByText(/daily tasks/)).not.toBeInTheDocument();
   });
 });

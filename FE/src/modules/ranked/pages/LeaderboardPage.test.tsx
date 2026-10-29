@@ -48,7 +48,7 @@ describe('LeaderboardPage (ranked duel, phase 5)', () => {
     expect(within(rows[0]).getByText('1420')).toBeInTheDocument();
     expect(within(rows[0]).getByText('75%')).toBeInTheDocument();
     expect(within(rows[1]).getByText('(you)')).toBeInTheDocument();
-    expect(screen.getByText(/Season 3/)).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Rank S3' })).toBeInTheDocument();
     expect(leaderboard).toHaveBeenCalledWith({ page: 1, limit: 20 });
   });
 
@@ -74,5 +74,19 @@ describe('LeaderboardPage (ranked duel, phase 5)', () => {
     renderPage();
 
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+
+  it('switches between the Rank and Placement tabs', async () => {
+    leaderboard.mockResolvedValue(board([row(1, 'u1', 'Minh', 1420, 'Platinum', 0.75)]));
+    renderPage();
+    await screen.findByText('Minh');
+    expect(screen.getByRole('radio', { name: /^Rank/ })).toBeChecked();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Placement' }));
+    expect(screen.getByRole('radio', { name: 'Placement' })).toBeChecked();
+    expect(screen.queryByText('Minh')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: /^Rank/ }));
+    expect(await screen.findByText('Minh')).toBeInTheDocument();
   });
 });

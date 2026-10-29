@@ -35,6 +35,9 @@ export const profileApi = {
     http.patch<CurrentUser>('/profile/security', data).then((r) => r.data),
   updateSettings: (data: UpdateSettingsInput) =>
     http.patch<CurrentUser>('/profile/settings', data).then((r) => r.data),
+  /** Shows the uploaded picture or the pixel avatar; the picture is kept. Answers the user. */
+  updateAvatarSource: (avatarSource: 'picture' | 'pixel') =>
+    http.patch<CurrentUser>('/profile/avatar-source', { avatarSource }).then((r) => r.data),
   uploadAvatar: (file: File) => {
     const formData = new FormData();
     formData.append('avatar', file);

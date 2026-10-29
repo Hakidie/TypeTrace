@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+import { CircleCheck } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { addDays, dateKeyIn, dayInWords, MONTHS } from '@/shared/lib/local-date';
 import { cn } from '@/shared/lib/utils';
@@ -7,8 +8,9 @@ export interface ActivityDay {
   /** `YYYY-MM-DD`: a UTC day, or a day in the heatmap's `timeZone` when it has one. */
   date: string;
   sessions: number;
-  /** The daily mission was done that day: the cell gets a mark. */
-  missionCompleted?: boolean;
+  /** How many daily tasks the day had, and how many were completed: the tooltip says "2 / 3 daily tasks done". Left out without tasks. */
+  tasksTotal?: number;
+  tasksDone?: number;
 }
 
 // 53 weeks, so a whole year (365 or 366 days) fits, in 4 blocks of about a quarter: the last one has the extra week.
@@ -18,12 +20,6 @@ export const HEATMAP_DAYS = BLOCK_WEEKS.reduce((total, weeks) => total + weeks, 
 
 // Cells, from no activity to the most: the red of the Passages card in five steps.
 const HEAT_CLASSES = ['bg-primary/10', 'bg-primary/30', 'bg-primary/50', 'bg-primary/75', 'bg-primary'];
-// The mark of a day whose mission was done: a square small enough to leave the steps readable (4px, and 2px on phones,
-// where a cell is about 4px wide), in the text color, and in the page color on the darkest step, where the text color of
-// a light theme fades into the red: at least 3:1 on every step of Blood red, Sand and the starter themes.
-const missionMarkClass = (level: number) =>
-  cn('size-0.5 max-w-full sm:size-1', level === HEAT_CLASSES.length - 1 ? 'bg-background' : 'bg-foreground');
-
 const heatLevel = (sessions: number) => {
   if (sessions <= 0) return 0;
   if (sessions === 1) return 1;
@@ -52,8 +48,8 @@ interface Cell {
   level: number;
   /** The line of the tooltip under the date, e.g. "2 sessions", "2 counted sessions", "Upcoming". */
   text: string;
-  /** The daily mission was done that day. */
-  mission: boolean;
+  /** The daily tasks of the day, when it had some. */
+  tasks?: { done: number; total: number };
 }
 
 interface Block {
@@ -64,15 +60,8 @@ interface Block {
   label: string;
 }
 
-/** A cell of the middle step with the mission mark, for the legend and the tooltip. */
-const MissionSwatch = () => (
-  <span className={cn('flex size-2.5 shrink-0 items-center justify-center', HEAT_CLASSES[2])}>
-    <span className={missionMarkClass(2)} />
-  </span>
-);
-
-/** Under the grid: the five steps from less to more, then the mission mark. A picture only: screen readers get the `label`. */
-const Legend = () => (
+/** The five steps from less to more: under the grid (`legend`) or wherever a page puts it. A picture only: screen readers get the `label`. */
+export const ActivityHeatmapLegend = () => (
   <div aria-hidden className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm leading-none text-muted-foreground">
     <span className="flex items-center gap-1">
       <span>Less</span>
@@ -80,10 +69,6 @@ const Legend = () => (
         <span key={heat} data-swatch className={cn('size-2.5', heat)} />
       ))}
       <span>More</span>
-    </span>
-    <span className="flex items-center gap-1">
-      <MissionSwatch />
-      Mission done
     </span>
   </div>
 );
@@ -125,10 +110,10 @@ const HeatmapTooltip = ({ cell, rect, isToday }: HeatmapTooltipProps) => {
     >
       <p className="font-medium text-foreground">{isToday ? `Today · ${dayInWords(cell.key)}` : dayInWords(cell.key)}</p>
       <p className="text-muted-foreground">{cell.text}</p>
-      {cell.mission && (
+      {cell.tasks && (
         <p className="flex items-center gap-1.5 text-primary">
-          <MissionSwatch />
-          Mission done
+          <CircleCheck className="size-3" aria-hidden />
+          {cell.tasks.done} / {cell.tasks.total} daily tasks done
         </p>
       )}
     </div>,
@@ -157,7 +142,7 @@ interface ActivityHeatmapProps {
   timeZone?: string;
   /** What a session is called in the tooltip: "counted session" gives "2 counted sessions". Default "session". */
   unit?: string;
-  /** Under the grid: "Less", the five steps, "More", and the mission mark with its name. */
+  /** Under the grid: "Less", the five steps and "More". */
   legend?: boolean;
 }
 
@@ -165,7 +150,7 @@ interface ActivityHeatmapProps {
  * A GitHub-style grid in 4 blocks (about a quarter each), oldest on the left. By default 53 weeks of 7 days in blocks of
  * 13, 13, 13 and 14 weeks, today at the bottom right; with `calendarYear` the quarters of this year. Cells and gaps make it 61px high.
  * One tooltip follows the cell the pointer is over (one for the whole grid, not one per cell): the day in words, its
- * sessions and, on a day with `missionCompleted` (which also gets a small mark in its cell), "Mission done".
+ * sessions and, on a day with `tasksTotal`, how many of its daily tasks were done ("2 / 3 daily tasks done").
  */
 export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear, timeZone, unit = 'session', legend }: ActivityHeatmapProps) => {
   const [hovered, setHovered] = useState<{ key: string; rect: DOMRect } | null>(null);
@@ -180,7 +165,7 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
   }, [open]);
 
   const sessionsByDay = new Map((days ?? []).map((day) => [day.date, day.sessions]));
-  const missionDays = new Set((days ?? []).filter((day) => day.missionCompleted).map((day) => day.date));
+  const tasksByDay = new Map((days ?? []).filter((day) => day.tasksTotal).map((day) => [day.date, { done: day.tasksDone ?? 0, total: day.tasksTotal as number }]));
   const first = since ? dateKeyIn(new Date(since), timeZone) : '';
   const todayKey = dateKeyIn(new Date(), timeZone);
 
@@ -194,7 +179,7 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
 
   const cellOf = (key: string): Cell => {
     const sessions = key < first ? 0 : (sessionsByDay.get(key) ?? 0);
-    return { key, level: heatLevel(sessions), text: describe(key, sessions), mission: key >= first && key <= todayKey && missionDays.has(key) };
+    return { key, level: heatLevel(sessions), text: describe(key, sessions), tasks: key >= first && key <= todayKey ? tasksByDay.get(key) : undefined };
   };
 
   const blocks: Block[] = [];
@@ -253,10 +238,8 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
                 <span
                   key={cell.key}
                   data-date={cell.key}
-                  className={cn(!fill && 'h-[7px]', HEAT_CLASSES[cell.level], cell.mission && 'flex items-center justify-center')}
-                >
-                  {cell.mission && <span data-mission className={missionMarkClass(cell.level)} />}
-                </span>
+                  className={cn(!fill && 'h-[7px]', HEAT_CLASSES[cell.level])}
+                />
               ) : (
                 <span key={`blank-${cellIndex}`} aria-hidden className={cn(!fill && 'h-[7px]', HEAT_CLASSES[0])} />
               ),
@@ -273,7 +256,7 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
       {legend ? (
         <div className={cn('flex flex-col gap-2', fill && 'h-full')}>
           {grid}
-          <Legend />
+          <ActivityHeatmapLegend />
         </div>
       ) : (
         grid

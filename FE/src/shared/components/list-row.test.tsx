@@ -5,6 +5,14 @@ import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
 import { ListRow, ListRowMenu } from './list-row';
 
 describe('ListRow', () => {
+  it('leaves a gap between extra and action only when there is an action', () => {
+    const { rerender } = render(<ListRow identity="Lan" extra={<p>Stats</p>} />);
+    expect(screen.getByText('Stats').parentElement).not.toHaveClass('xl:mr-4');
+
+    rerender(<ListRow identity="Lan" extra={<p>Stats</p>} action={<button type="button">Menu</button>} />);
+    expect(screen.getByText('Stats').parentElement).toHaveClass('xl:mr-4');
+  });
+
   it('shows every slot', () => {
     render(<ListRow identity="Lan" center="64 WPM" extra={<span>heatmap</span>} action="menu" tags={<span>Admin</span>} meta="15 Jan 2026" />);
 

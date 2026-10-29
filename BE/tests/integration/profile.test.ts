@@ -145,6 +145,56 @@ describe('PATCH /api/profile/settings (SCRUM-31)', () => {
   });
 });
 
+describe('PATCH /api/profile/avatar-source', () => {
+  const PICTURE = 'https://res.cloudinary.com/test-cloud/image/upload/v1700000000/avatars/me.png';
+  const choose = (user: { _id: unknown; email: string }, body: unknown) =>
+    api().patch('/api/profile/avatar-source').set('Authorization', bearerFor(user)).send(body as object);
+
+  it('starts on the picture, switches to the pixel avatar and back, and keeps the picture meanwhile', async () => {
+    const user = await createUser({ avatarUrl: PICTURE });
+    expect((await UserModel.findById(user._id))?.avatarSource).toBe('picture');
+
+    const pixel = await choose(user, { avatarSource: 'pixel' });
+    expect(pixel.status).toBe(200);
+    expect(pixel.body).toMatchObject({ avatarSource: 'pixel', avatarUrl: PICTURE });
+    for (const field of SECRET_FIELDS) expect(pixel.body).not.toHaveProperty(field);
+    expect(cloudinaryRecorder.destroyed).toEqual([]);
+
+    const picture = await choose(user, { avatarSource: 'picture' });
+    expect(picture.body).toMatchObject({ avatarSource: 'picture', avatarUrl: PICTURE });
+  });
+
+  it('refuses the picture when none was uploaded, but accepts the pixel avatar', async () => {
+    const user = await createUser({});
+
+    const picture = await choose(user, { avatarSource: 'picture' });
+    expect(picture.status).toBe(400);
+    expect(picture.body).toEqual({ message: 'Upload a picture first' });
+
+    expect((await choose(user, { avatarSource: 'pixel' })).status).toBe(200);
+  });
+
+  it('rejects another value, and needs a token', async () => {
+    const user = await createUser({ avatarUrl: PICTURE });
+
+    expect((await choose(user, { avatarSource: 'robot' })).status).toBe(400);
+    expect((await choose(user, {})).status).toBe(400);
+    expect((await api().patch('/api/profile/avatar-source').send({ avatarSource: 'pixel' })).status).toBe(401);
+  });
+
+  it('shows a new upload at once, also when the pixel avatar was chosen', async () => {
+    const user = await createUser({ avatarUrl: PICTURE });
+    await choose(user, { avatarSource: 'pixel' });
+
+    await api()
+      .post('/api/profile/avatar')
+      .set('Authorization', bearerFor(user))
+      .attach('avatar', pngBuffer(), { filename: 'avatar.png', contentType: 'image/png' });
+
+    expect((await UserModel.findById(user._id))?.avatarSource).toBe('picture');
+  });
+});
+
 describe('POST /api/profile/avatar', () => {
   it('uploads the image and persists the returned URL', async () => {
     const user = await createUser({});

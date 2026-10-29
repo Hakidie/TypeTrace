@@ -26,15 +26,15 @@ afterEach(() => {
 describe('ProfileHeatmap (SCRUM-157, SCRUM-31)', () => {
   it('shows the counted sessions of each day of this year in one tooltip, with the day in words', () => {
     renderWithProviders(
-      <ProfileHeatmap activity={activity({ timezone: 'UTC', sessions: [{ date: today, sessions: 2, missionCompleted: true }] })} since="2026-01-15T12:00:00.000Z" />,
+      <ProfileHeatmap activity={activity({ timezone: 'UTC', sessions: [{ date: today, sessions: 2, tasksTotal: 3, tasksDone: 2 }] })} since="2026-01-15T12:00:00.000Z" />,
     );
 
-    const heatmap = screen.getByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, daily mission done on 1 day` });
+    const heatmap = screen.getByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 2 daily tasks done` });
     expect(heatmap.querySelectorAll('[title]')).toHaveLength(0);
     const tooltip = tooltipOf(today);
     expect(tooltip).toHaveTextContent(`Today · ${dayInWords(today)}`);
     expect(tooltip).toHaveTextContent('2 counted sessions');
-    expect(tooltip).toHaveTextContent('Mission done');
+    expect(tooltip).toHaveTextContent('2 / 3 daily tasks done');
   });
 
   it('is the quarters of this year, with the months under each and the days to come as upcoming', () => {
@@ -56,26 +56,25 @@ describe('ProfileHeatmap (SCRUM-157, SCRUM-31)', () => {
     expect(blanks[0] + blanks[3]).toBeLessThanOrEqual(12);
   });
 
-  it('marks the days the daily mission was done, and explains the mark in the legend under the heatmap', () => {
+  it('draws no mark in the cells, and the tooltip of a day without tasks says nothing about them', () => {
     renderWithProviders(
       <ProfileHeatmap
         activity={activity({
           timezone: 'UTC',
           sessions: [
-            { date: `${year}-01-01`, sessions: 1, missionCompleted: false },
-            { date: today, sessions: 2, missionCompleted: true },
+            { date: `${year}-01-01`, sessions: 1 },
+            { date: today, sessions: 2, tasksTotal: 3, tasksDone: 1 },
           ],
         })}
         since="2020-01-01T00:00:00.000Z"
       />,
     );
 
-    expect(cell(today).querySelector('[data-mission]')).toBeInTheDocument();
-    if (today !== `${year}-01-01`) expect(cell(`${year}-01-01`).querySelector('[data-mission]')).not.toBeInTheDocument();
-    expect(document.querySelectorAll('[data-mission]')).toHaveLength(1);
-    expect(screen.getByText('Less')).toBeInTheDocument();
-    expect(screen.getByText('More')).toBeInTheDocument();
-    expect(screen.getByText('Mission done')).toBeInTheDocument();
+    expect(document.querySelectorAll('[data-mission]')).toHaveLength(0);
+    if (today !== `${year}-01-01`) expect(tooltipOf(`${year}-01-01`)).not.toHaveTextContent('daily tasks');
+    expect(tooltipOf(today)).toHaveTextContent('1 / 3 daily tasks done');
+    // The legend is in the title row of the page, not under the grid.
+    expect(screen.queryByText('Less')).not.toBeInTheDocument();
   });
 
   it("counts the days in the learner's time zone", () => {
@@ -84,12 +83,12 @@ describe('ProfileHeatmap (SCRUM-157, SCRUM-31)', () => {
     vi.setSystemTime(new Date('2026-12-31T18:00:00Z'));
     renderWithProviders(
       <ProfileHeatmap
-        activity={activity({ timezone: 'Asia/Ho_Chi_Minh', sessions: [{ date: '2027-01-01', sessions: 1, missionCompleted: true }] })}
+        activity={activity({ timezone: 'Asia/Ho_Chi_Minh', sessions: [{ date: '2027-01-01', sessions: 1, tasksTotal: 1, tasksDone: 1 }] })}
         since="2026-01-15T12:00:00.000Z"
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Counted sessions in 2027: 1 on 1 day, daily mission done on 1 day' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Counted sessions in 2027: 1 on 1 day, 1 daily task done' })).toBeInTheDocument();
     expect(tooltipOf('2027-01-01')).toHaveTextContent('Today · Fri, 1 Jan 2027');
     expect(screen.getByRole('tooltip')).toHaveTextContent('1 counted session');
     expect(tooltipOf('2027-01-02')).toHaveTextContent('Upcoming');
@@ -103,18 +102,18 @@ describe('ProfileHeatmap (SCRUM-157, SCRUM-31)', () => {
     expect(screen.queryByText(/No counted sessions this year/)).not.toBeInTheDocument();
   });
 
-  it('tells screen readers the year in words: sessions, days and mission days, whatever the goal', () => {
+  it('tells screen readers the year in words: sessions, days and daily tasks done', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-28T08:00:00Z'));
     const sessions = [
-      { date: '2025-12-30', sessions: 9, missionCompleted: true }, // last year: in the 371 days, not in the heatmap
-      { date: '2026-03-02', sessions: 1, missionCompleted: false },
-      { date: '2026-03-03', sessions: 4, missionCompleted: true },
-      { date: '2026-10-27', sessions: 2, missionCompleted: true },
+      { date: '2025-12-30', sessions: 9, tasksTotal: 3, tasksDone: 3 }, // last year: in the 371 days, not in the heatmap
+      { date: '2026-03-02', sessions: 1, tasksTotal: 3, tasksDone: 0 },
+      { date: '2026-03-03', sessions: 4, tasksTotal: 3, tasksDone: 2 },
+      { date: '2026-10-27', sessions: 2 },
     ];
     renderWithProviders(<ProfileHeatmap activity={activity({ timezone: 'UTC', sessions })} since="2025-01-15T12:00:00.000Z" />);
 
-    expect(screen.getByRole('img', { name: 'Counted sessions in 2026: 7 on 3 days, daily mission done on 2 days' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Counted sessions in 2026: 7 on 3 days, 2 daily tasks done' })).toBeInTheDocument();
   });
 
   it('shows the error with a retry when the activity could not load', async () => {
@@ -127,27 +126,11 @@ describe('ProfileHeatmap (SCRUM-157, SCRUM-31)', () => {
     expect(refetch).toHaveBeenCalledOnce();
   });
 
-  it('says in one muted line, without a second link to practice, that the year has no counted session', () => {
+  it('shows only empty cells for a year without a counted session, with no message', () => {
     renderWithProviders(<ProfileHeatmap activity={activity({ timezone: 'UTC', sessions: [] })} since="2026-01-15T12:00:00.000Z" />);
 
-    expect(screen.getByText('No counted sessions this year: your practice days show here.')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: `Counted sessions in ${year}: 0 on 0 days, daily mission done on 0 days` })).toBeInTheDocument();
+    expect(screen.queryByText(/No counted sessions this year/)).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: `Counted sessions in ${year}: 0 on 0 days, 0 daily tasks done` })).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-  });
-
-  it('says so too for a learner whose sessions were all too short to count, or all last year', () => {
-    // Completed sessions give the averages, but none was counted.
-    const { unmount } = renderWithProviders(
-      <ProfileHeatmap activity={activity({ stats: { wpm: 30, accuracy: 90 }, timezone: 'UTC', sessions: [] })} since="2026-01-15T12:00:00.000Z" />,
-    );
-    expect(screen.getByText(/No counted sessions this year/)).toBeInTheDocument();
-    unmount();
-
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2027-01-05T08:00:00Z'));
-    renderWithProviders(
-      <ProfileHeatmap activity={activity({ timezone: 'UTC', sessions: [{ date: '2026-12-30', sessions: 2, missionCompleted: true }] })} since="2026-01-15T12:00:00.000Z" />,
-    );
-    expect(screen.getByText(/No counted sessions this year/)).toBeInTheDocument();
   });
 });

@@ -31,3 +31,10 @@ export const updateSettingsSchema = z.object({
 });
 
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
+
+/** `{ avatarSource }`: show the uploaded picture or the pixel avatar. */
+export const updateAvatarSourceSchema = z.object({
+  avatarSource: z.enum(['picture', 'pixel'])
+});
+
+export type UpdateAvatarSourceInput = z.infer<typeof updateAvatarSourceSchema>;

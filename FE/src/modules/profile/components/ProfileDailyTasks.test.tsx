@@ -34,31 +34,30 @@ beforeEach(() => {
 });
 
 describe('ProfileDailyTasks (SCRUM-112)', () => {
-  it('shows each task with its goal, a bar and the numbers in the unit of its type', async () => {
+  it('shows each task with its description, a bar and the numbers in the unit of its type', async () => {
     getDailyTasks.mockResolvedValue(
       today(
-        task('t1', 'Warm-up', { progress: 2 }),
+        task('t1', 'Warm-up', { progress: 2, description: 'Finish three sessions.' }),
         task('t2', 'Long practice', { type: 'minutes', target: 15, progress: 12.5, description: 'Take your time.' }),
-        task('t3', 'Speed run', { type: 'wpm', target: 40, progress: 38.5 }),
-        task('t4', 'Clean hands', { type: 'accuracy', target: 90, progress: 85.5 }),
+        task('t3', 'Speed run', { type: 'wpm', target: 40, progress: 38.5, description: 'Go fast once.' }),
+        task('t4', 'Clean hands', { type: 'accuracy', target: 90, progress: 85.5, description: 'Keep it clean.' }),
       ),
     );
     renderWithProviders(<ProfileDailyTasks />);
 
     expect(await screen.findAllByRole('progressbar')).toHaveLength(4);
-    expect(tasksRegion()).toHaveTextContent(/^DAILY TASKS/);
     expect(tasksRegion()).toHaveAttribute('aria-busy', 'false');
 
     const expected = [
-      { title: 'Warm-up', goal: 'Finish 3 counted sessions', numbers: '2 / 3 sessions', now: '2', max: '3', filled: 2 / 3 },
-      { title: 'Long practice', goal: 'Type 15 minutes in all', numbers: '12.5 / 15 min', now: '12.5', max: '15', filled: 12.5 / 15 },
-      { title: 'Speed run', goal: 'Reach 40 WPM in one session', numbers: '38.5 / 40 WPM', now: '38.5', max: '40', filled: 38.5 / 40 },
-      { title: 'Clean hands', goal: 'Reach 90% accuracy in one session', numbers: '85.5% / 90%', now: '85.5', max: '90', filled: 85.5 / 90 },
+      { title: 'Warm-up', description: 'Finish three sessions.', numbers: '2 / 3 sessions', now: '2', max: '3', filled: 2 / 3 },
+      { title: 'Long practice', description: 'Take your time.', numbers: '12.5 / 15 min', now: '12.5', max: '15', filled: 12.5 / 15 },
+      { title: 'Speed run', description: 'Go fast once.', numbers: '38.5 / 40 WPM', now: '38.5', max: '40', filled: 38.5 / 40 },
+      { title: 'Clean hands', description: 'Keep it clean.', numbers: '85.5% / 90%', now: '85.5', max: '90', filled: 85.5 / 90 },
     ];
-    for (const { title, goal, numbers, now, max, filled } of expected) {
+    for (const { title, description, numbers, now, max, filled } of expected) {
       const item = itemOf(title);
       expect(within(item).getByText(title)).toBeInTheDocument();
-      expect(within(item).getByText(goal)).toBeInTheDocument();
+      expect(within(item).getByText(description)).toBeInTheDocument();
       expect(within(item).getByText(numbers)).toBeInTheDocument();
       expect(within(item).queryByText('Done')).not.toBeInTheDocument();
       expect(barOf(title)).toHaveAttribute('aria-valuemin', '0');
@@ -67,7 +66,7 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
       expect(barOf(title)).toHaveAttribute('aria-valuetext', numbers);
       expect(barOf(title).firstElementChild).toHaveStyle({ width: `${filled * 100}%` });
     }
-    // In the order the backend gave them, and the description only where there is one.
+    // From the oldest template to the newest (here already in that order), and the description only where there is one.
     expect(within(tasksRegion()).getAllByRole('listitem').map((item) => within(item).getByRole('progressbar').getAttribute('aria-label'))).toEqual([
       'Warm-up',
       'Long practice',
@@ -105,25 +104,17 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     expect(within(itemOf('One more')).queryByText('Done')).not.toBeInTheDocument();
   });
 
-  it('names the error type a focused accuracy task measures, and the words a session needs when only some words have it', async () => {
+  it('shows the description of a focused accuracy task in place of the goal sentence', async () => {
     getDailyTasks.mockResolvedValue(
-      today(
-        task('t1', 'Phân biệt hỏi/ngã', { type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION', progress: 0 }),
-        task('t2', 'Steady tones', { type: 'accuracy', target: 85, errorType: 'TONE_WRONG', progress: 80 }),
-      ),
+      today(task('t1', 'Phân biệt hỏi/ngã', { type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION', description: 'Practise hỏi and ngã.' })),
     );
     renderWithProviders(<ProfileDailyTasks />);
 
-    expect(await screen.findAllByRole('progressbar')).toHaveLength(2);
-    // Only some words have hỏi or ngã: a session counts with 5 of them, so the goal says so instead of a silent 0%.
-    const hoiNga = itemOf('Phân biệt hỏi/ngã');
-    expect(within(hoiNga).getByText('Reach 90% accuracy on hỏi and ngã in a session with at least 5 words with hỏi or ngã')).toBeInTheDocument();
-    expect(within(hoiNga).getByText('0% / 90%')).toBeInTheDocument();
-    expect(barOf('Phân biệt hỏi/ngã')).toHaveAttribute('aria-valuenow', '0');
-    // Every word has a tone, and a counted session has at least 20 words: any of them will do.
-    const tones = itemOf('Steady tones');
-    expect(within(tones).getByText('Reach 85% accuracy on tone marks in one session')).toBeInTheDocument();
-    expect(within(tones).getByText('80% / 85%')).toBeInTheDocument();
+    expect(await screen.findAllByRole('progressbar')).toHaveLength(1);
+    const item = itemOf('Phân biệt hỏi/ngã');
+    expect(within(item).getByText('Practise hỏi and ngã.')).toBeInTheDocument();
+    expect(within(item).queryByText(/Reach 90% accuracy/)).not.toBeInTheDocument();
+    expect(within(item).getByText('0% / 90%')).toBeInTheDocument();
   });
 
   it('cuts a long title on its line, keeps it whole in its tooltip, and keeps the one column of phones on the screen', async () => {
@@ -143,7 +134,6 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     renderWithProviders(<ProfileDailyTasks />);
 
     expect(tasksRegion()).toHaveAttribute('aria-busy', 'true');
-    expect(tasksRegion()).toHaveTextContent('DAILY TASKS');
     // Three blank tasks (skeletons) where the tasks will be.
     expect(tasksRegion().querySelectorAll('.animate-pulse')).toHaveLength(3);
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
@@ -171,5 +161,59 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     expect(await screen.findByRole('progressbar', { name: 'Warm-up' })).toHaveAttribute('aria-valuenow', '1');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(getDailyTasks).toHaveBeenCalledTimes(2);
+  });
+
+  it('lists the tasks from the oldest template to the newest, whatever order the backend picked them in', async () => {
+    getDailyTasks.mockResolvedValue(
+      today(
+        task('65f000000000000000000003', 'Newest', { progress: 1 }),
+        task('65f000000000000000000001', 'Oldest', { progress: 1 }),
+        task('65f000000000000000000002', 'Middle', { progress: 1 }),
+      ),
+    );
+    renderWithProviders(<ProfileDailyTasks />);
+
+    expect(await screen.findAllByRole('progressbar')).toHaveLength(3);
+    expect(within(tasksRegion()).getAllByRole('listitem').map((item) => within(item).getByRole('progressbar').getAttribute('aria-label'))).toEqual([
+      'Oldest',
+      'Middle',
+      'Newest',
+    ]);
+  });
+
+  it('shows how many tasks are done on the right of the title', async () => {
+    getDailyTasks.mockResolvedValue(
+      today(
+        task('t1', 'One', { progress: 3, completed: true }),
+        task('t2', 'Two', { progress: 1 }),
+        task('t3', 'Three', { progress: 3, completed: true }),
+      ),
+    );
+    renderWithProviders(<ProfileDailyTasks />);
+
+    expect(await screen.findAllByRole('progressbar')).toHaveLength(3);
+    expect(screen.getByRole('heading', { name: 'Daily tasks' })).toBeInTheDocument();
+    expect(tasksRegion()).toHaveTextContent('2 / 3 done');
+  });
+
+  it('shows no count without tasks', async () => {
+    getDailyTasks.mockResolvedValue(today());
+    renderWithProviders(<ProfileDailyTasks />);
+
+    expect(await screen.findByText('No daily tasks today.')).toBeInTheDocument();
+    expect(tasksRegion()).not.toHaveTextContent('/');
+  });
+
+  it('shows "Daily mission done" under the tasks only when all of them are done', async () => {
+    getDailyTasks.mockResolvedValue(today(task('t1', 'One', { progress: 3, completed: true }), task('t2', 'Two', { progress: 1 })));
+    const { unmount } = renderWithProviders(<ProfileDailyTasks />);
+    expect(await screen.findAllByRole('progressbar')).toHaveLength(2);
+    expect(screen.queryByText('Daily mission done')).not.toBeInTheDocument();
+    unmount();
+
+    getDailyTasks.mockResolvedValue(today(task('t1', 'One', { progress: 3, completed: true }), task('t2', 'Two', { progress: 3, completed: true })));
+    renderWithProviders(<ProfileDailyTasks />);
+    expect(await screen.findByText('Daily mission done')).toBeInTheDocument();
+    expect(tasksRegion()).toHaveTextContent('2 / 2 done');
   });
 });

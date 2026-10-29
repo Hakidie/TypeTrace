@@ -34,4 +34,23 @@ describe('Pagination', () => {
     expect(screen.getByText('Page 2 of 3')).toHaveClass('text-primary');
     expect(screen.getByRole('button', { name: 'Next' })).toHaveClass('text-primary', 'bg-transparent');
   });
+
+  it('takes the right padding of the Next button away with flushRight', () => {
+    render(<Pagination page={1} totalPages={3} onPageChange={vi.fn()} variant="toolbar" flushRight />);
+    expect(screen.getByRole('button', { name: /Next/ })).toHaveClass('pr-0');
+    expect(screen.getByRole('button', { name: /Previous/ })).not.toHaveClass('pr-0');
+  });
+
+  it('plain: shows "2 of 3" without the word Page and keeps the buttons without a hover background', () => {
+    render(<Pagination page={2} totalPages={3} onPageChange={vi.fn()} variant="toolbar" accent plain />);
+    expect(screen.getByText('2 of 3')).toBeInTheDocument();
+    expect(screen.queryByText(/Page/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Next/ })).toHaveClass('hover:bg-transparent');
+    // Close together: small padding around the arrows and the page.
+    expect(screen.getByText('2 of 3')).toHaveClass('px-1');
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveClass('px-2');
+    // Only the arrows: the buttons keep their names for screen readers.
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveTextContent('');
+    expect(screen.getByRole('button', { name: 'Previous' })).toHaveTextContent('');
+  });
 });

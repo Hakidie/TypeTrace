@@ -96,20 +96,20 @@ export const getStreak = async (userId: string) => {
 };
 
 /**
- * The learner's days of the last `days` days in their zone, today included, oldest first: counted sessions and whether
- * the daily mission was done, with the zone the dates are in. `days` is `HEATMAP_DAYS`, passed in by
- * typing-session.service.ts (importing it here would make the two services import each other).
+ * The learner's days of the last `days` days in their zone, today included, oldest first: counted sessions, with the zone
+ * the dates are in. `days` is `HEATMAP_DAYS`, passed in by typing-session.service.ts (importing it here would make the
+ * two services import each other).
  */
 export const recentProgressOf = async (owner: OwnerId, days: number) => {
   const timezone = await learnerTimeZone(owner);
   const today = localDateKey(new Date(), timezone);
   const rows = await DailyProgressModel.find({ owner, date: { $gte: addDays(today, 1 - days), $lte: today } })
     .sort({ date: 1 })
-    .select('date sessions missionCompletedAt')
+    .select('date sessions')
     .lean();
   return {
     timezone,
-    sessions: rows.map((row) => ({ date: row.date, sessions: row.sessions, missionCompleted: Boolean(row.missionCompletedAt) }))
+    sessions: rows.map((row) => ({ date: row.date, sessions: row.sessions }))
   };
 };
 

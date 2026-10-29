@@ -1,16 +1,16 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Pencil, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { Input } from '@/shared/components/ui/input';
 import { cn } from '@/shared/lib/utils';
 import { profileApi } from '../api/profile.api';
@@ -170,11 +170,23 @@ const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { 
 /** A number of days the way the header writes it, `005D`; a dash while it loads or when it could not load. */
 const daysValue = (days?: number) => (days === undefined ? '—' : `${String(days).padStart(3, '0')}D`);
 
+/** Shows `tip` in the project's tooltip while its text is hovered or focused. */
+const HoverTip = ({ tip, children }: { tip: string; children: ReactNode }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <span tabIndex={0} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {children}
+      </span>
+    </TooltipTrigger>
+    <TooltipContent>{tip}</TooltipContent>
+  </Tooltip>
+);
+
 interface ProfileHeaderProps {
   user: CurrentUser;
   /** The learner's typing activity (`useTypingActivity`): only the speed and accuracy are used here. */
   activity: UseQueryResult<TypingActivity>;
-  /** The learner's streak (`useStreak`): the current one, and the longest under it. */
+  /** The learner's streak (`useStreak`): the current one, and the longest in a tooltip on it. */
   streak: UseQueryResult<Streak>;
   /** Called with the new image once the avatar is uploaded. */
   onAvatarChange: (avatarUrl: string) => void;
@@ -182,7 +194,7 @@ interface ProfileHeaderProps {
 
 /**
  * The top of the profile page, without a frame: the avatar, the name (changed in place), the email, the bio (also changed
- * in place), the speed, the accuracy, the current streak with the longest one under it ("BEST") and the day the account
+ * in place), the speed, the accuracy, the current streak (the longest one in a tooltip) and the day the account
  * was made. Sits on the page, without background, padding or border.
  */
 export const ProfileHeader = ({ user, activity, streak, onAvatarChange }: ProfileHeaderProps) => {
@@ -192,58 +204,54 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange }: Profil
   const statList = [
     { label: 'WPM', value: stats ? String(Math.round(stats.wpm)) : '0000' },
     { label: 'ACC', value: stats ? `${Math.round(stats.accuracy)}%` : '000%' },
-    { label: 'STREAK', value: daysValue(streak.data?.current), best: daysValue(streak.data?.longest) },
+    { label: 'STREAK', value: daysValue(streak.data?.current), tip: `Longest streak: ${daysValue(streak.data?.longest)}` },
   ];
 
   // A grid so that the labels sit on the baseline of the name and the values at the bottom, whatever the sizes are.
   return (
+    <TooltipProvider delayDuration={200}>
     <section
       aria-label="Profile header"
       className="grid grid-cols-3 gap-y-3 text-primary sm:grid-cols-[auto_repeat(3,minmax(0,1fr))] lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_1fr] lg:gap-y-0"
     >
       <div className="col-span-3 flex flex-col items-start gap-2 sm:col-span-1 sm:row-span-4 sm:mr-3 lg:row-span-2">
-        {/* Without an uploaded picture the pixel avatar shows (152px = the 76px frame at 2x, inside the 192px tile). */}
-        <AvatarUpload currentAvatarUrl={user.avatarUrl} userInitials={name.slice(0, 2).toUpperCase()} onUploadSuccess={onAvatarChange}
-          className="size-48"
+        {/* Without an uploaded picture, or when the account chose its pixel avatar, the pixel avatar shows (228px = the 76px frame at 3x, filling the 228px tile, about as high as the header). */}
+        <AvatarUpload avatarUrl={user.avatarUrl} avatarSource={user.avatarSource} userInitials={name.slice(0, 2).toUpperCase()} onUploadSuccess={onAvatarChange}
+          onSourceChange={() => onAvatarChange(user.avatarUrl ?? '')}
+          outfitTo="/wardrobe"
+          className="size-[228px]"
           initialsClassName="text-6xl"
-          fallback={<AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} scale={2} label="Your avatar" />}
+          fallback={<AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} scale={3} label="Your avatar" />}
         />
-        <Link to="/wardrobe" className="text-sm text-primary underline-offset-4 hover:underline">
-          Change outfit
-        </Link>
       </div>
       {/* `lg:col-span-1` sets `grid-column`, which drops the column start: `lg:col-start-2` gives it back. */}
       <div className="col-span-3 min-w-0 self-baseline sm:col-start-2 sm:row-start-1 lg:col-span-1 lg:col-start-2">
-        {/* 2.25rem: bigger than a panel title (`panelTitleClass`). */}
-        <EditableDisplayName user={user} textClassName="text-[2.25rem] font-extrabold text-primary/80" />
+        {/* A line of the height of the name (2.25rem, bigger than a panel title, `panelTitleClass`): the role of the account, in the
+            look of the labels (WPM, ACC, STREAK), and the hint while there is no display name. The name is the line under it. */}
+        <p className="flex items-baseline gap-x-4 truncate text-[2.25rem] leading-normal">
+          <span className="text-xl font-semibold uppercase tracking-widest text-primary/70 sm:text-2xl">{user.role}</span>
+          {!user.displayName && <span className="truncate text-base text-muted-foreground">No display name yet: hover the name to add one.</span>}
+        </p>
       </div>
       <div className="col-span-3 min-w-0 sm:col-start-2 sm:row-start-2 lg:col-span-1 lg:col-start-2">
-        <p className="truncate text-[1.5rem] text-muted-foreground">{user.displayName ? user.email : 'No display name yet: hover the name to add one.'}</p>
+        <EditableDisplayName user={user} textClassName="text-[1.875rem] font-black text-primary sm:text-[2.25rem]" />
         <EditableBio key={user.bio ?? ''} user={user} />
       </div>
-      {statList.map(({ label }, i) => (
-        <span key={label} className={cn(statLabelClass, statColumn[i])}>{label}</span>
+      {statList.map(({ label, tip }, i) => (
+        <span key={label} className={cn(statLabelClass, statColumn[i])}>
+          {tip ? <HoverTip tip={tip}>{label}</HoverTip> : label}
+        </span>
       ))}
-      {statList.map(({ label, value, best }, i) => (
+      {statList.map(({ label, value, tip }, i) => (
         <div key={label} className={cn(statValueClass, statColumn[i])}>
-          {value}
-          {/* The longest streak, a smaller label and value under the current one: no fourth column to squeeze the name. On
-              phones the label always sits over the value, the dash too: "BEST 012D" does not fit a third of the screen, and
-              a line that only wraps once the streak comes would push the page down. */}
-          {best && (
-            <p
-              title="Longest streak"
-              className="mt-2 flex flex-col items-end text-base font-semibold tracking-widest text-primary/70 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-end sm:gap-x-1.5"
-            >
-              BEST <span className="text-xl font-black tracking-normal text-primary">{best}</span>
-            </p>
-          )}
+          {tip ? <HoverTip tip={tip}>{value}</HoverTip> : value}
         </div>
       ))}
       {/* The bottom right of the header: under the values (from `lg` up in the same cells, the values are at the top). */}
-      <p className="col-span-3 self-end text-right text-sm text-muted-foreground sm:col-start-2 sm:row-start-5 lg:col-start-3 lg:row-start-2">
+      <p className="col-span-3 self-end text-right text-base text-muted-foreground sm:col-start-2 sm:row-start-5 lg:col-start-3 lg:row-start-2">
         Joined {formatDate(user.createdAt)}
       </p>
     </section>
+    </TooltipProvider>
   );
 };
