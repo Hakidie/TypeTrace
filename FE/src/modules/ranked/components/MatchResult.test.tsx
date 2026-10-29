@@ -164,3 +164,26 @@ describe('MatchResult of a rain duel', () => {
     expect(screen.getByText(/the match was interrupted/i)).toBeInTheDocument();
   });
 });
+
+describe('MatchResult K.O. (rain duel)', () => {
+  it('shows K.O. when a rain duel ended on lives', () => {
+    renderResult({
+      ...finished('win', 'loss'),
+      kind: 'rain',
+      players: [player('u1', 'Lan', 'win', { lives: 2, hits: 14, thrown: 12 }), player('u2', 'Minh', 'loss', { lives: 0, hits: 9, thrown: 9 })],
+    });
+
+    expect(screen.getByText('K.O.')).toBeInTheDocument();
+    expect(screen.getByText('You win')).toBeInTheDocument();
+  });
+
+  it('shows no K.O. when the time ran out', () => {
+    renderResult({
+      ...finished('win', 'loss'),
+      kind: 'rain',
+      players: [player('u1', 'Lan', 'win', { lives: 2, hits: 14, thrown: 12 }), player('u2', 'Minh', 'loss', { lives: 1, hits: 9, thrown: 9 })],
+    });
+
+    expect(screen.queryByText('K.O.')).not.toBeInTheDocument();
+  });
+});

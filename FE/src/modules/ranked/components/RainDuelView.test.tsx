@@ -102,3 +102,36 @@ describe('RainDuelView (rain duel)', () => {
     expect(screen.getByRole('region', { name: 'Your field' })).toBeInTheDocument();
   });
 });
+
+describe('RainDuelView moments (rain duel)', () => {
+  it('throws a typed word with a flying copy', () => {
+    const { container } = renderView(
+      duel({
+        sides: { u1: { lives: 3, hits: 1, drops: [{ ...falling('1', 'wind'), state: 'popped' }] }, u2: { lives: 3, hits: 0, drops: [] } },
+        lastHit: { side: 'u1', id: '1', thrownTo: 'u2', at: 5000 },
+      }),
+    );
+
+    expect(container.querySelector('.rain-throw')).toHaveTextContent('wind');
+  });
+
+  it('does not fly a word hit by the other player', () => {
+    const { container } = renderView(duel({ lastHit: { side: 'u2', id: '2', thrownTo: 'u1', at: 5000 } }));
+
+    expect(container.querySelector('.rain-throw')).toBeNull();
+  });
+
+  it('announces a word thrown at me', () => {
+    renderView(duel({ lastThrow: { to: 'u1', text: 'moon', at: 6000 } }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('Minh threw: moon');
+    expect(screen.getByRole('region', { name: 'Your field' }).querySelector('.rain-incoming')).not.toBeNull();
+  });
+
+  it("flashes the other player's field when they lose a life", () => {
+    renderView(duel({ lastLand: { side: 'u2', at: 7000 } }));
+
+    expect(screen.getByRole('region', { name: "Minh's field" }).querySelector('.rain-opponent-hit')).not.toBeNull();
+    expect(screen.getByRole('img', { name: 'Minh: 2 lives left' })).toBeInTheDocument();
+  });
+});

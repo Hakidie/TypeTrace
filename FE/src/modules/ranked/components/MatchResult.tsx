@@ -104,8 +104,12 @@ export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResu
   const won = me?.result === 'win';
   const rated = me?.ratingBefore !== undefined && me.ratingAfter !== undefined;
 
+  // A rain duel that ended on lives (not on the time): K.O. slams in first, then the result.
+  const knockedOut = match.kind === 'rain' && match.players.some((player) => player.lives === 0);
+
   return (
     <div className="mx-auto -mt-16 flex w-full max-w-7xl flex-col items-center gap-8 text-primary">
+      {knockedOut && <p className="duel-slam text-7xl font-black tracking-widest sm:text-8xl">K.O.</p>}
       <div className="relative flex w-full justify-center py-4">
         {won && <Sparks />}
         <h2 className={cn('relative text-5xl font-black uppercase sm:text-6xl', won ? 'duel-slam' : 'duel-rise')}>
