@@ -20,6 +20,7 @@ export const appModules: AppModule[] = [homeModule, notesModule, typingModule, r
 
 export const protectedRoutes = appModules.flatMap((module) => module.routes);
 export const navItems = appModules.flatMap((module) => module.navItems ?? []);
+export const menuItems = appModules.flatMap((module) => module.menuItems ?? []);
 export const adminRoutes = appModules.flatMap((module) => module.adminRoutes ?? []);
 export const adminNavItems = appModules.flatMap((module) => module.adminNavItems ?? []);
 export const appWidgets = appModules.flatMap((module) => module.widgets ?? []);

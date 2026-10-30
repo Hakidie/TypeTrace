@@ -11,18 +11,18 @@ import { useRankedMe } from '../hooks/use-ranked';
 import type { SeasonInfo } from '../types/ranked.types';
 
 // The size of the profile page's section titles (`sectionTitleClass`), in the red of the season above.
-const titleClass = 'text-[1.5rem] text-primary';
+export const titleClass = 'text-[1.5rem] text-primary';
 
 const ROOM_CODE_LENGTH = 6;
 
 // The frame of the other panels (the normal border color, the thin red while hovered) around a bare panel, which has no padding of its own: it is as wide as the season bar above it.
-const hoverFrame = 'flex flex-col border border-border p-3 transition-colors hover:border-destructive/40';
+export const hoverFrame = 'flex flex-col border border-border p-3 transition-colors hover:border-destructive/40';
 
 /**
  * A big icon, in the red of the panel titles, that fills the free space of a lobby panel above its controls. 0.5rem on top:
  * the header of a bare panel keeps 1rem under the title, so the icon has 1.5rem above and below.
  */
-const PanelArt = ({ icon: Icon }: { icon: LucideIcon }) => (
+export const PanelArt = ({ icon: Icon }: { icon: LucideIcon }) => (
   <div className="flex flex-1 items-center justify-center pb-6 pt-2">
     <Icon className="size-24 text-primary" strokeWidth={1.25} aria-hidden="true" />
   </div>

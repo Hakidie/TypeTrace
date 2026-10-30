@@ -23,11 +23,24 @@ export interface NavWidget {
   roles?: UserRole[];
 }
 
+/** An entry in the account menu (the avatar menu in the header): a link (`to`) or an action (`onSelect`). Set `roles` to hide it from other users. */
+export interface MenuItem {
+  label: string;
+  icon: LucideIcon;
+  to?: string;
+  onSelect?: () => void;
+  /** Put the entry after Admin (default: before Admin). */
+  last?: boolean;
+  roles?: UserRole[];
+}
+
 /** What a feature module contributes to the app. Register it in `src/app/modules.ts`. */
 export interface AppModule {
   /** Pages inside the main app layout (top navigation). */
   routes: ModuleRoute[];
   navItems?: (NavItem | NavWidget)[];
+  /** Entries in the account menu: Wardrobe, Mode, these (AI chat), Admin, then the ones with `last` (Settings). */
+  menuItems?: MenuItem[];
   /** Pages inside the admin area (`/admin/...`, sidebar layout). */
   adminRoutes?: ModuleRoute[];
   /** Links in the admin sidebar. */

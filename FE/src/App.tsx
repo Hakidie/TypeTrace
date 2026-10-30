@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { adminNavItems, adminRoutes, appWidgets, navItems, protectedRoutes } from '@/app/modules';
+import { adminNavItems, adminRoutes, appWidgets, menuItems, navItems, protectedRoutes } from '@/app/modules';
 import { AdminLayout } from '@/shared/components/layout/AdminLayout';
 import { AppLayout } from '@/shared/components/layout/AppLayout';
 import { AuthLayout } from '@/modules/auth/components/AuthLayout';
@@ -24,7 +24,7 @@ function App() {
       <Route path="/logout" element={<LogoutPage />} />
 
       {/* Protected routes — registered by feature modules in src/app/modules.ts */}
-      <Route element={<ProtectedRoute><AppLayout navItems={navItems} widgets={appWidgets} /></ProtectedRoute>}>
+      <Route element={<ProtectedRoute><AppLayout navItems={navItems} menuItems={menuItems} widgets={appWidgets} /></ProtectedRoute>}>
         {protectedRoutes.map(({ path, Component, roles }) => (
           <Route
             key={path}

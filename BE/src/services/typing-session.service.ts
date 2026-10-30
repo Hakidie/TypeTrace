@@ -200,31 +200,36 @@ export const TIMELINE_WINDOW_SECONDS = 10;
 export interface TimelinePoint {
   second: number;
   wpm: number;
-  /** Wrong words among the words finished in the window. */
+  /** Wrong words finished since the previous point (this second only), drawn as crosses on the speed line. */
   errors: number;
 }
 
 /**
- * WPM and error rate at every second and at the end of the session, over a sliding window: only the words finished in the
- * last `TIMELINE_WINDOW_SECONDS` count (fewer at the start, where the window is cut at 0). WPM is correct words per minute
- * of the window (`computeWpm`), the number of errors is the wrong words among them. So it shows the
- * pace at that moment, not the average since the start. A time after the end counts as the end.
+ * WPM and errors at every second and at the end of the session. WPM looks at a sliding window: only the words finished in the
+ * last `TIMELINE_WINDOW_SECONDS` count (fewer at the start, where the window is cut at 0), as correct words per minute of the
+ * window (`computeWpm`), so it shows the pace at that moment, not the average since the start. The errors are not windowed:
+ * they are the wrong words finished since the previous point, so each mistake is on one point only. A time after the end counts as the end.
  */
 export const timelineOf = (words: SessionWord[], durationMs: number): TimelinePoint[] => {
   const windowMs = TIMELINE_WINDOW_SECONDS * 1000;
   const marks = [...Array(Math.ceil(durationMs / 1000 / TIMELINE_STEP_SECONDS)).keys()]
     .map((step) => (step + 1) * TIMELINE_STEP_SECONDS * 1000)
     .filter((ms) => ms < durationMs);
-  return [...marks, durationMs].map((ms) => {
+  return [...marks, durationMs].map((ms, index, all) => {
     const finished = words.filter((word) => {
       const time = Math.min(word.typedAtMs ?? 0, durationMs);
       return time <= ms && time > ms - windowMs;
     });
     const wrong = finished.filter((word) => word.errorTypes.length > 0).length;
+    const previousMs = index === 0 ? -1 : all[index - 1];
+    const errors = words.filter((word) => {
+      const time = Math.min(word.typedAtMs ?? 0, durationMs);
+      return word.errorTypes.length > 0 && time <= ms && time > previousMs;
+    }).length;
     return {
       second: round1(ms / 1000),
       wpm: computeWpm(finished.length - wrong, Math.min(ms, windowMs)),
-      errors: wrong
+      errors
     };
   });
 };
