@@ -1,10 +1,8 @@
-import { CalendarDays, CloudRain, RotateCcw, Trophy } from 'lucide-react';
+import { Gamepad2, RotateCcw, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
 import { useStartTutorial } from '@/modules/tutorial/hooks/use-tutorial';
-import { DailyMode } from '@/modules/daily/components/DailyMode';
-import { RainMode } from '@/modules/rain/components/RainMode';
 import { RankMode } from '@/modules/ranked/components/RankMode';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
@@ -14,6 +12,7 @@ import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 import { redGlassTheme } from '@/shared/lib/red-glass-theme';
+import { MinigamesMode, type MinigameId } from '../components/MinigamesMode';
 import { TypingArea, TypingStatus } from '../components/TypingArea';
 import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession } from '../hooks/use-typing';
 import type { SessionMode } from '../types/typing.types';
@@ -22,13 +21,12 @@ import { modeIcons } from '../typing.config';
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
 
-// Rank, Rain and Daily are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=rain` the word rain minigame (`RainMode`), `?mode=daily` the daily challenge (`DailyMode`, which starts its own tries), instead of a passage to practise.
+// Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain, `&game=daily` the daily challenge, which starts its own tries), instead of a passage to practise.
 const modeTabs = [
   { value: 'practice', label: 'Practice', icon: modeIcons.practice },
   { value: 'placement', label: 'Placement', icon: modeIcons.placement },
   { value: 'rank', label: 'Rank', icon: Trophy },
-  { value: 'rain', label: 'Rain', icon: CloudRain },
-  { value: 'daily', label: 'Daily', icon: CalendarDays },
+  { value: 'minigames', label: 'Minigames', icon: Gamepad2 },
 ];
 
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
@@ -70,10 +68,14 @@ export const TypingPage = () => {
   // `/typing?mode=placement` types the placement test passage (Start on the placement intro page opens it).
   const mode: SessionMode = searchParams.get('mode') === 'placement' ? 'placement' : 'practice';
   const ranked = searchParams.get('mode') === 'rank';
-  const rain = searchParams.get('mode') === 'rain';
-  const daily = searchParams.get('mode') === 'daily';
+  // `?mode=rain` and `?mode=daily` are the old links of the two minigames: they open the same game and are rewritten below.
+  const modeParam = searchParams.get('mode');
+  const legacyGame: MinigameId | undefined = modeParam === 'rain' || modeParam === 'daily' ? modeParam : undefined;
+  const minigames = modeParam === 'minigames' || legacyGame !== undefined;
+  const gameParam = searchParams.get('game');
+  const minigame: MinigameId | undefined = legacyGame ?? (minigames && (gameParam === 'rain' || gameParam === 'daily') ? gameParam : undefined);
   /** A tab without a typing session, a passage to choose or a time limit. */
-  const game = ranked || rain || daily;
+  const game = ranked || minigames;
   const pageRef = useRef<HTMLDivElement>(null);
   // Asks before the placement test when the learner picks the Placement tab. Cancel (or closing it) stays in practice.
   const [placementPrompt, setPlacementPrompt] = useState({ open: false });
@@ -109,6 +111,10 @@ export const TypingPage = () => {
   const passageId = chosen?.mode === mode ? chosen.id : undefined;
   const randomPassage = passageId === undefined;
 
+  useEffect(() => {
+    if (legacyGame) setSearchParams({ mode: 'minigames', game: legacyGame }, { replace: true });
+  }, [legacyGame, setSearchParams]);
+
   // `?passage=` is read once, above: take it out of the URL, so a reload after Random or another pick does not go back
   // to it (and a passage deleted since then does not fail again).
   useEffect(() => {
@@ -130,7 +136,7 @@ export const TypingPage = () => {
   // The first one types the passage from the URL, if any; switching the mode starts a random one.
   const openedFor = useRef<SessionMode | null>(null);
   useEffect(() => {
-    // Rank and Rain have no typing session of their own (a duel is a match on the server, a rain round stays in the browser).
+    // Rank and the minigames have no typing session of their own (a duel is a match on the server, a rain round stays in the browser, a daily try starts its own).
     if (game || openedFor.current === mode) return;
     const firstOpen = openedFor.current === null;
     openedFor.current = mode;
@@ -163,7 +169,7 @@ export const TypingPage = () => {
       {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right. */}
       <div data-tutorial="mode-tabs" className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 max-w-full md:justify-self-end">
-          {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Rain. */}
+          {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Minigames. */}
           {!game && (
           <DropdownMenu>
             <div className="flex outline outline-1 -outline-offset-1 outline-border">
@@ -192,23 +198,20 @@ export const TypingPage = () => {
         <TabGroup
           label="Mode"
           tabs={modeTabs}
-          value={ranked ? 'rank' : rain ? 'rain' : daily ? 'daily' : mode}
+          value={ranked ? 'rank' : minigames ? 'minigames' : mode}
           onChange={(value) => {
             if (value === 'practice') setSearchParams({});
             else if (value === 'rank') {
               if (!ranked) setSearchParams({ mode: 'rank' });
             }
-            else if (value === 'daily') {
-              if (!daily) setSearchParams({ mode: 'daily' });
-            }
-            else if (value === 'rain') {
-              if (!rain) setSearchParams({ mode: 'rain' });
+            else if (value === 'minigames') {
+              if (!minigames) setSearchParams({ mode: 'minigames' });
             }
             else if (value !== mode || game) setPlacementPrompt({ open: true });
           }}
         />
         <div className="md:justify-self-start">
-          {/* Not in Rank (a duel lasts the time the server gives it) or Rain (a round lasts a minute). */}
+          {/* Not in Rank (a duel lasts the time the server gives it) or a minigame (a Rain round lasts a minute). */}
           <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', game && 'hidden')}>
             <TabGroup
               label="Time"
@@ -246,10 +249,12 @@ export const TypingPage = () => {
           setSearchParams({ mode: 'placement' });
         }}
       />
-      {daily ? (
-        <DailyMode />
-      ) : rain ? (
-        <RainMode />
+      {minigames ? (
+        <MinigamesMode
+          game={minigame}
+          onSelect={(id) => setSearchParams({ mode: 'minigames', game: id })}
+          onBack={() => setSearchParams({ mode: 'minigames' })}
+        />
       ) : ranked ? (
         <RankMode />
       ) : session ? (

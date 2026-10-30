@@ -59,7 +59,7 @@ describe('TutorialGuide', () => {
   });
 
   it('marks a mode done after its last step', async () => {
-    renderGuide({ tour: 'skipped', modes: {} }, '/typing?mode=daily');
+    renderGuide({ tour: 'skipped', modes: {} }, '/typing?mode=minigames&game=daily');
 
     fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
     fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
@@ -72,6 +72,12 @@ describe('TutorialGuide', () => {
     renderGuide({ tour: 'skipped', modes: {} }, '/typing?mode=rain');
 
     expect(screen.getByRole('dialog', { name: 'Hướng dẫn Mưa chữ' })).toHaveTextContent('Mưa chữ: chữ rơi');
+  });
+
+  it('waits on the cards of the Minigames tab', () => {
+    renderGuide({ tour: 'skipped', modes: {} }, '/typing?mode=minigames');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('skips only this mode in a per-mode guide', async () => {

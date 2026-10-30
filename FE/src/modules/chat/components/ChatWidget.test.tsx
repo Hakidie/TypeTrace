@@ -1,7 +1,9 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { chatConfig } from '../chat.config';
+import { chatPopupStore } from '../store/chat-popup.store';
 import { ChatWidget } from './ChatWidget';
 
 const send = vi.fn();
@@ -13,27 +15,34 @@ vi.mock('../api/chat.api', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: (msg: string) => toastError(msg), success: vi.fn() } }));
 
-/** Renders the floating button and opens the popup. */
+/** The account menu entry toggles the popup. */
+const toggleChat = () => act(() => chatPopupStore.toggle());
+
+/** Renders the widget and opens the popup. */
 const renderPage = () => {
   const view = renderWithProviders(<ChatWidget />);
-  fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+  toggleChat();
   return view;
 };
 
 const type = (text: string) => fireEvent.change(screen.getByLabelText('Message'), { target: { value: text } });
 
 beforeEach(() => {
+  act(() => chatPopupStore.set(false));
   send.mockReset().mockResolvedValue({ reply: 'Chào bạn!' });
   toastError.mockReset();
 });
 
 describe('ChatWidget', () => {
-  it('shows only the floating button until it is opened', () => {
+  it('draws nothing until the account menu entry opens it, and the entry closes it again', () => {
     renderWithProviders(<ChatWidget />);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+    toggleChat();
     expect(screen.getByRole('dialog', { name: chatConfig.botName })).toBeInTheDocument();
+
+    toggleChat();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('keeps the conversation when the popup is closed and opened again', async () => {
@@ -45,7 +54,7 @@ describe('ChatWidget', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+    toggleChat();
     expect(screen.getByText('Chào bạn!')).toBeInTheDocument();
   });
 
@@ -128,15 +137,12 @@ describe('ChatWidget', () => {
     expect(screen.getByText(chatConfig.welcomeMessage)).toBeInTheDocument();
   });
 
-  it('is a navigation tab that opens the popup under the header, on the right', () => {
+  it('opens the popup under the header, on the right', () => {
     renderWithProviders(<ChatWidget />, { route: '/notes' });
-    const tab = screen.getByRole('button', { name: 'Open chat' });
-    expect(tab).toHaveTextContent('AI chat');
-    expect(tab).not.toHaveClass('bg-primary/15');
-
-    fireEvent.click(tab);
+    toggleChat();
 
     expect(screen.getByRole('dialog')).toHaveClass('fixed', 'right-4', 'top-[4.5rem]');
-    expect(screen.getByRole('button', { name: 'Close chat', expanded: true })).toHaveClass('bg-primary/15');
+    fireEvent.click(screen.getByRole('button', { name: 'Close chat' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

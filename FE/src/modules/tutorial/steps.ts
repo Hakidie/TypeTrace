@@ -3,8 +3,25 @@ import type { TutorialMode, TutorialState, TutorialStep } from './types/tutorial
 /** The tour after sign-up visits the modes in this order (Ping tutorial design). */
 export const TOUR_ORDER: TutorialMode[] = ['practice', 'placement', 'rain', 'daily', 'rank'];
 
-/** The Typing page tab (`?mode=`) of each mode. */
-export const MODE_QUERY: Record<TutorialMode, string> = { practice: 'practice', placement: 'placement', rain: 'rain', daily: 'daily', rank: 'rank' };
+/** The Typing page search of each mode: Rain and Daily are games of the Minigames tab. */
+export const MODE_SEARCH: Record<TutorialMode, string> = {
+  practice: 'mode=practice',
+  placement: 'mode=placement',
+  rain: 'mode=minigames&game=rain',
+  daily: 'mode=minigames&game=daily',
+  rank: 'mode=rank',
+};
+
+/**
+ * The mode open on the Typing page: its tab (`?mode=`), or the open game of the Minigames tab (`&game=`; the old
+ * `?mode=rain` and `?mode=daily` links too), Practice without one. None on the cards of the Minigames tab.
+ */
+export const openModeOf = (params: URLSearchParams): TutorialMode | undefined => {
+  const tab = params.get('mode');
+  const query = tab === 'minigames' ? params.get('game') : tab;
+  if (tab === 'minigames' && !query) return undefined;
+  return TOUR_ORDER.find((mode) => mode === query) ?? 'practice';
+};
 
 /** The first words of the tour, before Practice. */
 export const WELCOME_STEP: TutorialStep = {

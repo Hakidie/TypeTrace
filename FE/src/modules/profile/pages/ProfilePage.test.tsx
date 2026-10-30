@@ -212,7 +212,7 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(within(cards[0]).getByText('02 Mar 2026')).toBeInTheDocument();
     expect(within(cards[0]).getByText('30s')).toBeInTheDocument();
     expect(within(cards[0]).queryByText('Practice', { exact: false })).not.toBeInTheDocument(); // the mode is only the icon
-    expect(within(cards[0]).getByRole('img', { name: 'Speed and errors over time' })).toBeInTheDocument();
+    expect(within(cards[0]).getByRole('img', { name: /Speed over time/  })).toBeInTheDocument();
     expect(screen.getByText('Sessions').parentElement).toHaveTextContent('2Sessions');
     expect(getSessions).toHaveBeenCalledWith({ page: 1, limit: 3, sort: '-createdAt', status: 'completed' });
 
@@ -221,7 +221,7 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(within(cards[1]).getByText('2m')).toBeInTheDocument();
     expect(screen.queryByText('Not counted')).not.toBeInTheDocument(); // an uncounted session looks like the others
     expect(within(cards[1]).getByText('No time data for this session')).toBeInTheDocument();
-    expect(within(cards[1]).queryByRole('img', { name: 'Speed and errors over time' })).not.toBeInTheDocument();
+    expect(within(cards[1]).queryByRole('img', { name: /Speed over time/  })).not.toBeInTheDocument();
 
     const links = screen.getAllByRole('link', { name: /Open the result of/ });
     expect(links[0]).toHaveAttribute('href', '/typing/result/s1');

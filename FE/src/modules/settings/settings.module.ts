@@ -6,7 +6,7 @@ import { SettingsPage } from './pages/SettingsPage';
 
 export const settingsModule: AppModule = {
   routes: [{ path: '/settings', Component: SettingsPage }],
-  navItems: [{ to: '/settings', label: 'Settings', icon: Settings }],
+  menuItems: [{ to: '/settings', label: 'Settings', icon: Settings, last: true }],
   // Themes come before Settings in the admin sidebar (right below Passages).
   adminRoutes: [
     { path: '/admin/themes', Component: AdminThemesPage },

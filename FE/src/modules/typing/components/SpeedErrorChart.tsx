@@ -2,27 +2,17 @@ import { useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { EmptyState } from '@/shared/components/empty-state';
 import { Panel } from '@/shared/components/panel';
+import { ErrorMark } from './ErrorMark';
+import { timeTicks } from '../lib/time-ticks';
 import type { SessionTimeline } from '../types/typing.types';
 
-const [WPM_LINE, ERRORS_LINE] = [
-  { key: 'wpm', label: 'WPM', unit: '', axis: 'left', color: 'var(--primary)', dash: undefined },
-  { key: 'errors', label: 'Error', unit: '', axis: 'right', color: 'var(--foreground)', dash: '6 4' },
-] as const;
-
-const LINES = [WPM_LINE, ERRORS_LINE] as const;
+const WPM_COLOR = 'var(--primary)';
 
 /** The axis lines have the color of the grid; their numbers and names are the muted text color, which stays readable on the dark theme. */
 const AXIS_COLOR = 'var(--border)';
 const AXIS_TEXT_COLOR = 'var(--muted-foreground)';
 
-/** Ticks along the time axis, from 0 to `max`: every second, or in a round step (5, 10, ...) once there would be more than 60. */
-const timeTicks = (max: number) => {
-  const step = [1, 2, 5, 10, 15, 30, 60].find((candidate) => max / candidate <= 60) ?? 60;
-  const ticks = Array.from({ length: Math.floor(max / step) + 1 }, (_, index) => index * step);
-  return ticks[ticks.length - 1] === max ? ticks : [...ticks, max];
-};
-
-/** Line chart of the speed (WPM, solid, left axis) and the number of errors (dashed, right axis), one point per second (each over the last 10 seconds), over the time the learner chose (the axis ends there). */
+/** Line chart of the speed (WPM) with a cross on every second a wrong word was typed, one point per second (the speed of the last 10 seconds), over the time the learner chose (the axis ends there). */
 interface SpeedErrorChartProps {
   timeline: SessionTimeline;
   timeLimitSeconds: number;
@@ -30,6 +20,10 @@ interface SpeedErrorChartProps {
   wpm?: number;
   accuracy?: number;
 }
+
+/** A cross on the speed line at every second with a wrong word; nothing on the other seconds. */
+const errorDot = ({ cx, cy, payload, index }: { cx?: number; cy?: number; payload?: { errors: number }; index?: number }) =>
+  payload && payload.errors > 0 ? <ErrorMark key={index} cx={cx} cy={cy} /> : <g key={index} />;
 
 export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: SpeedErrorChartProps) => {
   // The last point can fall a moment after the chosen time (the server measures from the `begin` request): keep it on the axis.
@@ -48,7 +42,7 @@ export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: S
           ) : (
             <div
               role="img"
-              aria-label="Biểu đồ WPM và số lỗi theo thời gian"
+              aria-label="Biểu đồ WPM theo thời gian, có dấu ở giây gõ sai"
               className="relative h-72"
               onMouseEnter={() => setHovering(true)}
               onMouseLeave={() => setHovering(false)}
@@ -62,46 +56,30 @@ export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: S
                       type="number"
                       domain={[0, maxSecond]}
                       ticks={timeTicks(maxSecond)}
-                          interval={0}
+                      interval={0}
                       tick={{ fontSize: 16, fill: AXIS_TEXT_COLOR }}
                       stroke={AXIS_COLOR}
                     />
                     <YAxis
-                      yAxisId="left"
                       width={52}
                       stroke={AXIS_COLOR}
                       tick={{ fill: AXIS_TEXT_COLOR }}
-                      label={{ value: WPM_LINE.label, angle: -90, position: 'insideLeft', fill: AXIS_TEXT_COLOR }}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      allowDecimals={false}
-                      domain={[0, (dataMax: number) => Math.max(dataMax, 3)]}
-                      width={44}
-                      stroke={AXIS_COLOR}
-                      tick={{ fill: AXIS_TEXT_COLOR }}
-                      label={{ value: ERRORS_LINE.label, angle: 90, position: 'insideRight', fill: AXIS_TEXT_COLOR }}
+                      label={{ value: 'WPM', angle: -90, position: 'insideLeft', fill: AXIS_TEXT_COLOR }}
                     />
                     <Tooltip
                       contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 0 }}
                       labelFormatter={(second) => `Giây thứ ${second}`}
-                      formatter={(value, name, item) => [`${value}${LINES.find((line) => line.key === item.dataKey)?.unit ?? ''}`, name]}
+                      formatter={(value, _name, item) => [value, item.payload.errors > 0 ? `WPM (${item.payload.errors} lỗi)` : 'WPM']}
                     />
-                    {LINES.map(({ key, label, axis, color, dash }) => (
-                      <Line
-                        key={key}
-                        yAxisId={axis}
-                        dataKey={key}
-                        name={label}
-                        stroke={color}
-                        strokeDasharray={dash}
-                        type="monotone"
-                        strokeWidth={2}
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                    ))}
+                    <Line
+                      dataKey="wpm"
+                      name="WPM"
+                      stroke={WPM_COLOR}
+                      type="monotone"
+                      strokeWidth={2}
+                      dot={errorDot}
+                      isAnimationActive={false}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -109,14 +87,18 @@ export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: S
                 aria-hidden={!hovering}
                 className={`absolute bottom-10 right-16 flex gap-4 bg-background/70 px-2 py-1 text-sm transition-opacity ${hovering ? 'opacity-100' : 'opacity-0'}`}
               >
-                {LINES.map(({ key, label, color, dash }) => (
-                  <li key={key} className="flex items-center gap-2">
-                    <svg width="24" height="4" aria-hidden>
-                      <line x1="0" x2="24" y1="2" y2="2" stroke={color} strokeWidth="2" strokeDasharray={dash} />
-                    </svg>
-                    {label}
-                  </li>
-                ))}
+                <li className="flex items-center gap-2">
+                  <svg width="24" height="4" aria-hidden>
+                    <line x1="0" x2="24" y1="2" y2="2" stroke={WPM_COLOR} strokeWidth="2" />
+                  </svg>
+                  WPM
+                </li>
+                <li className="flex items-center gap-2">
+                  <svg width="12" height="12" aria-hidden>
+                    <ErrorMark cx={6} cy={6} size={4} />
+                  </svg>
+                  Error
+                </li>
               </ul>
             </div>
           )}

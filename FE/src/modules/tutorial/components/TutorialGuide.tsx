@@ -10,7 +10,7 @@ import { redGlassTheme } from '@/shared/lib/red-glass-theme';
 import { cn } from '@/shared/lib/utils';
 import { useUpdateTutorial } from '../hooks/use-tutorial';
 import { tutorialStore } from '../lib/tutorial-store';
-import { MODE_QUERY, MODE_STEPS, nextTourMode, pendingGuide, TOUR_ORDER, WELCOME_STEP } from '../steps';
+import { MODE_SEARCH, MODE_STEPS, nextTourMode, openModeOf, pendingGuide, WELCOME_STEP } from '../steps';
 import type { CoachStats, TutorialMode, TutorialStep } from '../types/tutorial.types';
 import { Ping } from './Ping';
 import { PracticeDuel } from './PracticeDuel';
@@ -19,9 +19,6 @@ import { Spotlight } from './Spotlight';
 import { TutorialBubble } from './TutorialBubble';
 
 const MODE_LABELS: Record<TutorialMode, string> = { practice: 'Practice', placement: 'Placement', rain: 'Mưa chữ', daily: 'Daily', rank: 'Rank' };
-
-/** The mode open on the Typing page: its `?mode=` tab, Practice without one. */
-const openModeOf = (query: string | null): TutorialMode => TOUR_ORDER.find((mode) => MODE_QUERY[mode] === query) ?? 'practice';
 
 /** The words of the practice duel: the word rain words, with the usual loading and error states. */
 const PracticeArena = ({ onDone, onSkip }: { onDone: (stats: CoachStats) => void; onSkip: () => void }) => {
@@ -44,7 +41,9 @@ export const TutorialGuide = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const update = useUpdateTutorial();
-  const mode = openModeOf(searchParams.get('mode'));
+  // No mode on the cards of the Minigames tab: Ping waits there (the welcome takes the learner to Practice).
+  const openMode = openModeOf(searchParams);
+  const mode = openMode ?? 'practice';
   const touring = tutorial?.tour === 'active';
   const [welcomed, setWelcomed] = useState(false);
   // The step reached in the open mode; going to another mode starts its guide from the top.
@@ -55,19 +54,19 @@ export const TutorialGuide = () => {
 
   const welcoming = pathname === '/typing' && touring && !welcomed && Object.keys(tutorial?.modes ?? {}).length === 0;
   const steps = MODE_STEPS[mode];
-  const guiding = pathname === '/typing' && pendingGuide(tutorial, mode) && !update.isPending;
+  const guiding = pathname === '/typing' && openMode !== undefined && pendingGuide(tutorial, mode) && !update.isPending;
   const step: TutorialStep | undefined = welcoming ? WELCOME_STEP : guiding ? steps[at.index] : undefined;
 
   /** The mode is learned: saved, and the tour goes on to the next mode (or ends after Rank). */
   const finishMode = () => {
     const tourNext = tutorial && touring ? nextTourMode({ ...tutorial, modes: { ...tutorial.modes, [mode]: 'done' } }) : undefined;
     update.mutate({ mode, status: 'done', ...(touring && !tourNext && { tour: 'done' as const }) });
-    if (tourNext) navigate(`/typing?mode=${MODE_QUERY[tourNext]}`);
+    if (tourNext) navigate(`/typing?${MODE_SEARCH[tourNext]}`);
   };
   const next = () => {
     if (welcoming) {
       setWelcomed(true);
-      if (mode !== 'practice') navigate('/typing?mode=practice');
+      if (openMode !== 'practice') navigate('/typing?mode=practice');
       return;
     }
     if (step?.id === 'rank-practice') return setPractice({ round: 1 });
