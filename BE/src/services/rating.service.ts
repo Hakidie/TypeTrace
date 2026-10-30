@@ -26,6 +26,7 @@ const expected = (rating: number, other: number) => 1 / (1 + 10 ** ((other - rat
 
 const whyUnrated = async (match: MatchDocument, [a, b]: MatchPlayer[]): Promise<UnratedReason | undefined> => {
   if (!match.startedAt) return 'not-started';
+  if (a.result === 'forfeit' && b.result === 'forfeit') return 'abandoned';
   if (match.flagged) return 'flagged';
   const ratedToday = await MatchModel.countDocuments({
     rated: true,

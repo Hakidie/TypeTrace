@@ -90,7 +90,9 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Configuration: add variables to the Zod schema in `config/env.ts` and to `BE/.env.example`. Never read `process.env` elsewhere.
 - Realtime: server-sent events through `services/match-hub.ts` (`subscribe`, `publish`, `schedule`, `withMatchLock`); clients
   read them with `fetch` and the `Authorization` header, never a token in a URL. The open streams and timers live in memory,
-  so the backend runs as one process.
+  so the backend runs as one process. A player who leaves a running match, or whose stream stays closed `disconnectGraceMs`
+  (15 s), does not finish (DNF, stored as `forfeit`); the room hears `presence` events, and a race player who comes back gets
+  `resume` with their saved words (SCRUM-154). Keep the frontend's reconnect wait (`MAX_RECONNECT_MS`) well under that grace.
 - The User model strips private fields in `toJSON`; keep it that way for new private fields. `.lean()` and `aggregate()`
   skip `toJSON`: with them, `.select()` the public fields explicitly.
 - A learner's days (streak, daily mission, profile heatmap) are calendar days in their `settings.timezone` (`DEFAULT_TIMEZONE`

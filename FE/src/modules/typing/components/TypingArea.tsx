@@ -36,6 +36,8 @@ interface TypingAreaProps {
   actions?: ReactNode;
   /** Called each time one more word is finished (a ranked duel sends it to the server), never after the end. */
   onProgress?: (typedWords: string[], typedAtMs: number[]) => void;
+  /** Words already finished (a ranked race after a reload): typing goes on after them, with later word times. */
+  initialTyped?: { typedWords: string[]; typedAtMs: number[] };
 }
 
 /**
@@ -78,9 +80,11 @@ export const TypingArea = ({
   timeLimitSeconds = SESSION_TIME_LIMIT_SECONDS,
   actions,
   onProgress,
+  initialTyped,
 }: TypingAreaProps) => {
-  const [text, setText] = useState('');
-  const [committed, setCommitted] = useState('');
+  const resumedText = initialTyped?.typedWords.length ? `${initialTyped.typedWords.join(' ')} ` : '';
+  const [text, setText] = useState(resumedText);
+  const [committed, setCommitted] = useState(resumedText);
   const [lastWordDone, setLastWordDone] = useState(false);
   // Text the input method is still composing (e.g. "tiê" before it is committed); empty when nothing is composing.
   const [preedit, setPreedit] = useState('');
@@ -89,7 +93,7 @@ export const TypingArea = ({
   const [startedAt, setStartedAt] = useState<number | null>(null);
   // When each finished word was finished, in ms after the first key (only noted here, never sent while typing).
   const startTime = useRef(0);
-  const wordTimes = useRef<number[]>([]);
+  const wordTimes = useRef<number[]>(initialTyped?.typedAtMs.slice(0, initialTyped.typedWords.length) ?? []);
   const seconds = useElapsedSeconds(startedAt, !lastWordDone && !disabled);
 
   const timeIsUp = seconds >= timeLimitSeconds;
@@ -98,7 +102,8 @@ export const TypingArea = ({
 
   const start = () => {
     if (startedAt !== null) return;
-    startTime.current = Date.now();
+    // Resumed words keep their times: the next word comes after the last one.
+    startTime.current = Date.now() - (wordTimes.current.at(-1) ?? 0);
     setStartedAt(startTime.current);
     onStart?.();
   };

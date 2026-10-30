@@ -68,6 +68,18 @@ describe('RaceView (ranked duel, phase 4)', () => {
     expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
   });
 
+  // SCRUM-154: back after a reload, the typing area goes on from the words the server kept.
+  it('goes on from the words typed before a reload, with later word times', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<RaceView match={race()} myId="u1" resume={{ typedWords: ['The'], typedAtMs: [5000] }} />);
+    expect(screen.getByText('Words 1 / 3')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'sun ');
+    await waitFor(() => expect(progress).toHaveBeenCalledWith('ABC234', { typedWords: ['The', 'sun'], typedAtMs: [5000, expect.any(Number)] }));
+    const [, input] = progress.mock.calls[0] as [string, { typedAtMs: number[] }];
+    expect(input.typedAtMs[1]).toBeGreaterThanOrEqual(5000);
+  });
+
   it('types the passage of the match and sends each finished word', async () => {
     const user = userEvent.setup();
     renderWithProviders(<RaceView match={race()} myId="u1" />);

@@ -97,6 +97,20 @@ describe('MatchResult (ranked duel, phase 4)', () => {
     expect(screen.getByRole('heading', { name: 'You lose' }).closest('.text-primary')).not.toBeNull();
   });
 
+  // SCRUM-154: leaving or staying away is a DNF, and the winner is told why the other one stopped.
+  it('marks a player who left as DNF and tells the winner why', () => {
+    renderResult(finished('win', 'forfeit'));
+
+    expect(screen.getByText('Minh did not finish: they left or lost the connection.')).toBeInTheDocument();
+    expect(screen.getByText('DNF')).toBeInTheDocument();
+  });
+
+  it('explains a match both players left', () => {
+    renderResult({ ...finished('forfeit', 'forfeit'), unratedReason: 'abandoned' });
+
+    expect(screen.getByText(/both players left the match/i)).toBeInTheDocument();
+  });
+
   it('names a loss, a draw and a forfeit', () => {
     const { unmount } = renderWithProviders(<MatchResult match={finished('loss', 'win')} myId="u1" onEnter={vi.fn()} onLeave={vi.fn()} />);
     expect(screen.getByRole('heading', { name: 'You lose' })).toBeInTheDocument();

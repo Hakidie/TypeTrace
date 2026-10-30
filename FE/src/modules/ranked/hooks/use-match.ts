@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { openMatchStream, rankedApi } from '../api/ranked.api';
-import type { MatchEvent, MatchKind, ProgressInput, PublicMatch, RematchInvite } from '../types/ranked.types';
+import type { MatchEvent, MatchKind, ProgressInput, PublicMatch, RaceResume, RematchInvite } from '../types/ranked.types';
 import { applyRainEvent, type RainDuelState } from '../lib/rain-duel';
 import { createServerClock, type ServerClock } from '../lib/server-clock';
 import { rankedKeys } from './use-ranked';
@@ -35,16 +35,28 @@ const applyEvent = (match: PublicMatch | undefined, event: MatchEvent): PublicMa
   return match;
 };
 
+interface StreamState {
+  code?: string;
+  invite?: RematchInvite;
+  gone: boolean;
+  /** Whether the own stream is open (it starts open so nothing flashes before the first answer). */
+  connected: boolean;
+  /** The players whose stream dropped, with when they forfeit. */
+  away: Record<string, string>;
+  resume?: RaceResume;
+}
+
 /**
  * The room with this code, kept live by its event stream (open while the component is mounted). `invite` is the rematch
- * the other player asked for; `gone` turns true when the server no longer knows the room for this user.
+ * the other player asked for; `gone` turns true when the server no longer knows the room for this user; `connected`,
+ * `away` and `resume` are the connection of both players and the own words kept by the server after a reload (SCRUM-154).
  */
 export const useMatch = (code?: string) => {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: matchKeys.detail(code ?? ''), queryFn: () => rankedApi.get(code!), enabled: Boolean(code) });
-  const [stream, setStream] = useState<{ code?: string; invite?: RematchInvite; gone: boolean }>({ gone: false });
-  // A new room starts with no invitation and not gone.
-  if (stream.code !== code) setStream({ code, gone: false });
+  const [stream, setStream] = useState<StreamState>({ gone: false, connected: true, away: {} });
+  // A new room starts with no invitation, not gone, and nobody away.
+  if (stream.code !== code) setStream({ code, gone: false, connected: true, away: {} });
 
   useEffect(() => {
     if (!code) return;
@@ -52,7 +64,15 @@ export const useMatch = (code?: string) => {
       code,
       (event) => {
         if (event.event === 'rematch') setStream((current) => ({ ...current, invite: event.data }));
-        else if (event.event === 'rain') {
+        else if (event.event === 'resume') setStream((current) => ({ ...current, resume: event.data }));
+        else if (event.event === 'presence') {
+          const { userId } = event.data;
+          const forfeitAt = event.data.connected ? undefined : event.data.forfeitAt;
+          setStream((current) => {
+            const others = Object.fromEntries(Object.entries(current.away).filter(([id]) => id !== userId));
+            return { ...current, away: forfeitAt ? { ...others, [userId]: forfeitAt } : others };
+          });
+        } else if (event.event === 'rain') {
           rainClock(code).observe(event.data.serverNow, Date.now());
           queryClient.setQueryData<RainDuelState>(matchKeys.rain(code), (state) => applyRainEvent(state, event.data));
         }
@@ -60,7 +80,10 @@ export const useMatch = (code?: string) => {
         // The match is settled: the own rating moved.
         if (event.event === 'result') void queryClient.invalidateQueries({ queryKey: rankedKeys.me() });
       },
-      { onGone: () => setStream((current) => ({ ...current, gone: true })) },
+      {
+        onGone: () => setStream((current) => ({ ...current, gone: true })),
+        onStatus: (connected) => setStream((current) => ({ ...current, connected })),
+      },
     );
   }, [code, queryClient]);
 
@@ -71,6 +94,9 @@ export const useMatch = (code?: string) => {
     refetch: query.refetch,
     invite: stream.invite,
     gone: stream.gone,
+    connected: stream.connected,
+    away: stream.away,
+    resume: stream.resume,
   };
 };
 
