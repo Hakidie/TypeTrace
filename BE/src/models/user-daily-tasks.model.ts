@@ -100,5 +100,7 @@ const userDailyTasksSchema = new Schema<UserDailyTasksDocument>(
 
 // One snapshot per learner and day: two requests that make it at the same time keep one (the upsert relies on it).
 userDailyTasksSchema.index({ owner: 1, date: 1 }, { unique: true });
+// The recent days that had some of the templates, for the chart of the admin list (`hourlyCompletionsOf`).
+userDailyTasksSchema.index({ 'tasks.taskId': 1, date: 1 });
 
 export const UserDailyTasksModel = mongoose.model<UserDailyTasksDocument>('UserDailyTasks', userDailyTasksSchema);

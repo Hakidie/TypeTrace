@@ -12,8 +12,13 @@ import {
   UpdateDailyTaskInput
 } from '../validators/admin-daily-task.validator';
 import { getAppSettings, updateAppSettings } from './app-setting.service';
+import { hourlyCompletionsOf } from './user-daily-tasks.service';
 
-export const listDailyTasks = ({ q, type, isActive, ...pagination }: ListDailyTasksQuery) => {
+/**
+ * A page of tasks, each with `completions`: the learners who completed it in each of the last 24 hours and in all of them
+ * (`hourlyCompletionsOf`), for the chart of its row.
+ */
+export const listDailyTasks = async ({ q, type, isActive, ...pagination }: ListDailyTasksQuery) => {
   const filter: QueryFilter<DailyTaskDocument> = {};
   if (type) filter.type = type;
   if (isActive !== undefined) filter.isActive = isActive;
@@ -24,7 +29,9 @@ export const listDailyTasks = ({ q, type, isActive, ...pagination }: ListDailyTa
   }
   // Titles sort in Vietnamese order, through the collation of the `title` index of the model.
   const byTitle = pagination.sort.replace(/^-/, '') === 'title';
-  return paginate(DailyTaskModel, filter, pagination, byTitle ? { collation: { locale: 'vi' } } : {});
+  const page = await paginate(DailyTaskModel, filter, pagination, byTitle ? { collation: { locale: 'vi' } } : {});
+  const completionsOf = await hourlyCompletionsOf(page.items.map((task) => task._id));
+  return { ...page, items: page.items.map((task) => ({ ...task.toJSON(), completions: completionsOf(task._id) })) };
 };
 
 export const getDailyTask = async (id: string) => {

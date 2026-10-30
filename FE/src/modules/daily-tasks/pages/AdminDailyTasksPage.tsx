@@ -37,8 +37,9 @@ const STATUS_OPTIONS = [
 
 /**
  * Daily tasks (SCRUM-210): the Settings panel (how many tasks a learner gets a day), then the Tasks panel with the task
- * templates: a `ListToolbar` (search, sort, Type and Status filters, all in the URL), one `DailyTaskRow` per task with
- * Edit, Activate / Deactivate and Delete in its kebab menu, pagination, and New task. Built like `AdminUsersPage`.
+ * templates: a `ListToolbar` (search, sort, Type and Status filters, all in the URL), one `DailyTaskRow` per task (with
+ * the learners who completed it in the last 24 hours) with Edit, Activate / Deactivate and Delete in its kebab menu,
+ * pagination, and New task. Built like `AdminUsersPage`.
  */
 export const AdminDailyTasksPage = () => {
   const list = useListParams({ sort: '-createdAt' });
