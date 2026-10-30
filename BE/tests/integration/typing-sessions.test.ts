@@ -414,7 +414,7 @@ describe('word times and the speed chart (SCRUM-187)', () => {
     expect(listed).not.toHaveProperty('words');
   });
 
-  it('stores the time of each word and draws the WPM and the errors of the last 10 seconds at every second', async () => {
+  it('stores the time of each word and draws the WPM of the last 10 seconds and the errors of that second at every second', async () => {
     const auth = bearerFor(await createUser({}));
     const session = await startedAgo(auth, 60);
     const typed = [...session.targetWords];
@@ -432,9 +432,10 @@ describe('word times and the speed chart (SCRUM-187)', () => {
     const last = timeline.points[timeline.points.length - 1];
     expect(last.second).toBeCloseTo(done.body.durationMs / 1000, 0);
     expect(last).toMatchObject({ wpm: 0, errors: 0 }); // nothing was finished in the last 10 seconds
+    expect(timeline.points[1].errors).toBe(0); // the one wrong word was in the first second only
   });
 
-  it('looks only at the last 10 seconds: older words and a quiet stretch do not count', () => {
+  it('looks only at the last 10 seconds for the speed, and puts each wrong word on the second it was typed', () => {
     const word = (typedAtMs: number, wrong = false): SessionWord => ({
       index: 0,
       target: 'a',
@@ -448,9 +449,9 @@ describe('word times and the speed chart (SCRUM-187)', () => {
 
     expect(at(3)).toEqual({ second: 3, wpm: 60, errors: 0 }); // 3 right words in 3 s: the window is cut at the start
     expect(at(8)).toEqual({ second: 8, wpm: 22.5, errors: 1 }); // 3 right words in 8 s, and the wrong one
-    expect(at(10)).toEqual({ second: 10, wpm: 18, errors: 1 }); // all four words, 3 right in 10 s
-    expect(at(12)).toEqual({ second: 12, wpm: 6, errors: 1 }); // (2 s, 12 s]: the word at 3 s and the wrong one
-    expect(at(14)).toEqual({ second: 14, wpm: 0, errors: 1 }); // (4 s, 14 s]: only the wrong word
+    expect(at(10)).toEqual({ second: 10, wpm: 18, errors: 0 }); // all four words, 3 right in 10 s
+    expect(at(12)).toEqual({ second: 12, wpm: 6, errors: 0 }); // (2 s, 12 s]: the word at 3 s and the wrong one
+    expect(at(14)).toEqual({ second: 14, wpm: 0, errors: 0 }); // (4 s, 14 s]: only the wrong word
     expect(at(19)).toEqual({ second: 19, wpm: 0, errors: 0 }); // quiet: no word in the window
     expect(points).toHaveLength(20);
   });
