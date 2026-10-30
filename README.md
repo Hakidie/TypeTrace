@@ -24,7 +24,7 @@ No email or Cloudinary account is needed to start:
 
 - Without `SMTP_HOST`, emails (OTP and reset codes) are printed in the backend terminal.
 - Without `CLOUDINARY_*`, image upload answers 503; everything else works.
-- Without `GEMINI_API_KEY`, the chat popup explains that it is not configured; everything else works.
+- Without `OPENAI_API_KEY`, the chat popup explains that it is not configured; everything else works.
 
 ## Features
 
@@ -36,8 +36,8 @@ No email or Cloudinary account is needed to start:
 - Admin area (`/admin`, admins only): sidebar layout, dashboard with stats, user management (search, filters, sortable
   table, pagination, edit role / verification, delete, bulk delete) built from reusable `DataTable`, `SearchInput`,
   `FilterSelect` and `StatCard` components
-- Sample AI chat bot on Google Gemini's free tier, as a floating button in the bottom-right corner that opens a chat popup: set `GEMINI_API_KEY` in `BE/.env`
-  (free key at https://aistudio.google.com/apikey), customize it in `BE/src/config/chatbot.ts` and `FE/src/modules/chat/chat.config.ts`
+- Sample AI chat bot on OpenAI, as a floating button in the bottom-right corner that opens a chat popup: set `OPENAI_API_KEY` in `BE/.env`
+  (key at https://platform.openai.com/api-keys), customize it in `BE/src/config/chatbot.ts` and `FE/src/modules/chat/chat.config.ts`
 
 ## Add a feature
 

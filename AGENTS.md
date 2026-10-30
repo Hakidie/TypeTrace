@@ -49,7 +49,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run gen:module -- <name> --remove` | Delete a generated feature again |
 
 Optional services: without SMTP, emails (OTP and reset codes) are printed in the backend terminal in development and
-answer 503 in production; without Cloudinary, image upload answers 503; without `GEMINI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden.
+answer 503 in production; without Cloudinary, image upload answers 503; without `OPENAI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden.
 Everything else keeps working. `npm run seed` refuses `NODE_ENV=production`. Behind a proxy set `TRUST_PROXY=1`.
 Tests never read `BE/.env`: their variables are in `BE/vitest.config.mts`.
 
@@ -170,7 +170,7 @@ To add an admin page for a feature module:
    a list of `ListRow` cards (or a `DataTable` with column config for plain tables), `Pagination` (`variant="toolbar"` = right-aligned, styled like the `ListToolbar` buttons; `accent` = red text on transparent buttons), `ConfirmDialog`, and `useListParams`
    to keep search, filters, sort and page in the URL.
 
-## AI chat bot (Google Gemini, free tier)
+## AI chat bot (OpenAI)
 
 A sample chat bot to customize, not a finished product:
 
@@ -179,16 +179,16 @@ A sample chat bot to customize, not a finished product:
   conversation state: `hooks/use-chat.ts`.
 - Backend: `POST /api/chat` with `{ messages: [{ role: 'user' | 'model', text }] }` → `{ reply }`. Stateless: the client sends
   the conversation each time. Signed-in users only, 10 messages per minute per user.
-- Personality: `BE/src/config/chatbot.ts` (system prompt, thinking level, history length; Gemini 3.5 ignores temperature).
-  Gemini calls: `BE/src/services/ai.service.ts` with `@google/genai` (never the deprecated `@google/generative-ai`).
-- Config: `GEMINI_API_KEY` (free at https://aistudio.google.com/apikey) and `GEMINI_MODEL` (default `gemini-3.5-flash-lite`,
-  thinking level `LOW`) in `BE/.env`. Quota errors answer 429. Never put the key in frontend code.
+- Personality: `BE/src/config/chatbot.ts` (system prompt, longest reply in tokens, history length).
+  OpenAI calls: `BE/src/services/ai.service.ts`, Chat Completions with plain `fetch` (no SDK); `model` messages are sent as `assistant`.
+- Config: `OPENAI_API_KEY` (https://platform.openai.com/api-keys, paid per token) and `OPENAI_MODEL` (default `gpt-4.1-mini`)
+  in `BE/.env`. Quota errors answer 429, a bad key or model 503. Never put the key in frontend code.
 
 ## Testing rules
 
 - Backend integration tests use `api()` from `BE/tests/helpers/api.ts` (not `request(app)`), `createUser` / `bearerFor`
   from `tests/helpers/user-factory.ts`, and an in-memory MongoDB. External services are mocked in
-  `tests/setup/mock-external-services.ts`; inspect them with `email-outbox.ts`, `cloudinary-recorder.ts`, `gemini-recorder.ts`.
+  `tests/setup/mock-external-services.ts`; inspect them with `email-outbox.ts`, `cloudinary-recorder.ts`, `openai-recorder.ts` (OpenAI is answered by a stubbed `fetch`).
 - Frontend tests mock the feature's `api` module and render with `renderWithProviders` from `FE/src/test/render-with-providers.tsx` (`state` for the history state of the starting URL, `otherRoutes` with an element instead of a text to read the location after a redirect).
   Assert what the user sees (`getByRole`, `findByText`).
 - Days and time zones: fix the clock by faking `Date` only (`vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(...)`,
