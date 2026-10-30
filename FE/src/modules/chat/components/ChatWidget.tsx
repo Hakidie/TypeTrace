@@ -1,46 +1,31 @@
-import { Bot, MessageCircle, SquarePen, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Bot, SquarePen, X } from 'lucide-react';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/shared/components/ui/button';
-import { cn } from '@/shared/lib/utils';
 import { chatConfig } from '../chat.config';
 import { useChat } from '../hooks/use-chat';
+import { chatPopupStore, useChatPopupOpen } from '../store/chat-popup.store';
 import { ChatPanel } from './ChatPanel';
 
 /**
- * The chat button in the top navigation (a tab like the others, highlighted while the chat is open) that opens a small
- * chat popup under the header, on the right. The popup is drawn in `document.body`: the header blurs what is behind it,
- * which would make a fixed popup follow the header. Closing the popup keeps the conversation. Registered as a nav
- * widget in chat.module.ts.
+ * The chat popup under the header, on the right, opened by "AI chat" in the account menu (`chatPopupStore`). It is drawn
+ * in `document.body`: the header blurs what is behind it, which would make a fixed popup follow the header. Closing the
+ * popup keeps the conversation (the widget stays mounted). Registered as a widget in chat.module.ts.
  */
 export const ChatWidget = () => {
-  const [open, setOpen] = useState(false);
+  const open = useChatPopupOpen();
   const chat = useChat();
 
   // Escape closes the popup.
   useEffect(() => {
     if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => event.key === 'Escape' && setOpen(false);
+    const onKeyDown = (event: KeyboardEvent) => event.key === 'Escape' && chatPopupStore.set(false);
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
   return (
     <>
-      <button
-        type="button"
-        aria-label={open ? 'Close chat' : 'Open chat'}
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className={cn(
-          'inline-flex items-center gap-1.5 px-3 py-1.5 text-base transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          open ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-        )}
-      >
-        <MessageCircle className="size-4" />
-        <span className="hidden sm:inline">AI chat</span>
-      </button>
-
       {open &&
         createPortal(
           <section
@@ -56,7 +41,7 @@ export const ChatWidget = () => {
               <Button variant="ghost" size="sm" aria-label="New chat" disabled={chat.messages.length === 0} onClick={chat.reset}>
                 <SquarePen className="size-4" />
               </Button>
-              <Button variant="ghost" size="sm" aria-label="Close chat" onClick={() => setOpen(false)}>
+              <Button variant="ghost" size="sm" aria-label="Close chat" onClick={() => chatPopupStore.set(false)}>
                 <X className="size-4" />
               </Button>
             </header>

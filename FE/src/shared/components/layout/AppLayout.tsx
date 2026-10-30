@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import type { NavItem, NavWidget } from '@/app/module.types';
+import type { MenuItem, NavItem, NavWidget } from '@/app/module.types';
 import { BrandFooter } from '@/shared/components/layout/BrandFooter';
 import { BrandHeader } from '@/shared/components/layout/BrandHeader';
 import { UserMenu } from '@/shared/components/layout/UserMenu';
@@ -10,11 +10,13 @@ import { cn } from '@/shared/lib/utils';
 
 interface AppLayoutProps {
   navItems: (NavItem | NavWidget)[];
+  /** Entries of the account menu from the module registry (Settings, AI chat). */
+  menuItems?: MenuItem[];
   /** Floating components from the module registry (e.g. the chat button). */
   widgets?: ComponentType[];
 }
 
-export const AppLayout = ({ navItems: allNavItems, widgets = [] }: AppLayoutProps) => {
+export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] }: AppLayoutProps) => {
   // An expired or rejected token answers 401, which the http interceptor turns
   // into a redirect to /logout. Other failures (server down) keep the user signed in.
   const { data: user } = useCurrentUser();
@@ -53,7 +55,7 @@ export const AppLayout = ({ navItems: allNavItems, widgets = [] }: AppLayoutProp
             </nav>
           }
         >
-          <UserMenu user={user} />
+          <UserMenu user={user} menuItems={menuItems} />
         </BrandHeader>
       </div>
 

@@ -76,6 +76,28 @@ describe('AppLayout', () => {
     expect(await screen.findByText('admin area')).toBeInTheDocument();
   });
 
+  it('shows the menu items of the modules in the account menu: a link opens its page, an action runs, and roles hide an entry', async () => {
+    const onSelect = vi.fn();
+    const menuItems = [
+      { to: '/settings', label: 'Settings', icon: Home, last: true },
+      { label: 'AI chat', icon: Home, onSelect },
+      { to: '/secret', label: 'Secret', icon: Shield, roles: ['admin' as const] },
+    ];
+    getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
+    renderWithProviders(<AppLayout navItems={[]} menuItems={menuItems} />, { route: '/', otherRoutes: { '/settings': 'settings page' } });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
+    expect(screen.queryByRole('menuitem', { name: 'Secret' })).not.toBeInTheDocument();
+    // Wardrobe, Mode, the entries, then the `last` entries, then Logout.
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Wardrobe', 'Mode: Dark', 'AI chat', 'Settings', 'Logout']);
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'AI chat' }));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Settings' }));
+    expect(await screen.findByText('settings page')).toBeInTheDocument();
+  });
+
   it('does not show the Admin menu item to a learner', async () => {
     getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
     renderLayout();
