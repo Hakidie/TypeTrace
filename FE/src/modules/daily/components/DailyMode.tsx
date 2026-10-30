@@ -17,7 +17,7 @@ import { DailyResult } from './DailyResult';
 const isMissing = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status === 404;
 
 /**
- * The Daily tab of the Typing page (`?mode=daily`): today's card (with the progress charts under it) and board side by side (one column on a phone); Start
+ * The Daily game of the Minigames tab of the Typing page (`?mode=minigames&game=daily`): today's card (with the progress charts under it) and board side by side (one column on a phone); Start
  * opens a try in the shared `TypingArea` for the challenge's time; once the try is graded the result replaces the card.
  */
 export const DailyMode = () => {

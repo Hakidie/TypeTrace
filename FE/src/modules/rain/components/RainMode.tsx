@@ -36,7 +36,7 @@ const Overlay = ({ children }: { children: ReactNode }) => (
 );
 
 /**
- * The Rain tab of the Typing page (`?mode=rain`): a round of word rain. The words come from `GET /api/rain/words`, the
+ * The Rain game of the Minigames tab of the Typing page (`?mode=minigames&game=rain`): a round of word rain. The words come from `GET /api/rain/words`, the
  * rules from `useRainGame`, the drawing from `RainStage`. Enter starts, Escape pauses, space or Enter sends the word in the box.
  */
 export const RainMode = () => {
@@ -84,24 +84,30 @@ export const RainMode = () => {
   const wpm = minutes > 0 ? Math.round(state.typedChars / 5 / minutes) : 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 py-4">
-      <div className={cn('flex items-center justify-between gap-4 text-[1.125rem]', state.phase === 'ready' && 'invisible')}>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 py-4">
+      {/* Lives on the left, one Pause button with the clock in the center (under the mode tabs; the icon on the left of the time), the score on the right. The button is red like the lives and the score. */}
+      <div className={cn('grid grid-cols-[1fr_auto_1fr] items-center gap-4 text-[1.125rem] tabular-nums', state.phase === 'ready' && 'invisible')}>
         <div role="img" aria-label={`${state.lives} lives left`} className="flex gap-1 text-primary">
           {Array.from({ length: LIVES }, (_, index) => (
             <Heart key={index} aria-hidden="true" className={cn('size-5', index < state.lives ? 'fill-current' : 'opacity-40')} />
           ))}
         </div>
-        <div className="flex items-center gap-5 tabular-nums">
-          <span className="text-muted-foreground">
-            Score <span aria-label="Score" className="font-semibold text-primary">{state.score}</span>
-          </span>
-          <span aria-label="Time left" className="font-semibold">
+        <Button
+          variant="ghost"
+          className="h-auto gap-2 px-3 py-1 text-primary hover:bg-primary hover:text-primary-foreground"
+          aria-label="Pause"
+          aria-pressed={paused}
+          disabled={!playing}
+          onClick={togglePause}
+        >
+          {paused ? <Play className="size-5" /> : <Pause className="size-5" />}
+          <span aria-label="Time left" className="text-xl font-semibold">
             {clock(ROUND_MS - state.elapsed)}
           </span>
-          <Button variant="ghost" size="sm" className="px-2" aria-label="Pause" aria-pressed={paused} disabled={!playing} onClick={togglePause}>
-            {paused ? <Play className="size-5" /> : <Pause className="size-5" />}
-          </Button>
-        </div>
+        </Button>
+        <span className="justify-self-end text-muted-foreground">
+          Score <span aria-label="Score" className="font-semibold text-primary">{state.score}</span>
+        </span>
       </div>
 
       <div className="relative" data-tutorial="rain-stage">
@@ -134,11 +140,11 @@ export const RainMode = () => {
             <dl className="grid w-full grid-cols-2 gap-2">
               <div className="border border-foreground/10 p-3">
                 <dt className="text-sm text-muted-foreground">Words</dt>
-                <dd className="text-3xl font-black tabular-nums">{state.score}</dd>
+                <dd className="text-3xl font-black tabular-nums text-primary">{state.score}</dd>
               </div>
               <div className="border border-foreground/10 p-3">
                 <dt className="text-sm text-muted-foreground">WPM</dt>
-                <dd className="text-3xl font-black tabular-nums">{wpm}</dd>
+                <dd className="text-3xl font-black tabular-nums text-primary">{wpm}</dd>
               </div>
             </dl>
             <Button onClick={begin}>Play again</Button>

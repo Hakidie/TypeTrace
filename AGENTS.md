@@ -115,7 +115,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 
 - One folder per feature in `FE/src/modules/<feature>/` with `api/ hooks/ components/ pages/ types/` and a
   `<feature>.module.ts` describing what it adds: `routes` + `navItems` (main app), `adminRoutes` + `adminNavItems`
-  (admin area), `widgets` (components on every app page: floating UI, or one that draws nothing and keeps something in step, like `TimezoneSync`, which sends the browser's time zone), a `navItems` entry `{ Component }` instead of a link puts a component in the top navigation (the chat button). Register it in `FE/src/app/modules.ts`.
+  (admin area), `widgets` (components on every app page: floating UI, or one that draws nothing and keeps something in step, like `TimezoneSync`, which sends the browser's time zone), a `navItems` entry `{ Component }` instead of a link puts a component in the top navigation, `menuItems` add entries to the account menu in the header (`{ label, icon, to }` or `{ label, icon, onSelect }`: Settings, AI chat). Register it in `FE/src/app/modules.ts`.
 - HTTP only through the `http` instance (`shared/api/http.ts`). API functions return the response body: `http.get<T>(url).then((r) => r.data)`.
   The one exception is a server event stream, which axios cannot read: `openMatchStream` in `modules/ranked/api/ranked.api.ts`
   uses `fetch` with the `Authorization` header (never a token in the URL) and puts the events into the query cache.
@@ -194,8 +194,8 @@ The mascot Ping guides new learners (`docs/superpowers/specs/2026-10-30-ping-tut
 
 A sample chat bot to customize, not a finished product:
 
-- UI: a tab in the top navigation (before Settings) opens a chat popup under the header, on the right (`FE/src/modules/chat/components/ChatWidget.tsx`),
-  registered as a nav widget in `chat.module.ts`. It has no page of its own. Texts and suggested questions: `chat.config.ts`;
+- UI: "AI chat" in the account menu (the avatar menu in the header) opens a chat popup under the header, on the right (`FE/src/modules/chat/components/ChatWidget.tsx`),
+  registered as a widget and a menu item in `chat.module.ts`. It has no page of its own. Texts and suggested questions: `chat.config.ts`;
   conversation state: `hooks/use-chat.ts`.
 - Backend: `POST /api/chat` with `{ messages: [{ role: 'user' | 'model', text }] }` → `{ reply }`. Stateless: the client sends
   the conversation each time. Signed-in users only, 10 messages per minute per user.

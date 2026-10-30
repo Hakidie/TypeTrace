@@ -159,7 +159,7 @@ describe('TypingResultPage', () => {
   it('draws the speed and error chart, or tells why it cannot', async () => {
     get.mockResolvedValue(completed);
     renderPage();
-    expect(await screen.findByRole('img', { name: 'Biểu đồ WPM và số lỗi theo thời gian' })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: 'Biểu đồ WPM theo thời gian, có dấu ở giây gõ sai' })).toBeInTheDocument();
   });
 
   it('says an older session has no time data, and that a short one is too short', async () => {
@@ -167,7 +167,7 @@ describe('TypingResultPage', () => {
     stats.mockResolvedValue(sessionStats({ timeline: { status: 'no_data', points: [] } }));
     const first = renderPage();
     expect(await screen.findByText('Phiên này không có dữ liệu thời gian')).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: 'Biểu đồ WPM và số lỗi theo thời gian' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Biểu đồ WPM theo thời gian, có dấu ở giây gõ sai' })).not.toBeInTheDocument();
     first.unmount();
 
     stats.mockResolvedValue(sessionStats({ timeline: { status: 'too_short', points: [] } }));
@@ -179,7 +179,7 @@ describe('TypingResultPage', () => {
     get.mockResolvedValue(completed);
     renderPage();
 
-    const chart = (await screen.findByRole('img', { name: 'Biểu đồ WPM và số lỗi theo thời gian' })).closest('div.flex')!;
+    const chart = (await screen.findByRole('img', { name: 'Biểu đồ WPM theo thời gian, có dấu ở giây gõ sai' })).closest('div.flex')!;
     const list = chart.querySelector('dl')!;
     expect(list).toHaveTextContent('WPM12.5');
     expect(list).toHaveTextContent('ACC50%');
