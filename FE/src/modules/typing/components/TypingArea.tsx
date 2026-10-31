@@ -55,7 +55,7 @@ interface TypingStatusProps {
 
 /** Bottom of the page: words typed on the left, the timer on the right. Full screen width, not the card's. The page shows it with zeros while the next session loads, so it never disappears. */
 export const TypingStatus = ({ typed, total, seconds, finished }: TypingStatusProps) => (
-  <div className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-2 items-center px-4 text-[1.125rem] md:px-8">
+  <div data-tutorial="typing-stats" className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-2 items-center px-4 text-[1.125rem] md:px-8">
     <span className={`${statusFrame} justify-self-start`}>
       Words {Math.min(typed, total)} / {total}
     </span>
@@ -163,7 +163,7 @@ export const TypingArea = ({
         <Card className="border-transparent bg-transparent shadow-none">
           <CardContent className="space-y-4 pt-6">
             {/* The real input is an invisible textarea laid over the passage: clicks focus it, and what is typed shows in the passage. */}
-            <div className="relative">
+            <div className="relative" data-tutorial="typing-passage">
               <PassageView words={targetWords} results={results} current={isFinished ? undefined : current} maxRows={3} />
               <textarea
                 aria-label="Typing area"

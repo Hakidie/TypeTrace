@@ -69,7 +69,7 @@ export const DailyMode = () => {
   }
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl gap-4 py-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start">
+    <div data-tutorial="daily-challenge" className="mx-auto grid w-full max-w-6xl gap-4 py-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:items-start">
       <div className="flex min-w-0 flex-col gap-4">
         {showResult && before ? (
           <DailyResult before={before} after={card} onAgain={start} onBack={() => setShowResult(false)} starting={startTry.isPending} />

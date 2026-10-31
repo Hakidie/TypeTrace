@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardCheck, Trophy } from 'lucide-react';
+import { ClipboardCheck, CloudRain, Swords, Trophy } from 'lucide-react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { EmptyState } from '@/shared/components/empty-state';
@@ -10,15 +10,23 @@ import { Pagination } from '@/shared/components/pagination';
 import { TabGroup } from '@/shared/components/tab-group';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { useLeaderboard } from '../hooks/use-ranked';
+import type { MatchKind } from '../types/ranked.types';
 
 const PAGE_SIZE = 20;
 
 type LeaderboardTab = 'placement' | 'rank';
 
+const KIND_TABS = [
+  { value: 'race', label: 'Race', icon: Swords },
+  { value: 'rain', label: 'Rain', icon: CloudRain },
+];
+
 /** The best players of the current season (5 matches or more): display names and avatars, never an email. */
 export const LeaderboardPage = () => {
   const list = useListParams({ sort: '-rating' });
-  const board = useLeaderboard({ page: list.page, limit: PAGE_SIZE });
+  // Each kind of match has its own board; the kind is in the URL (`?kind=rain`), Race without it.
+  const kind: MatchKind = list.get('kind') === 'rain' ? 'rain' : 'race';
+  const board = useLeaderboard({ page: list.page, limit: PAGE_SIZE, kind });
   const { data: me } = useCurrentUser();
   const [tab, setTab] = useState<LeaderboardTab>('rank');
   // The Rank tab names the season: "Rank S1".
@@ -73,7 +81,18 @@ export const LeaderboardPage = () => {
       </div>
       <div role="tabpanel" aria-label={tab === 'rank' ? 'Rank' : 'Placement'}>
         {tab === 'rank' ? (
-          renderList()
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <TabGroup
+                label="Kind of match"
+                tabs={KIND_TABS}
+                value={kind}
+                // Race is the default: no `kind` in the URL. Changing the board goes back to its first page.
+                onChange={(value) => list.set('kind', value === 'rain' ? 'rain' : '')}
+              />
+            </div>
+            {renderList()}
+          </div>
         ) : (
           <EmptyState icon={Trophy} title="No placement results yet" description="Placement test scores will show up here." />
         )}

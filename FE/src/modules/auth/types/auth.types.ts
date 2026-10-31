@@ -1,3 +1,4 @@
+import type { TutorialState } from '@/modules/tutorial/types/tutorial.types';
 import type { AvatarLook } from '@/modules/avatar/types/avatar.types';
 
 export interface AuthPayload {
@@ -27,6 +28,8 @@ export interface CurrentUser {
   ownedItems?: string[];
   /** Only what the frontend reads: the IANA time zone the learner's days are counted in (`Asia/Ho_Chi_Minh` until the browser sends its own). */
   settings?: { timezone?: string };
+  /** Ping's tutorial (`modules/tutorial`): missing on accounts from before it, which are never shown one. */
+  tutorial?: TutorialState;
   createdAt: string;
   updatedAt: string;
 }

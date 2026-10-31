@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { matchKinds } from '../models/match.model';
 import { MAX_PASSAGE_WORDS } from '../models/passage.model';
 
 /** A room code as typed: any case, upper-cased here; 6 characters of the room alphabet (no 0, O, 1 or I). */
@@ -25,3 +26,12 @@ export const progressSchema = z
   .refine((body) => body.typedWords.length === body.typedAtMs.length, 'Send one time per word');
 
 export type ProgressInput = z.infer<typeof progressSchema>;
+
+/** A new room is a race unless it says otherwise; no body at all (older pages send none) is a race too. */
+export const createMatchSchema = z.object({ kind: z.enum(matchKinds).default('race') }).default({ kind: 'race' });
+
+/** One word typed in a rain duel, sent on space or Enter. */
+export const rainWordSchema = z.object({ text: z.string().trim().min(1).max(40) });
+
+export type CreateMatchInput = z.infer<typeof createMatchSchema>;
+export type RainWordInput = z.infer<typeof rainWordSchema>;

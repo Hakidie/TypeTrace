@@ -2,6 +2,7 @@ import { Gamepad2, RotateCcw, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
+import { useStartTutorial } from '@/modules/tutorial/hooks/use-tutorial';
 import { RankMode } from '@/modules/ranked/components/RankMode';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
@@ -76,18 +77,16 @@ export const TypingPage = () => {
   /** A tab without a typing session, a passage to choose or a time limit. */
   const game = ranked || minigames;
   const pageRef = useRef<HTMLDivElement>(null);
-  // Asks before the placement test: when the learner picks the Placement tab, and once when a learner who has just
-  // created their account lands here (`welcome`, SCRUM-157). Cancel (or closing it) stays in practice. `welcome` stays
-  // as it was while the dialog closes, so its text does not change on the way out.
-  const [placementPrompt, setPlacementPrompt] = useState(() => {
-    const welcome = (location.state as AfterLoginState | null)?.newAccount === true;
-    return { open: welcome, welcome };
-  });
-  // Asked once: the state leaves the history entry at once, so a reload or Back does not ask again.
+  // Asks before the placement test when the learner picks the Placement tab. Cancel (or closing it) stays in practice.
+  const [placementPrompt, setPlacementPrompt] = useState({ open: false });
+  // A learner who has just created their account starts Ping's tour (it brings the placement test in its turn), once:
+  // the state leaves the history entry at once, so a reload or Back does not start it again.
+  const { mutate: startTutorial } = useStartTutorial();
   useEffect(() => {
     if (!(location.state as AfterLoginState | null)?.newAccount) return;
     navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
-  }, [location, navigate]);
+    startTutorial();
+  }, [location, navigate, startTutorial]);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>('sec');
   const [timeIndex, setTimeIndex] = useState(1);
   const timeSeconds = timeChoices[timeUnit][timeIndex] * (timeUnit === 'min' ? 60 : 1);
@@ -168,7 +167,7 @@ export const TypingPage = () => {
   return (
     <div ref={pageRef} className={cn('flex flex-1 flex-col p-4 pb-0 pt-0 md:p-8 md:pb-0 md:pt-0', ranked ? 'gap-24' : 'gap-4', redGlassTheme)}>
       {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right. */}
-      <div className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
+      <div data-tutorial="mode-tabs" className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 max-w-full md:justify-self-end">
           {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Minigames. */}
           {!game && (
@@ -208,7 +207,7 @@ export const TypingPage = () => {
             else if (value === 'minigames') {
               if (!minigames) setSearchParams({ mode: 'minigames' });
             }
-            else if (value !== mode || game) setPlacementPrompt({ open: true, welcome: false });
+            else if (value !== mode || game) setPlacementPrompt({ open: true });
           }}
         />
         <div className="md:justify-self-start">
@@ -235,22 +234,18 @@ export const TypingPage = () => {
       </div>
       <ConfirmDialog
         open={placementPrompt.open}
-        onOpenChange={(open) => setPlacementPrompt((prompt) => ({ ...prompt, open }))}
-        title={placementPrompt.welcome ? 'Welcome! Take the placement test?' : 'Start the placement test?'}
-        description={
-          placementPrompt.welcome
-            ? 'A short typing test shows the speed and accuracy you start from. Your result is saved and counts toward your all-time average WPM and accuracy. You can also take it later from the Placement tab.'
-            : 'Your result is saved and counts toward your all-time average WPM and accuracy. Press Start to begin, or Cancel to go back to practice.'
-        }
-        confirmLabel={placementPrompt.welcome ? 'Start the test' : 'Start'}
-        cancelLabel={placementPrompt.welcome ? 'Not now' : 'Cancel'}
+        onOpenChange={(open) => setPlacementPrompt({ open })}
+        title="Start the placement test?"
+        description="Your result is saved and counts toward your all-time average WPM and accuracy. Press Start to begin, or Cancel to go back to practice."
+        confirmLabel="Start"
+        cancelLabel="Cancel"
         // Back to the typing area, so the learner can type at once (a new session's area takes the focus itself when it opens).
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           pageRef.current?.querySelector('textarea')?.focus();
         }}
         onConfirm={() => {
-          setPlacementPrompt((prompt) => ({ ...prompt, open: false }));
+          setPlacementPrompt({ open: false });
           setSearchParams({ mode: 'placement' });
         }}
       />

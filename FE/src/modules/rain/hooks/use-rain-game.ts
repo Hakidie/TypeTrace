@@ -10,7 +10,8 @@ const isHidden = () => typeof document !== 'undefined' && document.visibilitySta
  * One round of word rain: the rules of `rainReducer` with a clock. The clock stops while the round is paused by hand or
  * the tab is hidden, and the stage freezes its falling words with the same `paused`, so the two stay together.
  */
-export const useRainGame = () => {
+/** `frozen`: nothing falls and the clock stops (Ping explains a word), but words can still be typed. */
+export const useRainGame = (frozen = false) => {
   const [state, dispatch] = useReducer(rainReducer, initialRainState);
   const [held, setHeld] = useState(false);
   const [hidden, setHidden] = useState(isHidden);
@@ -25,7 +26,7 @@ export const useRainGame = () => {
   const paused = playing && (held || hidden);
 
   useEffect(() => {
-    if (!playing || paused) return;
+    if (!playing || paused || frozen) return;
     let last = Date.now();
     const timer = setInterval(() => {
       const now = Date.now();
@@ -33,7 +34,7 @@ export const useRainGame = () => {
       last = now;
     }, TICK_MS);
     return () => clearInterval(timer);
-  }, [playing, paused]);
+  }, [playing, paused, frozen]);
 
   const start = useCallback((words: string[], lanes: number) => {
     setHeld(false);

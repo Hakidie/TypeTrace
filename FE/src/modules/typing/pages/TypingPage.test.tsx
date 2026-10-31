@@ -53,6 +53,11 @@ vi.mock('@/modules/daily/api/daily.api', () => ({
     history: () => Promise.resolve([]),
   },
 }));
+const startTutorial = vi.fn();
+vi.mock('@/modules/tutorial/api/tutorial.api', () => ({
+  tutorialApi: { start: () => startTutorial(), update: vi.fn(), reset: vi.fn(), coach: vi.fn() },
+}));
+
 vi.mock('@lottiefiles/dotlottie-react', () => ({ DotLottieReact: () => null }));
 
 const session = {
@@ -70,6 +75,7 @@ const renderPage = () =>
 const UrlSearch = () => <p aria-label="URL search">{useLocation().search}</p>;
 
 beforeEach(() => {
+  startTutorial.mockReset();
   sessionStorage.clear();
   start.mockReset().mockResolvedValue(session);
   begin.mockReset().mockResolvedValue(session);
@@ -514,8 +520,8 @@ describe('TypingPage', () => {
   });
 });
 
-describe('TypingPage: a learner who has just created their account (SCRUM-157)', () => {
-  /** Shows the history state of the URL, to check that the question is asked only once. */
+describe('TypingPage: a learner who has just created their account (Ping tutorial)', () => {
+  /** Shows the history state of the URL, to check that the tour starts only once. */
   const UrlState = () => <p aria-label="URL state">{JSON.stringify(useLocation().state)}</p>;
 
   const renderForNewAccount = () =>
@@ -527,37 +533,21 @@ describe('TypingPage: a learner who has just created their account (SCRUM-157)',
       { route: '/typing', state: { newAccount: true } },
     );
 
-  it('asks first to take the placement test, and starts it on Start the test', async () => {
-    const user = userEvent.setup();
+  it("starts Ping's tour instead of asking for the placement test", async () => {
     renderForNewAccount();
 
-    const dialog = await screen.findByRole('dialog', { name: 'Welcome! Take the placement test?' });
-    expect(dialog).toHaveTextContent(/later from the Placement tab/);
-    // Asked once: the history entry no longer says the account is new, so a reload does not ask again.
+    await waitFor(() => expect(startTutorial).toHaveBeenCalledTimes(1));
+    // Once: the history entry no longer says the account is new, so a reload does not start it again.
     await waitFor(() => expect(screen.getByLabelText('URL state')).toHaveTextContent('null'));
-    await user.click(within(dialog).getByRole('button', { name: 'Start the test' }));
-
-    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
-    expect(screen.getByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  });
-
-  it('stays in practice on Not now', async () => {
-    const user = userEvent.setup();
-    renderForNewAccount();
-
-    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Not now' }));
-
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(start).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(start).toHaveBeenCalledWith({ mode: 'practice' });
-    expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('does not ask a learner who only logs in', async () => {
+  it('does not start the tour for a learner who only logs in', async () => {
     renderPage();
 
     await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(startTutorial).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

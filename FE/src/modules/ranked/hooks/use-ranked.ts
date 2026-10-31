@@ -1,19 +1,21 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { rankedApi } from '../api/ranked.api';
+import type { MatchKind } from '../types/ranked.types';
 
 type PageParams = { page: number; limit: number };
 
-/** Cache keys of the ratings (the matches have their own, `matchKeys`). */
+/** Cache keys of the ratings (the matches have their own, `matchKeys`). `me()` without a kind covers both kinds. */
 export const rankedKeys = {
   all: ['ranked'] as const,
-  me: () => [...rankedKeys.all, 'me'] as const,
-  leaderboard: (params: PageParams) => [...rankedKeys.all, 'leaderboard', params] as const,
+  me: (kind?: MatchKind) => (kind ? ([...rankedKeys.all, 'me', kind] as const) : ([...rankedKeys.all, 'me'] as const)),
+  leaderboard: (params: PageParams & { kind: MatchKind }) => [...rankedKeys.all, 'leaderboard', params] as const,
   seasons: (params: PageParams) => [...rankedKeys.all, 'seasons', params] as const,
 };
 
-export const useRankedMe = () => useQuery({ queryKey: rankedKeys.me(), queryFn: rankedApi.me });
+/** The own rating of one kind of match: each kind has its own rating, tier and board. */
+export const useRankedMe = (kind: MatchKind) => useQuery({ queryKey: rankedKeys.me(kind), queryFn: () => rankedApi.me(kind) });
 
-export const useLeaderboard = (params: PageParams) =>
+export const useLeaderboard = (params: PageParams & { kind: MatchKind }) =>
   useQuery({ queryKey: rankedKeys.leaderboard(params), queryFn: () => rankedApi.leaderboard(params), placeholderData: keepPreviousData });
 
 /** Admin. */

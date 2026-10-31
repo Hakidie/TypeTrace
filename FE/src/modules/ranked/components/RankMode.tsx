@@ -7,6 +7,7 @@ import { useMatch } from '../hooks/use-match';
 import { LoadingRing } from './LoadingRing';
 import { MatchResult } from './MatchResult';
 import { RaceView } from './RaceView';
+import { RainDuelView } from './RainDuelView';
 import { RankLobby } from './RankLobby';
 import { RoomLobby } from './RoomLobby';
 
@@ -92,6 +93,8 @@ export const RankMode = () => {
       </div>
     );
   }
-  if (match.status === 'countdown' || match.status === 'running') return <RaceView match={match} myId={me?._id} />;
+  if (match.status === 'countdown' || match.status === 'running') {
+    return match.kind === 'rain' ? <RainDuelView match={match} myId={me?._id} /> : <RaceView match={match} myId={me?._id} />;
+  }
   return <MatchResult match={match} myId={me?._id} invite={invite} onEnter={setRoom} onLeave={() => setRoom(undefined)} />;
 };

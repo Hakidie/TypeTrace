@@ -1,19 +1,46 @@
 import { useState, type FormEvent } from 'react';
-import { DoorOpen, ListOrdered, Swords, Trophy, type LucideIcon } from 'lucide-react';
+import { CloudRain, DoorOpen, ListOrdered, Swords, Trophy, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Panel } from '@/shared/components/panel';
+import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { MONTHS } from '@/shared/lib/local-date';
 import { useCreateMatch, useJoinMatch } from '../hooks/use-match';
 import { useRankedMe } from '../hooks/use-ranked';
-import type { SeasonInfo } from '../types/ranked.types';
+import type { MatchKind, SeasonInfo } from '../types/ranked.types';
 
 // The size of the profile page's section titles (`sectionTitleClass`), in the red of the season above.
 export const titleClass = 'text-[1.5rem] text-primary';
 
 const ROOM_CODE_LENGTH = 6;
+
+const KINDS = [
+  { value: 'race', label: 'Race', icon: Swords },
+  { value: 'rain', label: 'Rain', icon: CloudRain },
+];
+/** The kind chosen last in this tab (sessionStorage; storage can be blocked, then it is Race). */
+const KIND_KEY = 'ranked.kind';
+const lastKind = (): MatchKind => {
+  try {
+    return sessionStorage.getItem(KIND_KEY) === 'rain' ? 'rain' : 'race';
+  } catch {
+    return 'race';
+  }
+};
+const rememberKind = (kind: MatchKind) => {
+  try {
+    sessionStorage.setItem(KIND_KEY, kind);
+  } catch {
+    // not remembered
+  }
+};
+/** What a room of each kind is, under the title of the create panel. */
+const KIND_TIPS: Record<MatchKind, string> = {
+  race: 'Open a room and share its code. You both type the same English passage.',
+  rain: 'Open a room and share its code. Words rain on both of you; every word you type falls on your friend. Three misses and you are out.',
+};
 
 // The frame of the other panels (the normal border color, the thin red while hovered) around a bare panel, which has no padding of its own: it is as wide as the season bar above it.
 export const hoverFrame = 'flex flex-col border border-border p-3 transition-colors hover:border-destructive/40';
@@ -36,11 +63,12 @@ const seasonDays = ({ startsAt, endsAt }: SeasonInfo) => {
   return { from: day(start), to: day(end) };
 };
 
-/** No room yet: the own season rating on top, then create a room (the code is shared with a friend) or join one with its code. */
+/** No room yet: the kind of match (Race or Rain), the own season rating of that kind, then create a room of that kind (the code is shared with a friend) or join one with its code. */
 export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
   const createMatch = useCreateMatch();
   const joinMatch = useJoinMatch();
-  const ranking = useRankedMe();
+  const [kind, setKind] = useState<MatchKind>(lastKind);
+  const ranking = useRankedMe(kind);
   const days = ranking.data && seasonDays(ranking.data.season);
   const [code, setCode] = useState('');
   const pending = createMatch.isPending || joinMatch.isPending;
@@ -62,6 +90,17 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-x-12 gap-y-24 md:grid-cols-2">
+      <div data-tutorial="rank-kind" className="flex justify-center md:col-span-2">
+        <TabGroup
+          label="Kind of match"
+          tabs={KINDS}
+          value={kind}
+          onChange={(value) => {
+            setKind(value as MatchKind);
+            rememberKind(value as MatchKind);
+          }}
+        />
+      </div>
       {/* The own rating is extra here: while it loads, or if it fails, the lobby works without it. */}
       {ranking.data && (
         <div className="duel-rise group md:col-span-2">
@@ -107,9 +146,9 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
         </div>
       )}
       <div className={hoverFrame}>
-        <Panel title="Duel a friend" bare centerTitle titleClassName={titleClass} titleTip="Open a room and share its code. You both type the same English passage." fill className="justify-end">
-          <PanelArt icon={Swords} />
-          <Button disabled={pending} onClick={() => createMatch.mutate(undefined, { onSuccess: (match) => onEnter(match.code) })}>
+        <Panel title="Duel a friend" bare centerTitle titleClassName={titleClass} titleTip={KIND_TIPS[kind]} fill className="justify-end">
+          <PanelArt icon={kind === 'rain' ? CloudRain : Swords} />
+          <Button disabled={pending} onClick={() => createMatch.mutate(kind, { onSuccess: (match) => onEnter(match.code) })}>
             <Swords className="size-4" aria-hidden="true" />
             Create room
           </Button>

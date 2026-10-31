@@ -1,6 +1,7 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
+import { tutorialStore } from '@/modules/tutorial/lib/tutorial-store';
 import { ROUND_MS } from '../lib/rain-game';
 import { RainMode } from './RainMode';
 
@@ -121,5 +122,29 @@ describe('RainMode', () => {
 
     expect(screen.getByText('You beat the rain')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Play again' })).toBeInTheDocument();
+  });
+
+  it('holds the rain for Ping until the framed word is typed', async () => {
+    const done = vi.fn();
+    tutorialStore.setHold('rain-word', done);
+    await startRound();
+    advance(300);
+    // The word falls a third of its way first, so it stands in the middle of the stage, not under Ping at the top.
+    expect(document.querySelector('[data-tutorial="rain-word"]')).toBeNull();
+    advance(3000);
+    const framed = document.querySelector('[data-tutorial="rain-word"]');
+    expect(framed).not.toBeNull();
+    const word = framed!.textContent!;
+    const time = screen.getByLabelText('Time left').textContent;
+
+    advance(3000);
+    // Nothing moves while Ping explains: the clock stands still, but the box still takes the word.
+    expect(screen.getByLabelText('Time left')).toHaveTextContent(time!);
+    const box = screen.getByRole('textbox', { name: 'Type a falling word' });
+    expect(box).toBeEnabled();
+    fireEvent.change(box, { target: { value: word + ' ' } });
+
+    expect(done).toHaveBeenCalledOnce();
+    expect(tutorialStore.get().hold).toBeNull();
   });
 });

@@ -21,7 +21,7 @@ export const matchSettings = {
 };
 const DEFAULT_SETTINGS = { ...matchSettings };
 
-export type MatchEvent = 'state' | 'countdown' | 'progress' | 'result' | 'rematch';
+export type MatchEvent = 'state' | 'countdown' | 'progress' | 'result' | 'rematch' | 'rain';
 
 interface Stream {
   userId: string;

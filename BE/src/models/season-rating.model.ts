@@ -1,10 +1,13 @@
 // A player's Elo in one season (ranked duel design, phase 5). Made at the first rated match, or at the soft reset when the
 // season before closes.
 import mongoose, { Schema, Types } from 'mongoose';
+import { matchKinds, type MatchKind } from './match.model';
 
 export interface SeasonRatingDocument extends mongoose.Document {
   user: Types.ObjectId;
   season: Types.ObjectId;
+  /** Each kind of match has its own rating, tier and leaderboard in a season. */
+  kind: MatchKind;
   rating: number;
   /** The highest rating after a match of the season (not the start): its tier decides the season rewards. */
   peakRating?: number;
@@ -22,6 +25,7 @@ const seasonRatingSchema = new Schema<SeasonRatingDocument>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     season: { type: Schema.Types.ObjectId, ref: 'Season', required: true },
+    kind: { type: String, enum: matchKinds, default: 'race' },
     rating: { type: Number, required: true },
     peakRating: Number,
     matches: { type: Number, default: 0 },
@@ -33,8 +37,8 @@ const seasonRatingSchema = new Schema<SeasonRatingDocument>(
   { timestamps: true }
 );
 
-seasonRatingSchema.index({ season: 1, user: 1 }, { unique: true });
-// The leaderboard: the best ratings of a season.
-seasonRatingSchema.index({ season: 1, rating: -1 });
+seasonRatingSchema.index({ season: 1, user: 1, kind: 1 }, { unique: true });
+// The leaderboard of one kind: the best ratings of a season.
+seasonRatingSchema.index({ season: 1, kind: 1, rating: -1 });
 
 export const SeasonRatingModel = mongoose.model<SeasonRatingDocument>('SeasonRating', seasonRatingSchema);

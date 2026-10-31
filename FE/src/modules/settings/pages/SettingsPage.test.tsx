@@ -15,6 +15,11 @@ vi.mock('@/modules/auth/api/auth.api', () => ({
   authApi: { getMe: () => getMe() },
 }));
 
+const resetTutorial = vi.fn();
+vi.mock('@/modules/tutorial/api/tutorial.api', () => ({
+  tutorialApi: { start: vi.fn(), update: vi.fn(), reset: () => resetTutorial(), coach: vi.fn() },
+}));
+
 vi.mock('../api/themes.api', () => ({
   themesApi: { list: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn(), getActive: vi.fn(), updateActive: vi.fn() },
 }));
@@ -98,6 +103,15 @@ describe('SettingsPage', () => {
     ]);
     expect(screen.queryByText('Mono')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Custom theme' })).toBeInTheDocument();
+  });
+
+  it("replays Ping's tutorial from the Tutorial panel", async () => {
+    resetTutorial.mockResolvedValue({ _id: 'u1', email: 'lan@example.com', role: 'user', tutorial: { tour: 'active', modes: {} } });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Xem lại hướng dẫn' }));
+
+    await waitFor(() => expect(resetTutorial).toHaveBeenCalledOnce());
   });
 
   it('has a Security panel with the email code at login switch', async () => {

@@ -445,6 +445,84 @@ body {
 }
 
 /*
+ * Rain duel moments (modules/ranked, RainDuelView). The flashes and the banner are information, so they always run (they
+ * only fade); the flight of a thrown word and the shake are motion, skipped for reduced motion with the right final look
+ * (the flying word is gone, the field stands still).
+ */
+@keyframes rain-throw {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(calc(var(--rain-throw-x) * 0.55), calc(var(--rain-throw-y) - 3rem)) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--rain-throw-x), var(--rain-throw-y)) scale(0.45);
+  }
+}
+
+@keyframes rain-fade-out {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes rain-hit-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25%,
+  75% {
+    transform: translateX(-4px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+/* The thrown word flies from the own field to the other one: to the right on a wide screen, up to the strip on a phone. */
+.rain-throw {
+  --rain-throw-x: 40vw;
+  --rain-throw-y: -35vh;
+  opacity: 0;
+}
+
+@media (max-width: 1023px) {
+  .rain-throw {
+    --rain-throw-x: 0px;
+    --rain-throw-y: -45vh;
+  }
+}
+
+.rain-incoming,
+.rain-opponent-hit {
+  animation: rain-fade-out 0.6s ease-out both;
+}
+
+.rain-banner {
+  animation: rain-fade-out 1.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rain-throw {
+    animation: rain-throw 0.45s cubic-bezier(0.3, 0, 0.3, 1) both;
+  }
+  .rain-opponent-hit {
+    animation:
+      rain-fade-out 0.6s ease-out both,
+      rain-hit-shake 0.3s steps(6) both;
+  }
+}
+
+/*
  * The avatar effects move (AvatarSprite puts one class on the effect layer). Stepped timing keeps the pixel art crisp;
  * people who ask for less motion get the still layer.
  */
@@ -519,5 +597,30 @@ body {
   .avatar-fx-flicker {
     animation: avatar-fx-flicker 0.5s steps(2) infinite;
     transform-origin: bottom;
+  }
+}
+
+/*
+ * Ping, the tutorial mascot (modules/tutorial, `Ping`): a strip of 4 frames played with steps(4); `--ping-strip` is the
+ * width of the strip. For reduced motion it stands on its first frame.
+ */
+@keyframes ping-play {
+  to {
+    background-position: calc(var(--ping-strip) * -1) 0;
+  }
+}
+
+.ping-sprite {
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  image-rendering: pixelated;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ping-sprite {
+    animation: ping-play 0.8s steps(4) infinite;
+  }
+  .ping-sprite-slow {
+    animation-duration: 1.4s;
   }
 }

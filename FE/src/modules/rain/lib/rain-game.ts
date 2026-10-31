@@ -17,12 +17,12 @@ export const spawnMsAt = (elapsed: number) => lerp(1800, 700, elapsed);
 /** The middle of a lane, in percent of the stage width. */
 export const laneX = (lane: number, lanes: number) => ((lane + 0.5) / lanes) * 100;
 
-const exact = (text: string) => text.normalize('NFC').toLowerCase();
+export const exact = (text: string) => text.normalize('NFC').toLowerCase();
 /**
  * Without the Vietnamese marks: a Telex or VNI keyboard shows "tie" before "tiế", so the word being typed is found by its
  * letters alone. Only the exact word (marks included) is a hit.
  */
-const loose = (text: string) => exact(text).normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd');
+export const loose = (text: string) => exact(text).normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd');
 
 export const initialRainState: RainState = {
   phase: 'ready',
