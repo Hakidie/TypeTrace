@@ -21,7 +21,8 @@ export const matchSettings = {
 };
 const DEFAULT_SETTINGS = { ...matchSettings };
 
-export type MatchEvent = 'state' | 'countdown' | 'progress' | 'result' | 'rematch' | 'rain';
+/** `presence`: a player's stream dropped (with when they forfeit) or came back; `resume`: the own words, after a reload. */
+export type MatchEvent = 'state' | 'countdown' | 'progress' | 'result' | 'rematch' | 'rain' | 'presence' | 'resume';
 
 interface Stream {
   userId: string;
@@ -31,7 +32,7 @@ interface Stream {
 
 interface Room {
   streams: Set<Stream>;
-  timers: Map<string, NodeJS.Timeout>;
+  timers: Map<string, { timer: NodeJS.Timeout; endsAt: number }>;
 }
 
 const rooms = new Map<string, Room>();
@@ -119,14 +120,19 @@ export const schedule = (code: string, name: string, ms: number, fn: () => Promi
       .then(fn)
       .catch((error) => console.error(`Match ${code}: timer ${name} failed`, error));
   }, ms);
-  roomOf(code).timers.set(name, timer);
+  roomOf(code).timers.set(name, { timer, endsAt: Date.now() + ms });
 };
 
+/** When the timer of that name fires, if one is waiting. */
+export const timerEndsAt = (code: string, name: string) => rooms.get(code)?.timers.get(name)?.endsAt;
+
+/** Stops the timer of that name; true when one was waiting. */
 export const cancelTimer = (code: string, name: string) => {
   const room = rooms.get(code);
-  const timer = room?.timers.get(name);
-  if (timer) clearTimeout(timer);
+  const entry = room?.timers.get(name);
+  if (entry) clearTimeout(entry.timer);
   room?.timers.delete(name);
+  return Boolean(entry);
 };
 
 /**
@@ -149,7 +155,7 @@ export const withMatchLock = <T>(code: string, task: () => Promise<T>) => {
 /** Ends every stream, stops every timer and puts the settings back: for tests. */
 export const resetMatchHub = () => {
   for (const room of rooms.values()) {
-    room.timers.forEach((timer) => clearTimeout(timer));
+    room.timers.forEach((entry) => clearTimeout(entry.timer));
     room.streams.forEach((stream) => {
       clearInterval(stream.ping);
       if (isOpen(stream.res)) stream.res.end();

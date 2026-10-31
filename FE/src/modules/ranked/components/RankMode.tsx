@@ -5,6 +5,7 @@ import { ErrorState } from '@/shared/components/error-state';
 import { Button } from '@/shared/components/ui/button';
 import { useMatch } from '../hooks/use-match';
 import { LoadingRing } from './LoadingRing';
+import { MatchNotices } from './MatchNotices';
 import { MatchResult } from './MatchResult';
 import { RaceView } from './RaceView';
 import { RainDuelView } from './RainDuelView';
@@ -43,7 +44,7 @@ export const RankMode = () => {
   const [params, setParams] = useSearchParams();
   const code = params.get('room') ?? undefined;
   const { data: me } = useCurrentUser();
-  const { match, isLoading, error, gone, invite, refetch } = useMatch(code);
+  const { match, isLoading, error, gone, invite, refetch, connected, away, resume } = useMatch(code);
   // 400: not a room code at all (an edited link); 404: no such room for this user.
   const status = (error as { response?: { status?: number } } | null)?.response?.status;
   const roomGone = gone || status === 400 || status === 404;
@@ -94,7 +95,12 @@ export const RankMode = () => {
     );
   }
   if (match.status === 'countdown' || match.status === 'running') {
-    return match.kind === 'rain' ? <RainDuelView match={match} myId={me?._id} /> : <RaceView match={match} myId={me?._id} />;
+    return (
+      <div className="flex flex-1 flex-col gap-2">
+        <MatchNotices match={match} myId={me?._id} connected={connected} away={away} />
+        {match.kind === 'rain' ? <RainDuelView match={match} myId={me?._id} /> : <RaceView match={match} myId={me?._id} resume={resume} />}
+      </div>
+    );
   }
   return <MatchResult match={match} myId={me?._id} invite={invite} onEnter={setRoom} onLeave={() => setRoom(undefined)} />;
 };

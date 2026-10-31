@@ -9,8 +9,8 @@ export const OPEN_MATCH_STATUSES = ['waiting', 'countdown', 'running'] as const;
 export const matchResults = ['win', 'loss', 'draw', 'forfeit'] as const;
 
 /** Why a finished match did not count for Elo: left before the race, flagged by the WPM cap, or the pair's daily limit. */
-/** `interrupted`: a rain duel whose rain was lost (the server restarted while it ran). */
-export const unratedReasons = ['not-started', 'flagged', 'pair-limit', 'interrupted'] as const;
+/** `interrupted`: a rain duel whose rain was lost (the server restarted while it ran). `abandoned`: both players left. */
+export const unratedReasons = ['not-started', 'flagged', 'pair-limit', 'interrupted', 'abandoned'] as const;
 /** `race`: both type the same passage (the first ranked duel); `rain`: word rain, typed words thrown at the other player. */
 export const matchKinds = ['race', 'rain'] as const;
 export type MatchKind = (typeof matchKinds)[number];

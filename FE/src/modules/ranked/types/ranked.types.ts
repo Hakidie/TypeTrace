@@ -30,7 +30,7 @@ export interface MatchPlayerView {
 }
 
 /** Why a finished match did not count for Elo. */
-export type UnratedReason = 'not-started' | 'flagged' | 'pair-limit' | 'interrupted';
+export type UnratedReason = 'not-started' | 'flagged' | 'pair-limit' | 'interrupted' | 'abandoned';
 
 /** Mirrors `toPublicMatch` of the backend (`BE/src/services/match-view.ts`). */
 export interface PublicMatch {
@@ -71,7 +71,16 @@ export type MatchEvent =
   | { event: 'countdown'; data: { countdownEndsAt: string } }
   | { event: 'progress'; data: ProgressUpdate & { userId: string } }
   | { event: 'rain'; data: RainServerEvent }
-  | { event: 'rematch'; data: RematchInvite };
+  | { event: 'rematch'; data: RematchInvite }
+  /** A player's stream dropped (they do not finish at `forfeitAt` unless they come back) or came back. */
+  | { event: 'presence'; data: { userId: string; connected: true } | { userId: string; connected: false; forfeitAt: string } }
+  /** After a reload in a race: the own words the server kept, to go on from there. */
+  | { event: 'resume'; data: RaceResume };
+
+export interface RaceResume {
+  typedWords: string[];
+  typedAtMs: number[];
+}
 
 export type Tier = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond' | 'Legend';
 

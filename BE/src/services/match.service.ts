@@ -6,7 +6,7 @@ import { splitWords } from '../models/passage.model';
 import { ANONYMOUS_PLAYER_NAME, UserModel } from '../models/user.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { ProgressInput } from '../validators/match.validator';
-import { cancelTimer, closeStreams, isConnected, matchSettings, publish, publishTo, schedule, subscribe, withMatchLock } from './match-hub';
+import { cancelTimer, closeStreams, isConnected, matchSettings, publish, publishTo, schedule, subscribe, timerEndsAt, withMatchLock } from './match-hub';
 import { generateRoomCode, pickRainWords, pickRankedPassage, toPublicMatch } from './match-view';
 import { EndRainDuel, hitRainWord, sendRainSnapshot, startRainDuel, stopRainDuel, wasStartedHere } from './rain-duel.service';
 import { rainDuelSettings } from './rain-duel-rules';
@@ -178,34 +178,54 @@ export const leaveMatch = (userId: string, code: string) =>
     return toPublicMatch(match);
   });
 
-/** A player who leaves (or stays disconnected) once the countdown started loses by forfeit; the other one wins. */
-const forfeitPlayer = (match: MatchDocument, userId: string) => {
+/**
+ * A player who leaves (or stays disconnected) once the countdown started does not finish (DNF, stored as `forfeit`); the
+ * other one wins, unless they are gone too: then neither finished and `rateMatch` counts it for nobody.
+ */
+const forfeitPlayer = (match: MatchDocument, userId: string, otherGone = false) => {
   const other = match.players.find((entry) => String(entry.user) !== userId)!;
   finish(
     match,
     new Map<string, MatchResult>([
       [userId, 'forfeit'],
-      [String(other.user), 'win']
+      [String(other.user), otherGone ? 'forfeit' : 'win']
     ])
   );
 };
 
 const disconnectTimer = (userId: string) => `disconnect:${userId}`;
 
-/** The stream of a player closed: during a match they forfeit unless they come back within `disconnectGraceMs`. */
+/** `code:userId` of the players whose stream dropped and did not come back (their timer may already have fired). */
+// ponytail: never pruned for a match that ended, a few bytes per drop; prune in `finish` if it ever matters.
+const away = new Set<string>();
+
+/**
+ * The stream of a player closed: the others hear it (with when the forfeit falls), and during a match the player forfeits
+ * unless they come back within `disconnectGraceMs`.
+ */
 const onStreamClosed = (code: string, userId: string) => {
   if (isConnected(code, userId)) return;
+  away.add(`${code}:${userId}`);
   schedule(code, disconnectTimer(userId), matchSettings.disconnectGraceMs, () =>
     withMatchLock(code, async () => {
       if (isConnected(code, userId)) return;
       const match = await MatchModel.findOne({ code, status: { $in: ['countdown', 'running'] } });
       if (!match || !playerOf(match, userId)) return;
-      forfeitPlayer(match, userId);
+      const other = match.players.find((entry) => String(entry.user) !== userId)!;
+      // Gone too = their own stream dropped as well and they did not come back.
+      forfeitPlayer(match, userId, away.has(`${code}:${other.user}`));
       await rateMatch(match);
       await match.save();
       announceResult(match);
     })
   );
+  publish(code, 'presence', presenceOf(code, userId));
+};
+
+/** Whether a player's stream is open, and when they forfeit while it is not. */
+const presenceOf = (code: string, userId: string) => {
+  const forfeitAt = timerEndsAt(code, disconnectTimer(userId));
+  return forfeitAt === undefined ? { userId, connected: true } : { userId, connected: false, forfeitAt: new Date(forfeitAt) };
 };
 
 /**
@@ -424,10 +444,21 @@ export const sendProgress = (userId: string, code: string, { typedWords, typedAt
 export const openEvents = async (userId: string, code: string, res: Response) => {
   const match = await findRoom(code);
   if (!match || !playerOf(match, userId)) throw roomNotFound();
-  // Back within the grace time (a reload): the forfeit is called off.
-  cancelTimer(match.code, disconnectTimer(userId));
+  // Back within the grace time (a reload): the forfeit is called off, and the other player hears it.
+  const cameBack = cancelTimer(match.code, disconnectTimer(userId));
+  away.delete(`${match.code}:${userId}`);
   subscribe(match.code, userId, res, () => onStreamClosed(match.code, userId));
   publishTo(match.code, userId, 'state', toPublicMatch(match));
+  if (cameBack) publish(match.code, 'presence', { userId, connected: true });
+  // The other player is away right now: this one sees it at once, not only from the next drop.
+  match.players
+    .filter((entry) => String(entry.user) !== userId && timerEndsAt(match.code, disconnectTimer(String(entry.user))) !== undefined)
+    .forEach((entry) => publishTo(match.code, userId, 'presence', presenceOf(match.code, String(entry.user))));
+  // A reload in the middle of a race: the words typed so far, so the typing area goes on from there.
+  const player = playerOf(match, userId)!;
+  if (match.kind !== 'rain' && match.status === 'running' && !player.finishedAt) {
+    publishTo(match.code, userId, 'resume', { typedWords: player.typedWords ?? [], typedAtMs: player.typedAtMs ?? [] });
+  }
   // A reload in the middle of a rain duel: the player gets the whole duel at once, not only the events from now on.
   if (match.kind === 'rain' && match.status === 'running') sendRainSnapshot(match.code, userId);
 };

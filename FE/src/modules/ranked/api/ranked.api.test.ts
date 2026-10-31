@@ -42,6 +42,31 @@ describe('openMatchStream (ranked duel, phase 4)', () => {
     close();
   });
 
+  // SCRUM-154: a player away for 15 s forfeits, so the waits between tries stay short enough to be back in time.
+  it('never waits more than 3 s between tries, so a short cut is back within the 15 s grace', async () => {
+    fetchMock.mockResolvedValue({ status: 503, ok: false });
+    const close = openMatchStream('ABC234', () => undefined);
+
+    await vi.advanceTimersByTimeAsync(15_000); // tries at 0, 1, 3, 6, 9, 12, 15 s
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+    close();
+  });
+
+  it('tells when the stream is open and when it dropped', async () => {
+    let finish: () => void = () => undefined;
+    const body = new ReadableStream<Uint8Array>({ start: (controller) => void (finish = () => controller.close()) });
+    fetchMock.mockResolvedValueOnce({ status: 200, ok: true, body }).mockResolvedValue({ status: 503, ok: false });
+    const onStatus = vi.fn();
+    const close = openMatchStream('ABC234', () => undefined, { onStatus });
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onStatus).toHaveBeenLastCalledWith(true);
+    finish();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onStatus).toHaveBeenLastCalledWith(false);
+    close();
+  });
+
   it('does not reconnect once closed', async () => {
     fetchMock.mockResolvedValue({ status: 503, ok: false });
     const close = openMatchStream('ABC234', () => undefined);

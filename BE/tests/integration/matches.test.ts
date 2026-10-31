@@ -347,6 +347,65 @@ describe('leaving and coming back (ranked duel, phase 3)', () => {
     second.close();
   });
 
+  // SCRUM-154 (US9.2b): the other player sees the lost connection, a comeback goes on from the saved progress, and a
+  // match both players left counts for nobody.
+  it('tells the other player when a stream drops and when it comes back, with the time of the forfeit', async () => {
+    const { host, guest, code } = await startRace();
+    const watcher = openEvents(`/api/matches/${code}/events`, host);
+    await watcher.next('state');
+    const first = openEvents(`/api/matches/${code}/events`, guest);
+    await first.next('state');
+
+    const before = Date.now();
+    first.close();
+    const lost = (await watcher.next('presence')).data as { userId: string; connected: boolean; forfeitAt: string };
+    expect(lost.connected).toBe(false);
+    expect(Date.parse(lost.forfeitAt) - before).toBeGreaterThan(14_000);
+    expect(Date.parse(lost.forfeitAt) - before).toBeLessThanOrEqual(16_000);
+
+    const second = openEvents(`/api/matches/${code}/events`, guest);
+    await second.next('state');
+    expect((await watcher.next('presence')).data).toEqual({ userId: lost.userId, connected: true });
+    watcher.close();
+    second.close();
+  });
+
+  it('tells a player who opens the stream that the other one is still away', async () => {
+    const { host, guest, code } = await startRace();
+    const away = openEvents(`/api/matches/${code}/events`, guest);
+    await away.next('state');
+    away.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const watcher = openEvents(`/api/matches/${code}/events`, host);
+    expect(((await watcher.next('presence')).data as { connected: boolean }).connected).toBe(false);
+    watcher.close();
+  });
+
+  it('gives a player who comes back the words they already typed, to go on from there', async () => {
+    const { guest, code, words } = await startRace();
+    await progress(guest, code, words.slice(0, 3));
+
+    const stream = openEvents(`/api/matches/${code}/events`, guest);
+    expect((await stream.next('resume')).data).toEqual({ typedWords: words.slice(0, 3), typedAtMs: [100, 200, 300] });
+    stream.close();
+  });
+
+  it('rates nobody when both players stay away: both did not finish', async () => {
+    const { host, guest, code } = await startRace();
+    matchSettings.disconnectGraceMs = 100;
+    const a = openEvents(`/api/matches/${code}/events`, host);
+    const b = openEvents(`/api/matches/${code}/events`, guest);
+    await Promise.all([a.next('state'), b.next('state')]);
+
+    a.close();
+    b.close();
+    await waitFor(async () => (await room(host, code)).body.status === 'finished');
+    const match = (await room(host, code)).body;
+    expect(match.players.map((entry: { result: string }) => entry.result)).toEqual(['forfeit', 'forfeit']);
+    expect(match).toMatchObject({ rated: false, unratedReason: 'abandoned' });
+  });
+
   it('invites the other player to a rematch in a new room', async () => {
     const { host, guest, code, words } = await startRace();
     const stream = openEvents(`/api/matches/${code}/events`, guest);
