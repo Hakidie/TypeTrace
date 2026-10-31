@@ -1,6 +1,6 @@
 import { http } from '@/shared/api/http';
 import type { Paginated } from '@/shared/api/types';
-import type { DailyTask, DailyTaskInput, DailyTaskListParams, DailyTaskSettings } from '../types/daily-task.types';
+import type { DailyTask, DailyTaskInput, DailyTaskListItem, DailyTaskListParams, DailyTaskSettings } from '../types/daily-task.types';
 
 /** Drops empty values so the URL stays clean (`?type=` is never sent). */
 const cleanParams = (params: DailyTaskListParams) =>
@@ -8,8 +8,9 @@ const cleanParams = (params: DailyTaskListParams) =>
 
 /** Every function resolves with the response body (not the Axios response). */
 export const dailyTasksApi = {
+  /** Each task with the learners who completed it in the last 24 hours (`completions`). */
   list: (params: DailyTaskListParams = {}) =>
-    http.get<Paginated<DailyTask>>('/admin/daily-tasks', { params: cleanParams(params) }).then((r) => r.data),
+    http.get<Paginated<DailyTaskListItem>>('/admin/daily-tasks', { params: cleanParams(params) }).then((r) => r.data),
   create: (input: DailyTaskInput) => http.post<DailyTask>('/admin/daily-tasks', input).then((r) => r.data),
   update: (id: string, input: Partial<DailyTaskInput>) =>
     http.patch<DailyTask>(`/admin/daily-tasks/${id}`, input).then((r) => r.data),

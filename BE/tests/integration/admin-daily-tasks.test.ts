@@ -1,7 +1,11 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppSettingModel } from '../../src/models/app-setting.model';
 import { DailyTaskModel } from '../../src/models/daily-task.model';
+import { TypingSessionModel } from '../../src/models/typing-session.model';
+import { UserModel } from '../../src/models/user.model';
 import { updateDailyTask } from '../../src/services/admin-daily-task.service';
+import { updateAppSettings } from '../../src/services/app-setting.service';
+import { recordDailyTaskProgress } from '../../src/services/user-daily-tasks.service';
 import type { UpdateDailyTaskInput } from '../../src/validators/admin-daily-task.validator';
 import { api } from '../helpers/api';
 import { bearerFor, createUser } from '../helpers/user-factory';
@@ -156,6 +160,115 @@ describe('GET /api/admin/daily-tasks', () => {
     for (const query of ['sort=target', 'sort=__v', 'type=words', 'isActive=yes', 'limit=101']) {
       expect((await api().get(`/api/admin/daily-tasks?${query}`).set('Authorization', auth)).status).toBe(400);
     }
+  });
+});
+
+describe('GET /api/admin/daily-tasks: the learners who completed each task in the last 24 hours', () => {
+  // Now is 10 March 2026, 08:30 UTC: the hours run from 9 March 09:00 to 10 March 08:00 UTC, the current one.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-03-10T08:30:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A counted session of `learner` completed at `time` (UTC), recorded on their daily tasks like `completeSession` does. */
+  const typeAt = async (learner: { _id: unknown }, time: string, fields: Record<string, unknown> = {}) => {
+    const completedAt = new Date(time);
+    await TypingSessionModel.create({
+      owner: learner._id,
+      passageId: 'p1',
+      targetWords: ['a'],
+      status: 'completed',
+      isCounted: true,
+      completedAt,
+      durationMs: 60_000,
+      wpm: 30,
+      accuracy: 95,
+      ...fields
+    });
+    await recordDailyTaskProgress(learner._id, completedAt);
+  };
+
+  type Completions = { learners: number; hours: { hour: string; learners: number }[] };
+
+  /** By title: the learners in all and the hours that had some, `{ [hour]: learners }`. */
+  const completionsOf = async (auth: string) => {
+    const response = await api().get('/api/admin/daily-tasks').set('Authorization', auth);
+    expect(response.status).toBe(200);
+    return Object.fromEntries(
+      response.body.items.map(({ title, completions }: { title: string; completions: Completions }) => [
+        title,
+        {
+          learners: completions.learners,
+          hours: Object.fromEntries(completions.hours.filter((hour) => hour.learners > 0).map((hour) => [hour.hour, hour.learners]))
+        }
+      ])
+    );
+  };
+
+  it('answers the last 24 whole hours, oldest first and the current one last, with nobody while nobody completed the task', async () => {
+    const auth = await signInAdmin();
+    await create(auth, { title: 'Hai phiên', type: 'sessions', target: 2 });
+
+    const { body } = await api().get('/api/admin/daily-tasks').set('Authorization', auth);
+
+    const { learners, hours } = body.items[0].completions as Completions;
+    expect(learners).toBe(0);
+    expect(hours).toHaveLength(24);
+    expect(hours[0]).toEqual({ hour: '2026-03-09T09:00:00.000Z', learners: 0 });
+    expect(hours[23]).toEqual({ hour: '2026-03-10T08:00:00.000Z', learners: 0 });
+    expect(hours.every((hour) => hour.learners === 0)).toBe(true);
+  });
+
+  it('counts each learner in the hour of the session that completed the task, never in a later one', async () => {
+    const auth = await signInAdmin();
+    await create(auth, { title: 'Hai phiên', type: 'sessions', target: 2 });
+    await create(auth, { title: 'Gõ nhanh', type: 'wpm', target: 40 });
+    await create(auth, { title: 'Chăm chỉ', type: 'minutes', target: 120 });
+    await updateAppSettings({ dailyTaskCount: 3 });
+    const an = await createUser({ email: 'an@example.com' });
+    const binh = await createUser({ email: 'binh@example.com' });
+
+    await typeAt(an, '2026-03-10T01:10:00.000Z', { wpm: 30 });
+    // Her second session completes both of her tasks; the third one changes nothing.
+    await typeAt(an, '2026-03-10T03:20:00.000Z', { wpm: 45 });
+    await typeAt(an, '2026-03-10T07:00:00.000Z', { wpm: 50 });
+    // In the current hour.
+    await typeAt(binh, '2026-03-10T08:10:00.000Z', { wpm: 50 });
+
+    expect(await completionsOf(auth)).toEqual({
+      'Hai phiên': { learners: 1, hours: { '2026-03-10T03:00:00.000Z': 1 } },
+      'Gõ nhanh': { learners: 2, hours: { '2026-03-10T03:00:00.000Z': 1, '2026-03-10T08:00:00.000Z': 1 } },
+      'Chăm chỉ': { learners: 0, hours: {} }
+    });
+  });
+
+  it('leaves out a task completed before the 24 hours, and counts a learner once in all when two of their days completed it', async () => {
+    const auth = await signInAdmin();
+    await create(auth, { title: 'Một phiên', type: 'sessions', target: 1 });
+    const chi = await createUser({ email: 'chi@example.com' });
+    const dung = await createUser({ email: 'dung@example.com' });
+    // New York is UTC-4 in March: his evening and the night after it are two of his days.
+    await UserModel.updateOne({ _id: dung._id }, { 'settings.timezone': 'America/New_York' });
+
+    // Chi's 9 March (in Vietnam) was completed at 06:00 UTC, before the 24 hours: her session at 12:00 changes nothing.
+    await typeAt(chi, '2026-03-09T06:00:00.000Z');
+    await typeAt(chi, '2026-03-09T12:00:00.000Z');
+    // Her 10 March.
+    await typeAt(chi, '2026-03-10T02:00:00.000Z');
+    // 9 March at 19:30, then 10 March at 01:00 in New York.
+    await typeAt(dung, '2026-03-09T23:30:00.000Z');
+    await typeAt(dung, '2026-03-10T05:00:00.000Z');
+
+    expect(await completionsOf(auth)).toEqual({
+      'Một phiên': {
+        learners: 2,
+        hours: { '2026-03-09T23:00:00.000Z': 1, '2026-03-10T02:00:00.000Z': 1, '2026-03-10T05:00:00.000Z': 1 }
+      }
+    });
   });
 });
 

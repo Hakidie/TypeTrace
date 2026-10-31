@@ -24,6 +24,26 @@ export interface DailyTask {
   updatedAt: string;
 }
 
+/** How many learners completed a task in one hour; `hour` is its start (an ISO date, a whole hour). */
+export interface HourCompletions {
+  hour: string;
+  learners: number;
+}
+
+/**
+ * The learners who completed a task in the last 24 hours (`completions` of the admin list): in all, each learner once
+ * (`learners`), and in each hour, oldest first, the current hour last (`hours`, always 24).
+ */
+export interface TaskCompletions {
+  learners: number;
+  hours: HourCompletions[];
+}
+
+/** A task of the admin list (`GET /api/admin/daily-tasks`): the template and who completed it in the last 24 hours. */
+export interface DailyTaskListItem extends DailyTask {
+  completions: TaskCompletions;
+}
+
 export interface DailyTaskInput {
   title: string;
   description: string;

@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
-import type { DailyTask, DailyTaskListParams } from '../types/daily-task.types';
+import type { DailyTaskListItem, DailyTaskListParams } from '../types/daily-task.types';
 import { AdminDailyTasksPage } from './AdminDailyTasksPage';
 
 const list = vi.fn();
@@ -24,7 +24,8 @@ vi.mock('../api/daily-tasks.api', () => ({
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-const task = (id: string, title: string, extra: Partial<DailyTask> = {}): DailyTask => ({
+/** A task of the list; nobody completed it in the last 24 hours unless `extra` says otherwise. */
+const task = (id: string, title: string, extra: Partial<DailyTaskListItem> = {}): DailyTaskListItem => ({
   _id: id,
   title,
   description: '',
@@ -33,8 +34,25 @@ const task = (id: string, title: string, extra: Partial<DailyTask> = {}): DailyT
   isActive: true,
   createdAt: '2026-10-20T00:00:00.000Z',
   updatedAt: '2026-10-20T00:00:00.000Z',
+  completions: { learners: 0, hours: [] },
   ...extra,
 });
+
+/**
+ * The 24 hours of `completions` up to the current one, 10 March 2026 15:00 in the zone of the test run, each with the
+ * learners `busy` gives its start (made from local times, so the hours read the same in any zone).
+ */
+const lastDay = (busy: [Date, number][]) =>
+  Array.from({ length: 24 }, (_, index) => {
+    const hour = new Date(2026, 2, 9, 16 + index).toISOString();
+    return { hour, learners: busy.find(([start]) => start.toISOString() === hour)?.[1] ?? 0 };
+  });
+
+/** The value of the stat named `label` of a task card, e.g. DONE 24H. */
+const statOf = (card: HTMLElement, label: string) => within(card).getByText(label).nextElementSibling?.textContent;
+
+/** The card of the task titled `title`. */
+const cardOf = (title: string) => screen.getByText(title).closest('article') as HTMLElement;
 
 const warmUp = task('t1', 'Warm-up');
 const speed = task('t2', 'Speed run', { type: 'wpm', target: 40, description: 'Type fast but clean.' });
@@ -44,10 +62,10 @@ const hoiNga = task('t5', 'Phân biệt hỏi/ngã', { type: 'accuracy', target:
 /** The goal of `hoiNga`: only some words have hỏi or ngã, so it says how many a session needs. */
 const hoiNgaGoal = 'Reach 90% accuracy on hỏi and ngã in a session with at least 5 words with hỏi or ngã';
 
-const page = (items: DailyTask[]) => ({ items, page: 1, limit: 10, total: items.length, totalPages: 1 });
+const page = (items: DailyTaskListItem[]) => ({ items, page: 1, limit: 10, total: items.length, totalPages: 1 });
 
 /** The list of the page and the count of the active tasks (`isActive: 'true'`) both come from `list`. */
-const listWith = (items: DailyTask[]) =>
+const listWith = (items: DailyTaskListItem[]) =>
   list.mockImplementation(async (params: DailyTaskListParams) => page(params.isActive === 'true' ? items.filter((item) => item.isActive) : items));
 
 const renderPage = (route = '/admin/daily-tasks') => renderWithProviders(<AdminDailyTasksPage />, { route, path: '/admin/daily-tasks' });
@@ -61,6 +79,10 @@ beforeEach(() => {
   updateSettings.mockReset();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 // Opens the kebab menu of a task card and picks one of its entries.
 const pickAction = async (title: string, action: 'Edit' | 'Activate' | 'Deactivate' | 'Delete') => {
   const cards = await screen.findByLabelText('Daily task cards');
@@ -69,16 +91,17 @@ const pickAction = async (title: string, action: 'Edit' | 'Activate' | 'Deactiva
 };
 
 describe('AdminDailyTasksPage', () => {
-  it('lists every task with its goal, target, type and status', async () => {
+  it('lists every task with its description (its goal when it has none), target, type and status', async () => {
     renderPage();
 
     const cards = await screen.findByLabelText('Daily task cards');
     expect(within(cards).getByText('Warm-up')).toBeInTheDocument();
-    for (const goal of ['Finish 3 counted sessions', 'Reach 40 WPM in one session', 'Reach 95% accuracy in one session', 'Type 10 minutes in all']) {
-      // Twice: under the title (below `xl`) and in the middle column (from `xl`); the CSS shows one of them.
-      expect(within(cards).getAllByText(goal)).toHaveLength(2);
+    for (const goal of ['Finish 3 counted sessions', 'Reach 95% accuracy in one session', 'Type 10 minutes in all']) {
+      expect(within(cards).getByText(goal)).toBeInTheDocument();
     }
+    // Speed run has a description: it takes the place of the goal.
     expect(within(cards).getByText('Type fast but clean.')).toBeInTheDocument();
+    expect(within(cards).queryByText('Reach 40 WPM in one session')).not.toBeInTheDocument();
     expect(within(cards).getByText('95%')).toBeInTheDocument();
     expect(within(cards).getByText('Speed')).toBeInTheDocument();
     expect(within(cards).getAllByText('Active')).toHaveLength(3);
@@ -197,19 +220,54 @@ describe('AdminDailyTasksPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
-  it('names the focus error of an accuracy task in the goal of its card, with the words a session needs when only some words have it', async () => {
-    const tones = task('t6', 'Steady tones', { type: 'accuracy', target: 85, errorType: 'TONE_WRONG' });
+  it('names the focus error of an accuracy task in a badge, and in the goal under the title when it has no description', async () => {
+    const tones = task('t6', 'Steady tones', { type: 'accuracy', target: 85, errorType: 'TONE_WRONG', description: 'Mind every tone.' });
     listWith([hoiNga, tones, focus]);
     renderPage();
 
-    const cards = await screen.findByLabelText('Daily task cards');
-    // Twice: under the title (below `xl`) and in the middle column (from `xl`).
-    expect(within(cards).getAllByText(hoiNgaGoal)).toHaveLength(2);
-    // Every word has a tone, and a counted session has at least 20 words: any of them will do.
-    expect(within(cards).getAllByText('Reach 85% accuracy on tone marks in one session')).toHaveLength(2);
-    expect(within(cards).getAllByText('Reach 95% accuracy in one session')).toHaveLength(2);
-    // The middle column cuts a long goal to one line: the whole goal is its tooltip.
-    expect(within(cards).getByTitle(hoiNgaGoal)).toHaveClass('truncate');
+    await screen.findByLabelText('Daily task cards');
+    expect(within(cardOf('Phân biệt hỏi/ngã')).getByText(hoiNgaGoal)).toBeInTheDocument();
+    expect(within(cardOf('Phân biệt hỏi/ngã')).getByText('Focus: hỏi and ngã')).toBeInTheDocument();
+    // With a description, the badge alone names the focus.
+    expect(within(cardOf('Steady tones')).getByText('Mind every tone.')).toBeInTheDocument();
+    expect(within(cardOf('Steady tones')).getByText('Focus: tone marks')).toBeInTheDocument();
+    expect(within(cardOf('Focus')).queryByText(/^Focus:/)).not.toBeInTheDocument();
+    // One line under the title, cut when long: the whole text is its tooltip.
+    expect(within(cardOf('Phân biệt hỏi/ngã')).getByTitle(hoiNgaGoal)).toHaveClass('truncate');
+  });
+
+  it('puts the description under the title, in the same column', async () => {
+    renderPage();
+
+    await screen.findByLabelText('Daily task cards');
+    const title = screen.getByText('Speed run');
+    expect(title.parentElement).toContainElement(screen.getByText('Type fast but clean.'));
+    expect(title.nextElementSibling).toHaveTextContent('Type fast but clean.');
+  });
+
+  it('charts the learners who completed each task in each of the last 24 hours, with the learners of the 24 hours', async () => {
+    // Only `Date` is faked (the clock of the "Today" / "Yesterday" of the hours): React Query keeps its real timers.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 2, 10, 15, 30));
+    const busy = task('t7', 'Busy', {
+      completions: { learners: 3, hours: lastDay([[new Date(2026, 2, 9, 23), 1], [new Date(2026, 2, 10, 14), 2]]) },
+    });
+    listWith([busy, warmUp]);
+    renderPage();
+
+    await screen.findByLabelText('Daily task cards');
+    // The hours with learners, in the admin's own time, for screen readers; the columns are drawn from the same 24 hours.
+    expect(
+      within(cardOf('Busy')).getByRole('img', {
+        name: 'Completed by 3 learners in the last 24 hours. Yesterday 23:00–00:00: 1. Today 14:00–15:00: 2.',
+      }),
+    ).toBeInTheDocument();
+    expect(statOf(cardOf('Busy'), 'DONE 24H')).toBe('3');
+    // Nobody yet: a note instead of the chart, and 0.
+    expect(within(cardOf('Warm-up')).getByText('Nobody completed it in the last 24 hours')).toBeInTheDocument();
+    expect(within(cardOf('Warm-up')).queryByRole('img')).not.toBeInTheDocument();
+    expect(statOf(cardOf('Warm-up'), 'DONE 24H')).toBe('0');
+    expect(statOf(cardOf('Warm-up'), 'SESSIONS')).toBe('3');
   });
 
   it('offers a Focus error only while the type is Accuracy: None and the five error types', async () => {
