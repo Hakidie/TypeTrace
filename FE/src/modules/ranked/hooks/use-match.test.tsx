@@ -9,11 +9,13 @@ import { matchKeys, useMatch } from './use-match';
 const get = vi.fn();
 const close = vi.fn();
 let emit: (event: MatchEvent) => void = () => undefined;
+let setStatus: (connected: boolean) => void = () => undefined;
 
 vi.mock('../api/ranked.api', () => ({
   rankedApi: { get: (code: string) => get(code) },
-  openMatchStream: (_code: string, onEvent: (event: MatchEvent) => void) => {
+  openMatchStream: (_code: string, onEvent: (event: MatchEvent) => void, options: { onStatus?: (connected: boolean) => void }) => {
     emit = onEvent;
+    setStatus = options.onStatus ?? (() => undefined);
     return close;
   },
 }));
@@ -72,6 +74,30 @@ describe('useMatch', () => {
 
     unmount();
     expect(close).toHaveBeenCalled();
+  });
+});
+
+describe('useMatch connection (SCRUM-154)', () => {
+  it('knows who is away and until when, and whether the own stream is open', async () => {
+    const { result } = renderHook(() => useMatch('ABC234'), { wrapper });
+    await waitFor(() => expect(result.current.match).toBeDefined());
+
+    act(() => setStatus(true));
+    expect(result.current.connected).toBe(true);
+    act(() => emit({ event: 'presence', data: { userId: 'u2', connected: false, forfeitAt: '2026-10-30T10:00:15.000Z' } }));
+    expect(result.current.away).toEqual({ u2: '2026-10-30T10:00:15.000Z' });
+    act(() => emit({ event: 'presence', data: { userId: 'u2', connected: true } }));
+    expect(result.current.away).toEqual({});
+    act(() => setStatus(false));
+    expect(result.current.connected).toBe(false);
+  });
+
+  it('hands over the own words typed before a reload', async () => {
+    const { result } = renderHook(() => useMatch('ABC234'), { wrapper });
+    await waitFor(() => expect(result.current.match).toBeDefined());
+
+    act(() => emit({ event: 'resume', data: { typedWords: ['The'], typedAtMs: [400] } }));
+    expect(result.current.resume).toEqual({ typedWords: ['The'], typedAtMs: [400] });
   });
 });
 

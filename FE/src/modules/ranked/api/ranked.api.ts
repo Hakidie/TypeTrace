@@ -22,16 +22,21 @@ export const rankedApi = {
 };
 
 const RECONNECT_MS = 1000;
-const MAX_RECONNECT_MS = 30_000;
+/** A player away 15 s forfeits (`disconnectGraceMs` of the backend): the tries stay close enough to be back in time. */
+const MAX_RECONNECT_MS = 3000;
 
 /**
  * Listens to the events of a room. Axios cannot read a stream, so this is the one place that uses `fetch`: with the
  * `Authorization` header, never a token in the URL (an `EventSource` cannot send headers). A dropped stream (a network
  * hiccup, a server restart, 429 or 5xx) reconnects after a second, waiting twice as long after each failed try (at most
- * 30 s); any other 4xx (no such room, not a player, signed out) stops it and calls `onGone`. Returns the function that
- * closes it.
+ * 3 s); any other 4xx (no such room, not a player, signed out) stops it and calls `onGone`. `onStatus` hears when the
+ * stream opens (true) and drops (false). Returns the function that closes it.
  */
-export const openMatchStream = (code: string, onEvent: (event: MatchEvent) => void, { onGone }: { onGone?: () => void } = {}) => {
+export const openMatchStream = (
+  code: string,
+  onEvent: (event: MatchEvent) => void,
+  { onGone, onStatus }: { onGone?: () => void; onStatus?: (connected: boolean) => void } = {},
+) => {
   const controller = new AbortController();
   let closed = false;
   let delay = RECONNECT_MS;
@@ -48,6 +53,7 @@ export const openMatchStream = (code: string, onEvent: (event: MatchEvent) => vo
       }
       if (!response.ok || !response.body) throw new Error(`Stream answered ${response.status}`);
       delay = RECONNECT_MS;
+      onStatus?.(true);
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
       let buffer = '';
       for (;;) {
@@ -61,6 +67,7 @@ export const openMatchStream = (code: string, onEvent: (event: MatchEvent) => vo
       // Dropped or refused: tried again below unless closed.
     }
     if (closed) return;
+    onStatus?.(false);
     setTimeout(() => !closed && void connect(), delay);
     delay = Math.min(delay * 2, MAX_RECONNECT_MS);
   };

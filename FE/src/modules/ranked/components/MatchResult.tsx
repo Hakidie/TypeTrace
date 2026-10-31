@@ -14,6 +14,7 @@ const UNRATED: Record<UnratedReason, string> = {
   flagged: 'a player went over 200 WPM.',
   'pair-limit': 'you already played 3 rated matches with this player today.',
   interrupted: 'the match was interrupted (the server restarted).',
+  abandoned: 'both players left the match.',
 };
 
 /** +20, −20 (a real minus sign) or ±0. */
@@ -106,6 +107,8 @@ export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResu
 
   // A rain duel that ended on lives (not on the time): K.O. slams in first, then the result.
   const knockedOut = match.kind === 'rain' && match.players.some((player) => player.lives === 0);
+  // Won because the other player left or stayed away (DNF): say so, the numbers alone would not.
+  const quitter = won ? match.players.find((player) => player !== me && player.result === 'forfeit') : undefined;
 
   return (
     <div className="mx-auto -mt-16 flex w-full max-w-7xl flex-col items-center gap-8 text-primary">
@@ -116,6 +119,7 @@ export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResu
           {me?.result ? HEADINGS[me.result] : 'Match over'}
         </h2>
       </div>
+      {quitter && <p className="-mt-4 text-lg">{quitter.displayName} did not finish: they left or lost the connection.</p>}
       {invite && (
         <div className="flex w-full flex-wrap items-center justify-between gap-2 border border-primary/50 bg-primary/10 px-4 py-2">
           <span>{invite.from} wants a rematch</span>
@@ -159,6 +163,7 @@ export const MatchResult = ({ match, myId, invite, onEnter, onLeave }: MatchResu
                 </p>
               </>
             )}
+            {player.result === 'forfeit' && <p className="font-semibold tracking-widest">DNF</p>}
             {/* The own rating is the reward above. */}
             {player !== me && ratingLine(player) && <p className="font-semibold tabular-nums">{ratingLine(player)}</p>}
           </PlayerCard>
