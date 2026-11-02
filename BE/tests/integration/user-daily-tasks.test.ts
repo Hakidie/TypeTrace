@@ -412,21 +412,21 @@ describe('the progress of the tasks', () => {
       'Chính xác': [0, false]
     });
 
-    // One wrong word of 23 in two minutes: 22 correct words, 11 WPM, 95.7 % accuracy.
+    // One wrong word of 23 in two minutes: 22 correct words, 11.1 WPM (characters / 5), 95.7 % accuracy.
     await typeCounted(learner, 1);
     expect(await progressOf(learner)).toEqual({
       'Hai phiên': [1, false],
       'Bốn phút': [2, false],
-      'Gõ đều': [11, true],
+      'Gõ đều': [11.1, true],
       'Chính xác': [95.7, false]
     });
 
-    // All 23 words right: 11.5 WPM and 100 %.
+    // All 23 words right: 11.7 WPM and 100 %.
     await typeCounted(learner);
     expect(await progressOf(learner)).toEqual({
       'Hai phiên': [2, true],
       'Bốn phút': [4, true],
-      'Gõ đều': [11.5, true],
+      'Gõ đều': [11.7, true],
       'Chính xác': [100, true]
     });
   });

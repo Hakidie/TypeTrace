@@ -48,9 +48,19 @@ export const countErrors = (words: SessionWord[]) => {
   return { errorCounts, opportunityCounts };
 };
 
-/** WPM = correct words per minute (ASSUMPTION). A minimum of one second keeps instant submissions finite. */
-export const computeWpm = (correctWords: number, durationMs: number) =>
-  round1(correctWords / (Math.max(durationMs, 1000) / 60000));
+/** The international standard (SCRUM-232): 5 characters make 1 word. */
+export const CHARS_PER_WORD = 5;
+
+/**
+ * Characters the WPM counts: those of the correct words plus the one space between neighbours, counted as shown (NFC),
+ * not as Telex keys. The words are the passage's (`target`), which the typed word equals when it is correct.
+ */
+export const countWpmChars = (correctWords: string[]) =>
+  correctWords.reduce((sum, word) => sum + word.normalize('NFC').length, 0) + Math.max(correctWords.length - 1, 0);
+
+/** WPM = (characters / 5) per minute. A minimum of one second keeps instant submissions finite. */
+export const computeWpm = (chars: number, durationMs: number) =>
+  round1(chars / CHARS_PER_WORD / (Math.max(durationMs, 1000) / 60000));
 
 /** A session that ran past the time limit (plus the grace) is saved but not counted: its words cannot be trusted. */
 export const isSessionCounted = (wordCount: number, wpm: number, durationMs = 0) =>
@@ -152,8 +162,8 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
   const durationMs = elapsedMs <= MAX_SESSION_MS + SESSION_GRACE_MS ? Math.min(elapsedMs, MAX_SESSION_MS) : elapsedMs;
   if (typedAtMs) assertValidTimes(typedAtMs, durationMs);
   const words = gradeWords(session.targetWords, typedWords, typedAtMs);
-  const correctWords = words.filter((word) => word.errorTypes.length === 0).length;
-  const wpm = computeWpm(correctWords, durationMs);
+  const correctWords = words.filter((word) => word.errorTypes.length === 0);
+  const wpm = computeWpm(countWpmChars(correctWords.map((word) => word.target)), durationMs);
   const { errorCounts, opportunityCounts } = countErrors(words);
 
   // One conditional write: only a request that still finds the session in progress completes it, so of two sent at the
@@ -167,7 +177,7 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
       timeLimitSeconds,
       durationMs,
       wpm,
-      accuracy: round1((correctWords / words.length) * 100),
+      accuracy: round1((correctWords.length / words.length) * 100),
       errorCounts,
       opportunityCounts,
       isCounted: isSessionCounted(words.length, wpm, elapsedMs)
@@ -207,7 +217,7 @@ export interface TimelinePoint {
 /**
  * WPM and errors at every second and at the end of the session. WPM looks at a sliding window: only the words finished in the
  * last `TIMELINE_WINDOW_SECONDS` count (fewer at the start, where the window is cut at 0), as correct words per minute of the
- * window (`computeWpm`), so it shows the pace at that moment, not the average since the start. The errors are not windowed:
+ * window (`computeWpm`, characters / 5), so it shows the pace at that moment, not the average since the start. The errors are not windowed:
  * they are the wrong words finished since the previous point, so each mistake is on one point only. A time after the end counts as the end.
  */
 export const timelineOf = (words: SessionWord[], durationMs: number): TimelinePoint[] => {
@@ -220,7 +230,7 @@ export const timelineOf = (words: SessionWord[], durationMs: number): TimelinePo
       const time = Math.min(word.typedAtMs ?? 0, durationMs);
       return time <= ms && time > ms - windowMs;
     });
-    const wrong = finished.filter((word) => word.errorTypes.length > 0).length;
+    const right = finished.filter((word) => word.errorTypes.length === 0);
     const previousMs = index === 0 ? -1 : all[index - 1];
     const errors = words.filter((word) => {
       const time = Math.min(word.typedAtMs ?? 0, durationMs);
@@ -228,7 +238,7 @@ export const timelineOf = (words: SessionWord[], durationMs: number): TimelinePo
     }).length;
     return {
       second: round1(ms / 1000),
-      wpm: computeWpm(finished.length - wrong, Math.min(ms, windowMs)),
+      wpm: computeWpm(countWpmChars(right.map((word) => word.target)), Math.min(ms, windowMs)),
       errors
     };
   });

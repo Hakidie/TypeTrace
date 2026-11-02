@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeWpm,
+  countWpmChars,
   isSessionCounted,
   MAX_COUNTED_WPM,
   MAX_SESSION_MS,
@@ -32,14 +33,28 @@ describe('isSessionCounted time limit', () => {
   });
 });
 
+describe('countWpmChars', () => {
+  it('counts the characters of the correct words and the space between neighbours', () => {
+    expect(countWpmChars([])).toBe(0);
+    expect(countWpmChars(['abc'])).toBe(3);
+    expect(countWpmChars(['abc', 'de', 'f'])).toBe(8);
+  });
+
+  it('counts the characters as shown (NFC), not the keys or the code points of a decomposed letter', () => {
+    expect(countWpmChars(['Tiếng'])).toBe(5);
+    expect(countWpmChars(['Tiếng'.normalize('NFD')])).toBe(5);
+  });
+});
+
 describe('computeWpm', () => {
-  it('is correct words per minute, rounded to one decimal', () => {
-    expect(computeWpm(20, 60_000)).toBe(20);
-    expect(computeWpm(23, 120_000)).toBe(11.5);
+  it('is characters / 5 per minute, rounded to one decimal', () => {
+    expect(computeWpm(100, 60_000)).toBe(20);
+    expect(computeWpm(115, 120_000)).toBe(11.5);
+    expect(computeWpm(5, 60_000)).toBe(1);
   });
 
   it('treats anything under one second as one second, so the result stays finite', () => {
-    expect(computeWpm(10, 0)).toBe(600);
-    expect(computeWpm(10, 1000)).toBe(600);
+    expect(computeWpm(50, 0)).toBe(600);
+    expect(computeWpm(50, 1000)).toBe(600);
   });
 });
