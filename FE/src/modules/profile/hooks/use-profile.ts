@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { currentUserKey, useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { profileApi } from '../api/profile.api';
-import type { SessionListParams } from '../types/profile.types';
+import type { ChartRange, SessionListParams } from '../types/profile.types';
 
 /** Cache keys. Invalidating `profileKeys.all` refreshes every profile query. */
 export const profileKeys = {
@@ -11,7 +11,7 @@ export const profileKeys = {
   sessions: (params: SessionListParams) => [...profileKeys.all, 'sessions', params] as const,
   streak: () => [...profileKeys.all, 'streak'] as const,
   dailyTasks: () => [...profileKeys.all, 'daily-tasks'] as const,
-  monthlyProgress: () => [...profileKeys.all, 'monthly-progress'] as const,
+  monthlyProgress: (range: ChartRange, date?: string) => [...profileKeys.all, 'monthly-progress', range, date ?? ''] as const,
 };
 
 /**
@@ -39,9 +39,14 @@ export const useStreak = () => useQuery({ queryKey: profileKeys.streak(), queryF
  */
 export const useDailyTasks = () => useQuery({ queryKey: profileKeys.dailyTasks(), queryFn: profileApi.getDailyTasks, staleTime: 0 });
 
-/** The learner's average WPM and errors of the 12 months before the current one (SCRUM-240); asked again each time the profile page opens, like the streak. */
-export const useMonthlyProgress = () =>
-  useQuery({ queryKey: profileKeys.monthlyProgress(), queryFn: profileApi.getMonthlyProgress, staleTime: 0 });
+/** The learner's average WPM and errors by month, week or day, by `range`, and with `date` the year, month or week that holds that day (SCRUM-240); asked again each time the profile page opens, like the streak. The range on screen stays while the next one loads. */
+export const useMonthlyProgress = (range: ChartRange, date?: string) =>
+  useQuery({
+    queryKey: profileKeys.monthlyProgress(range, date),
+    queryFn: () => profileApi.getMonthlyProgress(range, date),
+    placeholderData: keepPreviousData,
+    staleTime: 0,
+  });
 
 /**
  * Saves the learner's time zone (`PATCH /api/profile/settings`), keeps the user it returns and refreshes the profile

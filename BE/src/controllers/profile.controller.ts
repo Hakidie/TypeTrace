@@ -7,6 +7,7 @@ import * as userDailyTasksService from '../services/user-daily-tasks.service';
 import { updateTimeZone } from '../services/user.service';
 import { badRequest, notFound } from '../utils/app-error';
 import {
+  MonthlyProgressQuery,
   UpdateAvatarSourceInput,
   UpdateProfileInput,
   UpdateSecurityInput,
@@ -57,9 +58,10 @@ export const getDailyTasks = async (req: Request, res: Response) => {
   res.json(await userDailyTasksService.getTodayDailyTasks(req.user!.sub));
 };
 
-/** The learner's WPM and errors of each of the 12 months before the current one, for the profile chart (SCRUM-240). */
+/** The learner's WPM and errors of each point of the profile chart: months, weeks or days, by `range` (SCRUM-240). */
 export const getMonthlyProgress = async (req: Request, res: Response) => {
-  res.json(await monthlyProgressService.getMonthlyProgress(req.user!.sub));
+  const { range, date } = req.query as unknown as MonthlyProgressQuery;
+  res.json(await monthlyProgressService.getMonthlyProgress(req.user!.sub, range, date));
 };
 
 /** Saves the learner's time zone, which the page sends from the browser (SCRUM-31). Answers the user, like `updateProfile`. */

@@ -55,7 +55,8 @@ export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: S
                       dataKey="second"
                       type="number"
                       domain={[0, maxSecond]}
-                      ticks={timeTicks(maxSecond)}
+                      // The marks follow the time the learner chose, not the axis end: a last point a moment after it (61 s of 60) must not add a mark on top of the last one.
+                      ticks={timeTicks(timeLimitSeconds)}
                       interval={0}
                       tick={{ fontSize: 16, fill: AXIS_TEXT_COLOR }}
                       stroke={AXIS_COLOR}

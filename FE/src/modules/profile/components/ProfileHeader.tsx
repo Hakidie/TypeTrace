@@ -149,7 +149,7 @@ const EditableBio = ({ user }: { user: CurrentUser }) => {
           e.currentTarget.blur();
         }
       }}
-      className="mt-4 block w-full max-w-prose resize-none border-0 bg-transparent px-1 py-0 text-[1.5rem] text-muted-foreground [field-sizing:content] placeholder:text-muted-foreground/70 focus:outline-none disabled:opacity-60"
+      className="mt-1 block w-full max-w-prose resize-none border-0 bg-transparent px-1 py-0 text-[1.5rem] text-muted-foreground [field-sizing:content] placeholder:text-muted-foreground/70 focus:outline-none disabled:opacity-60"
     />
   );
 };
@@ -190,13 +190,13 @@ interface ProfileHeaderProps {
   streak: UseQueryResult<Streak>;
   /** Called with the new image once the avatar is uploaded. */
   onAvatarChange: (avatarUrl: string) => void;
-  /** Shown between the name and the bio (the monthly chart, SCRUM-240); nothing when missing. */
+  /** Shown under the bio and the numbers, as wide as the header (the monthly chart, SCRUM-240); nothing when missing. */
   chart?: ReactNode;
 }
 
 /**
  * The top of the profile page, without a frame: the avatar, the name (changed in place), the email, the bio (also changed
- * in place, with `chart` between them when given), the speed, the accuracy, the current streak (the longest one in a tooltip) and the day the account
+ * in place, with `chart` under all of it when given), the speed, the accuracy, the current streak (the longest one in a tooltip) and the day the account
  * was made. Sits on the page, without background, padding or border.
  */
 export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }: ProfileHeaderProps) => {
@@ -214,9 +214,9 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
     <TooltipProvider delayDuration={200}>
     <section
       aria-label="Profile header"
-      className="grid grid-cols-3 gap-y-3 text-primary sm:grid-cols-[auto_repeat(3,minmax(0,1fr))] lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_1fr] lg:gap-y-0"
+      className="grid grid-cols-3 gap-y-3 text-primary sm:grid-cols-[auto_repeat(3,minmax(0,1fr))] lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_auto_1fr_auto] lg:gap-y-0"
     >
-      <div className="col-span-3 flex flex-col items-start gap-2 sm:col-span-1 sm:row-span-4 sm:mr-3 lg:row-span-2">
+      <div className="col-span-3 flex flex-col items-start gap-2 sm:col-span-1 sm:row-span-4 sm:mr-3 lg:row-span-3">
         {/* Without an uploaded picture, or when the account chose its pixel avatar, the pixel avatar shows (228px = the 76px frame at 3x, filling the 228px tile, about as high as the header). */}
         <AvatarUpload avatarUrl={user.avatarUrl} avatarSource={user.avatarSource} userInitials={name.slice(0, 2).toUpperCase()} onUploadSuccess={onAvatarChange}
           onSourceChange={() => onAvatarChange(user.avatarUrl ?? '')}
@@ -237,7 +237,6 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
       </div>
       <div className="col-span-3 min-w-0 sm:col-start-2 sm:row-start-2 lg:col-span-1 lg:col-start-2">
         <EditableDisplayName user={user} textClassName="text-[1.875rem] font-black text-primary sm:text-[2.25rem]" />
-        {chart && <div className="mt-4">{chart}</div>}
         <EditableBio key={user.bio ?? ''} user={user} />
       </div>
       {statList.map(({ label, tip }, i) => (
@@ -250,8 +249,16 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
           {tip ? <HoverTip tip={tip}>{value}</HoverTip> : value}
         </div>
       ))}
-      {/* The bottom right of the header: under the values (from `lg` up in the same cells, the values are at the top). */}
-      <p className="col-span-3 self-end text-right text-base text-muted-foreground sm:col-start-2 sm:row-start-5 lg:col-start-3 lg:row-start-2">
+      {/* The chart under everything else, from the name column to the right edge of the header (and under the numbers). From `lg` its row takes
+          what is left of the avatar's height (the avatar spans the three rows above the Joined date), so the bottom of the chart is level with the bottom of the avatar and the Joined date is the line under both. */}
+      {chart && (
+        <div className="col-span-3 sm:col-start-2 sm:row-start-6 lg:relative lg:col-span-4 lg:col-start-2 lg:row-start-3 lg:min-h-[68px]">
+          {/* From `lg` the chart is laid over its row (it does not make the row taller): the row is what is left of the avatar's height, but at least 68px: 60px of lines under 8px of margin. The chart hangs 20px below its row: the bottom of the lines is level with the bottom of the avatar, and the month names (shown on hover) sit in the 20px that the Joined line leaves free above it (`lg:pt-5`). */}
+          <div className="lg:absolute lg:inset-x-0 lg:-bottom-5 lg:top-0">{chart}</div>
+        </div>
+      )}
+      {/* The bottom right of the header: under the chart (under the numbers when there is none). */}
+      <p className="col-span-3 text-right text-base text-muted-foreground sm:col-start-2 sm:row-start-7 lg:col-span-4 lg:col-start-2 lg:row-start-4 lg:pt-5">
         Joined {formatDate(user.createdAt)}
       </p>
     </section>

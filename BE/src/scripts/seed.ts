@@ -1,12 +1,17 @@
 /**
- * Creates ready-to-use demo accounts. Safe to run many times: existing
- * accounts are left untouched. Run with `npm run seed`.
+ * Creates ready-to-use demo accounts, and typing sessions for `demo@example.com` (a placement test and practice sessions over
+ * the last months, for the charts of the profile page). Safe to run many times: existing accounts are left untouched and the
+ * sessions are made once. Run with `npm run seed`.
  */
 import mongoose from 'mongoose';
 import { connectDb } from '../config/db';
 import { env } from '../config/env';
+import { TypingSessionModel } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
+import { recordCountedSession, usableTimeZone } from '../services/daily-progress.service';
+import { addMonths } from '../services/monthly-progress.service';
 import { hashPassword } from '../utils/hash';
+import { addDays, localDateKey } from '../utils/local-date';
 
 export const DEMO_ACCOUNTS = [
   { email: 'demo@example.com', password: 'demo1234', displayName: 'Demo User', role: 'user' },
@@ -45,12 +50,88 @@ export const seedDemoAccounts = async () => {
   return created;
 };
 
+/** Marks the sessions of the seed (`passageId`): a learner who has any is not seeded again. */
+export const DEMO_SESSION_PASSAGE_ID = 'demo-seed';
+
+/** [months before the current one (0 = this month), day of the month, WPM, errors]. The placement test is the first one. Months 6 and 3 ago have none: the chart keeps the figures of the month before. */
+const DEMO_MONTHS: readonly (readonly [number, number, number, number])[] = [
+  [8, 12, 28, 14],
+  [8, 20, 31, 12],
+  [7, 5, 33, 11],
+  [7, 19, 35, 10],
+  [5, 8, 38, 9],
+  [4, 3, 40, 8],
+  [4, 22, 43, 7],
+  [2, 10, 47, 6],
+  [2, 24, 49, 5],
+  [1, 6, 51, 5],
+  [1, 18, 54, 4]
+];
+
+/** [days before today, WPM, errors]: the last days, for the week and the month of the chart. */
+const DEMO_RECENT_DAYS: readonly (readonly [number, number, number])[] = [
+  [6, 54, 4],
+  [5, 55, 4],
+  [3, 57, 3],
+  [3, 59, 2],
+  [1, 58, 3],
+  [0, 61, 2]
+];
+
+/**
+ * Gives `demo@example.com` a counted placement test 8 months ago and counted practice sessions since, getting faster and cleaner,
+ * with two months without a session and sessions on the last days: every range of the profile chart (a year, a month, a week)
+ * shows something, with a month that keeps the figures of the one before. The days are the learner's own (their time zone) and
+ * count for their streak and heatmap. Does nothing when the learner already has the sessions. Answers how many it made.
+ */
+export const seedDemoSessions = async (now = new Date()) => {
+  const user = await UserModel.findOne({ email: DEMO_ACCOUNTS[0].email });
+  if (!user) return 0;
+  if (await TypingSessionModel.exists({ owner: user._id, passageId: DEMO_SESSION_PASSAGE_ID })) return 0;
+
+  const today = localDateKey(now, usableTimeZone(user.settings?.timezone));
+  const plan = [
+    ...DEMO_MONTHS.map(([monthsAgo, day, wpm, errors], index) => ({
+      day: `${addMonths(today.slice(0, 7), -monthsAgo)}-${String(day).padStart(2, '0')}`,
+      mode: index === 0 ? ('placement' as const) : ('practice' as const),
+      wpm,
+      errors
+    })),
+    ...DEMO_RECENT_DAYS.map(([daysAgo, wpm, errors]) => ({ day: addDays(today, -daysAgo), mode: 'practice' as const, wpm, errors }))
+  ];
+
+  for (const { day, mode, wpm, errors } of plan) {
+    // 10:00 in Vietnam; never later than now, so no session is in the future.
+    const completedAt = new Date(Math.min(new Date(`${day}T03:00:00.000Z`).getTime(), now.getTime()));
+    await TypingSessionModel.create({
+      owner: user._id,
+      mode,
+      passageId: DEMO_SESSION_PASSAGE_ID,
+      passageTitle: mode === 'placement' ? 'Demo placement test' : 'Demo practice',
+      targetWords: Array.from({ length: wpm }, () => 'từ'),
+      status: 'completed',
+      startedAt: new Date(completedAt.getTime() - 60_000),
+      completedAt,
+      durationMs: 60_000,
+      timeLimitSeconds: 60,
+      wpm,
+      accuracy: Math.max(80, Math.round((100 - errors * 1.2) * 10) / 10),
+      errorCounts: { BASE_LETTER: errors },
+      isCounted: true
+    });
+    await recordCountedSession(user._id, completedAt);
+  }
+  return plan.length;
+};
+
 const run = async () => {
   // The demo admin has a public password: never create it on a real deployment.
   if (env.nodeEnv === 'production') throw new Error('Refusing to seed demo accounts when NODE_ENV=production.');
   await connectDb();
   const created = await seedDemoAccounts();
+  const sessions = await seedDemoSessions();
   console.log(created.length ? `Created: ${created.join(', ')}` : 'Demo accounts already exist.');
+  console.log(sessions ? `Created ${sessions} typing sessions for ${DEMO_ACCOUNTS[0].email} (placement test and practice).` : 'Demo typing sessions already exist.');
   for (const account of DEMO_ACCOUNTS) console.log(`  ${account.email} / ${account.password}`);
   console.log(`  + ${DEMO_STUDENTS.length} students: student01..${DEMO_STUDENTS.length}@example.com / student1234`);
   await mongoose.disconnect();

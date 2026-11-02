@@ -74,4 +74,21 @@ describe('CompactToolbar', () => {
     render(<CompactToolbar count={{ icon: History, value: 3, label: 'Sessions' }} />);
     expect(screen.getByText('Sessions').parentElement?.parentElement).toHaveClass('[&>:last-child]:pr-0');
   });
+
+  it('shows the choice of a menu of its own next to its icon and reports a pick', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <CompactToolbar
+        menus={[{ label: 'Chart range', icon: History, valueLabel: 'Year', value: 'year', onChange, options: [{ value: 'year', label: 'Year' }, { value: 'week', label: 'Week' }] }]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Chart range' })).toHaveTextContent('Year');
+    await user.click(screen.getByRole('button', { name: 'Chart range' }));
+    expect(await screen.findByRole('menuitemradio', { name: 'Year' })).toHaveAttribute('aria-checked', 'true');
+    await user.click(screen.getByRole('menuitemradio', { name: 'Week' }));
+
+    expect(onChange).toHaveBeenCalledWith('week');
+  });
 });

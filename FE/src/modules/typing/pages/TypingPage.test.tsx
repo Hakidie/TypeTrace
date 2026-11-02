@@ -429,6 +429,38 @@ describe('TypingPage', () => {
     expect(within(time).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['10', '20', '30']);
   });
 
+  it('selects 1 minute in the placement test, and 20 seconds again in Practice', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    const time = screen.getByRole('radiogroup', { name: 'Time' });
+    expect(within(time).getByRole('radio', { name: '20' })).toHaveAttribute('aria-checked', 'true');
+
+    await user.click(screen.getByRole('radio', { name: 'Placement' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /seconds and minutes/i })).toHaveTextContent('Min'));
+    expect(within(time).getByRole('radio', { name: '01' })).toHaveAttribute('aria-checked', 'true');
+
+    await user.click(screen.getByRole('radio', { name: 'Practice' }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /seconds and minutes/i })).toHaveTextContent('Sec'));
+    expect(within(time).getByRole('radio', { name: '20' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('opens the placement test from the link with 1 minute selected, and sends 60 seconds when it finishes', async () => {
+    const user = userEvent.setup();
+    start.mockResolvedValue({ ...session, mode: 'placement' });
+    renderWithProviders(<TypingPage />, { route: '/typing?mode=placement', otherRoutes: { '/typing/result/s1': 'result page' } });
+
+    const typing = await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(within(screen.getByRole('radiogroup', { name: 'Time' })).getByRole('radio', { name: '01' })).toHaveAttribute('aria-checked', 'true');
+
+    await user.type(typing, 'Tiếng Viet ');
+
+    await waitFor(() => expect(complete).toHaveBeenCalledWith('s1', ['Tiếng', 'Viet'], [expect.any(Number), expect.any(Number)], 60));
+  });
+
   it('keeps the same session and passage when the time choice changes', async () => {
     const user = userEvent.setup();
     renderPage();

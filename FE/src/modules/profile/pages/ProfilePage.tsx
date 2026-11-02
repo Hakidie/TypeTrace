@@ -4,7 +4,6 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { ActivityHeatmapLegend } from '@/shared/components/activity-heatmap';
 import { Panel } from '@/shared/components/panel';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
-import { ProfileDailyTasks } from '../components/ProfileDailyTasks';
 import { ProfileHeader } from '../components/ProfileHeader';
 import { ProfileHeatmap } from '../components/ProfileHeatmap';
 import { ProfileMonthlyChart } from '../components/ProfileMonthlyChart';
@@ -13,9 +12,8 @@ import { useStreak, useTypingActivity } from '../hooks/use-profile';
 
 /**
  * The learner's own profile (SCRUM-157, SCRUM-31, SCRUM-112): who they are and how they type (`ProfileHeader`: the avatar,
- * the name and the bio changed in place, the numbers with the current and longest streak, and between the name and the bio the
- * 12-month chart of WPM and errors, `ProfileMonthlyChart`, SCRUM-240), then today's tasks with their progress
- * bars (`ProfileDailyTasks`, titled Daily tasks), then, titled Daily Progress, the heatmap of this year (`ProfileHeatmap`), and the list of the learner's finished sessions (`ProfileSessions`,
+ * the name and the bio changed in place, the numbers with the current and longest streak, and under them the
+ * chart of WPM and accuracy, `ProfileMonthlyChart`, SCRUM-240, of the last 7 days; the Progress page has the same chart with a choice of year, month and week, and today's daily tasks, `ProfileDailyTasks`), then, titled Daily Progress, the heatmap of this year (`ProfileHeatmap`), and the list of the learner's finished sessions (`ProfileSessions`,
  * titled My Sessions) at the bottom; no panel has a frame. The login code switch is in the Security panel of the Settings page.
  */
 export const ProfilePage = () => {
@@ -26,14 +24,14 @@ export const ProfilePage = () => {
 
   return (
     <div className="space-y-12">
-      {/* No title and no frame; 12 more (pb-12) under it, so the gap to Daily tasks is twice the others. */}
-      <Panel bare className="pb-12">
+      {/* No title and no frame; the gap to Daily tasks is 3rem, like the others (`space-y-12`). */}
+      <Panel bare>
         {user ? (
           <ProfileHeader
             user={user}
             activity={activity}
             streak={streak}
-            chart={<ProfileMonthlyChart />}
+            chart={<ProfileMonthlyChart range="week" />}
             onAvatarChange={() => queryClient.invalidateQueries({ queryKey: currentUserKey })}
           />
         ) : (
@@ -41,10 +39,7 @@ export const ProfilePage = () => {
         )}
       </Panel>
 
-      {/* Today's tasks, above the heatmap, with a title of their own (`ProfileDailyTasks` has its panel). */}
-      <ProfileDailyTasks />
-
-      {/* The heatmap, under the tasks: a title, no frame. */}
+      {/* The heatmap, under the header: a title, no frame. */}
       <Panel title="Daily Progress" bare titleClassName={sectionTitleClass} actions={<ActivityHeatmapLegend />}>
         {user ? (
           <ProfileHeatmap activity={activity} since={user.createdAt} />

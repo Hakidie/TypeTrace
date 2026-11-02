@@ -1,124 +1,153 @@
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useState } from 'react';
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { useMonthlyProgress } from '../hooks/use-profile';
-import { longMonth, shortMonth } from '../lib/month-label';
-import type { MonthlyProgressPoint } from '../types/profile.types';
+import { axisLabel, previousPeriod, rangeUnit, tooltipTitle } from '../lib/month-label';
+import { chartPoints, lineDomain } from '../lib/monthly-chart';
+import type { ChartRange, MonthlyProgressPoint } from '../types/profile.types';
 
-// Colors are theme tokens only: the speed is the main red, the errors the muted text color (dashed, so the two lines are
+// Colors are theme tokens only: the speed is the main red, the accuracy the muted text color (dashed, so the two lines are
 // told apart without a second accent).
 const WPM_COLOR = 'var(--primary)';
-const ERRORS_COLOR = 'var(--muted-foreground)';
-const AXIS_COLOR = 'var(--border)';
+const ACCURACY_COLOR = 'var(--muted-foreground)';
+/** Room above and below the scales: a line on the lowest or the highest value would sit on the edge of the plot, where the chart cuts it in half (a thinner line). */
+const LINE_PADDING = { top: 4, bottom: 4 };
+const CURSOR_COLOR = 'var(--border)';
 
-/** What the lines draw when there is no data at all: two flat lines at different heights, on axes that show no numbers. */
-const PLACEHOLDER_WPM = 35;
-const PLACEHOLDER_ERRORS = 65;
+/** A short stretch of a line of the chart, solid or dashed, in its color. */
+const LineSample = ({ color, dashed = false }: { color: string; dashed?: boolean }) => (
+  <svg width="24" height="4" aria-hidden className="shrink-0">
+    <line x1="0" x2="24" y1="2" y2="2" stroke={color} strokeWidth="2" strokeDasharray={dashed ? '4 3' : undefined} />
+  </svg>
+);
 
 interface TooltipContentProps {
   point: MonthlyProgressPoint;
+  range: ChartRange;
 }
 
-/** The tooltip of one month: both figures, and a note when they are the ones of the month before (no session that month). */
-export const MonthlyChartTooltip = ({ point }: TooltipContentProps) => (
+/** The tooltip of one point: both figures, and a note when they are the ones of the period before (no session in this one). */
+export const MonthlyChartTooltip = ({ point, range }: TooltipContentProps) => (
   <div className="border border-border bg-background px-3 py-2 text-base">
-    <p className="font-semibold">{longMonth(point.month)}</p>
-    {point.avgWpm === null || point.totalErrors === null ? (
-      <p className="text-muted-foreground">Chưa có dữ liệu</p>
+    <p className="font-semibold">{tooltipTitle(range, point.key)}</p>
+    {point.avgWpm === null || point.avgAccuracy === null ? (
+      <p className="text-muted-foreground">No data yet</p>
     ) : (
       <>
-        <p>
-          <span className="text-primary">WPM:</span> {point.avgWpm}
+        {/* The sample of each line stands in for a legend: which line is which, where the figures are. */}
+        <p className="flex items-center gap-2">
+          <LineSample color={WPM_COLOR} />
+          <span>
+            <span className="text-primary">WPM:</span> {point.avgWpm}
+          </span>
         </p>
-        <p>
-          <span className="text-muted-foreground">Số lỗi:</span> {point.totalErrors}
+        <p className="flex items-center gap-2">
+          <LineSample color={ACCURACY_COLOR} dashed />
+          <span>
+            <span className="text-muted-foreground">Accuracy:</span> {point.avgAccuracy}%
+          </span>
         </p>
-        {point.carriedOver && <p className="text-muted-foreground">Không có phiên, giữ số liệu tháng trước</p>}
+        {point.carriedOver && <p className="text-muted-foreground">No sessions: same figures as the {previousPeriod(range)} before</p>}
       </>
     )}
   </div>
 );
 
-/** A dot on a line: filled for a month with sessions, hollow for one that keeps the figures of the month before. */
-const monthDot =
-  (color: string) =>
-  ({ cx, cy, payload, index }: { cx?: number; cy?: number; payload?: { carriedOver: boolean }; index?: number }) =>
-    cx === undefined || cy === undefined ? (
-      <g key={index} />
-    ) : (
-      <circle key={index} cx={cx} cy={cy} r={3.5} stroke={color} strokeWidth={2} fill={payload?.carriedOver ? 'var(--background)' : color} />
-    );
-
-const Legend = () => (
-  <ul className="flex gap-4 text-base text-muted-foreground">
-    <li className="flex items-center gap-2">
-      <svg width="24" height="4" aria-hidden>
-        <line x1="0" x2="24" y1="2" y2="2" stroke={WPM_COLOR} strokeWidth="2" />
-      </svg>
-      WPM
-    </li>
-    <li className="flex items-center gap-2">
-      <svg width="24" height="4" aria-hidden>
-        <line x1="0" x2="24" y1="2" y2="2" stroke={ERRORS_COLOR} strokeWidth="2" strokeDasharray="4 3" />
-      </svg>
-      Số lỗi
-    </li>
-  </ul>
-);
-
 /**
- * The learner's average WPM (left axis) and number of errors (right axis) of the 12 months before the current one
- * (SCRUM-240), on top of the profile. Without data the 12 months and two flat lines still show, with "Chưa có dữ liệu" over them.
- * No frame: it sits on the page like the rest of the header.
+ * The learner's average WPM and accuracy by month (`year`), by week of this month (`month`) or by day (`week`)
+ * (SCRUM-240; the Progress page picks the range and, with `date`, the year, month or week; the profile header shows the last 7 days). No dots on the lines: only the point under the pointer shows one, under the bio on the profile, as wide as the header (176px high; from `lg` it fills the row the header gives it), from the month of the first counted placement to the current month. No axis lines or numbers; the names (JAN, W1, MON, ...) under the lines show while the pointer is over the chart; the tooltip of a point names the lines. Each line is
+ * scaled from its own lowest value to its own highest (`lineDomain`). Without data every point of the range and two flat lines at 0, one on the other,
+ * still show, with "No data yet" over them. No frame: it sits on the page like the rest of the header.
  */
-export const ProfileMonthlyChart = () => {
-  const query = useMonthlyProgress();
+interface ProfileMonthlyChartProps {
+  /** The range shown. */
+  range: ChartRange;
+  /** A day ('YYYY-MM-DD'): the chart shows the year, month or week that holds it (Progress page). Without it the range ends now (the profile header: the last 7 days). */
+  date?: string;
+  /** Shows the three axes all the time (not only on hover): WPM on the left, accuracy on the right, each from the lowest value of its line to the highest, and the names under the lines (Progress page). Without it only the names show. */
+  axes?: boolean;
+  /** The height of the chart, as Tailwind classes; the header gives it the height of its row from `lg` (`h-44 lg:h-full`). */
+  heightClassName?: string;
+}
+
+export const ProfileMonthlyChart = ({ range, date, axes = false, heightClassName = 'h-44 lg:h-full' }: ProfileMonthlyChartProps) => {
+  const query = useMonthlyProgress(range, date);
+  const [hovering, setHovering] = useState(false);
 
   if (query.isPending) return <LoadingState rows={1} />;
   if (query.isError) return <ErrorState error={query.error} title="Could not load the monthly chart" onRetry={() => query.refetch()} />;
-
-  const months = query.data.months;
+  // The names under the chart follow the range of the points on screen: while another range loads, the previous one stays (`placeholderData`).
+  const shown = query.data.range;
+  // From the first placement on; every point while there is no data.
+  const months = chartPoints(query.data.points);
   const hasData = months.some((point) => point.avgWpm !== null);
+  // Without data both lines are flat at 0, one on the other, over the points of the range.
   const data = months.map((point) => ({
     ...point,
-    wpm: hasData ? point.avgWpm : PLACEHOLDER_WPM,
-    errors: hasData ? point.totalErrors : PLACEHOLDER_ERRORS,
+    wpm: hasData ? point.avgWpm : 0,
+    accuracy: hasData ? point.avgAccuracy : 0,
   }));
-  // The numbers of the axes only mean something when the lines are real.
-  const axisTick = hasData ? { fill: 'var(--muted-foreground)' } : false;
+  // Each line is scaled from its own lowest value to its highest, axes or not. Without data both lines are flat at 0, one on the other.
+  const wpmDomain = lineDomain(data.map((point) => point.wpm));
+  const accuracyDomain = lineDomain(data.map((point) => point.accuracy));
+  // The marks of an axis: the lowest value, the middle and the highest of its line.
+  const marksOf = ([low, high]: [number, number]) => [low, (low + high) / 2, high];
+  const axisShown = hasData && (axes || hovering);
+  const axisText = axisShown ? 'var(--muted-foreground)' : 'transparent';
+  const axisLine = axisShown ? 'var(--border)' : 'transparent';
 
   return (
-    <section aria-label="Monthly progress" className="w-full">
+    <section
+      aria-label="Monthly progress"
+      className="relative h-full w-full"
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+    >
       <div
         role="img"
-        aria-label={hasData ? 'Biểu đồ WPM và số lỗi theo 12 tháng' : 'Biểu đồ WPM và số lỗi theo 12 tháng, chưa có dữ liệu'}
-        className="relative h-44"
+        aria-label={hasData ? `WPM and accuracy by ${rangeUnit(shown)}` : `WPM and accuracy by ${rangeUnit(shown)}, no data yet`}
+        className={`relative ${heightClassName}`}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke={AXIS_COLOR} />
-            <XAxis dataKey="month" tickFormatter={shortMonth} interval={0} tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }} stroke={AXIS_COLOR} />
-            <YAxis
-              yAxisId="wpm"
-              width={hasData ? 36 : 8}
-              domain={hasData ? [0, 'auto'] : [0, 100]}
-              allowDecimals={false}
-              tick={axisTick}
-              stroke={AXIS_COLOR}
+          <LineChart data={data} margin={{ top: 8, right: axes ? 0 : 20, bottom: 0, left: axes ? 0 : 20 }}>
+            {/* No axis on screen but the names under the lines, only while the pointer is over the chart (their space is always there, so the lines
+                do not move). The side margin keeps the first and the last name (MON, W5, DEC), centered on their point and wider than 24px, from being cut. */}
+            <XAxis
+              dataKey="key"
+              tickFormatter={(key: string) => axisLabel(shown, key)}
+              interval={0}
+              tickLine={false}
+              axisLine={axes ? { stroke: axisLine } : false}
+              height={20}
+              tick={{ fontSize: 12, fill: axisText }}
             />
-            <YAxis
-              yAxisId="errors"
-              orientation="right"
-              width={hasData ? 36 : 8}
-              domain={hasData ? [0, 'auto'] : [0, 100]}
-              allowDecimals={false}
-              tick={axisTick}
-              stroke={AXIS_COLOR}
-            />
+            {axes ? (
+              <YAxis yAxisId="wpm" padding={LINE_PADDING} width={32} domain={wpmDomain} ticks={marksOf(wpmDomain)} tickFormatter={(value: number) => String(Math.round(value))} allowDataOverflow tickLine={false} stroke={axisLine} tick={{ fontSize: 12, fill: axisText }} />
+            ) : (
+              <YAxis yAxisId="wpm" hide padding={LINE_PADDING} domain={wpmDomain} />
+            )}
+            {axes ? (
+              <YAxis
+                yAxisId="accuracy"
+                padding={LINE_PADDING}
+                orientation="right"
+                width={40}
+                domain={accuracyDomain}
+                ticks={marksOf(accuracyDomain)}
+                tickFormatter={(value: number) => `${Math.round(value)}%`}
+                allowDataOverflow
+                tickLine={false}
+                stroke={axisLine}
+                tick={{ fontSize: 12, fill: axisText }}
+              />
+            ) : (
+              <YAxis yAxisId="accuracy" hide padding={LINE_PADDING} domain={accuracyDomain} />
+            )}
             {hasData && (
               <Tooltip
-                cursor={{ stroke: AXIS_COLOR }}
-                content={({ payload }) => (payload?.length ? <MonthlyChartTooltip point={payload[0].payload as MonthlyProgressPoint} /> : null)}
+                cursor={{ stroke: CURSOR_COLOR }}
+                content={({ payload }) => (payload?.length ? <MonthlyChartTooltip point={payload[0].payload as MonthlyProgressPoint} range={shown} /> : null)}
               />
             )}
             <Line
@@ -128,31 +157,30 @@ export const ProfileMonthlyChart = () => {
               stroke={WPM_COLOR}
               strokeWidth={2}
               type="monotone"
-              dot={hasData ? monthDot(WPM_COLOR) : false}
-              activeDot={hasData}
+              dot={false}
+              activeDot={hasData ? { r: 4, fill: WPM_COLOR, stroke: WPM_COLOR } : false}
               isAnimationActive={false}
             />
             <Line
-              yAxisId="errors"
-              dataKey="errors"
-              name="Số lỗi"
-              stroke={ERRORS_COLOR}
+              yAxisId="accuracy"
+              dataKey="accuracy"
+              name="Accuracy"
+              stroke={ACCURACY_COLOR}
               strokeWidth={2}
               strokeDasharray="6 4"
               type="monotone"
-              dot={hasData ? monthDot(ERRORS_COLOR) : false}
-              activeDot={hasData}
+              dot={false}
+              activeDot={hasData ? { r: 4, fill: ACCURACY_COLOR, stroke: ACCURACY_COLOR } : false}
               isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>
         {!hasData && (
-          <p className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/40 text-base text-muted-foreground">
-            Chưa có dữ liệu
+          <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-base text-muted-foreground">
+            No data yet
           </p>
         )}
       </div>
-      <Legend />
     </section>
   );
 };

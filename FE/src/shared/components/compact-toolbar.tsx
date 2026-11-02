@@ -5,7 +5,24 @@ import { type ListToolbarFilter, MenuOption } from '@/shared/components/list-too
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 
+/** A menu of its own in the look of Sort: its icon and the choice it holds, in words, always (a picker, so the choice must show). */
+export interface CompactToolbarMenu {
+  /** The name of the menu for screen readers, e.g. `Chart range`. */
+  label: string;
+  icon: LucideIcon;
+  /** The choice that is on, in words, next to the icon. */
+  valueLabel: string;
+  /** False dims the menu: it is one of several that stand for one choice, and another one is on. Default true. */
+  active?: boolean;
+  options: FilterOption[];
+  /** The `value` of the option that is on. */
+  value: string;
+  onChange: (value: string) => void;
+}
+
 interface CompactToolbarProps {
+  /** Menus of their own, before Search: a range, a period. */
+  menus?: CompactToolbarMenu[];
   search?: {
     /** Starting text, e.g. the `q` value from the URL. */
     defaultValue?: string;
@@ -36,6 +53,22 @@ const Word = ({ children }: { children: ReactNode }) => (
   </span>
 );
 
+const MenuPart = ({ menu }: { menu: CompactToolbarMenu }) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger className={cn(partClass, menu.active === false && 'opacity-60')} aria-label={menu.label}>
+      <menu.icon className="size-4" />
+      <span className="ml-2">{menu.valueLabel}</span>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" role="menu" aria-label={`${menu.label} options`} className="min-w-44">
+      {menu.options.map((option) => (
+        <MenuOption key={option.value} selected={option.value === menu.value} onSelect={() => menu.onChange(option.value)}>
+          {option.label}
+        </MenuOption>
+      ))}
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
 /**
  * A small toolbar for a list under a title (the sessions of the profile), in one row on the right: Search, Sort, Filter and
  * a total, each only its icon; the word of a part grows next to the icon while it is hovered or focused. No background
@@ -50,12 +83,15 @@ const Word = ({ children }: { children: ReactNode }) => (
  *     count={{ icon: History, value: total, label: 'Sessions' }}
  *   />
  */
-export const CompactToolbar = ({ search, sort, filters = [], count }: CompactToolbarProps) => {
+export const CompactToolbar = ({ menus = [], search, sort, filters = [], count }: CompactToolbarProps) => {
   const activeFilters = filters.filter((filter) => filter.value !== '').length;
   const CountIcon = count?.icon;
 
   return (
     <div className="flex flex-wrap items-center sm:justify-end [&>:last-child]:pr-0">
+      {menus.map((menu) => (
+        <MenuPart key={menu.label} menu={menu} />
+      ))}
       {search && (
         <SearchInput
           {...search}

@@ -96,19 +96,23 @@ export interface DailyTasks {
   tasks: DailyTaskProgress[];
 }
 
-/** One month of `GET /api/profile/monthly-progress` (SCRUM-240). */
+/** What a point of the profile chart covers: a month (`year`: the last 12 months), a block of 7 days of the current month (`month`: 4-5 points) or a day (`week`: the last 7 days). */
+export type ChartRange = 'year' | 'month' | 'week';
+
+/** One point of `GET /api/profile/monthly-progress` (SCRUM-240). */
 export interface MonthlyProgressPoint {
-  /** 'YYYY-MM', in the learner's time zone. */
-  month: string;
-  /** Average WPM of the month; `null` before the learner's first counted placement session. */
+  /** The period: 'YYYY-MM' (`year`), the first day of the block 'YYYY-MM-DD' (`month`) or the day 'YYYY-MM-DD' (`week`). */
+  key: string;
+  /** Average WPM of the period; `null` before the learner's first counted placement session. */
   avgWpm: number | null;
-  /** All the errors of the month; `null` before the learner's first counted placement session. */
-  totalErrors: number | null;
-  /** True when the month had no counted session: the figures are the ones of the month before. */
+  /** Average accuracy (0-100) of the period; `null` where `avgWpm` is. */
+  avgAccuracy: number | null;
+  /** True when the period had no counted session: the figures are the ones of the period before. */
   carriedOver: boolean;
 }
 
-/** `GET /api/profile/monthly-progress`: 12 months, oldest first, the last one being the month before the current one. */
+/** `GET /api/profile/monthly-progress?range=`: the points of the range, oldest first, the last one being the current month, block or day. */
 export interface MonthlyProgress {
-  months: MonthlyProgressPoint[];
+  range: ChartRange;
+  points: MonthlyProgressPoint[];
 }

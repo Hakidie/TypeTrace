@@ -9,7 +9,6 @@ const getMe = vi.fn();
 const getActivity = vi.fn();
 const getSessions = vi.fn();
 const getStreak = vi.fn();
-const getDailyTasks = vi.fn();
 const getMonthlyProgress = vi.fn();
 
 vi.mock('@/modules/auth/api/auth.api', () => ({
@@ -21,8 +20,7 @@ vi.mock('@/modules/profile/api/profile.api', () => ({
     getActivity: () => getActivity(),
     getSessions: (params: unknown) => getSessions(params),
     getStreak: () => getStreak(),
-    getDailyTasks: () => getDailyTasks(),
-    getMonthlyProgress: () => getMonthlyProgress(),
+    getMonthlyProgress: (range: string) => getMonthlyProgress(range),
     updateSecurity: vi.fn(),
     uploadAvatar: vi.fn(),
   },
@@ -86,16 +84,12 @@ beforeEach(() => {
     sessions: [{ date: today, sessions: 2, tasksTotal: 2, tasksDone: 1 }],
   });
   getStreak.mockReset().mockResolvedValue(streakOf(1, 4, { sessions: 2, missionCompleted: true }));
-  getMonthlyProgress.mockReset().mockResolvedValue({
-    months: Array.from({ length: 12 }, (_, i) => ({ month: `2025-${String(i + 1).padStart(2, '0')}`, avgWpm: null, totalErrors: null, carriedOver: false })),
-  });
-  getDailyTasks.mockReset().mockResolvedValue({
-    date: today,
-    tasks: [
-      { id: 't1', title: 'Warm-up', description: '', type: 'sessions', target: 3, progress: 2, completed: false },
-      { id: 't2', title: 'Phân biệt hỏi/ngã', description: 'Practise hỏi and ngã.', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION', progress: 92.5, completed: true },
-    ],
-  });
+  getMonthlyProgress.mockReset().mockImplementation((range: string) =>
+    Promise.resolve({
+      range,
+      points: Array.from({ length: 12 }, (_, i) => ({ key: `2025-${String(i + 1).padStart(2, '0')}`, avgWpm: null, avgAccuracy: null, carriedOver: false })),
+    }),
+  );
 });
 
 afterEach(() => {
@@ -111,15 +105,25 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(screen.queryByRole('region', { name: 'Profile header' })).not.toBeInTheDocument();
   });
 
-  it('puts the monthly chart in the header, between the name and the bio (SCRUM-240)', async () => {
+  it('puts the monthly chart in the header, under the name and the bio (SCRUM-240)', async () => {
     renderPage();
 
-    const chart = await within(await screen.findByRole('region', { name: 'Profile header' })).findByRole('img', { name: /Biểu đồ WPM và số lỗi theo 12 tháng/ });
+    const chart = await within(await screen.findByRole('region', { name: 'Profile header' })).findByRole('img', { name: /WPM and accuracy by/ });
     const name = screen.getByText('Alice');
     const bio = screen.getByRole('textbox', { name: 'Description' });
 
-    expect(name.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(chart.compareDocumentPosition(bio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(name.compareDocumentPosition(bio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(bio.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows the chart of the last 7 days in the header, without a switch of the range (SCRUM-240)', async () => {
+    renderPage();
+    const header = await screen.findByRole('region', { name: 'Profile header' });
+
+    expect(await within(header).findByRole('img', { name: /WPM and accuracy by/ })).toBeInTheDocument();
+    expect(getMonthlyProgress).toHaveBeenCalledWith('week');
+    expect(getMonthlyProgress).not.toHaveBeenCalledWith('year');
+    expect(within(header).queryByRole('radiogroup', { name: 'Chart range' })).not.toBeInTheDocument();
   });
 
   it('has the header, the daily progress and the heatmap, and no Profile, Edit profile or Security panel (Security is on the Settings page)', async () => {
@@ -130,7 +134,7 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` })).toBeInTheDocument();
     // The mission is done in these fixtures, so there is no line of today.
     expect(screen.queryByRole('region', { name: 'Today' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual(['Daily tasks', 'Daily Progress', 'My Sessions']);
+    expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual(['Daily Progress', 'My Sessions']);
     expect(screen.queryByRole('switch', { name: 'Email code at login' })).not.toBeInTheDocument();
   });
 
@@ -153,31 +157,22 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(getMe).toHaveBeenCalledOnce();
   });
 
-  it('has no TODAY or daily mission line, shows the legend in the title row, and the done mission only with the daily tasks once all are done', async () => {
+  it('has no TODAY or daily mission line, shows the legend in the title row, and no daily tasks (they are on the Progress page)', async () => {
     renderPage();
 
     const title = await screen.findByRole('heading', { name: 'Daily Progress' });
     expect(screen.queryByText('TODAY')).not.toBeInTheDocument();
     // The legend is on the right of the title.
     expect(within(title.parentElement?.parentElement as HTMLElement).getByText('Less')).toBeInTheDocument();
-    // One of the two tasks is not done: no "Daily mission done" anywhere.
-    await screen.findByRole('region', { name: 'Daily tasks' });
     expect(screen.queryByText('Daily mission done')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Daily tasks' })).not.toBeInTheDocument();
   });
 
-  it("shows today's tasks with their progress bars above the heatmap, which is above the sessions", async () => {
+  it('shows the heatmap above the sessions, with no daily tasks (they moved to the Progress page)', async () => {
     renderPage();
 
-    const tasks = await screen.findByRole('region', { name: 'Daily tasks' });
-    expect(screen.getByRole('heading', { name: 'Daily tasks' })).toBeInTheDocument();
-    expect(await within(tasks).findByRole('progressbar', { name: 'Warm-up' })).toHaveAttribute('aria-valuenow', '2');
-    expect(within(tasks).getByText('2 / 3 sessions')).toBeInTheDocument();
-    expect(within(tasks).getByText('Practise hỏi and ngã.')).toBeInTheDocument();
-    expect(within(tasks).getByText('Done')).toBeInTheDocument();
-    expect(getDailyTasks).toHaveBeenCalledOnce();
-
     const heatmap = await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` });
-    expect(tasks.compareDocumentPosition(heatmap)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(screen.queryByRole('heading', { name: 'Daily tasks' })).not.toBeInTheDocument();
     expect(heatmap.compareDocumentPosition(screen.getByRole('region', { name: 'My sessions' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
