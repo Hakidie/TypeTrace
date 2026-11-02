@@ -1,8 +1,8 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { currentUserKey, useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { profileApi } from '../api/profile.api';
-import type { ChartRange, SessionListParams } from '../types/profile.types';
+import type { ChartCompare, ChartRange, SessionListParams } from '../types/profile.types';
 
 /** Cache keys. Invalidating `profileKeys.all` refreshes every profile query. */
 export const profileKeys = {
@@ -46,6 +46,17 @@ export const useMonthlyProgress = (range: ChartRange, date?: string) =>
     queryFn: () => profileApi.getMonthlyProgress(range, date),
     placeholderData: keepPreviousData,
     staleTime: 0,
+  });
+
+/** The same, for several periods at once (the ones put on the chart to compare with), in the order given. */
+export const useMonthlyProgressSet = (periods: ChartCompare[]) =>
+  useQueries({
+    queries: periods.map(({ range, date }) => ({
+      queryKey: profileKeys.monthlyProgress(range, date),
+      queryFn: () => profileApi.getMonthlyProgress(range, date),
+      placeholderData: keepPreviousData,
+      staleTime: 0,
+    })),
   });
 
 /**

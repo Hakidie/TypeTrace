@@ -63,3 +63,15 @@ export const anchorFor = (range: ChartRange, value: string, anchor: string, toda
   }
   return day > today ? today : day;
 };
+
+/** A period with the larger one it belongs to, for the comparison: '2025', 'October 2025', 'Week 2 October 2025'. */
+export const compareLabel = (range: ChartRange, anchor: string) => {
+  const month = MONTH_NAMES[Number(anchor.slice(5, 7)) - 1];
+  return range === 'year' ? anchor.slice(0, 4) : range === 'month' ? `${month} ${anchor.slice(0, 4)}` : `Week ${weekNumber(anchor)} ${month} ${anchor.slice(0, 4)}`;
+};
+
+/** The first day of the month before the one that holds `day` ('2026-03-10' → '2026-02-01', '2026-01-05' → '2025-12-01'). */
+export const previousMonthStart = (day: string) => {
+  const index = Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7)) - 2;
+  return `${Math.floor(index / 12)}-${pad2((index % 12) + 1)}-01`;
+};

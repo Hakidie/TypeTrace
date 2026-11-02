@@ -20,3 +20,19 @@ export const lineDomain = (values: (number | null)[]): [number, number] => {
   const low = Math.min(...known);
   return [low, Math.max(low + 1, ...known)];
 };
+
+/** One column of a chart with periods put on it: the point of the chart's own period and of each period added, at the same place (the same month, week or day of it), `null` where one has none. */
+export interface CompareColumn {
+  main: MonthlyProgressPoint | null;
+  others: (MonthlyProgressPoint | null)[];
+}
+
+/** The columns of the periods side by side, by position; the longest period decides how many (a year so far has fewer months than a whole one). */
+export const compareColumns = (main: MonthlyProgressPoint[], others: MonthlyProgressPoint[][]): CompareColumn[] =>
+  Array.from({ length: Math.max(main.length, ...others.map((points) => points.length)) }, (_, index) => ({
+    main: main[index] ?? null,
+    others: others.map((points) => points[index] ?? null),
+  }));
+
+/** The periods put on the chart have the same lines as its own period, fainter and fainter (no more accent colors); this many at most. */
+export const COMPARE_OPACITIES = [0.6, 0.4, 0.25];

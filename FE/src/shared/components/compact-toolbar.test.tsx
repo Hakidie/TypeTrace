@@ -91,4 +91,60 @@ describe('CompactToolbar', () => {
 
     expect(onChange).toHaveBeenCalledWith('week');
   });
+
+  it('has a + that opens a menu of groups, each with a second menu of options beside it, and tags of what was added with an x to take each away', async () => {
+    const user = userEvent.setup();
+    const onPick = vi.fn();
+    const onRemove = vi.fn();
+    render(
+      <CompactToolbar
+        adder={{ label: 'Add comparison', groups: [{ label: 'Year', options: [{ value: '2025', label: '2025' }, { value: '2024', label: '2024' }], selected: ['2025'], onPick }] }}
+        tags={[{ id: 'year:2025', label: 'Year 2025', onRemove }]}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Add comparison' }));
+    // The groups first; a second menu with the options of one opens beside them.
+    expect(screen.queryByRole('menu', { name: 'Year periods' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('menuitem', { name: 'Year' }));
+    const group = await screen.findByRole('menu', { name: 'Year periods' });
+    expect(within(group).getByRole('menuitemradio', { name: '2025' })).toHaveAttribute('aria-checked', 'true');
+    await user.click(within(group).getByRole('menuitemradio', { name: '2024' }));
+    expect(onPick).toHaveBeenCalledWith('2024');
+
+    expect(screen.getByText('Year 2025')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Remove Year 2025' }));
+    expect(onRemove).toHaveBeenCalledOnce();
+  });
+
+  it('puts the tags on the left of the +, the + before the menus, and shows the x of a tag only while it is hovered', () => {
+    render(
+      <CompactToolbar
+        menus={[{ label: 'Chart range', icon: History, valueLabel: 'Month', value: 'month', onChange: vi.fn(), options: [{ value: 'month', label: 'Month' }] }]}
+        adder={{ label: 'Add comparison', groups: [] }}
+        tags={[{ id: 'year:2025', label: 'Year 2025', onRemove: vi.fn() }]}
+      />,
+    );
+
+    const tag = screen.getByText('Year 2025');
+    const add = screen.getByRole('button', { name: 'Add comparison' });
+    const range = screen.getByRole('button', { name: 'Chart range' });
+    expect(tag.compareDocumentPosition(add)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(add.compareDocumentPosition(range)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(tag).toHaveClass('group');
+    expect(screen.getByRole('button', { name: 'Remove Year 2025' })).toHaveClass('opacity-0', 'group-hover:opacity-100', 'focus-visible:opacity-100');
+  });
+
+  it('takes extra classes for its row, to sit at the left edge', () => {
+    const { container } = render(<CompactToolbar className="sm:justify-start" count={{ icon: History, value: 3, label: 'Sessions' }} />);
+
+    expect(container.firstChild).toHaveClass('sm:justify-start');
+    expect(container.firstChild).not.toHaveClass('sm:justify-end');
+  });
+
+  it('turns the + off when no more can be added', () => {
+    render(<CompactToolbar adder={{ label: 'Add comparison', disabled: true, groups: [] }} />);
+
+    expect(screen.getByRole('button', { name: 'Add comparison' })).toBeDisabled();
+  });
 });

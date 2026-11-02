@@ -253,12 +253,12 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
           what is left of the avatar's height (the avatar spans the three rows above the Joined date), so the bottom of the chart is level with the bottom of the avatar and the Joined date is the line under both. */}
       {chart && (
         <div className="col-span-3 sm:col-start-2 sm:row-start-6 lg:relative lg:col-span-4 lg:col-start-2 lg:row-start-3 lg:min-h-[68px]">
-          {/* From `lg` the chart is laid over its row (it does not make the row taller): the row is what is left of the avatar's height, but at least 68px: 60px of lines under 8px of margin. The chart hangs 20px below its row: the bottom of the lines is level with the bottom of the avatar, and the month names (shown on hover) sit in the 20px that the Joined line leaves free above it (`lg:pt-5`). */}
-          <div className="lg:absolute lg:inset-x-0 lg:-bottom-5 lg:top-0">{chart}</div>
+          {/* From `lg` the chart is laid over its row (it does not make the row taller): the row is what is left of the avatar's height, but at least 68px: 60px of lines under 8px of margin. The chart hangs 24px below its row: the bottom of the lines is level with the bottom of the avatar, and the month names (shown on hover) sit in the 24px that the Joined line leaves free above it (`lg:pt-6`). */}
+          <div className="lg:absolute lg:inset-x-0 lg:-bottom-6 lg:top-0">{chart}</div>
         </div>
       )}
       {/* The bottom right of the header: under the chart (under the numbers when there is none). */}
-      <p className="col-span-3 text-right text-base text-muted-foreground sm:col-start-2 sm:row-start-7 lg:col-span-4 lg:col-start-2 lg:row-start-4 lg:pt-5">
+      <p className="col-span-3 text-right text-base text-muted-foreground sm:col-start-2 sm:row-start-7 lg:col-span-4 lg:col-start-2 lg:row-start-4 lg:pt-6">
         Joined {formatDate(user.createdAt)}
       </p>
     </section>

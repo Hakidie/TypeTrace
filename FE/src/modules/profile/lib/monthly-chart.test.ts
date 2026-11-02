@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MonthlyProgressPoint } from '../types/profile.types';
 import { axisLabel, tooltipTitle } from './month-label';
-import { chartPoints, lineDomain } from './monthly-chart';
+import { chartPoints, compareColumns, lineDomain } from './monthly-chart';
 
 const empty = (key: string): MonthlyProgressPoint => ({ key, avgWpm: null, avgAccuracy: null, carriedOver: false });
 const real = (key: string, carriedOver = false): MonthlyProgressPoint => ({ key, avgWpm: 40, avgAccuracy: 95, carriedOver });
@@ -60,5 +60,18 @@ describe('lineDomain', () => {
   it('keeps a line that does not move along the bottom, and an empty one at 0-1', () => {
     expect(lineDomain([50, 50])).toEqual([50, 51]);
     expect(lineDomain([])).toEqual([0, 1]);
+  });
+});
+
+describe('compareColumns', () => {
+  it('puts the periods side by side by position, the longest deciding how many columns', () => {
+    const columns = compareColumns([real('2026-01'), real('2026-02'), real('2026-03')], [[real('2025-01'), real('2025-02')], [real('2024-01')]]);
+
+    expect(columns.map((column) => [column.main?.key, column.others.map((point) => point?.key)])).toEqual([
+      ['2026-01', ['2025-01', '2024-01']],
+      ['2026-02', ['2025-02', undefined]],
+      ['2026-03', [undefined, undefined]],
+    ]);
+    expect(columns[2].others).toEqual([null, null]);
   });
 });

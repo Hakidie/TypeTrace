@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anchorFor, periodLabel, periodOptions, periodValue, weekStartOf } from './chart-period';
+import { anchorFor, compareLabel, periodLabel, periodOptions, periodValue, previousMonthStart, weekStartOf } from './chart-period';
 
 const TODAY = '2026-03-10'; // a Tuesday
 
@@ -37,5 +37,16 @@ describe('chart periods', () => {
     expect(anchorFor('year', '2025', '2024-02-29', TODAY)).toBe('2025-02-28');
     expect(anchorFor('month', '2026-02', '2026-03-10', TODAY)).toBe('2026-02-01');
     expect(anchorFor('week', '2026-03-08', '2026-03-10', TODAY)).toBe('2026-03-08');
+  });
+
+  it('names a period with the larger one it belongs to', () => {
+    expect(compareLabel('year', '2025-03-10')).toBe('2025');
+    expect(compareLabel('month', '2025-10-01')).toBe('October 2025');
+    expect(compareLabel('week', '2025-10-08')).toBe('Week 2 October 2025');
+  });
+
+  it('finds the first day of the month before', () => {
+    expect(previousMonthStart('2026-03-10')).toBe('2026-02-01');
+    expect(previousMonthStart('2026-01-05')).toBe('2025-12-01');
   });
 });
