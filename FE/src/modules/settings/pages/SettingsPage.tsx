@@ -92,6 +92,7 @@ export const SettingsPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* PANEL Appearance */}
       <Panel title="Appearance" bare titleClassName={panelTitleClass} className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -114,10 +115,12 @@ export const SettingsPage = () => {
         />
       </Panel>
 
+      {/* PANEL Security */}
       <Panel title="Security" bare titleClassName={panelTitleClass} className={panelBodyClass}>
         {user ? <SecuritySettings user={user} /> : <LoadingState rows={1} />}
       </Panel>
 
+      {/* PANEL Tutorial */}
       <Panel title="Tutorial" bare titleClassName={panelTitleClass} className={panelBodyClass}>
         <TutorialReplay />
       </Panel>

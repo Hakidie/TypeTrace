@@ -146,6 +146,7 @@ export const PassagesPage = () => {
     <div className="flex flex-1 flex-col gap-12">
       <div ref={formPanelRef} className="scroll-mt-4 lg:flex lg:min-h-72 lg:flex-[1_1_0] lg:flex-col">
         {/* No visible title (the form says what it is); screen readers still get one. */}
+        {/* PANEL Passage form */}
         <Panel bare fill>
           <h2 className="sr-only">{editingId ? 'Edit passage' : 'New passage'}</h2>
           {renderForm()}
@@ -153,6 +154,7 @@ export const PassagesPage = () => {
       </div>
 
       <div className="lg:flex lg:min-h-[28rem] lg:flex-[2_1_0] lg:flex-col">
+        {/* PANEL My passages */}
         <Panel bare fill>
           <h2 className="sr-only">My passages</h2>
           <div className="flex min-h-0 flex-1 flex-col gap-3">

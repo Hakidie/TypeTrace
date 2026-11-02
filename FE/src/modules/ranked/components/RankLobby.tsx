@@ -1,15 +1,16 @@
 import { useState, type FormEvent } from 'react';
-import { CloudRain, DoorOpen, ListOrdered, Swords, Trophy, type LucideIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { CloudRain, DoorOpen, Gamepad2, Swords, Trophy, type LucideIcon } from 'lucide-react';
 import { Panel } from '@/shared/components/panel';
-import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { MONTHS } from '@/shared/lib/local-date';
+import { cn } from '@/shared/lib/utils';
 import { useCreateMatch, useJoinMatch } from '../hooks/use-match';
 import { useRankedMe } from '../hooks/use-ranked';
-import type { MatchKind, SeasonInfo } from '../types/ranked.types';
+import { LeaderboardLink } from './LeaderboardLink';
+import { SeasonPanel } from './SeasonPanel';
+import type { MatchKind } from '../types/ranked.types';
 
 // The size of the profile page's section titles (`sectionTitleClass`), in the red of the season above.
 export const titleClass = 'text-[1.5rem] text-primary';
@@ -42,6 +43,12 @@ const KIND_TIPS: Record<MatchKind, string> = {
   rain: 'Open a room and share its code. Words rain on both of you; every word you type falls on your friend. Three misses and you are out.',
 };
 
+/** What each mode is, on its card in the Mode modal. */
+const MODE_TIPS: Record<MatchKind, string> = {
+  race: 'Type the same English passage as your friend. The faster and more accurate one wins.',
+  rain: 'Words rain on both of you; every word you type falls on your friend. Three misses and you are out.',
+};
+
 // The frame of the other panels (the normal border color, the thin red while hovered) around a bare panel, which has no padding of its own: it is as wide as the season bar above it.
 export const hoverFrame = 'flex flex-col border border-border p-3 transition-colors hover:border-destructive/40';
 
@@ -55,12 +62,71 @@ export const PanelArt = ({ icon: Icon }: { icon: LucideIcon }) => (
   </div>
 );
 
-/** The days a season runs, e.g. `{ from: '1 Oct 2026', to: '31 Dec 2026' }`; `undefined` when the dates are missing. */
-const seasonDays = ({ startsAt, endsAt }: SeasonInfo) => {
-  const [start, end] = [new Date(startsAt), new Date(endsAt)];
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return undefined;
-  const day = (date: Date) => `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-  return { from: day(start), to: day(end) };
+/** An icon button (beside the leaderboard button) that opens a modal with a card for each mode of play; picking one chooses it. */
+const ModeButton = ({ kind, onChoose, hoverOnly = false }: { kind: MatchKind; onChoose: (kind: MatchKind) => void; hoverOnly?: boolean }) => {
+  const [open, setOpen] = useState(false);
+  const current = KINDS.find((item) => item.value === kind);
+  return (
+    <>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label="Mode"
+              onClick={() => setOpen(true)}
+              className={cn(
+                'flex size-[2.3rem] shrink-0 items-center justify-center text-primary transition hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                // Like the leaderboard button: shown while the season bar is hovered or holds the focus (always on touch screens).
+                hoverOnly && 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100',
+              )}
+            >
+              <Gamepad2 className="size-6" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Mode: {current?.label}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {/* MODAL Mode: a card for each mode of play. */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className={titleClass}>Mode</DialogTitle>
+            <DialogDescription>Pick the kind of duel. Each mode has its own rating and leaderboard.</DialogDescription>
+          </DialogHeader>
+          {/* The cards of the Minigames tab: a framed panel with a big icon, the description opens while hovered. */}
+          <div role="radiogroup" aria-label="Kind of match" className="grid items-start gap-6 sm:grid-cols-2">
+            {KINDS.map(({ value, label, icon }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={kind === value}
+                onClick={() => {
+                  onChoose(value as MatchKind);
+                  setOpen(false);
+                }}
+                className={cn(
+                  hoverFrame,
+                  'group cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  kind === value && 'border-destructive/60',
+                )}
+              >
+                <Panel title={label} bare centerTitle titleClassName={titleClass} fill>
+                  <PanelArt icon={icon} />
+                  <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-hover:grid-rows-[1fr] group-focus-visible:grid-rows-[1fr] pointer-coarse:grid-rows-[1fr]">
+                    <div className="overflow-hidden">
+                      <p className="px-4 pb-4 text-center text-base text-muted-foreground">{MODE_TIPS[value as MatchKind]}</p>
+                    </div>
+                  </div>
+                </Panel>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 };
 
 /** No room yet: the kind of match (Race or Rain), the own season rating of that kind, then create a room of that kind (the code is shared with a friend) or join one with its code. */
@@ -69,9 +135,13 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
   const joinMatch = useJoinMatch();
   const [kind, setKind] = useState<MatchKind>(lastKind);
   const ranking = useRankedMe(kind);
-  const days = ranking.data && seasonDays(ranking.data.season);
   const [code, setCode] = useState('');
   const pending = createMatch.isPending || joinMatch.isPending;
+
+  const chooseKind = (value: string) => {
+    setKind(value as MatchKind);
+    rememberKind(value as MatchKind);
+  };
 
   const joinWith = (typed: string) => {
     if (typed.length === ROOM_CODE_LENGTH && !pending) joinMatch.mutate(typed, { onSuccess: (match) => onEnter(match.code) });
@@ -90,61 +160,43 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-x-12 gap-y-24 md:grid-cols-2">
-      <div data-tutorial="rank-kind" className="flex justify-center md:col-span-2">
-        <TabGroup
-          label="Kind of match"
-          tabs={KINDS}
-          value={kind}
-          onChange={(value) => {
-            setKind(value as MatchKind);
-            rememberKind(value as MatchKind);
-          }}
-        />
-      </div>
-      {/* The own rating is extra here: while it loads, or if it fails, the lobby works without it. */}
-      {ranking.data && (
-        <div className="duel-rise group md:col-span-2">
-          <Panel className="flex items-center gap-6 text-primary">
-            <div className="mr-auto flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="text-[3.25rem] font-black uppercase leading-none">Season {ranking.data.season.number}</span>
-              {/* 2.3rem = the height of the capitals of SEASON (0.7 of its 3.25rem), so FROM sits at their top and TO on their baseline. */}
-              {days && (
-                <div className="flex h-[2.3rem] flex-col items-start justify-between text-base leading-none text-muted-foreground">
-                  <span>FROM {days.from}</span>
-                  <span>TO {days.to}</span>
-                </div>
-              )}
-              {/* Shows while the bar is hovered or holds the focus (always on touch screens, which cannot hover). */}
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to="/leaderboard"
-                      aria-label="Leaderboard"
-                      className="flex size-[2.3rem] shrink-0 items-center justify-center text-primary opacity-0 transition hover:bg-primary hover:text-primary-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100"
-                    >
-                      <ListOrdered className="size-6" aria-hidden="true" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>Leaderboard</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div className="flex flex-col items-end gap-1 text-right">
-              <span className="flex items-center gap-2 text-2xl font-semibold leading-none">
-                <Trophy className="size-6" aria-hidden="true" />
-                <span>{ranking.data.tier}</span>
-              </span>
-              <span className="text-xl leading-none text-muted-foreground tabular-nums">
-                {ranking.data.wins}W · {ranking.data.losses}L · {ranking.data.draws}D
-              </span>
-            </div>
-            <span className="text-[3.25rem] font-black leading-none tabular-nums" aria-label="Your rating">
-              {ranking.data.rating}
-            </span>
-          </Panel>
+      {!ranking.data && (
+        <div className="flex justify-center md:col-span-2">
+          <ModeButton kind={kind} onChoose={chooseKind} />
         </div>
       )}
+      {/* PANEL Season: the season bar with the own rating. It is extra here: while it loads, or if it fails, the lobby works without it. */}
+      {ranking.data && (
+        <div className="duel-rise md:col-span-2">
+          <SeasonPanel
+            number={ranking.data.season.number}
+            startsAt={ranking.data.season.startsAt}
+            endsAt={ranking.data.season.endsAt}
+            lead={
+              // The mode in play, so it shows without opening the modal.
+              <span data-tutorial="rank-kind" role="img" aria-label={`Mode: ${kind}`} className="flex items-center">
+                {kind === 'rain' ? <CloudRain className="size-12" aria-hidden="true" /> : <Swords className="size-12" aria-hidden="true" />}
+              </span>
+            }
+            actions={
+              <>
+                <ModeButton kind={kind} onChoose={chooseKind} hoverOnly />
+                <LeaderboardLink />
+              </>
+            }
+            headline={
+              <>
+                <Trophy className="size-6" aria-hidden="true" />
+                <span>{ranking.data.tier}</span>
+              </>
+            }
+            subline={`${ranking.data.wins}W · ${ranking.data.losses}L · ${ranking.data.draws}D`}
+            value={ranking.data.rating}
+            valueLabel="Your rating"
+          />
+        </div>
+      )}
+      {/* PANEL Duel a friend: create a room of the chosen mode. */}
       <div className={hoverFrame}>
         <Panel title="Duel a friend" bare centerTitle titleClassName={titleClass} titleTip={KIND_TIPS[kind]} fill className="justify-end">
           <PanelArt icon={kind === 'rain' ? CloudRain : Swords} />
@@ -154,6 +206,7 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
           </Button>
         </Panel>
       </div>
+      {/* PANEL Join a room: type the code of a friend's room. */}
       <div className={hoverFrame}>
         <Panel title="Join a room" bare centerTitle titleClassName={titleClass} titleTip="Type the 6-character code of a friend's room to join their duel." fill>
           <PanelArt icon={DoorOpen} />

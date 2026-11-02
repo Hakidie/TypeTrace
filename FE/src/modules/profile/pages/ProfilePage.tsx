@@ -25,6 +25,7 @@ export const ProfilePage = () => {
   return (
     <div className="space-y-12">
       {/* No title and no frame; the gap to Daily tasks is 3rem, like the others (`space-y-12`). */}
+      {/* PANEL Profile header */}
       <Panel bare>
         {user ? (
           <ProfileHeader
@@ -40,6 +41,7 @@ export const ProfilePage = () => {
       </Panel>
 
       {/* The heatmap, under the header: a title, no frame. */}
+      {/* PANEL Daily Progress */}
       <Panel title="Daily Progress" bare titleClassName={sectionTitleClass} actions={<ActivityHeatmapLegend />}>
         {user ? (
           <ProfileHeatmap activity={activity} since={user.createdAt} />

@@ -1,3 +1,4 @@
+import type { Types } from 'mongoose';
 import { DEFAULT_AVATAR } from '../data/avatar-catalog';
 import type { MatchKind } from '../models/match.model';
 import { SeasonModel } from '../models/season.model';
@@ -67,5 +68,16 @@ export const getLeaderboard = async ({ kind, ...query }: LeaderboardQuery) => {
 /** Admin: every season, the active one first. Makes season 1 when there is none yet. */
 export const listSeasons = async (query: ListSeasonsQuery) => {
   await currentSeason();
-  return paginate(SeasonModel, {}, query);
+  const page = await paginate(SeasonModel, {}, query);
+  // One count for the whole page: the players with at least one match in each kind, per season.
+  const counts = await SeasonRatingModel.aggregate<{ _id: { season: Types.ObjectId; kind: MatchKind }; players: number }>([
+    { $match: { season: { $in: page.items.map((season) => season._id) }, matches: { $gte: 1 } } },
+    { $group: { _id: { season: '$season', kind: '$kind' }, players: { $sum: 1 } } }
+  ]);
+  const items = page.items.map((season) => {
+    const participants = { race: 0, rain: 0 };
+    for (const { _id, players } of counts) if (String(_id.season) === String(season._id)) participants[_id.kind] = players;
+    return { ...season.toJSON(), participants };
+  });
+  return { ...page, items };
 };

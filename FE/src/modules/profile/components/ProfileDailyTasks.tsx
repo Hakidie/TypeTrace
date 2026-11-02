@@ -131,6 +131,7 @@ export const ProfileDailyTasks = () => {
 
   return (
     <section aria-label="Daily tasks" aria-busy={dailyTasks.isPending}>
+      {/* PANEL Daily tasks */}
       <Panel
         title="Daily tasks"
         bare

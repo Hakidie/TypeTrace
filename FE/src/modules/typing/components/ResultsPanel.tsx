@@ -14,6 +14,7 @@ export const ResultsPanel = ({ results, stats }: ResultsPanelProps) => {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      {/* PANEL Mistakes */}
       <Panel bare title="Mistakes">
         {mistakes.length === 0 ? (
           <EmptyState title="No mistakes yet" description="Words you type wrongly show up here with their error type." />
@@ -41,6 +42,7 @@ export const ResultsPanel = ({ results, stats }: ResultsPanelProps) => {
         )}
       </Panel>
 
+      {/* PANEL Error rate by type */}
       <Panel bare title="Error rate by type">
         {stats.length === 0 ? (
           <p className="text-muted-foreground">Finish a word to see the rates.</p>

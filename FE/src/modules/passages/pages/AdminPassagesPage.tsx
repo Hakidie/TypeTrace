@@ -120,6 +120,7 @@ const PassageBank = () => {
   return (
     <>
       <div ref={formPanelRef} className="scroll-mt-4">
+        {/* PANEL Passage form */}
         <Panel title={editing ? 'Edit passage' : 'New passage'} bare titleClassName={panelTitleClass} className={panelBodyClass}>
           {/* `key` remounts the form, so it starts from the passage being edited (or empty). */}
           <PassageForm
@@ -130,6 +131,7 @@ const PassageBank = () => {
           />
         </Panel>
       </div>
+      {/* PANEL Passages */}
       <Panel title="Passages" bare titleClassName={panelTitleClass} className={panelBodyClass}>
         <div className="space-y-3">
           <ListToolbar

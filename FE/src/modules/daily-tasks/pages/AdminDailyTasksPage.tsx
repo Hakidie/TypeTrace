@@ -115,6 +115,7 @@ export const AdminDailyTasksPage = () => {
     <div className="flex flex-col gap-12">
       <div ref={formPanelRef} className="scroll-mt-4">
         {/* No visible title (the form says what it is); screen readers still get one. */}
+        {/* PANEL Task form */}
         <Panel bare>
           <h2 className="sr-only">{editing ? 'Edit task' : 'New task'}</h2>
           {/* `key` remounts the form, so it starts from the task being edited (or empty). */}
@@ -122,6 +123,7 @@ export const AdminDailyTasksPage = () => {
         </Panel>
       </div>
 
+      {/* PANEL Tasks */}
       <Panel bare>
         <h2 className="sr-only">Tasks</h2>
         <div className="flex flex-col gap-3">

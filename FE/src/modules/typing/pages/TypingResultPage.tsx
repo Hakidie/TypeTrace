@@ -64,6 +64,7 @@ export const TypingResultPage = () => {
         </>
       )}
 
+      {/* PANEL Typed passage */}
       <Panel bare>
         <PassageView words={session.targetWords} results={results} />
       </Panel>
