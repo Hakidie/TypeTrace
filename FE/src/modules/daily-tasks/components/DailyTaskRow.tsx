@@ -2,9 +2,22 @@ import { Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
 import { ListRow, ListRowMenu, ListRowStat } from '@/shared/components/list-row';
 import { Badge } from '@/shared/components/ui/badge';
 import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
+import { cn } from '@/shared/lib/utils';
 import { DAILY_TASK_TYPE_INFO, ERROR_FOCUS_LABELS, formatTarget, goalOf } from '../daily-tasks.config';
 import type { DailyTask, DailyTaskListItem } from '../types/daily-task.types';
 import { DailyTaskCompletions } from './DailyTaskCompletions';
+
+/** One line, cut with an ellipsis when it is long: the whole text shows in the project's tooltip while it is hovered. */
+const CutLine = ({ text, className }: { text: string; className: string }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <p className={cn('truncate', className)}>{text}</p>
+    </TooltipTrigger>
+    {/* A description can be long: the tooltip wraps it instead of running off the screen. */}
+    <TooltipContent className="max-w-sm whitespace-normal">{text}</TooltipContent>
+  </Tooltip>
+);
 
 interface DailyTaskRowProps {
   task: DailyTaskListItem;
@@ -19,8 +32,8 @@ interface DailyTaskRowProps {
  * One task, laid out like a session card of the profile (`SessionCard`) in the red card look of the user rows: the icon
  * of its type, the title and under it the description (the goal in words, `goalOf`, when it has none); where a session
  * card has its speed line, the learners who completed it in each of the last 24 hours (`DailyTaskCompletions`, from `xl`);
- * then the target and the learners of the 24 hours (DONE 24H), and a kebab menu. Under them the type, the focus error of
- * an accuracy task and the status as badges, and the created date.
+ * then the learners of those 24 hours (DONE) and the target, and a kebab menu. Under them the type, the focus error of an
+ * accuracy task and the status as badges, and the created date.
  */
 export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTaskRowProps) => {
   const { label, stat, icon: Icon } = DAILY_TASK_TYPE_INFO[task.type];
@@ -34,19 +47,21 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
           <span className="flex h-[61px] w-9 shrink-0 items-center justify-center text-primary" aria-hidden>
             <Icon className="size-9" />
           </span>
-          <div className="min-w-0">
-            <p className="truncate text-2xl font-extrabold text-primary/80" title={task.title}>{task.title}</p>
-            {/* One line, like the date of a session card: the whole text is its tooltip. */}
-            <p className="truncate text-lg text-muted-foreground" title={subtitle}>{subtitle}</p>
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <div className="min-w-0">
+              <CutLine text={task.title} className="text-2xl font-extrabold text-primary/80" />
+              {/* One line, like the date of a session card. */}
+              <CutLine text={subtitle} className="text-lg text-muted-foreground" />
+            </div>
+          </TooltipProvider>
         </div>
       }
       center={<DailyTaskCompletions completions={task.completions} />}
       extra={
         // One width per column (the widest value fits), so they line up from row to row, like the stats of a session card.
         <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-8">
+          <ListRowStat className="w-20" label="DONE" value={String(task.completions.learners)} />
           <ListRowStat className="w-28" label={stat} value={formatTarget(task)} />
-          <ListRowStat className="w-28" label="DONE 24H" value={String(task.completions.learners)} />
         </div>
       }
       action={

@@ -1,5 +1,5 @@
-import { CalendarCheck, Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CalendarCheck, CalendarClock } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -7,14 +7,12 @@ import { ListToolbar } from '@/shared/components/list-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
-import { Button } from '@/shared/components/ui/button';
 import { useListParams } from '@/shared/hooks/use-list-params';
-import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
-import { DailyTaskFormDialog } from '../components/DailyTaskFormDialog';
+import { DailyTaskForm } from '../components/DailyTaskForm';
 import { DailyTaskRow } from '../components/DailyTaskRow';
-import { DailyTaskSettingsPanel } from '../components/DailyTaskSettingsPanel';
+import { TasksPerDayItems } from '../components/TasksPerDayItems';
 import { DAILY_TASK_TYPE_INFO } from '../daily-tasks.config';
-import { useDailyTasks, useDeleteDailyTask, useUpdateDailyTask } from '../hooks/use-daily-tasks';
+import { useDailyTasks, useDailyTaskSettings, useDeleteDailyTask, useUpdateDailyTask } from '../hooks/use-daily-tasks';
 import { DAILY_TASK_TYPES, type DailyTask, type DailyTaskListParams } from '../types/daily-task.types';
 
 const PAGE_SIZE = 10;
@@ -36,10 +34,11 @@ const STATUS_OPTIONS = [
 ];
 
 /**
- * Daily tasks (SCRUM-210): the Settings panel (how many tasks a learner gets a day), then the Tasks panel with the task
- * templates: a `ListToolbar` (search, sort, Type and Status filters, all in the URL), one `DailyTaskRow` per task (with
- * the learners who completed it in the last 24 hours) with Edit, Activate / Deactivate and Delete in its kebab menu,
- * pagination, and New task. Built like `AdminUsersPage`.
+ * Daily tasks (SCRUM-210), laid out like the learner's Passages page: on top the form that adds a task, or edits the one
+ * picked with Edit (`DailyTaskForm`); under it the task templates: a `ListToolbar` (search, how many tasks a learner gets
+ * a day as a menu of its own, sort, Type and Status filters, all but the menu in the URL), one `DailyTaskRow` per task
+ * (with the learners who completed it in the last 24 hours) with Edit, Activate / Deactivate and Delete in its kebab
+ * menu, and pagination.
  */
 export const AdminDailyTasksPage = () => {
   const list = useListParams({ sort: '-createdAt' });
@@ -47,12 +46,20 @@ export const AdminDailyTasksPage = () => {
   const isActive = list.get('isActive') as DailyTaskListParams['isActive'];
 
   const tasks = useDailyTasks({ page: list.page, limit: PAGE_SIZE, q: list.q, type, isActive, sort: list.sort });
+  const perDay = useDailyTaskSettings().data?.dailyTaskCount;
   const updateTask = useUpdateDailyTask();
   const deleteTask = useDeleteDailyTask();
 
-  // `undefined` = closed, `null` = creating, a task = editing it.
-  const [editing, setEditing] = useState<DailyTask | null>();
+  // The task open in the top panel (Edit task instead of New task).
+  const [editing, setEditing] = useState<DailyTask>();
   const [deleting, setDeleting] = useState<DailyTask>();
+  const formPanelRef = useRef<HTMLDivElement>(null);
+
+  // The form is at the top of the page: bring it into view when a row asks to be edited.
+  const startEditing = (task: DailyTask) => {
+    setEditing(task);
+    formPanelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  };
 
   // A page past the end (its last task was just deleted, or an old link) goes back to the last page. Not while the
   // previous list is still on screen (`keepPreviousData`): its page count belongs to other filters.
@@ -62,8 +69,15 @@ export const AdminDailyTasksPage = () => {
     if (lastPage > 0 && page > lastPage) setPage(lastPage);
   }, [lastPage, page, setPage]);
 
+  // A deleted task can no longer be edited: the top panel goes back to New task.
   const confirmDelete = () =>
-    deleting && deleteTask.mutate(deleting._id, { onSuccess: () => setDeleting(undefined) });
+    deleting &&
+    deleteTask.mutate(deleting._id, {
+      onSuccess: () => {
+        setEditing((current) => (current?._id === deleting._id ? undefined : current));
+        setDeleting(undefined);
+      },
+    });
 
   const isFiltered = Boolean(list.q || type || isActive);
 
@@ -76,7 +90,7 @@ export const AdminDailyTasksPage = () => {
       return isFiltered ? (
         <EmptyState icon={CalendarCheck} title="No matching tasks" description="Try another search or filter." />
       ) : (
-        <EmptyState icon={CalendarCheck} title="No daily tasks yet" description="Create the first task with New task." />
+        <EmptyState icon={CalendarCheck} title="No daily tasks yet" description="Add the first task with the form above." />
       );
     }
     return (
@@ -86,43 +100,50 @@ export const AdminDailyTasksPage = () => {
             <DailyTaskRow
               key={task._id}
               task={task}
-              onEdit={setEditing}
+              onEdit={startEditing}
               onToggleActive={(target) => updateTask.mutate({ id: target._id, input: { isActive: !target.isActive } })}
               onDelete={setDeleting}
             />
           ))}
         </div>
-        <Pagination page={tasks.data.page} totalPages={tasks.data.totalPages} onPageChange={list.setPage} variant="toolbar" />
+        <Pagination page={tasks.data.page} totalPages={tasks.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
       </>
     );
   };
 
   return (
-    <div className="space-y-6">
-      <DailyTaskSettingsPanel />
+    <div className="flex flex-col gap-12">
+      <div ref={formPanelRef} className="scroll-mt-4">
+        {/* No visible title (the form says what it is); screen readers still get one. */}
+        <Panel bare>
+          <h2 className="sr-only">{editing ? 'Edit task' : 'New task'}</h2>
+          {/* `key` remounts the form, so it starts from the task being edited (or empty). */}
+          <DailyTaskForm key={editing?._id ?? 'new'} task={editing} onDone={() => setEditing(undefined)} />
+        </Panel>
+      </div>
 
-      <Panel
-        title="Tasks"
-        bare
-        titleClassName={panelTitleClass}
-        className={panelBodyClass}
-        actions={
-          <Button onClick={() => setEditing(null)}>
-            <Plus className="size-4" />
-            New task
-          </Button>
-        }
-      >
-        <div className="space-y-3">
+      <Panel bare>
+        <h2 className="sr-only">Tasks</h2>
+        <div className="flex flex-col gap-3">
           <ListToolbar
+            title="Tasks"
             search={{
               label: 'Search tasks',
               placeholder: 'Search title or description…',
               defaultValue: list.q,
               onSearch: (value) => list.set('q', value),
             }}
+            summary={tasks.data ? `${tasks.data.total} ${tasks.data.total === 1 ? 'task' : 'tasks'}` : 'Loading tasks…'}
+            // How many of the active tasks a learner gets a day: an app setting, saved as soon as it is picked.
+            menus={[
+              {
+                name: 'Tasks per day',
+                label: perDay === undefined ? '— a day' : `${perDay} a day`,
+                icon: CalendarClock,
+                children: <TasksPerDayItems />,
+              },
+            ]}
             sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-            summary={tasks.data ? `${tasks.data.total} ${tasks.data.total === 1 ? 'task' : 'tasks'} in total` : 'Loading tasks…'}
             filters={[
               { label: 'Type', value: type ?? '', options: TYPE_OPTIONS, onChange: (value) => list.set('type', value) },
               { label: 'Status', value: isActive ?? '', options: STATUS_OPTIONS, onChange: (value) => list.set('isActive', value) },
@@ -131,10 +152,6 @@ export const AdminDailyTasksPage = () => {
           {renderList()}
         </div>
       </Panel>
-
-      {editing !== undefined && (
-        <DailyTaskFormDialog key={editing?._id ?? 'new'} task={editing ?? undefined} onClose={() => setEditing(undefined)} />
-      )}
 
       <ConfirmDialog
         open={deleting !== undefined}

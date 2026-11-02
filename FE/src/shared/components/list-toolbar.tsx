@@ -1,4 +1,4 @@
-import { ArrowUpDown, Check, ListFilter } from 'lucide-react';
+import { ArrowUpDown, Check, ListFilter, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { type FilterOption, SearchInput } from '@/shared/components/data-table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
@@ -11,6 +11,17 @@ export interface ListToolbarFilter {
   value: string;
   options: FilterOption[];
   onChange: (value: string) => void;
+}
+
+/** A menu button of its own in the look of Sort and Filter: a choice about the list that is neither, e.g. `3 a day`. */
+export interface ListToolbarMenu {
+  /** What the choice is, for screen readers: the button is named `<name>: <label>`, its menu `<name>`. */
+  name: string;
+  /** What the button shows, e.g. `3 a day`. */
+  label: string;
+  icon?: LucideIcon;
+  /** The items of the menu: `MenuOption`s, and any line of text that explains them. */
+  children: ReactNode;
 }
 
 interface ListToolbarProps {
@@ -33,6 +44,8 @@ interface ListToolbarProps {
     onChange: (value: string) => void;
   };
   filters?: ListToolbarFilter[];
+  /** Menu buttons of their own between the summary and Sort (`ListToolbarMenu`). */
+  menus?: ListToolbarMenu[];
   /** Short text between the search box and the Sort button, e.g. a total count. */
   summary?: ReactNode;
   /** Buttons on the right, e.g. bulk actions. */
@@ -62,7 +75,8 @@ export const MenuOption = ({ selected, onSelect, children }: { selected: boolean
 /**
  * Toolbar above a list, in one row: a search box (searches when the user presses Enter), an optional `summary` text, and Sort and Filter buttons
  * that open a menu of options. The buttons turn red-orange while they hold a non-default choice (the first
- * sort option is the default). All parts are optional. It only shows the controls and reports changes, so it works with
+ * sort option is the default); `menus` of their own in the same look go before Sort, e.g. the tasks a learner gets a day
+ * (`3 a day`). All parts are optional. It only shows the controls and reports changes, so it works with
  * `useListParams` (URL state) or any other state. The Filter button shows how many filters are on.
  *
  *   <ListToolbar
@@ -71,7 +85,7 @@ export const MenuOption = ({ selected, onSelect, children }: { selected: boolean
  *     filters={[{ label: 'Role', value: role, options: ROLE_OPTIONS, onChange: (v) => list.set('role', v) }]}
  *   />
  */
-export const ListToolbar = ({ title, search, sort, filters = [], summary, actions, decisions = [], plain }: ListToolbarProps) => {
+export const ListToolbar = ({ title, search, sort, filters = [], menus = [], summary, actions, decisions = [], plain }: ListToolbarProps) => {
   const activeFilters = filters.filter((filter) => filter.value !== '').length;
   // The first sort option is the default one.
   // The text of the controls is muted and the hover grey; a `plain` toolbar has the red of its title and the red tint instead.
@@ -100,6 +114,17 @@ export const ListToolbar = ({ title, search, sort, filters = [], summary, action
           >
             {decision.label}
           </button>
+        ))}
+        {menus.map(({ name, label, icon: Icon, children }) => (
+          <DropdownMenu key={name}>
+            <DropdownMenuTrigger className={button} aria-label={`${name}: ${label}`}>
+              {Icon && <Icon className="size-4" />}
+              {label}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" role="menu" aria-label={name} className="min-w-44">
+              {children}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ))}
         {sort && (
           <DropdownMenu>
