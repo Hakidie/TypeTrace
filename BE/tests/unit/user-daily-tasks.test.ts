@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ErrorCounts } from '../../src/models/typing-session.model';
 import {
+  completedAtOf,
   dayNumbersOf,
   MIN_FOCUS_CHANCES,
   MIN_WEAKNESS_CHANCES,
@@ -218,5 +219,41 @@ describe('taskProgressOf', () => {
     for (const type of ['sessions', 'minutes', 'wpm', 'accuracy'] as const) {
       expect(taskProgressOf({ type, target: 1 }, empty)).toEqual({ progress: 0, completed: false });
     }
+  });
+});
+
+describe('completedAtOf', () => {
+  const at = (time: string) => new Date(`2026-03-10T${time}:00.000Z`);
+  const day = [
+    { completedAt: at('01:00'), durationMs: 50_000, wpm: 30, accuracy: 90 },
+    { completedAt: at('02:00'), durationMs: 40_000, wpm: 45, accuracy: 99 },
+    { completedAt: at('03:00'), durationMs: 60_000, wpm: 20, accuracy: 100 }
+  ];
+
+  it('is the time of the session that first brings the task to its target, added up like the day', () => {
+    expect(completedAtOf({ type: 'sessions', target: 2 }, day)).toEqual(at('02:00'));
+    // 50 s, then 90 s: one and a half minutes only with the second session.
+    expect(completedAtOf({ type: 'minutes', target: 1 }, day)).toEqual(at('02:00'));
+    expect(completedAtOf({ type: 'wpm', target: 30 }, day)).toEqual(at('01:00'));
+    expect(completedAtOf({ type: 'accuracy', target: 100 }, day)).toEqual(at('03:00'));
+  });
+
+  it('keeps the first time: a later session past the target changes nothing', () => {
+    expect(completedAtOf({ type: 'wpm', target: 40 }, day)).toEqual(at('02:00'));
+  });
+
+  it('is undefined when the sessions of the day never reach the target', () => {
+    expect(completedAtOf({ type: 'sessions', target: 4 }, day)).toBeUndefined();
+    expect(completedAtOf({ type: 'wpm', target: 50 }, [])).toBeUndefined();
+  });
+
+  it('counts a focused accuracy task only from a session with enough chances of its error type', () => {
+    const focused = [
+      // Every tone right, but too few chances to count.
+      { completedAt: at('01:00'), errorCounts: counts(), opportunityCounts: counts({ TONE_WRONG: MIN_FOCUS_CHANCES - 1 }) },
+      { completedAt: at('02:00'), errorCounts: counts({ TONE_WRONG: 1 }), opportunityCounts: counts({ TONE_WRONG: 20 }) }
+    ];
+
+    expect(completedAtOf({ type: 'accuracy', target: 95, errorType: 'TONE_WRONG' }, focused)).toEqual(at('02:00'));
   });
 });

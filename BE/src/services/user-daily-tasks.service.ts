@@ -162,6 +162,20 @@ export const taskProgressOf = (
 };
 
 /**
+ * When a learner's day completed `task`: the `completedAt` of the counted session that first brought it to its target,
+ * the day's `sessions` (oldest first) added up one by one as `dayNumbersOf` adds them; `undefined` when they never do.
+ */
+export const completedAtOf = (
+  task: Pick<UserDailyTask, 'type' | 'target' | 'errorType'>,
+  sessions: readonly (DaySession & Pick<TypingSessionDocument, 'completedAt'>)[]
+) => {
+  for (let count = 1; count <= sessions.length; count += 1) {
+    if (taskProgressOf(task, dayNumbersOf(sessions.slice(0, count))).completed) return sessions[count - 1].completedAt;
+  }
+  return undefined;
+};
+
+/**
  * The learner's tasks of `date` (a day in `timeZone`), made the first time they are needed: `dailyTaskCount` of the
  * active templates (`pickDailyTasks`, weak error types first), with the numbers of the sessions already counted that day,
  * cut in `timeZone`, which the day keeps. Stored once with `$setOnInsert` on the unique `{ owner, date }`: of two requests
@@ -206,6 +220,74 @@ export const taskCountsSince = async (owner: OwnerId, from: string) => {
       { tasksTotal: day.tasks.length, tasksDone: day.tasks.filter((task) => taskProgressOf(task, day.progress).completed).length }
     ])
   );
+};
+
+/** The admin list of templates shows how many learners completed each one in each of the last `COMPLETION_HOURS` hours. */
+export const COMPLETION_HOURS = 24;
+const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * For the admin list of templates: for each of `taskIds`, the learners who completed it in each of the last
+ * `COMPLETION_HOURS` whole hours, the current one last (`hour` = its start), and in all of them (`learners`, each learner
+ * once, also when two of their days had the task). A learner's day completes a task at the counted session that first
+ * brings it to its target (`completedAtOf`), on the day's sessions cut in its `timeZone` like its stored numbers: no time
+ * is stored, so the days made before this chart count too. Only the days whose stored numbers have the task completed
+ * are read again.
+ */
+export const hourlyCompletionsOf = async (taskIds: readonly unknown[], now = new Date()) => {
+  const firstHour = Math.floor(now.getTime() / HOUR_MS) * HOUR_MS - (COMPLETION_HOURS - 1) * HOUR_MS;
+  const ids = new Set(taskIds.map(String));
+  // A learner's day that ends after the first hour starts at most a day before it, in any zone.
+  const days = await UserDailyTasksModel.find({
+    'tasks.taskId': { $in: [...ids] },
+    date: { $gte: addDays(localDateKey(new Date(firstHour), 'UTC'), -1) }
+  })
+    .select('owner date timeZone tasks progress')
+    .lean();
+  const completed = days.flatMap((day) =>
+    day.tasks
+      .filter((task) => ids.has(String(task.taskId)) && taskProgressOf(task, day.progress).completed)
+      .map((task) => ({ day, task }))
+  );
+
+  // For each task, the owners who completed it in each hour.
+  const ownersByHour = new Map([...ids].map((id) => [id, Array.from({ length: COMPLETION_HOURS }, () => new Set<string>())]));
+  if (completed.length > 0) {
+    const firstDate = completed.reduce((first, { day }) => (day.date < first ? day.date : first), completed[0].day.date);
+    // Their counted sessions, oldest first, read from the UTC day before the first day like `countedSessionsOf` reads them.
+    const sessions = await TypingSessionModel.find({
+      owner: { $in: [...new Set(completed.map(({ day }) => String(day.owner)))] },
+      status: 'completed',
+      isCounted: true,
+      completedAt: { $gte: new Date(`${addDays(firstDate, -1)}T00:00:00Z`), $lte: now }
+    })
+      .sort({ completedAt: 1 })
+      .select('owner completedAt durationMs wpm accuracy errorCounts opportunityCounts')
+      .lean();
+    const sessionsByOwner = new Map<string, typeof sessions>();
+    for (const session of sessions) {
+      const owned = sessionsByOwner.get(String(session.owner));
+      if (owned) owned.push(session);
+      else sessionsByOwner.set(String(session.owner), [session]);
+    }
+    for (const { day, task } of completed) {
+      const owner = String(day.owner);
+      const daySessions = (sessionsByOwner.get(owner) ?? []).filter(
+        (session) => localDateKey(session.completedAt!, day.timeZone) === day.date
+      );
+      const at = completedAtOf(task, daySessions)?.getTime();
+      if (at === undefined || at < firstHour) continue;
+      ownersByHour.get(String(task.taskId))![Math.floor((at - firstHour) / HOUR_MS)].add(owner);
+    }
+  }
+
+  return (taskId: unknown) => {
+    const hours = ownersByHour.get(String(taskId)) ?? [];
+    return {
+      learners: new Set(hours.flatMap((owners) => [...owners])).size,
+      hours: hours.map((owners, index) => ({ hour: new Date(firstHour + index * HOUR_MS).toISOString(), learners: owners.size }))
+    };
+  };
 };
 
 /** `$max` of each number of the day, on the dotted paths of `progress`. */

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ListToolbar } from './list-toolbar';
+import { ListToolbar, MenuOption } from './list-toolbar';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -134,6 +134,35 @@ describe('ListToolbar', () => {
     expect(reject).toHaveBeenCalledTimes(1);
     const order = screen.getAllByRole('button').map((button) => button.textContent);
     expect(order).toEqual(['Approve 2', 'Reject 2', 'Sort']);
+  });
+
+  it('shows a menu of its own before Sort, named after its choice, with the items it is given', () => {
+    const onPick = vi.fn();
+    render(
+      <ListToolbar
+        summary="5 tasks"
+        sort={{ value: 'a', options: [{ value: 'a', label: 'A' }], onChange: vi.fn() }}
+        menus={[
+          {
+            name: 'Tasks per day',
+            label: '3 a day',
+            children: (
+              <MenuOption selected={false} onSelect={onPick}>
+                4 a day
+              </MenuOption>
+            ),
+          },
+        ]}
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: 'Tasks per day: 3 a day' });
+    expect(button).toHaveTextContent('3 a day');
+    expect(screen.getAllByRole('button').map((item) => item.textContent)).toEqual(['3 a day', 'Sort']);
+
+    fireEvent.click(button);
+    fireEvent.click(within(screen.getByRole('menu', { name: 'Tasks per day' })).getByRole('menuitemradio', { name: '4 a day' }));
+    expect(onPick).toHaveBeenCalledTimes(1);
   });
 
   it('shows only the parts it is given, and the actions', () => {

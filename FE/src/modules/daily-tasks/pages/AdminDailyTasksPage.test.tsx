@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
-import type { DailyTask, DailyTaskListParams } from '../types/daily-task.types';
+import type { DailyTaskListItem, DailyTaskListParams } from '../types/daily-task.types';
 import { AdminDailyTasksPage } from './AdminDailyTasksPage';
 
 const list = vi.fn();
@@ -24,7 +25,8 @@ vi.mock('../api/daily-tasks.api', () => ({
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-const task = (id: string, title: string, extra: Partial<DailyTask> = {}): DailyTask => ({
+/** A task of the list; nobody completed it in the last 24 hours unless `extra` says otherwise. */
+const task = (id: string, title: string, extra: Partial<DailyTaskListItem> = {}): DailyTaskListItem => ({
   _id: id,
   title,
   description: '',
@@ -33,8 +35,25 @@ const task = (id: string, title: string, extra: Partial<DailyTask> = {}): DailyT
   isActive: true,
   createdAt: '2026-10-20T00:00:00.000Z',
   updatedAt: '2026-10-20T00:00:00.000Z',
+  completions: { learners: 0, hours: [] },
   ...extra,
 });
+
+/**
+ * The 24 hours of `completions` up to the current one, 10 March 2026 15:00 in the zone of the test run, each with the
+ * learners `busy` gives its start (made from local times, so the hours read the same in any zone).
+ */
+const lastDay = (busy: [Date, number][]) =>
+  Array.from({ length: 24 }, (_, index) => {
+    const hour = new Date(2026, 2, 9, 16 + index).toISOString();
+    return { hour, learners: busy.find(([start]) => start.toISOString() === hour)?.[1] ?? 0 };
+  });
+
+/** The value of the stat named `label` of a task card, e.g. DONE. */
+const statOf = (card: HTMLElement, label: string) => within(card).getByText(label).nextElementSibling?.textContent;
+
+/** The card of the task titled `title`. */
+const cardOf = (title: string) => screen.getByText(title).closest('article') as HTMLElement;
 
 const warmUp = task('t1', 'Warm-up');
 const speed = task('t2', 'Speed run', { type: 'wpm', target: 40, description: 'Type fast but clean.' });
@@ -44,10 +63,10 @@ const hoiNga = task('t5', 'Phân biệt hỏi/ngã', { type: 'accuracy', target:
 /** The goal of `hoiNga`: only some words have hỏi or ngã, so it says how many a session needs. */
 const hoiNgaGoal = 'Reach 90% accuracy on hỏi and ngã in a session with at least 5 words with hỏi or ngã';
 
-const page = (items: DailyTask[]) => ({ items, page: 1, limit: 10, total: items.length, totalPages: 1 });
+const page = (items: DailyTaskListItem[]) => ({ items, page: 1, limit: 10, total: items.length, totalPages: 1 });
 
 /** The list of the page and the count of the active tasks (`isActive: 'true'`) both come from `list`. */
-const listWith = (items: DailyTask[]) =>
+const listWith = (items: DailyTaskListItem[]) =>
   list.mockImplementation(async (params: DailyTaskListParams) => page(params.isActive === 'true' ? items.filter((item) => item.isActive) : items));
 
 const renderPage = (route = '/admin/daily-tasks') => renderWithProviders(<AdminDailyTasksPage />, { route, path: '/admin/daily-tasks' });
@@ -61,6 +80,10 @@ beforeEach(() => {
   updateSettings.mockReset();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 // Opens the kebab menu of a task card and picks one of its entries.
 const pickAction = async (title: string, action: 'Edit' | 'Activate' | 'Deactivate' | 'Delete') => {
   const cards = await screen.findByLabelText('Daily task cards');
@@ -68,121 +91,129 @@ const pickAction = async (title: string, action: 'Edit' | 'Activate' | 'Deactiva
   fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
 };
 
+/** The form of the top panel: New task, or Edit task while a task is being edited. */
+const formOf = (name: 'New task' | 'Edit task' = 'New task') => within(screen.getByRole('form', { name }));
+
+/** Opens the Tasks per day menu of the toolbar once it shows `label`, and answers the menu. */
+const openTasksPerDay = async (label: string) => {
+  fireEvent.click(await screen.findByRole('button', { name: `Tasks per day: ${label}` }));
+  return within(screen.getByRole('menu', { name: 'Tasks per day' }));
+};
+
 describe('AdminDailyTasksPage', () => {
-  it('lists every task with its goal, target, type and status', async () => {
+  it('lists every task with its description (its goal when it has none), target, type and status', async () => {
     renderPage();
 
     const cards = await screen.findByLabelText('Daily task cards');
     expect(within(cards).getByText('Warm-up')).toBeInTheDocument();
-    for (const goal of ['Finish 3 counted sessions', 'Reach 40 WPM in one session', 'Reach 95% accuracy in one session', 'Type 10 minutes in all']) {
-      // Twice: under the title (below `xl`) and in the middle column (from `xl`); the CSS shows one of them.
-      expect(within(cards).getAllByText(goal)).toHaveLength(2);
+    for (const goal of ['Finish 3 counted sessions', 'Reach 95% accuracy in one session', 'Type 10 minutes in all']) {
+      expect(within(cards).getByText(goal)).toBeInTheDocument();
     }
+    // Speed run has a description: it takes the place of the goal.
     expect(within(cards).getByText('Type fast but clean.')).toBeInTheDocument();
+    expect(within(cards).queryByText('Reach 40 WPM in one session')).not.toBeInTheDocument();
     expect(within(cards).getByText('95%')).toBeInTheDocument();
     expect(within(cards).getByText('Speed')).toBeInTheDocument();
     expect(within(cards).getAllByText('Active')).toHaveLength(3);
     expect(within(cards).getAllByText('Inactive')).toHaveLength(1);
-    expect(screen.getByText('4 tasks in total')).toBeInTheDocument();
+    expect(screen.getByText('4 tasks')).toBeInTheDocument();
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 10, sort: '-createdAt' }));
   });
 
-  it('shows the tasks per day and what they mean with the active tasks', async () => {
+  it('shows the tasks per day in the toolbar, and in its menu what they mean with the active tasks', async () => {
     renderPage();
 
-    expect(await screen.findByLabelText('Tasks per day')).toHaveValue(2);
-    expect(await screen.findByText('Each learner gets 2 of the 3 active tasks every day.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    const menu = await openTasksPerDay('2 a day');
+    expect(await menu.findByText('Each learner gets 2 of the 3 active tasks every day.')).toBeInTheDocument();
+    expect(menu.getByRole('menuitemradio', { name: '2 a day' })).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('saves a new number of tasks per day', async () => {
+  it('saves a new number of tasks per day as soon as it is picked', async () => {
     updateSettings.mockResolvedValue({ dailyTaskCount: 5 });
     renderPage();
-    const field = await screen.findByLabelText('Tasks per day');
 
-    fireEvent.change(field, { target: { value: '5' } });
-    expect(await screen.findByText('Only 3 active tasks: learners get 3 a day until more are active.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click((await openTasksPerDay('2 a day')).getByRole('menuitemradio', { name: '5 a day' }));
 
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ dailyTaskCount: 5 }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled());
-    expect(screen.getByLabelText('Tasks per day')).toHaveValue(5);
+    const menu = await openTasksPerDay('5 a day');
+    expect(menu.getByRole('menuitemradio', { name: '5 a day' })).toHaveAttribute('aria-checked', 'true');
+    expect(await menu.findByText('Only 3 active tasks: learners get 3 a day until more are active.')).toBeInTheDocument();
   });
 
-  it('refuses a number of tasks per day outside 1 to 10, and keeps the hint of the saved one', async () => {
+  it('offers 1 to 10 tasks a day and nothing else, and saves nothing when the saved count is picked again', async () => {
     renderPage();
-    const field = await screen.findByLabelText('Tasks per day');
 
-    fireEvent.change(field, { target: { value: '11' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('At most 10')).toBeInTheDocument();
-    fireEvent.change(field, { target: { value: '0' } });
-    expect(await screen.findByText('At least 1')).toBeInTheDocument();
+    const menu = await openTasksPerDay('2 a day');
+    expect(menu.getAllByRole('menuitemradio').map((option) => option.textContent)).toEqual(
+      Array.from({ length: 10 }, (_, index) => `${index + 1} a day`),
+    );
+    fireEvent.click(menu.getByRole('menuitemradio', { name: '2 a day' }));
 
-    expect(screen.getByText('Each learner gets 2 of the 3 active tasks every day.')).toBeInTheDocument();
     expect(updateSettings).not.toHaveBeenCalled();
   });
 
   it('says when the learners get all the active tasks, or none', async () => {
     getSettings.mockResolvedValue({ dailyTaskCount: 3 });
     const { unmount } = renderPage();
-    expect(await screen.findByText('Each learner gets all 3 active tasks every day.')).toBeInTheDocument();
+    expect(await (await openTasksPerDay('3 a day')).findByText('Each learner gets all 3 active tasks every day.')).toBeInTheDocument();
     unmount();
 
     listWith([slowDay]);
     renderPage();
-    expect(await screen.findByText('No task is active yet: learners get none until one is.')).toBeInTheDocument();
+    expect(
+      await (await openTasksPerDay('3 a day')).findByText('No task is active yet: learners get none until one is.'),
+    ).toBeInTheDocument();
   });
 
-  it('creates a task, with the target checked against its type', async () => {
+  it('adds a task with the form of the top panel, the target checked against its type, then empties the form', async () => {
     create.mockResolvedValue(task('t5', 'Precise'));
     renderPage();
     await screen.findByLabelText('Daily task cards');
 
-    fireEvent.click(screen.getByRole('button', { name: 'New task' }));
-    const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Precise' } });
-    fireEvent.change(within(dialog).getByLabelText('Type'), { target: { value: 'accuracy' } });
-    fireEvent.change(within(dialog).getByLabelText('Target'), { target: { value: '101' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    const form = formOf('New task');
+    fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Precise' } });
+    fireEvent.change(form.getByLabelText('Type'), { target: { value: 'accuracy' } });
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '101' } });
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
-    expect(await within(dialog).findByText('At most 100 for this type')).toBeInTheDocument();
+    expect(await form.findByText('At most 100 for this type')).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
 
-    fireEvent.change(within(dialog).getByLabelText('Target'), { target: { value: '98' } });
-    expect(await within(dialog).findByText('Reach 98% accuracy in one session')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '98' } });
+    expect(await form.findByText('Reach 98% accuracy in one session')).toBeInTheDocument();
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
       expect(create).toHaveBeenCalledWith({ title: 'Precise', description: '', type: 'accuracy', target: 98, errorType: null, isActive: true }),
     );
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(form.getByLabelText('Title')).toHaveValue(''));
+    expect(form.getByLabelText('Type')).toHaveValue('sessions');
   });
 
   it('refuses a new task without a title or a target', async () => {
     renderPage();
     await screen.findByLabelText('Daily task cards');
 
-    fireEvent.click(screen.getByRole('button', { name: 'New task' }));
-    const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByLabelText('Target'), { target: { value: '' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    const form = formOf('New task');
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '' } });
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
-    expect(await within(dialog).findByText('Title is required')).toBeInTheDocument();
-    expect(within(dialog).getByText('Enter a number')).toBeInTheDocument();
+    expect(await form.findByText('Title is required')).toBeInTheDocument();
+    expect(form.getByText('Enter a number')).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('edits a task from the kebab menu of its card', async () => {
+  it('edits a task in the top panel from the kebab menu of its card, then goes back to a new task', async () => {
     update.mockResolvedValue({ ...speed, target: 45 });
     renderPage();
 
     await pickAction('Speed run', 'Edit');
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByLabelText('Title')).toHaveValue('Speed run');
-    expect(within(dialog).getByLabelText('Type')).toHaveValue('wpm');
-    fireEvent.change(within(dialog).getByLabelText('Target'), { target: { value: '45' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    const form = formOf('Edit task');
+    expect(form.getByLabelText('Title')).toHaveValue('Speed run');
+    expect(form.getByLabelText('Type')).toHaveValue('wpm');
+    expect(form.getByLabelText('Description')).toHaveValue('Type fast but clean.');
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '45' } });
+    fireEvent.click(form.getByRole('button', { name: 'Update task' }));
 
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith('t2', {
@@ -194,36 +225,104 @@ describe('AdminDailyTasksPage', () => {
         isActive: true,
       }),
     );
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await screen.findByRole('form', { name: 'New task' })).toBeInTheDocument();
+    expect(formOf('New task').getByLabelText('Title')).toHaveValue('');
   });
 
-  it('names the focus error of an accuracy task in the goal of its card, with the words a session needs when only some words have it', async () => {
-    const tones = task('t6', 'Steady tones', { type: 'accuracy', target: 85, errorType: 'TONE_WRONG' });
+  it('cancels an edit without saving, and leaves the edit when the task is deleted', async () => {
+    remove.mockResolvedValue(undefined);
+    renderPage();
+
+    await pickAction('Speed run', 'Edit');
+    fireEvent.click(formOf('Edit task').getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByRole('form', { name: 'New task' })).toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
+
+    await pickAction('Focus', 'Edit');
+    expect(formOf('Edit task').getByLabelText('Title')).toHaveValue('Focus');
+    await pickAction('Focus', 'Delete');
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('t3'));
+    expect(await screen.findByRole('form', { name: 'New task' })).toBeInTheDocument();
+  });
+
+  it('names the focus error of an accuracy task in a badge, and in the goal under the title when it has no description', async () => {
+    const tones = task('t6', 'Steady tones', { type: 'accuracy', target: 85, errorType: 'TONE_WRONG', description: 'Mind every tone.' });
     listWith([hoiNga, tones, focus]);
     renderPage();
 
-    const cards = await screen.findByLabelText('Daily task cards');
-    // Twice: under the title (below `xl`) and in the middle column (from `xl`).
-    expect(within(cards).getAllByText(hoiNgaGoal)).toHaveLength(2);
-    // Every word has a tone, and a counted session has at least 20 words: any of them will do.
-    expect(within(cards).getAllByText('Reach 85% accuracy on tone marks in one session')).toHaveLength(2);
-    expect(within(cards).getAllByText('Reach 95% accuracy in one session')).toHaveLength(2);
-    // The middle column cuts a long goal to one line: the whole goal is its tooltip.
-    expect(within(cards).getByTitle(hoiNgaGoal)).toHaveClass('truncate');
+    await screen.findByLabelText('Daily task cards');
+    expect(within(cardOf('Phân biệt hỏi/ngã')).getByText(hoiNgaGoal)).toBeInTheDocument();
+    expect(within(cardOf('Phân biệt hỏi/ngã')).getByText('Focus: hỏi and ngã')).toBeInTheDocument();
+    // With a description, the badge alone names the focus.
+    expect(within(cardOf('Steady tones')).getByText('Mind every tone.')).toBeInTheDocument();
+    expect(within(cardOf('Steady tones')).getByText('Focus: tone marks')).toBeInTheDocument();
+    expect(within(cardOf('Focus')).queryByText(/^Focus:/)).not.toBeInTheDocument();
+  });
+
+  it('cuts the title and the line under it to one line each, the whole text in the project tooltip on hover', async () => {
+    listWith([hoiNga]);
+    renderPage();
+
+    await screen.findByLabelText('Daily task cards');
+    const goal = within(cardOf('Phân biệt hỏi/ngã')).getByText(hoiNgaGoal);
+    expect(goal).toHaveClass('truncate');
+    // The shared Tooltip, never the native title attribute.
+    expect(goal).not.toHaveAttribute('title');
+
+    await userEvent.setup().hover(goal);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(hoiNgaGoal);
+  });
+
+  it('puts the description under the title, in the same column', async () => {
+    renderPage();
+
+    await screen.findByLabelText('Daily task cards');
+    const title = screen.getByText('Speed run');
+    expect(title.parentElement).toContainElement(screen.getByText('Type fast but clean.'));
+    expect(title.nextElementSibling).toHaveTextContent('Type fast but clean.');
+  });
+
+  it('charts the learners who completed each task in each of the last 24 hours, with the learners of the 24 hours', async () => {
+    // Only `Date` is faked (the clock of the "Today" / "Yesterday" of the hours): React Query keeps its real timers.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 2, 10, 15, 30));
+    const busy = task('t7', 'Busy', {
+      completions: { learners: 3, hours: lastDay([[new Date(2026, 2, 9, 23), 1], [new Date(2026, 2, 10, 14), 2]]) },
+    });
+    listWith([busy, warmUp]);
+    renderPage();
+
+    await screen.findByLabelText('Daily task cards');
+    // The hours with learners, in the admin's own time, for screen readers; the columns are drawn from the same 24 hours.
+    expect(
+      within(cardOf('Busy')).getByRole('img', {
+        name: 'Completed by 3 learners in the last 24 hours. Yesterday 23:00–00:00: 1. Today 14:00–15:00: 2.',
+      }),
+    ).toBeInTheDocument();
+    expect(statOf(cardOf('Busy'), 'DONE')).toBe('3');
+    // Nobody yet: a note instead of the chart, and 0.
+    expect(within(cardOf('Warm-up')).getByText('Nobody completed it in the last 24 hours')).toBeInTheDocument();
+    expect(within(cardOf('Warm-up')).queryByRole('img')).not.toBeInTheDocument();
+    expect(statOf(cardOf('Warm-up'), 'DONE')).toBe('0');
+    expect(statOf(cardOf('Warm-up'), 'SESSIONS')).toBe('3');
+    // DONE comes first, then the target.
+    const done = within(cardOf('Warm-up')).getByText('DONE');
+    expect(done.compareDocumentPosition(within(cardOf('Warm-up')).getByText('SESSIONS')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('offers a Focus error only while the type is Accuracy: None and the five error types', async () => {
     renderPage();
     await screen.findByLabelText('Daily task cards');
 
-    fireEvent.click(screen.getByRole('button', { name: 'New task' }));
-    const dialog = await screen.findByRole('dialog');
-    const type = within(dialog).getByLabelText('Type');
+    const form = formOf('New task');
+    const type = form.getByLabelText('Type');
     expect(type).toHaveValue('sessions');
-    expect(within(dialog).queryByLabelText('Focus error')).not.toBeInTheDocument();
+    expect(form.queryByLabelText('Focus')).not.toBeInTheDocument();
 
     fireEvent.change(type, { target: { value: 'accuracy' } });
-    const focusError = await within(dialog).findByLabelText('Focus error');
+    const focusError = await form.findByLabelText('Focus');
     expect(focusError).toHaveValue('');
     expect(within(focusError).getAllByRole('option').map((option) => option.textContent)).toEqual([
       'None',
@@ -236,9 +335,9 @@ describe('AdminDailyTasksPage', () => {
 
     for (const other of ['wpm', 'minutes']) {
       fireEvent.change(type, { target: { value: other } });
-      await waitFor(() => expect(within(dialog).queryByLabelText('Focus error')).not.toBeInTheDocument());
+      await waitFor(() => expect(form.queryByLabelText('Focus')).not.toBeInTheDocument());
       fireEvent.change(type, { target: { value: 'accuracy' } });
-      await within(dialog).findByLabelText('Focus error');
+      await form.findByLabelText('Focus');
     }
   });
 
@@ -247,15 +346,14 @@ describe('AdminDailyTasksPage', () => {
     renderPage();
     await screen.findByLabelText('Daily task cards');
 
-    fireEvent.click(screen.getByRole('button', { name: 'New task' }));
-    const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Phân biệt hỏi/ngã' } });
-    fireEvent.change(within(dialog).getByLabelText('Type'), { target: { value: 'accuracy' } });
-    fireEvent.change(within(dialog).getByLabelText('Target'), { target: { value: '90' } });
-    fireEvent.change(await within(dialog).findByLabelText('Focus error'), { target: { value: 'HOI_NGA_CONFUSION' } });
+    const form = formOf('New task');
+    fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Phân biệt hỏi/ngã' } });
+    fireEvent.change(form.getByLabelText('Type'), { target: { value: 'accuracy' } });
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '90' } });
+    fireEvent.change(await form.findByLabelText('Focus'), { target: { value: 'HOI_NGA_CONFUSION' } });
 
-    expect(await within(dialog).findByText(hoiNgaGoal)).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    expect(await form.findByText(hoiNgaGoal)).toBeInTheDocument();
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
       expect(create).toHaveBeenCalledWith({
@@ -267,7 +365,7 @@ describe('AdminDailyTasksPage', () => {
         isActive: true,
       }),
     );
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(form.getByLabelText('Title')).toHaveValue(''));
   });
 
   it('sends no focus error once the type is switched away from Accuracy, though the pick waits for a switch back', async () => {
@@ -275,22 +373,21 @@ describe('AdminDailyTasksPage', () => {
     renderPage();
     await screen.findByLabelText('Daily task cards');
 
-    fireEvent.click(screen.getByRole('button', { name: 'New task' }));
-    const dialog = await screen.findByRole('dialog');
-    const type = within(dialog).getByLabelText('Type');
-    fireEvent.change(within(dialog).getByLabelText('Title'), { target: { value: 'Steady' } });
+    const form = formOf('New task');
+    const type = form.getByLabelText('Type');
+    fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Steady' } });
     fireEvent.change(type, { target: { value: 'accuracy' } });
-    fireEvent.change(await within(dialog).findByLabelText('Focus error'), { target: { value: 'TONE_WRONG' } });
+    fireEvent.change(await form.findByLabelText('Focus'), { target: { value: 'TONE_WRONG' } });
 
     fireEvent.change(type, { target: { value: 'minutes' } });
-    await waitFor(() => expect(within(dialog).queryByLabelText('Focus error')).not.toBeInTheDocument());
+    await waitFor(() => expect(form.queryByLabelText('Focus')).not.toBeInTheDocument());
     fireEvent.change(type, { target: { value: 'accuracy' } });
-    expect(await within(dialog).findByLabelText('Focus error')).toHaveValue('TONE_WRONG');
+    expect(await form.findByLabelText('Focus')).toHaveValue('TONE_WRONG');
 
     fireEvent.change(type, { target: { value: 'minutes' } });
-    fireEvent.change(within(dialog).getByLabelText('Target'), { target: { value: '10' } });
-    expect(await within(dialog).findByText('Type 10 minutes in all')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create' }));
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '10' } });
+    expect(await form.findByText('Type 10 minutes in all')).toBeInTheDocument();
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
       expect(create).toHaveBeenCalledWith({ title: 'Steady', description: '', type: 'minutes', target: 10, errorType: null, isActive: true }),
@@ -303,14 +400,14 @@ describe('AdminDailyTasksPage', () => {
     renderPage();
 
     await pickAction('Phân biệt hỏi/ngã', 'Edit');
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByLabelText('Type')).toHaveValue('accuracy');
-    expect(within(dialog).getByLabelText('Focus error')).toHaveValue('HOI_NGA_CONFUSION');
-    expect(within(dialog).getByText(hoiNgaGoal)).toBeInTheDocument();
+    const form = formOf('Edit task');
+    expect(form.getByLabelText('Type')).toHaveValue('accuracy');
+    expect(form.getByLabelText('Focus')).toHaveValue('HOI_NGA_CONFUSION');
+    expect(form.getByText(hoiNgaGoal)).toBeInTheDocument();
 
-    fireEvent.change(within(dialog).getByLabelText('Focus error'), { target: { value: '' } });
-    expect(await within(dialog).findByText('Reach 90% accuracy in one session')).toBeInTheDocument();
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    fireEvent.change(form.getByLabelText('Focus'), { target: { value: '' } });
+    expect(await form.findByText('Reach 90% accuracy in one session')).toBeInTheDocument();
+    fireEvent.click(form.getByRole('button', { name: 'Update task' }));
 
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith('t5', {
@@ -322,7 +419,7 @@ describe('AdminDailyTasksPage', () => {
         isActive: true,
       }),
     );
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await screen.findByRole('form', { name: 'New task' })).toBeInTheDocument();
   });
 
   it('deactivates an active task and activates an inactive one from the kebab menu', async () => {
@@ -379,16 +476,21 @@ describe('AdminDailyTasksPage', () => {
     expect(await screen.findByText('No matching tasks')).toBeInTheDocument();
   });
 
-  it('shows an error with Try again when the tasks or the settings cannot be loaded', async () => {
+  it('shows an error with Try again when the tasks or the tasks per day cannot be loaded', async () => {
     list.mockRejectedValue(new Error('Network Error'));
     getSettings.mockRejectedValue(new Error('Network Error'));
     renderPage();
 
-    // One in the Settings panel, one in the Tasks panel.
-    await waitFor(() => expect(screen.getAllByText('Something went wrong')).toHaveLength(2));
-    getSettings.mockResolvedValue({ dailyTaskCount: 4 });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Try again' })[0]);
+    // The list, in the Tasks panel.
+    expect(await screen.findByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
 
-    expect(await screen.findByLabelText('Tasks per day')).toHaveValue(4);
+    // The tasks per day, in their menu.
+    const menu = await openTasksPerDay('— a day');
+    expect(await menu.findByText('The tasks per day could not load.')).toBeInTheDocument();
+    getSettings.mockResolvedValue({ dailyTaskCount: 4 });
+    fireEvent.click(menu.getByRole('menuitem', { name: 'Try again' }));
+
+    expect(await screen.findByRole('button', { name: 'Tasks per day: 4 a day' })).toBeInTheDocument();
   });
 });
