@@ -11,6 +11,7 @@ export const profileKeys = {
   sessions: (params: SessionListParams) => [...profileKeys.all, 'sessions', params] as const,
   streak: () => [...profileKeys.all, 'streak'] as const,
   dailyTasks: () => [...profileKeys.all, 'daily-tasks'] as const,
+  monthlyProgress: () => [...profileKeys.all, 'monthly-progress'] as const,
 };
 
 /**
@@ -37,6 +38,10 @@ export const useStreak = () => useQuery({ queryKey: profileKeys.streak(), queryF
  * streak. Not the admins' list of task templates: that one is `useDailyTasks` of the daily-tasks module.
  */
 export const useDailyTasks = () => useQuery({ queryKey: profileKeys.dailyTasks(), queryFn: profileApi.getDailyTasks, staleTime: 0 });
+
+/** The learner's average WPM and errors of the 12 months before the current one (SCRUM-240); asked again each time the profile page opens, like the streak. */
+export const useMonthlyProgress = () =>
+  useQuery({ queryKey: profileKeys.monthlyProgress(), queryFn: profileApi.getMonthlyProgress, staleTime: 0 });
 
 /**
  * Saves the learner's time zone (`PATCH /api/profile/settings`), keeps the user it returns and refreshes the profile

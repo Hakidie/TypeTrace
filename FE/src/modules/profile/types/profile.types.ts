@@ -95,3 +95,20 @@ export interface DailyTasks {
   /** In the order they were given; [] when no task is active. */
   tasks: DailyTaskProgress[];
 }
+
+/** One month of `GET /api/profile/monthly-progress` (SCRUM-240). */
+export interface MonthlyProgressPoint {
+  /** 'YYYY-MM', in the learner's time zone. */
+  month: string;
+  /** Average WPM of the month; `null` before the learner's first counted placement session. */
+  avgWpm: number | null;
+  /** All the errors of the month; `null` before the learner's first counted placement session. */
+  totalErrors: number | null;
+  /** True when the month had no counted session: the figures are the ones of the month before. */
+  carriedOver: boolean;
+}
+
+/** `GET /api/profile/monthly-progress`: 12 months, oldest first, the last one being the month before the current one. */
+export interface MonthlyProgress {
+  months: MonthlyProgressPoint[];
+}
