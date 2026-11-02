@@ -131,6 +131,8 @@ export interface Season extends SeasonInfo {
   _id: string;
   status: 'active' | 'closed';
   closedAt?: string;
+  /** The players with at least one match of each kind in the season (the admin list). */
+  participants: Record<MatchKind, number>;
 }
 
 export interface ProgressInput {

@@ -1,16 +1,16 @@
 import { useState, type FormEvent } from 'react';
-import { CloudRain, DoorOpen, Gamepad2, ListOrdered, Swords, Trophy, type LucideIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { CloudRain, DoorOpen, Gamepad2, Swords, Trophy, type LucideIcon } from 'lucide-react';
 import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { MONTHS } from '@/shared/lib/local-date';
 import { cn } from '@/shared/lib/utils';
 import { useCreateMatch, useJoinMatch } from '../hooks/use-match';
 import { useRankedMe } from '../hooks/use-ranked';
-import type { MatchKind, SeasonInfo } from '../types/ranked.types';
+import { LeaderboardLink } from './LeaderboardLink';
+import { SeasonPanel } from './SeasonPanel';
+import type { MatchKind } from '../types/ranked.types';
 
 // The size of the profile page's section titles (`sectionTitleClass`), in the red of the season above.
 export const titleClass = 'text-[1.5rem] text-primary';
@@ -61,14 +61,6 @@ export const PanelArt = ({ icon: Icon }: { icon: LucideIcon }) => (
     <Icon className="size-24 text-primary" strokeWidth={1.25} aria-hidden="true" />
   </div>
 );
-
-/** The days a season runs, e.g. `{ from: '1 Oct 2026', to: '31 Dec 2026' }`; `undefined` when the dates are missing. */
-const seasonDays = ({ startsAt, endsAt }: SeasonInfo) => {
-  const [start, end] = [new Date(startsAt), new Date(endsAt)];
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return undefined;
-  const day = (date: Date) => `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-  return { from: day(start), to: day(end) };
-};
 
 /** An icon button (beside the leaderboard button) that opens a modal with a card for each mode of play; picking one chooses it. */
 const ModeButton = ({ kind, onChoose, hoverOnly = false }: { kind: MatchKind; onChoose: (kind: MatchKind) => void; hoverOnly?: boolean }) => {
@@ -142,7 +134,6 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
   const joinMatch = useJoinMatch();
   const [kind, setKind] = useState<MatchKind>(lastKind);
   const ranking = useRankedMe(kind);
-  const days = ranking.data && seasonDays(ranking.data.season);
   const [code, setCode] = useState('');
   const pending = createMatch.isPending || joinMatch.isPending;
 
@@ -175,51 +166,33 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
       )}
       {/* The own rating is extra here: while it loads, or if it fails, the lobby works without it. */}
       {ranking.data && (
-        <div className="duel-rise group md:col-span-2">
-          <Panel className="flex items-center gap-6 text-primary">
-            <div className="mr-auto flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
-              {/* The mode in play, so it shows without opening the modal. */}
+        <div className="duel-rise md:col-span-2">
+          <SeasonPanel
+            number={ranking.data.season.number}
+            startsAt={ranking.data.season.startsAt}
+            endsAt={ranking.data.season.endsAt}
+            lead={
+              // The mode in play, so it shows without opening the modal.
               <span data-tutorial="rank-kind" role="img" aria-label={`Mode: ${kind}`} className="flex items-center">
                 {kind === 'rain' ? <CloudRain className="size-12" aria-hidden="true" /> : <Swords className="size-12" aria-hidden="true" />}
               </span>
-              <span className="text-[3.25rem] font-black uppercase leading-none">Season {ranking.data.season.number}</span>
-              {/* 2.3rem = the height of the capitals of SEASON (0.7 of its 3.25rem), so FROM sits at their top and TO on their baseline. */}
-              {days && (
-                <div className="flex h-[2.3rem] flex-col items-start justify-between text-base leading-none text-muted-foreground">
-                  <span>FROM {days.from}</span>
-                  <span>TO {days.to}</span>
-                </div>
-              )}
-              <ModeButton kind={kind} onChoose={chooseKind} hoverOnly />
-              {/* Shows while the bar is hovered or holds the focus (always on touch screens, which cannot hover). */}
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to="/leaderboard"
-                      aria-label="Leaderboard"
-                      className="flex size-[2.3rem] shrink-0 items-center justify-center text-primary opacity-0 transition hover:bg-primary hover:text-primary-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100"
-                    >
-                      <ListOrdered className="size-6" aria-hidden="true" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>Leaderboard</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div className="flex flex-col items-end gap-1 text-right">
-              <span className="flex items-center gap-2 text-2xl font-semibold leading-none">
+            }
+            actions={
+              <>
+                <ModeButton kind={kind} onChoose={chooseKind} hoverOnly />
+                <LeaderboardLink />
+              </>
+            }
+            headline={
+              <>
                 <Trophy className="size-6" aria-hidden="true" />
                 <span>{ranking.data.tier}</span>
-              </span>
-              <span className="text-xl leading-none text-muted-foreground tabular-nums">
-                {ranking.data.wins}W · {ranking.data.losses}L · {ranking.data.draws}D
-              </span>
-            </div>
-            <span className="text-[3.25rem] font-black leading-none tabular-nums" aria-label="Your rating">
-              {ranking.data.rating}
-            </span>
-          </Panel>
+              </>
+            }
+            subline={`${ranking.data.wins}W · ${ranking.data.losses}L · ${ranking.data.draws}D`}
+            value={ranking.data.rating}
+            valueLabel="Your rating"
+          />
         </div>
       )}
       <div className={hoverFrame}>

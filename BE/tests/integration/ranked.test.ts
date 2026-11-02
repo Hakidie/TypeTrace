@@ -306,6 +306,27 @@ describe('admin seasons (ranked duel, phase 5)', () => {
     ]);
   });
 
+  it('counts the players of each kind in a season: those with at least one match', async () => {
+    const auth = await admin();
+    const [lan, minh] = [await player('Lan'), await player('Minh')];
+    const first = await currentSeason();
+    await SeasonRatingModel.create([
+      { season: first._id, user: lan.id, kind: 'race', rating: 1100, matches: 3 },
+      { season: first._id, user: minh.id, kind: 'race', rating: 1000, matches: 1 },
+      { season: first._id, user: lan.id, kind: 'rain', rating: 1050, matches: 2 },
+      // Made by the soft reset, no match yet: not counted.
+      { season: first._id, user: minh.id, kind: 'rain', rating: 1000, matches: 0 }
+    ]);
+    await api().post(`/api/admin/seasons/${first._id}/close`).set('Authorization', auth);
+
+    const response = await api().get('/api/admin/seasons').set('Authorization', auth);
+
+    expect(response.body.items.map((season: { number: number; participants: unknown }) => [season.number, season.participants])).toEqual([
+      [2, { race: 0, rain: 0 }],
+      [1, { race: 2, rain: 1 }]
+    ]);
+  });
+
   it('closes a season early and opens the next, with ratings halfway back to 1000', async () => {
     const auth = await admin();
     const lan = await player('Lan');
