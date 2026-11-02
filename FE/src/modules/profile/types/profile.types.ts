@@ -95,3 +95,33 @@ export interface DailyTasks {
   /** In the order they were given; [] when no task is active. */
   tasks: DailyTaskProgress[];
 }
+
+/** What a point of the profile chart covers: a month (`year`: the last 12 months), a block of 7 days of the current month (`month`: 4-5 points) or a day (`week`: the last 7 days). */
+export type ChartRange = 'year' | 'month' | 'week';
+
+/** Which lines of the chart show: both, only the speed (WPM) or only the accuracy. */
+export type ChartLines = 'all' | 'wpm' | 'accuracy';
+
+/** A year, month or week put on the chart next to the one it shows: the range, and a day ('YYYY-MM-DD') that holds it. */
+export interface ChartCompare {
+  range: ChartRange;
+  date: string;
+}
+
+/** One point of `GET /api/profile/monthly-progress` (SCRUM-240). */
+export interface MonthlyProgressPoint {
+  /** The period: 'YYYY-MM' (`year`), the first day of the block 'YYYY-MM-DD' (`month`) or the day 'YYYY-MM-DD' (`week`). */
+  key: string;
+  /** Average WPM of the period; `null` before the learner's first counted placement session. */
+  avgWpm: number | null;
+  /** Average accuracy (0-100) of the period; `null` where `avgWpm` is. */
+  avgAccuracy: number | null;
+  /** True when the period had no counted session: the figures are the ones of the period before. */
+  carriedOver: boolean;
+}
+
+/** `GET /api/profile/monthly-progress?range=`: the points of the range, oldest first, the last one being the current month, block or day. */
+export interface MonthlyProgress {
+  range: ChartRange;
+  points: MonthlyProgressPoint[];
+}

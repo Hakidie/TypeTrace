@@ -1,8 +1,8 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { currentUserKey, useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { profileApi } from '../api/profile.api';
-import type { SessionListParams } from '../types/profile.types';
+import type { ChartCompare, ChartRange, SessionListParams } from '../types/profile.types';
 
 /** Cache keys. Invalidating `profileKeys.all` refreshes every profile query. */
 export const profileKeys = {
@@ -11,6 +11,7 @@ export const profileKeys = {
   sessions: (params: SessionListParams) => [...profileKeys.all, 'sessions', params] as const,
   streak: () => [...profileKeys.all, 'streak'] as const,
   dailyTasks: () => [...profileKeys.all, 'daily-tasks'] as const,
+  monthlyProgress: (range: ChartRange, date?: string) => [...profileKeys.all, 'monthly-progress', range, date ?? ''] as const,
 };
 
 /**
@@ -37,6 +38,26 @@ export const useStreak = () => useQuery({ queryKey: profileKeys.streak(), queryF
  * streak. Not the admins' list of task templates: that one is `useDailyTasks` of the daily-tasks module.
  */
 export const useDailyTasks = () => useQuery({ queryKey: profileKeys.dailyTasks(), queryFn: profileApi.getDailyTasks, staleTime: 0 });
+
+/** The learner's average WPM and errors by month, week or day, by `range`, and with `date` the year, month or week that holds that day (SCRUM-240); asked again each time the profile page opens, like the streak. The range on screen stays while the next one loads. */
+export const useMonthlyProgress = (range: ChartRange, date?: string) =>
+  useQuery({
+    queryKey: profileKeys.monthlyProgress(range, date),
+    queryFn: () => profileApi.getMonthlyProgress(range, date),
+    placeholderData: keepPreviousData,
+    staleTime: 0,
+  });
+
+/** The same, for several periods at once (the ones put on the chart to compare with), in the order given. */
+export const useMonthlyProgressSet = (periods: ChartCompare[]) =>
+  useQueries({
+    queries: periods.map(({ range, date }) => ({
+      queryKey: profileKeys.monthlyProgress(range, date),
+      queryFn: () => profileApi.getMonthlyProgress(range, date),
+      placeholderData: keepPreviousData,
+      staleTime: 0,
+    })),
+  });
 
 /**
  * Saves the learner's time zone (`PATCH /api/profile/settings`), keeps the user it returns and refreshes the profile

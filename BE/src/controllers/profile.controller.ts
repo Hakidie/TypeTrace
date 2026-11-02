@@ -2,10 +2,12 @@ import { Request, Response } from 'express';
 import { UserModel } from '../models/user.model';
 import { deleteImage, uploadImage } from '../services/cloudinary.service';
 import * as dailyProgressService from '../services/daily-progress.service';
+import * as monthlyProgressService from '../services/monthly-progress.service';
 import * as userDailyTasksService from '../services/user-daily-tasks.service';
 import { updateTimeZone } from '../services/user.service';
 import { badRequest, notFound } from '../utils/app-error';
 import {
+  MonthlyProgressQuery,
   UpdateAvatarSourceInput,
   UpdateProfileInput,
   UpdateSecurityInput,
@@ -54,6 +56,12 @@ export const getStreak = async (req: Request, res: Response) => {
 /** The learner's daily tasks of today, each with its progress (SCRUM-112). */
 export const getDailyTasks = async (req: Request, res: Response) => {
   res.json(await userDailyTasksService.getTodayDailyTasks(req.user!.sub));
+};
+
+/** The learner's WPM and errors of each point of the profile chart: months, weeks or days, by `range` (SCRUM-240). */
+export const getMonthlyProgress = async (req: Request, res: Response) => {
+  const { range, date } = req.query as unknown as MonthlyProgressQuery;
+  res.json(await monthlyProgressService.getMonthlyProgress(req.user!.sub, range, date));
 };
 
 /** Saves the learner's time zone, which the page sends from the browser (SCRUM-31). Answers the user, like `updateProfile`. */

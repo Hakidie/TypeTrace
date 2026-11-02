@@ -30,10 +30,15 @@ const modeTabs = [
 ];
 
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
-// second choice (20 seconds) is the one selected at first; the longest, 3 minutes, is the most the server accepts.
+// second choice (20 seconds) is the one selected at first in Practice, 1 minute in the placement test (`defaultTimeOf`);
+// the longest, 3 minutes, is the most the server accepts.
 type TimeUnit = 'sec' | 'min';
 const timeChoices: Record<TimeUnit, number[]> = { sec: [10, 20, 30], min: [1, 2, 3] };
 const unitLabels: Record<TimeUnit, string> = { sec: 'Sec', min: 'Min' };
+
+/** The time selected when a mode opens: 20 seconds in Practice, 1 minute in the placement test. The learner can change it afterwards. */
+const defaultTimeOf = (mode: SessionMode): { unit: TimeUnit; index: number } =>
+  mode === 'placement' ? { unit: 'min', index: 0 } : { unit: 'sec', index: 1 };
 
 /** The passages to choose from for `mode`; the picked one is red. It is only mounted while the menu is open, so the list is fetched when the learner opens it. */
 const PassageMenu = ({ mode, selectedId, onSelect }: { mode: SessionMode; selectedId?: string; onSelect: (id: string) => void }) => {
@@ -87,8 +92,8 @@ export const TypingPage = () => {
     navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
     startTutorial();
   }, [location, navigate, startTutorial]);
-  const [timeUnit, setTimeUnit] = useState<TimeUnit>('sec');
-  const [timeIndex, setTimeIndex] = useState(1);
+  const [timeUnit, setTimeUnit] = useState<TimeUnit>(() => defaultTimeOf(mode).unit);
+  const [timeIndex, setTimeIndex] = useState(() => defaultTimeOf(mode).index);
   const timeSeconds = timeChoices[timeUnit][timeIndex] * (timeUnit === 'min' ? 60 : 1);
   const timeTabs = timeChoices[timeUnit].map((n) => ({ value: String(n), label: String(n).padStart(2, '0') }));
   const start = useStartSession();
@@ -102,11 +107,14 @@ export const TypingPage = () => {
     const id = searchParams.get('passage');
     return id ? { mode: 'practice', id } : undefined;
   });
-  // The pick is dropped when the mode changes, so it stays Random on the way back to the mode it was made in.
+  // The pick is dropped when the mode changes, so it stays Random on the way back to the mode it was made in; the time goes back to the default of the mode too.
   const [modeOfChoice, setModeOfChoice] = useState(mode);
   if (modeOfChoice !== mode) {
     setModeOfChoice(mode);
     setChosen(undefined);
+    // Each mode opens with its own time: 1 minute for the placement test, 20 seconds for Practice.
+    setTimeUnit(defaultTimeOf(mode).unit);
+    setTimeIndex(defaultTimeOf(mode).index);
   }
   const passageId = chosen?.mode === mode ? chosen.id : undefined;
   const randomPassage = passageId === undefined;
