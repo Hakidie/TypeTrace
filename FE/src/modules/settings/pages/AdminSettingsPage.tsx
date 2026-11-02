@@ -11,6 +11,7 @@ export const AdminSettingsPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* PANEL Appearance */}
       <Panel title="Appearance" bare titleClassName={panelTitleClass} className={cn(panelBodyClass, 'space-y-4')}>
         {/* Mode: light or dark. Saved on the account and applied at once. */}
         <div className="flex items-center justify-between gap-4">

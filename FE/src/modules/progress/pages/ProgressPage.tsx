@@ -75,6 +75,7 @@ export const ProgressPage = () => {
 
   return (
     <div className="space-y-12">
+      {/* PANEL Progress */}
       <Panel
         title="Progress"
         bare

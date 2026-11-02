@@ -54,6 +54,7 @@ export const SeasonPanel = ({
   const days = seasonDays({ startsAt, endsAt });
   return (
     <article className={cn('group', className)}>
+      {/* PANEL Season */}
       <Panel className="flex items-center gap-6 text-primary">
         <div className="mr-auto flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
           {lead}

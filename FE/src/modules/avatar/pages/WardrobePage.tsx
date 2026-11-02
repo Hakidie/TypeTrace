@@ -177,6 +177,7 @@ export const WardrobePage = () => {
       <PageHeader title="Wardrobe" description="Dress up the avatar you race with." />
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-24">
+          {/* PANEL Avatar preview */}
           <Panel className="flex flex-col items-center gap-4">
             <div className="flex w-full justify-center border-b border-primary/30 bg-primary/5 pt-2">
               <AvatarSprite look={look} pose={pose} scale={4} label="Your avatar" />
@@ -225,6 +226,7 @@ export const WardrobePage = () => {
             {dirty && <p className="text-sm text-muted-foreground">Not saved yet</p>}
           </Panel>
         </div>
+        {/* PANEL Wardrobe items */}
         <Panel>
           <div role="tablist" aria-label="Slots" className="-mx-1 mb-4 flex gap-1 overflow-x-auto px-1 pb-1">
             {SLOTS.map((entry) => (

@@ -78,6 +78,7 @@ export const ProfileSessions = () => {
 
   return (
     <section aria-label="My sessions">
+      {/* PANEL My Sessions */}
       <Panel
         title="My Sessions"
         bare

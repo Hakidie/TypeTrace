@@ -87,6 +87,7 @@ const ModeButton = ({ kind, onChoose, hoverOnly = false }: { kind: MatchKind; on
           <TooltipContent>Mode: {current?.label}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
+      {/* MODAL Mode: a card for each mode of play. */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -164,7 +165,7 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
           <ModeButton kind={kind} onChoose={chooseKind} />
         </div>
       )}
-      {/* The own rating is extra here: while it loads, or if it fails, the lobby works without it. */}
+      {/* PANEL Season: the season bar with the own rating. It is extra here: while it loads, or if it fails, the lobby works without it. */}
       {ranking.data && (
         <div className="duel-rise md:col-span-2">
           <SeasonPanel
@@ -195,6 +196,7 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
           />
         </div>
       )}
+      {/* PANEL Duel a friend: create a room of the chosen mode. */}
       <div className={hoverFrame}>
         <Panel title="Duel a friend" bare centerTitle titleClassName={titleClass} titleTip={KIND_TIPS[kind]} fill className="justify-end">
           <PanelArt icon={kind === 'rain' ? CloudRain : Swords} />
@@ -204,6 +206,7 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
           </Button>
         </Panel>
       </div>
+      {/* PANEL Join a room: type the code of a friend's room. */}
       <div className={hoverFrame}>
         <Panel title="Join a room" bare centerTitle titleClassName={titleClass} titleTip="Type the 6-character code of a friend's room to join their duel." fill>
           <PanelArt icon={DoorOpen} />

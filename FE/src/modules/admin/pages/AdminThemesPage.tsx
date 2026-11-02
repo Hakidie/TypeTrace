@@ -107,6 +107,7 @@ export const AdminThemesPage = () => {
   return (
     <div className="space-y-6">
       <div ref={panelRef} className="scroll-mt-4">
+        {/* PANEL Theme form */}
         <Panel title={editing ? 'Edit theme' : 'New theme'} bare titleClassName={panelTitleClass} className={panelBodyClass}>
               <ThemeEditor
                 key={`${editing?._id ?? mode}-${round}`}
@@ -143,6 +144,7 @@ export const AdminThemesPage = () => {
         </Panel>
       </div>
 
+      {/* PANEL Themes */}
       <Panel title="Themes" bare titleClassName={panelTitleClass} className={panelBodyClass}>
         <div className="space-y-3">
           <ListToolbar

@@ -94,6 +94,7 @@ export const PendingPassagesPanel = () => {
   };
 
   return (
+    // PANEL Pending review
     <Panel title="Pending review" bare titleClassName={panelTitleClass} className={panelBodyClass}>
       <div className="space-y-3">
         <ListToolbar

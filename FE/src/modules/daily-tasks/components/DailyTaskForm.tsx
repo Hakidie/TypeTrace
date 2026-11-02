@@ -165,6 +165,7 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
   return (
     // `noValidate`: the schema checks the number field, with its own messages.
     <form className="flex flex-col gap-4" aria-label={task ? 'Edit task' : 'New task'} noValidate onSubmit={submit}>
+      {/* PANEL Title row: the title on the left; on the right Type, Target and Active. */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 max-w-full space-y-2">
           <Input className={cn(fieldClass, titleClass)} aria-label="Title" placeholder="Title of The Task" {...register('title')} />
@@ -238,6 +239,7 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
         </div>
       </div>
 
+      {/* PANEL Description. */}
       <div className="space-y-2">
         <Textarea
           className={cn(fieldClass, 'min-h-32 resize-none text-[2rem] leading-snug')}
@@ -248,6 +250,7 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
         <FieldError message={errors.description?.message} />
       </div>
 
+      {/* PANEL Bottom row: Focus and the goal in words on the left, Cancel and Add task on the right. */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
