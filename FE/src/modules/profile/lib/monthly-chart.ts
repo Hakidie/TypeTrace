@@ -1,4 +1,4 @@
-import type { MonthlyProgressPoint } from '../types/profile.types';
+import type { ChartRange, MonthlyProgressPoint } from '../types/profile.types';
 
 /**
  * The points the chart draws (SCRUM-240): from the period of the learner's first counted placement session on (the periods
@@ -8,6 +8,9 @@ export const chartPoints = (points: MonthlyProgressPoint[]) => {
   const first = points.findIndex((point) => point.avgWpm !== null);
   return first === -1 ? points : points.slice(first);
 };
+
+/** The points of a chart of one period: a week shows all its days (also those before the first placement), a year or a month starts at the first placement (`chartPoints`). */
+export const shownPoints = (range: ChartRange, points: MonthlyProgressPoint[]) => (range === 'week' ? points : chartPoints(points));
 
 /**
  * The scale of one line of the chart: from the lowest value of that line to its highest, so the Y axis starts at the line's own

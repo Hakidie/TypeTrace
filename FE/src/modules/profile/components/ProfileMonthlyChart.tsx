@@ -5,7 +5,7 @@ import { Tooltip as HintTooltip, TooltipContent, TooltipProvider, TooltipTrigger
 import { LoadingState } from '@/shared/components/loading-state';
 import { useMonthlyProgress, useMonthlyProgressSet } from '../hooks/use-profile';
 import { axisLabel, previousPeriod, rangeUnit, tooltipTitle } from '../lib/month-label';
-import { chartPoints, COMPARE_OPACITIES, compareColumns, lineDomain } from '../lib/monthly-chart';
+import { COMPARE_OPACITIES, compareColumns, lineDomain, shownPoints } from '../lib/monthly-chart';
 import type { ChartCompare, ChartLines, ChartRange, MonthlyProgressPoint } from '../types/profile.types';
 
 // Colors are theme tokens only: the speed is the main red, the accuracy the muted text color (dashed, so the two lines are
@@ -147,10 +147,10 @@ export const ProfileMonthlyChart = ({ range, date, compare = [], axes = false, l
 
   // The names under the chart follow the range of the points on screen: while another range loads, the previous one stays (`placeholderData`).
   const shown = query.data.range;
-  // One period: from the first placement on (every point while there is no data). Several: whole, by position, so the columns line up.
+  // One period: from the first placement on, a week whole (every point while there is no data). Several: whole, by position, so the columns line up.
   const columns = comparing
     ? compareColumns(query.data.points, others.map((other) => other.data?.points ?? []))
-    : chartPoints(query.data.points).map((point) => ({ main: point, others: [] as (MonthlyProgressPoint | null)[] }));
+    : shownPoints(shown, query.data.points).map((point) => ({ main: point, others: [] as (MonthlyProgressPoint | null)[] }));
   const hasData = columns.some((column) => column.main?.avgWpm != null || column.others.some((point) => point?.avgWpm != null));
   // Without data both lines are flat at 0, one on the other, over the points of the range.
   const data = columns.map((column, index) => {

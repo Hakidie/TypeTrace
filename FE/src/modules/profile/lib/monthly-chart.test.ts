@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MonthlyProgressPoint } from '../types/profile.types';
 import { axisLabel, tooltipTitle } from './month-label';
-import { chartPoints, compareColumns, lineDomain } from './monthly-chart';
+import { chartPoints, compareColumns, lineDomain, shownPoints } from './monthly-chart';
 
 const empty = (key: string): MonthlyProgressPoint => ({ key, avgWpm: null, avgAccuracy: null, carriedOver: false });
 const real = (key: string, carriedOver = false): MonthlyProgressPoint => ({ key, avgWpm: 40, avgAccuracy: 95, carriedOver });
@@ -73,5 +73,19 @@ describe('compareColumns', () => {
       ['2026-03', [undefined, undefined]],
     ]);
     expect(columns[2].others).toEqual([null, null]);
+  });
+});
+
+describe('shownPoints', () => {
+  const day = (key: string, avgWpm: number | null) => ({ key, avgWpm, avgAccuracy: avgWpm, carriedOver: false });
+  const days = [day('2026-03-03', null), day('2026-03-04', null), day('2026-03-05', 40), day('2026-03-06', 42), day('2026-03-07', null), day('2026-03-08', 45), day('2026-03-09', 44)];
+
+  it('shows all 7 days of a week, also those before the first placement', () => {
+    expect(shownPoints('week', days)).toHaveLength(7);
+  });
+
+  it('starts a month or a year at the first placement', () => {
+    expect(shownPoints('month', days).map((point) => point.key)).toEqual(chartPoints(days).map((point) => point.key));
+    expect(shownPoints('year', days)).toHaveLength(5);
   });
 });
