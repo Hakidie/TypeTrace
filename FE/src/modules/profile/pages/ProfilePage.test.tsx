@@ -10,6 +10,7 @@ const getActivity = vi.fn();
 const getSessions = vi.fn();
 const getStreak = vi.fn();
 const getDailyTasks = vi.fn();
+const getMonthlyProgress = vi.fn();
 
 vi.mock('@/modules/auth/api/auth.api', () => ({
   authApi: { getMe: () => getMe() },
@@ -21,6 +22,7 @@ vi.mock('@/modules/profile/api/profile.api', () => ({
     getSessions: (params: unknown) => getSessions(params),
     getStreak: () => getStreak(),
     getDailyTasks: () => getDailyTasks(),
+    getMonthlyProgress: () => getMonthlyProgress(),
     updateSecurity: vi.fn(),
     uploadAvatar: vi.fn(),
   },
@@ -84,6 +86,9 @@ beforeEach(() => {
     sessions: [{ date: today, sessions: 2, tasksTotal: 2, tasksDone: 1 }],
   });
   getStreak.mockReset().mockResolvedValue(streakOf(1, 4, { sessions: 2, missionCompleted: true }));
+  getMonthlyProgress.mockReset().mockResolvedValue({
+    months: Array.from({ length: 12 }, (_, i) => ({ month: `2025-${String(i + 1).padStart(2, '0')}`, avgWpm: null, totalErrors: null, carriedOver: false })),
+  });
   getDailyTasks.mockReset().mockResolvedValue({
     date: today,
     tasks: [
@@ -104,6 +109,17 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
 
     expect(screen.getAllByLabelText('Loading').length).toBeGreaterThan(0);
     expect(screen.queryByRole('region', { name: 'Profile header' })).not.toBeInTheDocument();
+  });
+
+  it('puts the monthly chart in the header, between the name and the bio (SCRUM-240)', async () => {
+    renderPage();
+
+    const chart = await within(await screen.findByRole('region', { name: 'Profile header' })).findByRole('img', { name: /Biểu đồ WPM và số lỗi theo 12 tháng/ });
+    const name = screen.getByText('Alice');
+    const bio = screen.getByRole('textbox', { name: 'Description' });
+
+    expect(name.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(chart.compareDocumentPosition(bio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('has the header, the daily progress and the heatmap, and no Profile, Edit profile or Security panel (Security is on the Settings page)', async () => {

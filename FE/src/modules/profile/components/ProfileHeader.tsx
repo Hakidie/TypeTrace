@@ -190,14 +190,16 @@ interface ProfileHeaderProps {
   streak: UseQueryResult<Streak>;
   /** Called with the new image once the avatar is uploaded. */
   onAvatarChange: (avatarUrl: string) => void;
+  /** Shown between the name and the bio (the monthly chart, SCRUM-240); nothing when missing. */
+  chart?: ReactNode;
 }
 
 /**
  * The top of the profile page, without a frame: the avatar, the name (changed in place), the email, the bio (also changed
- * in place), the speed, the accuracy, the current streak (the longest one in a tooltip) and the day the account
+ * in place, with `chart` between them when given), the speed, the accuracy, the current streak (the longest one in a tooltip) and the day the account
  * was made. Sits on the page, without background, padding or border.
  */
-export const ProfileHeader = ({ user, activity, streak, onAvatarChange }: ProfileHeaderProps) => {
+export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }: ProfileHeaderProps) => {
   const name = user.displayName || user.email;
   const stats = activity.data?.stats;
 
@@ -235,6 +237,7 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange }: Profil
       </div>
       <div className="col-span-3 min-w-0 sm:col-start-2 sm:row-start-2 lg:col-span-1 lg:col-start-2">
         <EditableDisplayName user={user} textClassName="text-[1.875rem] font-black text-primary sm:text-[2.25rem]" />
+        {chart && <div className="mt-4">{chart}</div>}
         <EditableBio key={user.bio ?? ''} user={user} />
       </div>
       {statList.map(({ label, tip }, i) => (
