@@ -362,15 +362,25 @@ describe('what learners can practise', () => {
 describe('passage language (ranked duel, phase 1)', () => {
   const english = { title: 'A quiet morning', content: 'The sun rose over the quiet town.', source: 'Written for TypeTrace' };
   const zeroTags = { BASE_LETTER: 0, TONE_WRONG: 0, D_MISSING: 0, MARK_WRONG: 0, HOI_NGA_CONFUSION: 0 };
+  const zeroEnglishTags = { LETTER_WRONG: 0, LETTER_MISSING: 0, LETTER_EXTRA: 0, LETTERS_SWAPPED: 0, CASE_WRONG: 0, PUNCTUATION_WRONG: 0 };
   const editPassage = (auth: string, id: string, body: object) => api().patch(`/api/admin/passages/${id}`).set('Authorization', auth).send(body);
 
-  it('creates an English passage with no error tags', async () => {
+  it('creates an English passage with English error tags only (SCRUM-218)', async () => {
     const { auth } = await signInAdmin();
     const response = await api().post('/api/admin/passages').set('Authorization', auth).send({ ...english, language: 'en' });
 
     expect(response.status).toBe(201);
     expect(response.body.language).toBe('en');
-    expect(response.body.tagCounts).toMatchObject(zeroTags);
+    // 7 words with letters, two different ones side by side and a capital or a small letter; only `town.` has punctuation.
+    expect(response.body.tagCounts).toEqual({
+      ...zeroTags,
+      LETTER_WRONG: 7,
+      LETTER_MISSING: 7,
+      LETTER_EXTRA: 7,
+      LETTERS_SWAPPED: 7,
+      CASE_WRONG: 7,
+      PUNCTUATION_WRONG: 1
+    });
   });
 
   it('creates a Vietnamese passage when no language is sent', async () => {
@@ -408,8 +418,9 @@ describe('passage language (ranked duel, phase 1)', () => {
     const passage = await createPassage(auth);
 
     const toEnglish = await editPassage(auth, passage._id, { language: 'en' });
-    expect(toEnglish.body.tagCounts).toMatchObject(zeroTags);
+    expect(toEnglish.body.tagCounts).toMatchObject({ ...zeroTags, LETTER_EXTRA: 5, PUNCTUATION_WRONG: 1 });
     const back = await editPassage(auth, passage._id, { language: 'vi' });
+    expect(back.body.tagCounts).toMatchObject(zeroEnglishTags);
     expect(back.body.tagCounts.BASE_LETTER).toBeGreaterThan(0);
   });
 });

@@ -1,18 +1,25 @@
 // A passage a learner can type. Typing sessions pick one of these (SCRUM-33, US6.2).
 import mongoose, { Schema, Types } from 'mongoose';
+import { EnglishError, EnglishErrorType, tagEnglishWord } from '../utils/english-errors';
 import { tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 
 export const passageVisibilities = ['public', 'private'] as const;
 export const passageStatuses = ['draft', 'published', 'pending', 'rejected', 'archived'] as const;
-/** `vi`: practice and the placement test (the error tags only mean something in Vietnamese); `en`: ranked duels. */
+/** `vi`: practice and the placement test; `en`: ranked duels. Each language has its own error types (`tagCounts`). */
 export const passageLanguages = ['vi', 'en'] as const;
 
 export type PassageVisibility = (typeof passageVisibilities)[number];
 export type PassageStatus = (typeof passageStatuses)[number];
 export type PassageLanguage = (typeof passageLanguages)[number];
 
-/** How many times each error type could happen in the passage ("error opportunities"). */
-export type TagCounts = Record<WordErrorType, number>;
+/**
+ * How many times each error type could happen in the passage ("error opportunities"): the types of its language,
+ * `WordError` for Vietnamese and `EnglishError` for English (SCRUM-218). The types of the other language stay 0.
+ */
+export type TagCounts = Record<WordErrorType | EnglishErrorType, number>;
+
+/** Every error type a passage counts, the Vietnamese ones first. */
+const TAG_TYPES = [...Object.values(WordError), ...Object.values(EnglishError)];
 
 /** The text a learner proposes for their public passage (`PassageDocument.pendingEdit`). */
 export interface PendingEdit {
@@ -113,18 +120,20 @@ export const notEnglish = { language: { $ne: 'en' as const } };
 /** Words are separated by spaces and punctuation stays attached to its word, as in a typing session. */
 export const splitWords = (content: string) => content.split(/\s+/).filter(Boolean);
 
-/** Counts the words and, for each error type, how often it could happen in `content` (never in English). */
+/**
+ * Counts the words and, for each error type of the passage's language, how often it could happen in `content`: `tagWord`
+ * for a Vietnamese passage, `tagEnglishWord` for an English one.
+ */
 export const computePassageStats = (content: string, language: PassageLanguage = 'vi') => {
   const words = splitWords(content);
-  const tagCounts = Object.fromEntries(Object.values(WordError).map((type) => [type, 0])) as TagCounts;
-  if (language === 'en') return { wordCount: words.length, tagCounts };
-  for (const word of words) tagWord(word).forEach((type) => (tagCounts[type] += 1));
+  const tagCounts = Object.fromEntries(TAG_TYPES.map((type) => [type, 0])) as TagCounts;
+  for (const word of words) {
+    for (const type of language === 'en' ? tagEnglishWord(word) : tagWord(word)) tagCounts[type] += 1;
+  }
   return { wordCount: words.length, tagCounts };
 };
 
-const tagCountsDefinition = Object.fromEntries(
-  Object.values(WordError).map((type) => [type, { type: Number, default: 0 }])
-);
+const tagCountsDefinition = Object.fromEntries(TAG_TYPES.map((type) => [type, { type: Number, default: 0 }]));
 
 const passageSchema = new Schema<PassageDocument>(
   {

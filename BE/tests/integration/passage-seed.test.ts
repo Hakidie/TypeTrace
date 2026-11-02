@@ -3,6 +3,7 @@ import { PASSAGE_LIST, PASSAGE_SOURCE } from '../../src/data/passages';
 import { ENGLISH_PASSAGE_LIST, ENGLISH_PASSAGE_SOURCE } from '../../src/data/passages-en';
 import { PassageModel, splitWords } from '../../src/models/passage.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
+import { EnglishError } from '../../src/utils/english-errors';
 import { WordError } from '../../src/utils/vietnamese-errors';
 
 const sample = { title: 'Một đoạn', content: 'Đường về nhà rất đẹp.', source: 'Tự viết' };
@@ -106,6 +107,20 @@ describe('English starter passages (ranked duel, phase 1)', () => {
     const saved = await PassageModel.find({ title: { $in: ENGLISH_PASSAGE_LIST.map((passage) => passage.title) } });
     expect(saved).toHaveLength(20);
     expect(saved.every((passage) => passage.language === 'en' && passage.status === 'published' && passage.visibility === 'public')).toBe(true);
+  });
+
+  it('gives every English passage chances of every English error type and no Vietnamese ones (SCRUM-218)', async () => {
+    await seedPassages(ENGLISH_PASSAGE_LIST);
+
+    for (const passage of await PassageModel.find({ language: 'en' })) {
+      for (const type of Object.values(EnglishError)) {
+        expect(passage.tagCounts[type], `${passage.title}: ${type}`).toBeGreaterThan(0);
+      }
+      for (const type of Object.values(WordError)) {
+        expect(passage.tagCounts[type], `${passage.title}: ${type}`).toBe(0);
+      }
+      expect(passage.tagCounts.LETTER_EXTRA, passage.title).toBe(passage.wordCount);
+    }
   });
 
   it('does not duplicate or overwrite English passages on a second run', async () => {

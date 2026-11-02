@@ -41,6 +41,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run import:passages:en` | Add the English starter passages (`BE/src/data/passages-en.ts`, for ranked duels; never offered in Practice or Placement) as published passages; safe to run many times |
 | `npm run import:themes` | Add the starter themes (`BE/src/data/themes.ts`, owner TypeTrace) as published themes; safe to run many times |
 | `npm run rebuild:progress` | Rebuild every learner's days (`DailyProgress`: streak, daily mission, profile heatmap) from their counted sessions, in each learner's own time zone. Run it once after deploying SCRUM-31 (older sessions have no day yet) and after changing `DAILY_MISSION_SESSIONS`, while nobody is typing; safe to run many times |
+| `npm run rebuild:tag-counts` | Count the words and error tags (`tagCounts`) of every passage again from its text and language. Run it once after deploying SCRUM-218 (English passages saved before have no English tags yet) and after changing `tagWord` or `tagEnglishWord`; safe to run many times |
 | `npm run migrate:rating-kinds` | Mark the ratings saved before word rain duels as race ratings (`kind: 'race'`) and switch to the one-rating-per-kind index. Run it once after deploying the rain duel; safe to run many times |
 | `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together |
 | `npm test` | Run backend and frontend tests |
@@ -109,6 +110,11 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   sessions: with `$max` after each counted session (`completeSession`, through `recordDailyTaskProgress`), so recording a
   session twice changes nothing, and replaced once, with the new `timeZone`, by the day's next counted session or `GET`
   after the learner's zone changed.
+- Word errors have one set per passage language, each a pure file with an identical frontend copy in `FE/src/shared/lib/`
+  (keep each pair identical): Vietnamese `utils/vietnamese-errors.ts` (`WordError`, `classifyWord`, `tagWord`) for everything
+  learners practice, English `utils/english-errors.ts` (`EnglishError`, `classifyEnglishWord`, `tagEnglishWord`, SCRUM-218)
+  for the English passages of ranked duels. Never mix the two: a passage's `tagCounts` counts the set of its `language`
+  (`computePassageStats`). After changing a `tag…` function, run `npm run rebuild:tag-counts`.
 - App-wide settings that admins change live in the one `AppSetting` document (`models/app-setting.model.ts`, SCRUM-210):
   read them with `getAppSettings()` (the model's defaults until an admin saves) and save them with `updateAppSettings(changes)`
   (`services/app-setting.service.ts`). A new setting is a new field there, with its default, not a new collection.
