@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CHART_RANGES } from '../services/monthly-progress.service';
 import { isValidTimeZone } from '../utils/local-date';
 
 export const updateProfileSchema = z.object({
@@ -38,3 +39,16 @@ export const updateAvatarSourceSchema = z.object({
 });
 
 export type UpdateAvatarSourceInput = z.infer<typeof updateAvatarSourceSchema>;
+
+/** `GET /api/profile/monthly-progress` (SCRUM-240): what a point of the chart covers; a year (12 months) when missing. */
+export const monthlyProgressQuerySchema = z.object({
+  range: z.enum(CHART_RANGES).default('year'),
+  /** A day ('YYYY-MM-DD') in the learner's zone: the chart shows the year, month or week that holds it. Without it the range ends now. */
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((value) => new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value, 'Not a real day')
+    .optional()
+});
+
+export type MonthlyProgressQuery = z.infer<typeof monthlyProgressQuerySchema>;

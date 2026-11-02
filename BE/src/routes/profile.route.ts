@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getDailyTasks,
+  getMonthlyProgress,
   getStreak,
   updateAvatarSource,
   updateProfile,
@@ -10,8 +11,9 @@ import {
 } from '../controllers/profile.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { imageUpload } from '../middlewares/upload.middleware';
-import { validateBody } from '../middlewares/validate.middleware';
+import { validate, validateBody } from '../middlewares/validate.middleware';
 import {
+  monthlyProgressQuerySchema,
   updateAvatarSourceSchema,
   updateProfileSchema,
   updateSecuritySchema,
@@ -29,5 +31,7 @@ profileRouter.patch('/avatar-source', authGuard, validateBody(updateAvatarSource
 profileRouter.get('/streak', authGuard, getStreak);
 /** The learner's own daily tasks of today, with their progress (SCRUM-112). */
 profileRouter.get('/daily-tasks', authGuard, getDailyTasks);
+/** The learner's own average WPM and errors by month, week or day: `?range=year|month|week` (SCRUM-240). */
+profileRouter.get('/monthly-progress', authGuard, validate({ query: monthlyProgressQuerySchema }), getMonthlyProgress);
 /** `{ timezone }`: the zone of the learner's days, sent by the browser (SCRUM-31). */
 profileRouter.patch('/settings', authGuard, validateBody(updateSettingsSchema), updateSettings);
