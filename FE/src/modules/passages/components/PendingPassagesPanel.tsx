@@ -7,7 +7,7 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
-import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
+import { ListViewSwitch } from './ListViewSwitch';
 import { usePendingPassages } from '../hooks/use-passages';
 import type { Passage, ReviewDecision } from '../types/passage.types';
 import { PassageCard } from './PassageCard';
@@ -37,7 +37,7 @@ const KIND_OPTIONS = [
  * `pending-` prefix (the bank above already uses `?page=`), and new requests showing up by themselves. An admin reads a
  * passage, then approves it or turns it down with a reason, one at a time or the ticked ones at once.
  */
-export const PendingPassagesPanel = () => {
+export const PendingPassagesPanel = ({ onSwitchView }: { onSwitchView: () => void }) => {
   const list = useListParams({ sort: 'updatedAt', prefix: 'pending' });
   const kind = list.get('kind');
   const passages = usePendingPassages({
@@ -73,7 +73,7 @@ export const PendingPassagesPanel = () => {
       );
     }
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Passages waiting for review">
           {cards.map((passage) => (
             <PassageCard
@@ -88,16 +88,18 @@ export const PendingPassagesPanel = () => {
             />
           ))}
         </div>
-        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} />
+        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
       </div>
     );
   };
 
   return (
     // PANEL Pending review
-    <Panel title="Pending review" bare titleClassName={panelTitleClass} className={panelBodyClass}>
+    <Panel bare>
+      <h2 className="sr-only">Pending review</h2>
       <div className="space-y-3">
         <ListToolbar
+          title={<ListViewSwitch current="Pending review" other="Passages" onSwitch={onSwitchView} />}
           search={{
             label: 'Search requests',
             placeholder: 'Search title or source…',

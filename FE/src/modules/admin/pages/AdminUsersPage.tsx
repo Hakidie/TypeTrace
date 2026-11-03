@@ -1,7 +1,6 @@
 import { Users } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
-import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -10,13 +9,17 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
-import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
-import { UserEditDialog } from '../components/UserEditDialog';
+import { UserForm } from '../components/UserForm';
 import { UserRow } from '../components/UserRow';
 import { useAdminUsers, useDeleteUsers, useSetUserStatus } from '../hooks/use-admin';
-import type { AdminUserListParams } from '../types/admin.types';
+import type { AdminUser, AdminUserListParams } from '../types/admin.types';
 
-const PAGE_SIZE = 10;
+// Four users a page.
+const PAGE_SIZE = 4;
+
+// In the URL, `all` means no filter at all (an empty value means the filter was not touched: its default applies).
+const ALL = 'all';
+const filterValue = (param: string, fallback: string) => (param === '' ? fallback : param === ALL ? '' : param);
 
 const ROLE_OPTIONS = [
   { value: 'user', label: 'User' },
@@ -46,14 +49,22 @@ const VERIFIED_OPTIONS = [
 export const AdminUsersPage = () => {
   const { data: currentUser } = useCurrentUser();
   const list = useListParams({ sort: '-createdAt' });
-  const role = list.get('role') as AdminUserListParams['role'];
-  const verified = list.get('verified') as AdminUserListParams['verified'];
+  // The filters start on Role "User" and Email "Verified". Choosing "All" puts `all` in the URL: an empty value would bring the default back.
+  const role = filterValue(list.get('role'), 'user') as AdminUserListParams['role'];
+  const verified = filterValue(list.get('verified'), 'true') as AdminUserListParams['verified'];
+  const setFilter = (key: string) => (value: string) => list.set(key, value === '' ? ALL : value);
 
   const users = useAdminUsers({ page: list.page, limit: PAGE_SIZE, q: list.q, role, verified, sort: list.sort });
   const deleteUsers = useDeleteUsers();
   const setStatus = useSetUserStatus();
 
-  const [editing, setEditing] = useState<CurrentUser>();
+  const [editing, setEditing] = useState<AdminUser>();
+  const formPanelRef = useRef<HTMLDivElement>(null);
+  // The form is at the top of the page: bring it into view when a row asks to be edited.
+  const editingId = editing?._id;
+  useEffect(() => {
+    if (editingId) formPanelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [editingId]);
   // Id of the user waiting for delete confirmation.
   const [pendingDelete, setPendingDelete] = useState<string>();
 
@@ -84,7 +95,7 @@ export const AdminUsersPage = () => {
               stats={user.stats}
               sessions={user.sessions}
               status={user.status}
-              onEdit={setEditing}
+              onEdit={() => setEditing(user)}
               // Admins cannot be disabled (the backend refuses), but a locked one can always be enabled again.
               onToggleStatus={
                 user.status !== 'locked' && (user.role === 'admin' || user._id === currentUser?._id)
@@ -96,17 +107,35 @@ export const AdminUsersPage = () => {
             />
           ))}
         </div>
-        <Pagination page={users.data.page} totalPages={users.data.totalPages} onPageChange={list.setPage} variant="toolbar" />
+        <Pagination page={users.data.page} totalPages={users.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
       </>
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-12">
+      {/* PANEL User info: always there, but only for editing (there is no "new user"): empty and disabled until Edit picks a user. No visible title, screen readers still get one. */}
+      <div ref={formPanelRef} className="scroll-mt-4">
+        <Panel bare>
+          <h2 className="sr-only">User info</h2>
+          <UserForm
+            key={editing?._id ?? 'none'}
+            user={editing}
+            stats={editing?.stats}
+            sessions={editing?.sessions}
+            status={editing?.status}
+            isSelf={editing?._id === currentUser?._id}
+            onDone={() => setEditing(undefined)}
+          />
+        </Panel>
+      </div>
+
       {/* PANEL Users */}
-      <Panel title="Users" bare titleClassName={panelTitleClass} className={panelBodyClass}>
-        <div className="space-y-3">
+      <Panel bare>
+        <h2 className="sr-only">Users</h2>
+        <div className="flex flex-col gap-3">
           <ListToolbar
+            title="Users"
             search={{
               label: 'Search users',
               placeholder: 'Search email or name…',
@@ -116,22 +145,13 @@ export const AdminUsersPage = () => {
             sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
             summary={users.data ? `${users.data.total} accounts in total` : 'Loading accounts…'}
             filters={[
-              { label: 'Role', value: role ?? '', options: ROLE_OPTIONS, onChange: (value) => list.set('role', value) },
-              { label: 'Email', value: verified ?? '', options: VERIFIED_OPTIONS, onChange: (value) => list.set('verified', value) },
+              { label: 'Role', value: role ?? '', options: ROLE_OPTIONS, onChange: setFilter('role') },
+              { label: 'Email', value: verified ?? '', options: VERIFIED_OPTIONS, onChange: setFilter('verified') },
             ]}
           />
           {renderList()}
         </div>
       </Panel>
-
-      {editing && (
-        <UserEditDialog
-          key={editing._id}
-          user={editing}
-          isSelf={editing._id === currentUser?._id}
-          onClose={() => setEditing(undefined)}
-        />
-      )}
 
       <ConfirmDialog
         open={pendingDelete !== undefined}

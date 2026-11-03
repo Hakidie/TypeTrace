@@ -74,7 +74,7 @@ describe('AdminPassagesPage', () => {
     expect(await screen.findByText('Mùa thu Hà Nội')).toBeInTheDocument();
     expect(screen.getByText('draft')).toBeInTheDocument();
     expect(screen.getByText('6 words')).toBeInTheDocument();
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 9, visibility: 'public' }));
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 6, visibility: 'public' }));
   });
 
   it('shows an empty state without any example card', async () => {
@@ -362,7 +362,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
     const user = userEvent.setup();
     renderAt('/admin/passages?page=2');
     await screen.findByText('Mùa thu Hà Nội');
-    expect(list).toHaveBeenCalledWith({ page: 2, limit: 9, sort: '-createdAt', visibility: 'public' });
+    expect(list).toHaveBeenCalledWith({ page: 2, limit: 6, sort: '-createdAt', visibility: 'public' });
 
     // A search (on Enter) looks in the title and the source, from the first page.
     await user.type(screen.getByLabelText('Search passages'), 'hà nội{Enter}');
@@ -408,7 +408,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
 
     expect(list).toHaveBeenCalledWith({
       page: 2,
-      limit: 9,
+      limit: 6,
       sort: 'title',
       q: 'biển',
       status: 'archived',
@@ -576,12 +576,65 @@ describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
     expect(placement).toBeDisabled();
   });
 
-  it('shows an EN tag on English passages', async () => {
+  it('shows an English tag (icon and word) on English passages', async () => {
     answer({ bank: [{ ...passage, _id: 'p8', title: 'A quiet morning', language: 'en' }] });
     renderPage();
 
     expect(await screen.findByText('A quiet morning')).toBeInTheDocument();
-    expect(screen.getByText('EN')).toBeInTheDocument();
+    expect(screen.getByText('English')).toBeInTheDocument();
+  });
+});
+
+describe('AdminPassagesPage: tags of a card', () => {
+  it('shows one icon before the title for the kind of passage: Rank, Placement or Regular, with a tooltip', async () => {
+    answer({
+      bank: [
+        { ...passage, _id: 'r', title: 'Ranked one', status: 'published', isRanked: true, language: 'en' },
+        { ...passage, _id: 'p', title: 'Placement one', isPlacement: true },
+        { ...passage, _id: 'n', title: 'Regular one' },
+      ],
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText('Regular one');
+    const kinds = ['Rank: used in ranked duels', 'Placement passage', 'Regular passage'];
+    for (const name of kinds) expect(screen.getAllByRole('img', { name })).toHaveLength(1);
+    // Before the title, and only one per card.
+    const rank = screen.getByRole('img', { name: kinds[0] });
+    expect(rank.compareDocumentPosition(screen.getByText('Ranked one'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(within(rank.closest<HTMLElement>('[role="article"]')!).queryByRole('img', { name: 'Regular passage' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Placement')).not.toBeInTheDocument();
+
+    await user.hover(rank);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Rank: used in ranked duels');
+  });
+
+  it('shows Regular, with the icon of the Practice tab, on a passage that is not a placement passage', async () => {
+    answer({ bank: [passage, { ...passage, _id: 'p2', title: 'Kiểm tra', isPlacement: true }] });
+    renderPage();
+
+    await screen.findByText('Kiểm tra');
+    expect(screen.getAllByRole('img', { name: 'Regular passage' })).toHaveLength(1);
+    expect(screen.getAllByRole('img', { name: 'Placement passage' })).toHaveLength(1);
+  });
+
+  it('shows the language and the status with their icon and their word', async () => {
+    answer({ bank: [{ ...passage, status: 'published', language: 'en' }] });
+    renderPage();
+
+    await screen.findByText('Mùa thu Hà Nội');
+    expect(screen.getByText('English')).toBeInTheDocument();
+    expect(screen.getByText('published')).toBeInTheDocument();
+  });
+
+  it('tags a Vietnamese passage too, and puts the word count on the left, the tags on the right', async () => {
+    answer({ bank: [passage] });
+    renderPage();
+
+    await screen.findByText('Mùa thu Hà Nội');
+    const language = screen.getByText('Vietnamese', { selector: 'span' });
+    expect(screen.getByText('6 words').compareDocumentPosition(language)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 });
 
@@ -593,12 +646,12 @@ describe('AdminPassagesPage: ranked test (US6.4)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit Mùa thu Hà Nội' }));
   };
 
-  it('shows the Test xếp hạng badge on a ranked passage only', async () => {
+  it('shows the Rank tag on a ranked passage only', async () => {
     answer({ bank: [{ ...passage, status: 'published', isRanked: true }, { ...passage, _id: 'p2', title: 'Sông quê' }] });
     renderPage();
 
     await screen.findByText('Sông quê');
-    expect(screen.getAllByText('Test xếp hạng')).toHaveLength(1);
+    expect(screen.getAllByRole('img', { name: 'Rank: used in ranked duels' })).toHaveLength(1);
   });
 
   it('marks a published English passage as ranked and sends it with the update', async () => {
@@ -665,12 +718,14 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     updatedAt: '2026-10-21T12:00:00.000Z',
   };
 
+  const renderPending = () => renderWithProviders(<AdminPassagesPage />, { route: '/admin/passages?view=pending' });
+
   const answerQueue = (items: unknown[] = [waitingA, waitingB]) => answer({ pending: items });
 
   /** Opens the page and waits for the cards of the queue. */
   const openPage = async () => {
     const user = userEvent.setup();
-    renderPage();
+    renderPending();
     await within(await screen.findByLabelText('Passages waiting for review')).findByText('Sông quê');
     return user;
   };
@@ -684,12 +739,12 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     answerQueue();
   });
 
-  it('lists the requests below the Passages panel, without tabs, as cards like the passage bank, oldest first', async () => {
-    renderPage();
+  it('lists the requests as cards like the passage bank, oldest first, in place of the Passages list', async () => {
+    renderPending();
 
-    const passagesPanel = screen.getByRole('heading', { name: 'Passages' });
-    const pendingPanel = screen.getByRole('heading', { name: 'Pending review' });
-    expect(passagesPanel.compareDocumentPosition(pendingPanel)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // One list panel at a time: the queue replaces the bank, and no panel has a visible title.
+    expect(screen.getByRole('button', { name: 'Pending review. Switch to Passages' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Search passages')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
 
     const queue = await screen.findByLabelText('Passages waiting for review');
@@ -699,8 +754,31 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     expect(within(queue).getAllByText('21 words')).toHaveLength(2);
     expect(list).toHaveBeenCalledWith({ status: 'pending', page: 1, limit: 9, sort: 'updatedAt', q: undefined });
     expect(screen.getByText('2 waiting')).toBeInTheDocument();
-    // The passage bank above holds only public passages: a learner's request is not part of it.
+    // The passage bank holds only public passages: a learner's request is not part of it.
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ visibility: 'public' }));
+  });
+
+  it('switches between Passages and Pending review with the button before the search, kept in the URL', async () => {
+    answer({ bank: [passage], pending: [waitingA] });
+    const user = userEvent.setup();
+    const LocationProbe = () => <output aria-label="URL">{useLocation().search}</output>;
+    renderWithProviders(
+      <>
+        <AdminPassagesPage />
+        <LocationProbe />
+      </>,
+      { route: '/admin/passages' },
+    );
+    await screen.findByText('Mùa thu Hà Nội');
+
+    await user.click(screen.getByRole('button', { name: 'Passages. Switch to Pending review' }));
+    expect(await screen.findByLabelText('Search requests')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Search passages')).not.toBeInTheDocument();
+    expect(new URLSearchParams(screen.getByLabelText('URL').textContent ?? '').get('view')).toBe('pending');
+
+    await user.click(screen.getByRole('button', { name: 'Pending review. Switch to Passages' }));
+    expect(await screen.findByLabelText('Search passages')).toBeInTheDocument();
+    expect(new URLSearchParams(screen.getByLabelText('URL').textContent ?? '').get('view')).toBeNull();
   });
 
   it('searches and sorts the requests, keeping them apart from the passage bank in the URL', async () => {
@@ -734,7 +812,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
 
   it('shows an empty state when no request waits', async () => {
     answerQueue([]);
-    renderPage();
+    renderPending();
 
     expect(await screen.findByText('Nothing to review')).toBeInTheDocument();
     expect(screen.getByText('0 waiting')).toBeInTheDocument();
@@ -751,7 +829,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     };
     approve.mockResolvedValue(edit);
     answerQueue([edit]);
-    renderPage();
+    renderPending();
     const queue = await screen.findByLabelText('Passages waiting for review');
 
     // The card shows what is proposed, tagged Edited; the approved text is what everyone reads meanwhile.
@@ -902,7 +980,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       answerQueue([waitingA]);
-      renderPage();
+      renderPending();
       expect(await screen.findByText('1 waiting')).toBeInTheDocument();
 
       answerQueue();

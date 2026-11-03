@@ -140,6 +140,16 @@ describe('PATCH /api/admin/users/:id', () => {
     expect(response.body).toMatchObject({ role: 'admin', isEmailVerified: true, loginOtpEnabled: true, displayName: 'Lan' });
   });
 
+  it('changes and clears the description (bio) of a user, at most 200 characters', async () => {
+    const { auth } = await signInAdmin();
+    const user = await createUser({ email: 'lan@example.com' });
+    const patch = (bio: string) => api().patch(`/api/admin/users/${user._id}`).set('Authorization', auth).send({ bio });
+
+    expect((await patch('  Loves slow typing.  ')).body.bio).toBe('Loves slow typing.');
+    expect((await patch('')).body.bio ?? '').toBe('');
+    expect((await patch('x'.repeat(201))).status).toBe(400);
+  });
+
   it('ignores fields admins may not change, such as email and password', async () => {
     const { auth } = await signInAdmin();
     const user = await createUser({ email: 'lan@example.com' });

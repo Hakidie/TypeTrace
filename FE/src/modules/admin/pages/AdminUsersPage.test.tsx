@@ -40,7 +40,7 @@ const admin = user('a1', 'admin@example.com', { role: 'admin' });
 const lan = user('u1', 'lan@example.com');
 const minh = user('u2', 'minh@example.com', { isEmailVerified: false });
 
-const page = (items: unknown[]) => ({ items, page: 1, limit: 10, total: items.length, totalPages: 1 });
+const page = (items: unknown[]) => ({ items, page: 1, limit: 4, total: items.length, totalPages: 1 });
 
 const renderPage = (route = '/admin/users') => renderWithProviders(<AdminUsersPage />, { route, path: '/admin/users' });
 
@@ -68,7 +68,7 @@ describe('AdminUsersPage', () => {
     expect(within(cards).getAllByText('Verified')).toHaveLength(2);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.getByText('3 accounts in total')).toBeInTheDocument();
-    expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 10, sort: '-createdAt' }));
+    expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 4, sort: '-createdAt' }));
   });
 
   it('shows each user as a card with the typing stats from the backend', async () => {
@@ -91,7 +91,36 @@ describe('AdminUsersPage', () => {
     fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
     fireEvent.click(within(cards).getByRole('menuitem', { name: 'Edit' }));
 
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('minh')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows the user form empty and disabled until a user is picked', async () => {
+    renderPage();
+    await screen.findByLabelText('User cards');
+
+    expect(screen.getByLabelText('Display name')).toBeDisabled();
+    expect(screen.getByLabelText('Description')).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Admin role' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Update user' })).toBeDisabled();
+  });
+
+  it('starts with the filters Role user and Email verified, and All removes them', async () => {
+    renderPage();
+    await screen.findAllByText('lan@example.com');
+    expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ role: 'user', verified: 'true' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Role' })).getByRole('menuitemradio', { name: 'All' }));
+    await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ role: '', verified: 'true' })));
+  });
+
+  it('shows the part of the email before the @ when a user has no display name', async () => {
+    listUsers.mockResolvedValue(page([user('u9', 'sam@example.com', { displayName: undefined })]));
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    expect(within(cards).getByText('sam')).toBeInTheDocument();
   });
 
   it('deletes a user from the kebab menu after confirmation, but not the signed-in admin', async () => {
@@ -161,15 +190,15 @@ describe('AdminUsersPage', () => {
     await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ role: 'admin' })));
   });
 
-  it('pages through the users, 10 per page, from the Users panel', async () => {
-    listUsers.mockResolvedValue({ items: [admin, lan, minh], page: 1, limit: 10, total: 25, totalPages: 3 });
+  it('pages through the users, 4 per page, from the Users panel', async () => {
+    listUsers.mockResolvedValue({ items: [admin, lan, minh], page: 1, limit: 4, total: 25, totalPages: 7 });
     renderPage();
     await screen.findAllByText('lan@example.com');
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 7')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
-    await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, limit: 10 })));
+    await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, limit: 4 })));
   });
 
   it('sorts from the toolbar of the Users panel', async () => {
@@ -182,25 +211,51 @@ describe('AdminUsersPage', () => {
     await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'email' })));
   });
 
-  it('edits a user', async () => {
+  it('edits a user in the form above the list', async () => {
     updateUser.mockResolvedValue({ ...minh, role: 'admin', isEmailVerified: true });
     renderPage();
 
     await pickAction('minh@example.com', 'Edit');
-    const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByLabelText('Role'), { target: { value: 'admin' } });
-    fireEvent.click(within(dialog).getByRole('switch', { name: 'Email verified' }));
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    fireEvent.click(await screen.findByRole('switch', { name: 'Admin role' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Email verified' }));
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Types at night.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Update user' }));
 
     await waitFor(() =>
       expect(updateUser).toHaveBeenCalledWith('u2', {
         displayName: 'minh',
+        bio: 'Types at night.',
         role: 'admin',
         isEmailVerified: true,
         loginOtpEnabled: false,
       }),
     );
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    // The form goes back to empty once the user is saved.
+    await waitFor(() => expect(screen.getByLabelText('Display name')).toBeDisabled());
+    expect(setUserStatus).not.toHaveBeenCalled();
+  });
+
+  it('locks the account from the form together with the other changes', async () => {
+    updateUser.mockResolvedValue(minh);
+    setUserStatus.mockResolvedValue(minh);
+    renderPage();
+
+    await pickAction('minh@example.com', 'Edit');
+    fireEvent.click(await screen.findByRole('switch', { name: 'Account active' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Update user' }));
+
+    await waitFor(() => expect(setUserStatus).toHaveBeenCalledWith('u2', 'locked'));
+  });
+
+  it('cancels the edit and empties the form', async () => {
+    renderPage();
+
+    await pickAction('minh@example.com', 'Edit');
+    expect(await screen.findByDisplayValue('minh')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.getByLabelText('Display name')).toBeDisabled());
+    expect(updateUser).not.toHaveBeenCalled();
   });
 
   it('saves the admin\'s own account without changing their role', async () => {
@@ -208,10 +263,10 @@ describe('AdminUsersPage', () => {
     renderPage();
 
     await pickAction('admin@example.com', 'Edit');
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByLabelText('Role')).toBeDisabled();
-    fireEvent.change(within(dialog).getByLabelText('Display name'), { target: { value: 'Boss' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('switch', { name: 'Admin role' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Account active' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Boss' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Update user' }));
 
     await waitFor(() => expect(updateUser).toHaveBeenCalled());
     expect(updateUser.mock.calls[0][1]).not.toHaveProperty('role', 'user');

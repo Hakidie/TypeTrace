@@ -46,6 +46,8 @@ export interface AdminUserListParams {
 
 export interface AdminUpdateUserInput {
   displayName?: string;
+  /** The description of the profile; empty clears it. */
+  bio?: string;
   role?: UserRole;
   isEmailVerified?: boolean;
   loginOtpEnabled?: boolean;

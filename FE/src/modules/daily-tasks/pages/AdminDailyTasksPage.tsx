@@ -15,7 +15,8 @@ import { DAILY_TASK_TYPE_INFO } from '../daily-tasks.config';
 import { useDailyTasks, useDailyTaskSettings, useDeleteDailyTask, useUpdateDailyTask } from '../hooks/use-daily-tasks';
 import { DAILY_TASK_TYPES, type DailyTask, type DailyTaskListParams } from '../types/daily-task.types';
 
-const PAGE_SIZE = 10;
+// Four rows a page.
+const PAGE_SIZE = 4;
 
 // The first option is the default one.
 const SORT_OPTIONS = [
@@ -112,11 +113,11 @@ export const AdminDailyTasksPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-12">
-      <div ref={formPanelRef} className="scroll-mt-4">
+    <div className="flex flex-1 flex-col gap-12">
+      <div ref={formPanelRef} className="flex scroll-mt-4 flex-col lg:flex-1">
         {/* No visible title (the form says what it is); screen readers still get one. */}
         {/* PANEL Task form */}
-        <Panel bare>
+        <Panel bare fill>
           <h2 className="sr-only">{editing ? 'Edit task' : 'New task'}</h2>
           {/* `key` remounts the form, so it starts from the task being edited (or empty). */}
           <DailyTaskForm key={editing?._id ?? 'new'} task={editing} onDone={() => setEditing(undefined)} />

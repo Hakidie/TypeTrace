@@ -92,6 +92,9 @@ describe('PassagesPage', () => {
     expect(within(row).getByText('Hà Nội vào thu, trời trong và gió se lạnh.')).toBeInTheDocument();
     expect(within(row).getByText('40 words')).toBeInTheDocument();
     expect(within(row).getByText('Published')).toBeInTheDocument();
+    // The same tags as the admin's card: Regular before the title, the language with its word.
+    expect(within(row).getByRole('img', { name: 'Regular passage' })).toBeInTheDocument();
+    expect(within(row).getByText('Vietnamese')).toBeInTheDocument();
     expect(screen.getByText('Draft')).toBeInTheDocument();
     expect(screen.getAllByRole('article')).toHaveLength(2);
 

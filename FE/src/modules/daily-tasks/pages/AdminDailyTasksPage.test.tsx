@@ -123,7 +123,7 @@ describe('AdminDailyTasksPage', () => {
     expect(within(cards).getAllByText('Active')).toHaveLength(3);
     expect(within(cards).getAllByText('Inactive')).toHaveLength(1);
     expect(screen.getByText('4 tasks')).toBeInTheDocument();
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 10, sort: '-createdAt' }));
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 4, sort: '-createdAt' }));
   });
 
   it('shows the tasks per day in the toolbar, and in its menu what they mean with the active tasks', async () => {
@@ -484,7 +484,7 @@ describe('AdminDailyTasksPage', () => {
     await screen.findByLabelText('Daily task cards');
 
     expect(list).toHaveBeenCalledWith(
-      expect.objectContaining({ q: 'fast', type: 'wpm', isActive: 'false', sort: 'title', page: 1, limit: 10 }),
+      expect.objectContaining({ q: 'fast', type: 'wpm', isActive: 'false', sort: 'title', page: 1, limit: 4 }),
     );
   });
 

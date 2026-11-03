@@ -8,7 +8,6 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
-import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
 import { fallbackThemes, type ThemeMode } from '@/shared/lib/theme';
 import { ThemeEditor } from '@/modules/settings/components/ThemeEditor';
 import { ThemeGrid, type ThemeOption } from '@/modules/settings/components/ThemeGrid';
@@ -99,20 +98,22 @@ export const AdminThemesPage = () => {
           onEdit={startEditing}
           onDelete={setDeleting}
         />
-        <Pagination page={themes.data.page} totalPages={themes.data.totalPages} onPageChange={list.setPage} variant="toolbar" />
+        <Pagination page={themes.data.page} totalPages={themes.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
       </>
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-12">
       <div ref={panelRef} className="scroll-mt-4">
-        {/* PANEL Theme form */}
-        <Panel title={editing ? 'Edit theme' : 'New theme'} bare titleClassName={panelTitleClass} className={panelBodyClass}>
+        {/* PANEL Theme form: no visible title (the editor says what it is); screen readers still get one. */}
+        <Panel bare>
+          <h2 className="sr-only">{editing ? 'Edit theme' : 'New theme'}</h2>
               <ThemeEditor
                 key={`${editing?._id ?? mode}-${round}`}
                 mode={mode}
                 plain
+                large
                 label={editing ? 'Edit theme' : 'New theme'}
                 initialName={editing?.name}
                 initialColors={editing?.colors ?? fallbackThemes[mode].colors}
@@ -133,10 +134,10 @@ export const AdminThemesPage = () => {
                     aria-label={`Mode: ${mode === 'dark' ? 'Dark' : 'Light'}`}
                     title={`Switch to ${mode === 'dark' ? 'Light' : 'Dark'}`}
                     onClick={() => setNewMode(mode === 'dark' ? 'light' : 'dark')}
-                    className="flex size-6 items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex size-9 items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     style={{ backgroundColor: `color-mix(in srgb, ${colors.text} 15%, transparent)`, color: colors.text }}
                   >
-                    {mode === 'dark' ? <Moon className="size-4" aria-hidden /> : <Sun className="size-4" aria-hidden />}
+                    {mode === 'dark' ? <Moon className="size-5" aria-hidden /> : <Sun className="size-5" aria-hidden />}
                   </button>
                   )
                 }
@@ -145,9 +146,11 @@ export const AdminThemesPage = () => {
       </div>
 
       {/* PANEL Themes */}
-      <Panel title="Themes" bare titleClassName={panelTitleClass} className={panelBodyClass}>
-        <div className="space-y-3">
+      <Panel bare>
+        <h2 className="sr-only">Themes</h2>
+        <div className="flex flex-col gap-3">
           <ListToolbar
+            title="Themes"
             search={{
               label: 'Search themes',
               placeholder: 'Search name…',

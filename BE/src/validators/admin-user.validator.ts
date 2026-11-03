@@ -15,6 +15,8 @@ export const listUsersQuerySchema = paginationQuerySchema.extend({
 export const adminUpdateUserSchema = z
   .object({
     displayName: z.string().trim().min(1).max(100),
+    // The description of the profile (the learner's bio, 200 characters at most); empty clears it.
+    bio: z.string().trim().max(200),
     role: z.enum(USER_ROLES),
     isEmailVerified: z.boolean(),
     loginOtpEnabled: z.boolean()

@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event';
 import { fireEvent, screen } from '@testing-library/react';
 import { LayoutDashboard, Users } from 'lucide-react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -37,12 +38,33 @@ describe('AdminSidebar', () => {
   it('shows only icons when compact, keeping the names for screen readers', () => {
     renderWithProviders(<AdminSidebar navItems={navItems} compact />, { route: '/admin', path: '/admin/*' });
     const link = screen.getByRole('link', { name: 'Users' });
-    expect(link).toHaveAttribute('title', 'Users');
     expect(link.querySelector('svg')).toHaveClass('size-5');
+    // The tooltip must not spoil the classes of the link: centered icon, its own padding, a real class name (not code).
+    expect(link).toHaveClass('justify-center', 'px-3', 'py-2');
+    expect(link.className).not.toContain('=>');
+    expect(screen.getByRole('link', { name: 'Back to app' })).toHaveClass('justify-center');
     expect(screen.getByText('Users')).toHaveClass('sr-only');
-    const logout = screen.getByRole('button', { name: /logout/i });
-    expect(logout).toHaveAttribute('title', 'Logout');
-    expect(logout).toHaveClass('px-0');
+    expect(screen.getByRole('button', { name: /logout/i })).toHaveClass('px-0');
+  });
+
+  it.each([
+    ['link', 'Users'],
+    ['link', 'Back to app'],
+    ['button', 'Logout'],
+  ] as const)('says what the %s %s is in a tooltip when compact', async (role, name) => {
+    const user = userEvent.setup();
+    renderWithProviders(<AdminSidebar navItems={navItems} compact />, { route: '/admin', path: '/admin/*' });
+
+    await user.hover(screen.getByRole(role, { name }));
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(name);
+  });
+
+  it('has no tooltips when the sidebar shows its text', async () => {
+    const user = userEvent.setup();
+    renderSidebar('/admin');
+    await user.hover(screen.getByRole('link', { name: 'Users' }));
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
   it('shows the logo, the signed-in admin, and logs out', async () => {
