@@ -98,11 +98,31 @@ describe('PassageModel language (ranked duel, phase 1)', () => {
     expect(passage.language).toBe('vi');
   });
 
-  it('counts no error tags in an English passage', async () => {
-    const passage = await PassageModel.create({ ...base, language: 'en', content: 'Hôm nay trời đẹp quá' });
+  it('counts the English error tags of an English passage, and no Vietnamese ones (SCRUM-218)', async () => {
+    const passage = await PassageModel.create({ ...base, language: 'en', content: "I saw a cat - it ran, didn't it?" });
 
-    expect(passage.wordCount).toBe(5);
-    expect(passage.tagCounts).toMatchObject({ BASE_LETTER: 0, TONE_WRONG: 0, D_MISSING: 0, MARK_WRONG: 0, HOI_NGA_CONFUSION: 0 });
+    expect(passage.wordCount).toBe(9);
+    expect(passage.tagCounts).toMatchObject({
+      BASE_LETTER: 0,
+      TONE_WRONG: 0,
+      D_MISSING: 0,
+      MARK_WRONG: 0,
+      HOI_NGA_CONFUSION: 0,
+      // Every word can get a letter too many; `-` has no letter to get wrong, leave out or type in the wrong case.
+      LETTER_EXTRA: 9,
+      LETTER_WRONG: 8,
+      LETTER_MISSING: 8,
+      CASE_WRONG: 8,
+      // Not `I`, `a` and `-`: no two different letters side by side.
+      LETTERS_SWAPPED: 6,
+      PUNCTUATION_WRONG: 4
+    });
+  });
+
+  it('counts no English error tags in a Vietnamese passage', async () => {
+    const passage = await PassageModel.create(base);
+
+    expect(passage.tagCounts).toMatchObject({ LETTER_WRONG: 0, LETTER_MISSING: 0, LETTER_EXTRA: 0, LETTERS_SWAPPED: 0, CASE_WRONG: 0, PUNCTUATION_WRONG: 0 });
   });
 });
 
