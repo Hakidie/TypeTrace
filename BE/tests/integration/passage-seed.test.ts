@@ -90,6 +90,7 @@ describe('English starter passages (ranked duel, phase 1)', () => {
     for (const passage of ENGLISH_PASSAGE_LIST) {
       const words = splitWords(passage.content).length;
       expect(passage.language).toBe('en');
+      expect(passage.isRanked).toBe(true);
       expect(words, passage.title).toBeGreaterThanOrEqual(30);
       expect(words, passage.title).toBeLessThanOrEqual(80);
       expect(passage.content, passage.title).toMatch(/^[\x20-\x7E]+$/);

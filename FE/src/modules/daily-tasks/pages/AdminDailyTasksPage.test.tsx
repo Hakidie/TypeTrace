@@ -91,6 +91,12 @@ const pickAction = async (title: string, action: 'Edit' | 'Activate' | 'Deactiva
   fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
 };
 
+/** Opens a menu of the form's strip (Type or Focus) and picks an option; the menu opens inside the form. */
+const pickOption = (form: ReturnType<typeof formOf>, menu: 'Type' | 'Focus', option: string) => {
+  fireEvent.click(form.getByRole('button', { name: new RegExp(`^${menu}:`) }));
+  fireEvent.click(form.getByRole('menuitemradio', { name: option }));
+};
+
 /** The form of the top panel: New task, or Edit task while a task is being edited. */
 const formOf = (name: 'New task' | 'Edit task' = 'New task') => within(screen.getByRole('form', { name }));
 
@@ -172,13 +178,13 @@ describe('AdminDailyTasksPage', () => {
 
     const form = formOf('New task');
     fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Precise' } });
-    fireEvent.change(form.getByLabelText('Type'), { target: { value: 'accuracy' } });
-    fireEvent.change(form.getByLabelText('Target'), { target: { value: '101' } });
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '99' } });
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
-    expect(await form.findByText('At most 100 for this type')).toBeInTheDocument();
+    expect(await form.findByText('At most 20 for this type')).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
 
+    pickOption(form, 'Type', 'Accuracy');
     fireEvent.change(form.getByLabelText('Target'), { target: { value: '98' } });
     expect(await form.findByText('Reach 98% accuracy in one session')).toBeInTheDocument();
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
@@ -187,7 +193,34 @@ describe('AdminDailyTasksPage', () => {
       expect(create).toHaveBeenCalledWith({ title: 'Precise', description: '', type: 'accuracy', target: 98, errorType: null, isActive: true }),
     );
     await waitFor(() => expect(form.getByLabelText('Title')).toHaveValue(''));
-    expect(form.getByLabelText('Type')).toHaveValue('sessions');
+    expect(form.getByRole('button', { name: 'Type: Sessions' })).toBeInTheDocument();
+  });
+
+  it('makes a task inactive with the Active menu', async () => {
+    create.mockResolvedValue(task('t7', 'Quiet'));
+    renderPage();
+    await screen.findByLabelText('Daily task cards');
+
+    const form = formOf('New task');
+    expect(form.getByRole('button', { name: 'Active: Active' })).toBeInTheDocument();
+    fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Quiet' } });
+    fireEvent.click(form.getByRole('button', { name: 'Active: Active' }));
+    fireEvent.click(form.getByRole('menuitemradio', { name: 'Inactive' }));
+    expect(form.getByRole('button', { name: 'Active: Inactive' })).toBeInTheDocument();
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({ title: 'Quiet', description: '', type: 'sessions', target: 1, errorType: null, isActive: false }),
+    );
+  });
+
+  it('takes at most 2 digits in the target field', async () => {
+    renderPage();
+    await screen.findByLabelText('Daily task cards');
+
+    const form = formOf('New task');
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '123' } });
+    expect(form.getByLabelText('Target')).toHaveValue(12);
   });
 
   it('refuses a new task without a title or a target', async () => {
@@ -210,7 +243,7 @@ describe('AdminDailyTasksPage', () => {
     await pickAction('Speed run', 'Edit');
     const form = formOf('Edit task');
     expect(form.getByLabelText('Title')).toHaveValue('Speed run');
-    expect(form.getByLabelText('Type')).toHaveValue('wpm');
+    expect(form.getByRole('button', { name: 'Type: Speed' })).toBeInTheDocument();
     expect(form.getByLabelText('Description')).toHaveValue('Type fast but clean.');
     fireEvent.change(form.getByLabelText('Target'), { target: { value: '45' } });
     fireEvent.click(form.getByRole('button', { name: 'Update task' }));
@@ -317,14 +350,12 @@ describe('AdminDailyTasksPage', () => {
     await screen.findByLabelText('Daily task cards');
 
     const form = formOf('New task');
-    const type = form.getByLabelText('Type');
-    expect(type).toHaveValue('sessions');
-    expect(form.queryByLabelText('Focus')).not.toBeInTheDocument();
+    expect(form.getByRole('button', { name: 'Type: Sessions' })).toBeInTheDocument();
+    expect(form.queryByRole('button', { name: /^Focus:/ })).not.toBeInTheDocument();
 
-    fireEvent.change(type, { target: { value: 'accuracy' } });
-    const focusError = await form.findByLabelText('Focus');
-    expect(focusError).toHaveValue('');
-    expect(within(focusError).getAllByRole('option').map((option) => option.textContent)).toEqual([
+    pickOption(form, 'Type', 'Accuracy');
+    fireEvent.click(await form.findByRole('button', { name: 'Focus: None' }));
+    expect(within(form.getByRole('menu', { name: 'Focus' })).getAllByRole('menuitemradio').map((option) => option.textContent)).toEqual([
       'None',
       'Wrong letter',
       'Missing stroke on đ',
@@ -333,11 +364,11 @@ describe('AdminDailyTasksPage', () => {
       'Hỏi / ngã confusion',
     ]);
 
-    for (const other of ['wpm', 'minutes']) {
-      fireEvent.change(type, { target: { value: other } });
-      await waitFor(() => expect(form.queryByLabelText('Focus')).not.toBeInTheDocument());
-      fireEvent.change(type, { target: { value: 'accuracy' } });
-      await form.findByLabelText('Focus');
+    for (const other of ['Speed', 'Minutes']) {
+      pickOption(form, 'Type', other);
+      await waitFor(() => expect(form.queryByRole('button', { name: /^Focus:/ })).not.toBeInTheDocument());
+      pickOption(form, 'Type', 'Accuracy');
+      await form.findByRole('button', { name: /^Focus:/ });
     }
   });
 
@@ -348,9 +379,10 @@ describe('AdminDailyTasksPage', () => {
 
     const form = formOf('New task');
     fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Phân biệt hỏi/ngã' } });
-    fireEvent.change(form.getByLabelText('Type'), { target: { value: 'accuracy' } });
+    pickOption(form, 'Type', 'Accuracy');
     fireEvent.change(form.getByLabelText('Target'), { target: { value: '90' } });
-    fireEvent.change(await form.findByLabelText('Focus'), { target: { value: 'HOI_NGA_CONFUSION' } });
+    await form.findByRole('button', { name: /^Focus:/ });
+    pickOption(form, 'Focus', 'Hỏi / ngã confusion');
 
     expect(await form.findByText(hoiNgaGoal)).toBeInTheDocument();
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
@@ -374,17 +406,17 @@ describe('AdminDailyTasksPage', () => {
     await screen.findByLabelText('Daily task cards');
 
     const form = formOf('New task');
-    const type = form.getByLabelText('Type');
     fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Steady' } });
-    fireEvent.change(type, { target: { value: 'accuracy' } });
-    fireEvent.change(await form.findByLabelText('Focus'), { target: { value: 'TONE_WRONG' } });
+    pickOption(form, 'Type', 'Accuracy');
+    await form.findByRole('button', { name: /^Focus:/ });
+    pickOption(form, 'Focus', 'Wrong tone');
 
-    fireEvent.change(type, { target: { value: 'minutes' } });
-    await waitFor(() => expect(form.queryByLabelText('Focus')).not.toBeInTheDocument());
-    fireEvent.change(type, { target: { value: 'accuracy' } });
-    expect(await form.findByLabelText('Focus')).toHaveValue('TONE_WRONG');
+    pickOption(form, 'Type', 'Minutes');
+    await waitFor(() => expect(form.queryByRole('button', { name: /^Focus:/ })).not.toBeInTheDocument());
+    pickOption(form, 'Type', 'Accuracy');
+    expect(await form.findByRole('button', { name: 'Focus: Wrong tone' })).toBeInTheDocument();
 
-    fireEvent.change(type, { target: { value: 'minutes' } });
+    pickOption(form, 'Type', 'Minutes');
     fireEvent.change(form.getByLabelText('Target'), { target: { value: '10' } });
     expect(await form.findByText('Type 10 minutes in all')).toBeInTheDocument();
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
@@ -401,11 +433,11 @@ describe('AdminDailyTasksPage', () => {
 
     await pickAction('Phân biệt hỏi/ngã', 'Edit');
     const form = formOf('Edit task');
-    expect(form.getByLabelText('Type')).toHaveValue('accuracy');
-    expect(form.getByLabelText('Focus')).toHaveValue('HOI_NGA_CONFUSION');
+    expect(form.getByRole('button', { name: 'Type: Accuracy' })).toBeInTheDocument();
+    expect(form.getByRole('button', { name: 'Focus: Hỏi / ngã confusion' })).toBeInTheDocument();
     expect(form.getByText(hoiNgaGoal)).toBeInTheDocument();
 
-    fireEvent.change(form.getByLabelText('Focus'), { target: { value: '' } });
+    pickOption(form, 'Focus', 'None');
     expect(await form.findByText('Reach 90% accuracy in one session')).toBeInTheDocument();
     fireEvent.click(form.getByRole('button', { name: 'Update task' }));
 

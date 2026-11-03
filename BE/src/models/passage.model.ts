@@ -63,6 +63,11 @@ export interface PassageDocument extends mongoose.Document {
    * for every error type.
    */
   isPlacement: boolean;
+  /**
+   * A passage for the ranked duels of the season (US6.4), marked by an admin (not the placement test: that is `isPlacement`).
+   * Only a `published` passage can be ranked, and once a duel has started on it its text is locked.
+   */
+  isRanked: boolean;
   /** Missing on passages saved before the field: they are Vietnamese (see `notEnglish`). */
   language: PassageLanguage;
   /** Filled from `content` on save, do not set it by hand. */
@@ -156,6 +161,7 @@ const passageSchema = new Schema<PassageDocument>(
       )
     },
     isPlacement: { type: Boolean, default: false },
+    isRanked: { type: Boolean, default: false },
     language: { type: String, enum: passageLanguages, default: 'vi' },
     tagCounts: { type: new Schema(tagCountsDefinition, { _id: false }), default: () => ({}) },
     wordCount: { type: Number, default: 0 }
@@ -181,6 +187,8 @@ passageSchema.pre('validate', function () {
 // Matches the practice list: published passages by visibility, newest first, and "pick a placement passage".
 passageSchema.index({ status: 1, visibility: 1, createdAt: -1 });
 passageSchema.index({ isPlacement: 1, status: 1 });
+// The ranked duels pick their passages among the published ranked ones (`isRanked`, US6.4 / SCRUM-130), and the admin list filters by it.
+passageSchema.index({ isRanked: 1, status: 1 });
 // The learner list (`GET /api/passages`) sorts titles in Vietnamese order, so its query has a collation, and a query
 // with a collation can only use indexes with the same one. Without this index MongoDB reads every passage, the private
 // passages of all the other learners too.

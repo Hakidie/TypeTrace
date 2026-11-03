@@ -13,7 +13,7 @@ import { rainDuelSettings } from './rain-duel-rules';
 import { getMyRanking } from './ranked.service';
 import { rateMatch } from './rating.service';
 import { tierFor } from './season.service';
-import { computeWpm, gradeWords, MAX_COUNTED_WPM, MIN_COUNTED_WORDS, SESSION_GRACE_MS } from './typing-session.service';
+import { computeWpm, countWpmChars, gradeWords, MAX_COUNTED_WPM, MIN_COUNTED_WORDS, SESSION_GRACE_MS } from './typing-session.service';
 
 
 const roomNotFound = () => notFound('Room not found');
@@ -400,14 +400,15 @@ export const sendProgress = (userId: string, code: string, { typedWords, typedAt
     if (typedAtMs.some((time) => time > matchSettings.durationMs + SESSION_GRACE_MS)) throw badRequest('A word time is after the end of the match');
     if (done && typedWords.length !== total) throw badRequest('Type every word before finishing');
 
-    const correctWords = gradeWords(match.targetWords, typedWords, typedAtMs).filter((word) => word.errorTypes.length === 0).length;
+    const correct = gradeWords(match.targetWords, typedWords, typedAtMs).filter((word) => word.errorTypes.length === 0);
+    const correctWords = correct.length;
     Object.assign(player, {
       typedWords,
       typedAtMs,
       typedCount: typedWords.length,
       correctWords,
       accuracy: correctWords / total,
-      wpm: computeWpm(correctWords, Date.now() - match.startedAt!.getTime())
+      wpm: computeWpm(countWpmChars(correct.map((word) => word.target)), Date.now() - match.startedAt!.getTime())
     });
     const other = match.players.find((entry) => entry !== player)!;
 

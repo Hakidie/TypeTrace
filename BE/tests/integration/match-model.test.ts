@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { MatchModel } from '../../src/models/match.model';
 import { PassageModel } from '../../src/models/passage.model';
-import { generateRoomCode, pickRankedPassage, ROOM_CODE_ALPHABET, toPublicMatch } from '../../src/services/match-view';
+import { generateRoomCode, pickRainWords, pickRankedPassage, ROOM_CODE_ALPHABET, toPublicMatch } from '../../src/services/match-view';
 import { createUser } from '../helpers/user-factory';
 
 const words = (count: number) => Array.from({ length: count }, (_, i) => `word${i}`).join(' ');
-const english = { source: 'Written for TypeTrace', status: 'published', visibility: 'public', language: 'en' };
+const english = { source: 'Written for TypeTrace', status: 'published', visibility: 'public', language: 'en', isRanked: true };
 
 let hosts = 0;
 const newMatch = async (code: string, status = 'waiting') => {
@@ -38,8 +38,9 @@ describe('room codes (ranked duel, phase 3)', () => {
 });
 
 describe('pickRankedPassage', () => {
-  it('picks only published public English passages of 30 to 80 words', async () => {
+  it('picks only ranked, published, public English passages of 30 to 80 words', async () => {
     await PassageModel.create({ ...english, title: 'Vietnamese', language: 'vi', content: words(40) });
+    await PassageModel.create({ ...english, title: 'Not ranked', isRanked: false, content: words(40) });
     await PassageModel.create({ ...english, title: 'Too short', content: words(20) });
     await PassageModel.create({ ...english, title: 'Draft', status: 'draft', content: words(40) });
     await PassageModel.create({ ...english, title: 'Private', visibility: 'private', content: words(40) });
@@ -48,8 +49,9 @@ describe('pickRankedPassage', () => {
     for (let i = 0; i < 10; i++) expect((await pickRankedPassage())?.title).toBe('Good one');
   });
 
-  it('finds nothing when the bank has no English passage', async () => {
+  it('finds nothing when the bank has no ranked English passage', async () => {
     await PassageModel.create({ ...english, title: 'Vietnamese', language: 'vi', content: words(40) });
+    await PassageModel.create({ ...english, title: 'Not ranked', isRanked: false, content: words(40) });
 
     expect(await pickRankedPassage()).toBeUndefined();
   });
@@ -67,5 +69,17 @@ describe('toPublicMatch', () => {
 
     match.status = 'running';
     expect(toPublicMatch(match).targetWords).toEqual(['The', 'sun', 'rose.']);
+  });
+});
+
+describe('pickRainWords', () => {
+  it('takes the words of the ranked passages only', async () => {
+    await PassageModel.create({ ...english, title: 'Ranked', content: 'alpha bravo charlie' });
+    await PassageModel.create({ ...english, title: 'Not ranked', isRanked: false, content: 'delta echo foxtrot' });
+    await PassageModel.create({ ...english, title: 'Draft', status: 'draft', content: 'golf hotel india' });
+
+    const picked = await pickRainWords();
+
+    expect(picked.map((word) => word.toLowerCase()).sort()).toEqual(['alpha', 'bravo', 'charlie']);
   });
 });

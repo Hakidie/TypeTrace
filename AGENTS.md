@@ -38,11 +38,12 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234`; and typing sessions for `demo@example.com` (a counted placement test 8 months ago, practice sessions since, two months without any, sessions on the last days) so the charts of the profile have data; made once |
 | `npm run import:words` | Add the starter word list (`BE/src/data/words.ts`) to the word bank with error tags; safe to run many times |
 | `npm run import:passages` | Add the starter passages (`BE/src/data/passages.ts`, source recorded, owner TypeTrace) to the passage bank as published passages; safe to run many times |
-| `npm run import:passages:en` | Add the English starter passages (`BE/src/data/passages-en.ts`, for ranked duels; never offered in Practice or Placement) as published passages; safe to run many times |
+| `npm run import:passages:en` | Add the English starter passages (`BE/src/data/passages-en.ts`, marked `isRanked`, for ranked duels; never offered in Practice or Placement) as published passages; safe to run many times |
 | `npm run import:themes` | Add the starter themes (`BE/src/data/themes.ts`, owner TypeTrace) as published themes; safe to run many times |
 | `npm run rebuild:progress` | Rebuild every learner's days (`DailyProgress`: streak, daily mission, profile heatmap) from their counted sessions, in each learner's own time zone. Run it once after deploying SCRUM-31 (older sessions have no day yet) and after changing `DAILY_MISSION_SESSIONS`, while nobody is typing; safe to run many times |
 | `npm run rebuild:tag-counts` | Count the words and error tags (`tagCounts`) of every passage again from its text and language. Run it once after deploying SCRUM-218 (English passages saved before have no English tags yet) and after changing `tagWord` or `tagEnglishWord`; safe to run many times |
 | `npm run migrate:rating-kinds` | Mark the ratings saved before word rain duels as race ratings (`kind: 'race'`) and switch to the one-rating-per-kind index. Run it once after deploying the rain duel; safe to run many times |
+| `npm run migrate:ranked-passages` | Mark the published public English passages already in the bank as `isRanked`: ranked duels (races and word rain) play only those. Run it once after deploying US6.4; safe to run many times |
 | `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together |
 | `npm test` | Run backend and frontend tests |
 | `npm run lint` | Lint the frontend |

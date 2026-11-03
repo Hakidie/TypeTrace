@@ -16,6 +16,7 @@ export const ErrorTypeChart = ({ stats }: ErrorTypeChartProps) => {
   const hasErrors = stats.wrongWords > 0;
 
   return (
+    // PANEL Errors by type
     <Panel bare title="Lỗi theo loại">
       {!hasErrors ? (
         <EmptyState title="Phiên này không có lỗi nào" description="Chúc mừng, bạn gõ đúng hết các từ." />

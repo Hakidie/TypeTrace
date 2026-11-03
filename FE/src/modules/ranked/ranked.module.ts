@@ -7,6 +7,11 @@ import { LeaderboardPage } from './pages/LeaderboardPage';
 export const rankedModule: AppModule = {
   routes: [{ path: '/leaderboard', Component: LeaderboardPage }],
   navItems: [{ to: '/leaderboard', label: 'Leaderboard', icon: Trophy }],
+};
+
+// The Seasons admin page is its own entry, registered after the Daily tasks module: the order of the modules is the order of the admin sidebar.
+export const seasonsAdminModule: AppModule = {
+  routes: [],
   adminRoutes: [{ path: '/admin/seasons', Component: AdminSeasonsPage }],
   adminNavItems: [{ to: '/admin/seasons', label: 'Seasons', icon: CalendarRange }],
 };

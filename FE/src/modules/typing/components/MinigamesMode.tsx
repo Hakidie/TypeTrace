@@ -41,6 +41,7 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
           onClick={() => onSelect(id)}
           className={cn(hoverFrame, 'group cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}
         >
+          {/* PANEL Minigame card */}
           <Panel title={title} bare centerTitle titleClassName={titleClass} fill>
             <PanelArt icon={icon} />
             {/* The card opens down to show the description while it is hovered or has the focus (always open on touch screens, which cannot hover). */}

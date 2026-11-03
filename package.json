@@ -13,6 +13,7 @@
     "rebuild:progress": "npm run rebuild:progress --prefix BE",
     "rebuild:tag-counts": "npm run rebuild:tag-counts --prefix BE",
     "migrate:rating-kinds": "npm run migrate:rating-kinds --prefix BE",
+    "migrate:ranked-passages": "npm run migrate:ranked-passages --prefix BE",
     "test": "npm test --prefix BE && npm test --prefix FE",
     "lint": "npm run lint --prefix FE",
     "build": "npm run build --prefix BE && npm run build --prefix FE",

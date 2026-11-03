@@ -32,6 +32,7 @@ export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: S
   const maxSecond = Math.max(timeLimitSeconds, Math.ceil(timeline.points[timeline.points.length - 1]?.second ?? 0));
 
   return (
+    // PANEL Speed and errors chart
     <Panel bare>
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="min-w-0 flex-1">

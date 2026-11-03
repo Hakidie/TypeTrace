@@ -103,6 +103,7 @@ export const AdminUsersPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* PANEL Users */}
       <Panel title="Users" bare titleClassName={panelTitleClass} className={panelBodyClass}>
         <div className="space-y-3">
           <ListToolbar

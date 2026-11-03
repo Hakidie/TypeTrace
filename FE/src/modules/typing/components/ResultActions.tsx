@@ -11,6 +11,7 @@ interface ResultActionsProps {
 
 /** The buttons under the result: show or hide the error panels, Replay (not working yet: the screen only) and Type again. */
 export const ResultActions = ({ detailOpen, onToggleDetail }: ResultActionsProps) => (
+  // PANEL Result actions
   <Panel bare>
     <div className="flex flex-wrap justify-center gap-3">
       <Button variant="outline" aria-expanded={detailOpen} onClick={onToggleDetail}>

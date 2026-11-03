@@ -427,7 +427,7 @@ describe('word times and the speed chart (SCRUM-187)', () => {
 
     const { timeline } = (await statsOf(auth, session._id)).body;
     expect(timeline.status).toBe('ok');
-    expect(timeline.points[0]).toEqual({ second: 1, wpm: 60, errors: 1 }); // 2 words, 1 wrong: 1 right in 1 s
+    expect(timeline.points[0]).toEqual({ second: 1, wpm: 48, errors: 1 }); // 2 words, 1 wrong: the right one has 4 characters (Việt) in 1 s: 4 / 5 words in 1/60 min
     expect(timeline.points.map((point: { second: number }) => point.second).slice(0, 3)).toEqual([1, 2, 3]);
     const last = timeline.points[timeline.points.length - 1];
     expect(last.second).toBeCloseTo(done.body.durationMs / 1000, 0);
@@ -447,10 +447,10 @@ describe('word times and the speed chart (SCRUM-187)', () => {
     const points = timelineOf([word(1000), word(2000), word(3000), word(8000, true)], 20_000);
     const at = (second: number) => points.find((point) => point.second === second);
 
-    expect(at(3)).toEqual({ second: 3, wpm: 60, errors: 0 }); // 3 right words in 3 s: the window is cut at the start
-    expect(at(8)).toEqual({ second: 8, wpm: 22.5, errors: 1 }); // 3 right words in 8 s, and the wrong one
-    expect(at(10)).toEqual({ second: 10, wpm: 18, errors: 0 }); // all four words, 3 right in 10 s
-    expect(at(12)).toEqual({ second: 12, wpm: 6, errors: 0 }); // (2 s, 12 s]: the word at 3 s and the wrong one
+    expect(at(3)).toEqual({ second: 3, wpm: 20, errors: 0 }); // 3 right words of 1 character + 2 spaces = 5 characters in 3 s: the window is cut at the start
+    expect(at(8)).toEqual({ second: 8, wpm: 7.5, errors: 1 }); // 5 characters in 8 s, and the wrong word
+    expect(at(10)).toEqual({ second: 10, wpm: 6, errors: 0 }); // all four words, 5 characters of the 3 right ones in 10 s
+    expect(at(12)).toEqual({ second: 12, wpm: 1.2, errors: 0 }); // (2 s, 12 s]: the word at 3 s (1 character) and the wrong one
     expect(at(14)).toEqual({ second: 14, wpm: 0, errors: 0 }); // (4 s, 14 s]: only the wrong word
     expect(at(19)).toEqual({ second: 19, wpm: 0, errors: 0 }); // quiet: no word in the window
     expect(points).toHaveLength(20);

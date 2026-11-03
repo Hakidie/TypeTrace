@@ -16,6 +16,8 @@
     "rebuild:progress": "tsx src/scripts/rebuild-progress.ts",
     "rebuild:tag-counts": "tsx src/scripts/rebuild-tag-counts.ts",
     "migrate:rating-kinds": "tsx src/scripts/migrate-rating-kinds.ts"
+    "migrate:rating-kinds": "tsx src/scripts/migrate-rating-kinds.ts",
+    "migrate:ranked-passages": "tsx src/scripts/migrate-ranked-passages.ts"
   },
   "keywords": [],
   "author": "",

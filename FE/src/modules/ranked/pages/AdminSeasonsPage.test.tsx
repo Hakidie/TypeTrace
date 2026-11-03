@@ -17,6 +17,7 @@ const season = (id: string, number: number, status: 'active' | 'closed') => ({
   status,
   startsAt: '2026-09-01T00:00:00.000Z',
   endsAt: '2026-10-27T00:00:00.000Z',
+  participants: { race: 12, rain: 1 },
 });
 const page = (items: unknown[]) => ({ items, page: 1, limit: 20, total: items.length, totalPages: 1 });
 
@@ -32,10 +33,22 @@ describe('AdminSeasonsPage (ranked duel, phase 5)', () => {
 
     const rows = await screen.findAllByRole('article');
     expect(within(rows[0]).getByText('Season 2')).toBeInTheDocument();
-    expect(within(rows[0]).getByText('Active')).toBeInTheDocument();
-    expect(within(rows[1]).getByText('Closed')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('ON GOING')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('CLOSED')).toBeInTheDocument();
     expect(within(rows[0]).getByRole('button', { name: 'Close season' })).toBeInTheDocument();
+    expect(within(rows[0]).getByText('12 players')).toBeInTheDocument();
     expect(within(rows[1]).queryByRole('button', { name: 'Close season' })).not.toBeInTheDocument();
+  });
+
+  it('shows one mode at a time and a click on it shows the other', async () => {
+    renderWithProviders(<AdminSeasonsPage />, { route: '/admin/seasons', path: '/admin/seasons' });
+
+    const rows = await screen.findAllByRole('article');
+    fireEvent.click(within(rows[0]).getByRole('button', { name: 'Mode: Race' }));
+    expect(within(rows[0]).getByRole('button', { name: 'Mode: Rain' })).toBeInTheDocument();
+    expect(within(rows[1]).getByRole('button', { name: 'Mode: Rain' })).toBeInTheDocument();
+    // The count follows the mode.
+    expect(within(rows[0]).getByText('1 player')).toBeInTheDocument();
   });
 
   it('closes the season after a confirmation', async () => {

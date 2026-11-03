@@ -12,6 +12,7 @@ interface SessionInfoPanelProps {
 
 /** What was typed and how: the name of the passage, the typing mode and the time chosen. */
 export const SessionInfoPanel = ({ passageTitle, mode, timeLimitSeconds }: SessionInfoPanelProps) => (
+  // PANEL Session info
   <Panel bare>
     <dl className="grid gap-4 sm:grid-cols-3">
       <div className="min-w-0">

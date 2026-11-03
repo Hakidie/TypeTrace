@@ -43,6 +43,7 @@ export const RoomLobby = ({ match, myId, onLeft }: RoomLobbyProps) => {
   return (
     <div className="mx-auto -mt-8 flex w-full max-w-7xl flex-col items-center gap-16">
       <div className="w-full">
+        {/* PANEL Room code */}
         <Panel bare className="flex flex-col items-center gap-2 text-primary">
           <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground">Room code</p>
           <div className="flex items-center gap-2 border border-dashed border-primary/50 bg-card/60 py-2 pl-5 pr-2 backdrop-blur-sm">
@@ -62,6 +63,7 @@ export const RoomLobby = ({ match, myId, onLeft }: RoomLobbyProps) => {
         </Panel>
       </div>
       <div className="w-full">
+        {/* PANEL Players */}
         <Panel bare>
           <div className="grid w-full items-stretch gap-4 sm:grid-cols-[1fr_auto_1fr] sm:gap-x-12">
             {seat(me, 0)}

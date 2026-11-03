@@ -275,7 +275,8 @@ describe('RankMode kinds of match (rain duel)', () => {
     api.get.mockResolvedValue(room({ kind: 'rain' }));
     renderAt();
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Rain' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mode' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Rain/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Create room' }));
 
     await waitFor(() => expect(api.create).toHaveBeenCalledWith('rain'));
@@ -295,7 +296,8 @@ describe('RankMode kinds of match (rain duel)', () => {
     renderAt();
     await waitFor(() => expect(api.me).toHaveBeenCalledWith('race'));
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Rain' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mode' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Rain/ }));
 
     await waitFor(() => expect(api.me).toHaveBeenCalledWith('rain'));
   });

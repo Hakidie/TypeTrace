@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MatchModel } from '../../src/models/match.model';
 import { PassageModel } from '../../src/models/passage.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
 import { api } from '../helpers/api';
@@ -456,5 +457,92 @@ describe('passage language: review fixes (ranked duel, phase 1)', () => {
     expect(response.status).toBe(400);
     expect(response.body.message).toBe('Only TypeTrace passages can be English');
     expect((await PassageModel.findById(passage._id))!.language).toBe('vi');
+  });
+});
+
+describe('ranked test passages (US6.4)', () => {
+  const rank = (auth: string, id: string, isRanked = true) =>
+    api().patch(`/api/admin/passages/${id}`).set('Authorization', auth).send({ isRanked });
+  const englishInput = { title: 'A quiet morning', content: 'The sun rose over the quiet town.', source: 'TypeTrace', language: 'en' };
+  const publishedPassage = async (auth: string, body: object = englishInput) => {
+    const passage = await createPassage(auth, body);
+    await setStatus(auth, passage._id, 'published');
+    return passage;
+  };
+
+  it('is for admins only: a learner gets 403 and the passage stays unranked', async () => {
+    const { auth } = await signInAdmin();
+    const passage = await publishedPassage(auth);
+    const learner = bearerFor(await createUser({ email: 'learner@example.com' }));
+
+    expect((await rank(learner, passage._id)).status).toBe(403);
+    expect((await PassageModel.findById(passage._id))!.isRanked).toBe(false);
+  });
+
+  it('marks and unmarks a published English passage', async () => {
+    const { auth } = await signInAdmin();
+    const first = await publishedPassage(auth);
+    const second = await publishedPassage(auth, { ...englishInput, title: 'A busy evening' });
+
+    for (const passage of [first, second]) {
+      expect((await rank(auth, passage._id)).body.isRanked).toBe(true);
+    }
+    expect((await rank(auth, first._id, false)).body.isRanked).toBe(false);
+    const ranked = await api().get('/api/admin/passages?isRanked=true').set('Authorization', auth);
+    expect(ranked.body.items.map((item: { _id: string }) => item._id)).toEqual([second._id]);
+  });
+
+  it('refuses a Vietnamese passage, new or old, and turning a ranked passage Vietnamese', async () => {
+    const { auth } = await signInAdmin();
+    const vietnamese = await publishedPassage(auth, input);
+    const rejected = await rank(auth, vietnamese._id);
+    expect(rejected.status).toBe(400);
+    expect(rejected.body.message).toBe('Only an English passage can be a ranked test');
+    const created = await api().post('/api/admin/passages').set('Authorization', auth).send({ ...input, isRanked: true });
+    expect(created.status).toBe(400);
+
+    const english = await publishedPassage(auth);
+    await rank(auth, english._id);
+    const edit = await api().patch(`/api/admin/passages/${english._id}`).set('Authorization', auth).send({ language: 'vi' });
+    expect(edit.status).toBe(400);
+    expect(await PassageModel.countDocuments({ isRanked: true })).toBe(1);
+  });
+
+  it('refuses a passage that is not published, new or old', async () => {
+    const { auth } = await signInAdmin();
+    const draft = await createPassage(auth, englishInput);
+    expect((await rank(auth, draft._id)).status).toBe(409);
+    const created = await api().post('/api/admin/passages').set('Authorization', auth).send({ ...englishInput, isRanked: true });
+    expect(created.status).toBe(409);
+    expect(await PassageModel.countDocuments({ isRanked: true })).toBe(0);
+  });
+
+  it('keeps a ranked passage published', async () => {
+    const { auth } = await signInAdmin();
+    const passage = await publishedPassage(auth);
+    await rank(auth, passage._id);
+
+    expect((await setStatus(auth, passage._id, 'archived')).status).toBe(409);
+    await rank(auth, passage._id, false);
+    expect((await setStatus(auth, passage._id, 'archived')).status).toBe(200);
+  });
+
+  it('locks the content once a duel has started on it, but not before', async () => {
+    const { auth } = await signInAdmin();
+    const passage = await publishedPassage(auth);
+    await rank(auth, passage._id);
+    const edit = (body: object) => api().patch(`/api/admin/passages/${passage._id}`).set('Authorization', auth).send(body);
+    const room = { passageId: passage._id, passageTitle: 'Mùa thu', targetWords: ['Đường'] };
+
+    // A room still waiting for a guest has not been played.
+    await MatchModel.create({ ...room, code: 'AAAAAA', status: 'waiting' });
+    expect((await edit({ content: 'A brand new text.' })).status).toBe(200);
+
+    await MatchModel.create({ ...room, code: 'BBBBBB', status: 'finished', startedAt: new Date() });
+    const locked = await edit({ content: 'Changed again.' });
+    expect(locked.status).toBe(409);
+    expect(locked.body.message).toBe('This ranked passage has been played in a duel: its content and language can no longer be changed');
+    expect((await edit({ language: 'vi' })).status).toBe(400);
+    expect((await edit({ title: 'Đổi tên thôi' })).status).toBe(200);
   });
 });
