@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import type { ThemeColors, ThemeMode } from '@/shared/lib/theme';
+import { cn } from '@/shared/lib/utils';
 import { themeProblems } from '../lib/theme-rules';
 import type { ThemeInput } from '../types/theme.types';
 import { ThemeCard } from './ThemeCard';
@@ -34,11 +35,13 @@ interface ThemeEditorProps {
   /** Extra buttons on the card, next to Save (e.g. a mode switch). Gets the colors on the card so the buttons can use them. */
   /** No chosen border on the card (the settings page has it). */
   plain?: boolean;
+  /** A taller card with bigger text (the admin form). */
+  large?: boolean;
   actions?: (colors: ThemeColors) => ReactNode;
 }
 
 /** Create or edit a theme right in the grid: a live card to type the name on and to pick the four colors on, with a save and a cancel icon. */
-export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'New theme', takenNames, onSave, onPreview, onChange, onCancel, actions, plain }: ThemeEditorProps) => {
+export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'New theme', takenNames, onSave, onPreview, onChange, onCancel, actions, plain, large }: ThemeEditorProps) => {
   const schema = useMemo(
     () =>
       z
@@ -86,6 +89,7 @@ export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'Ne
         onCancel={onCancel}
         actions={actions?.(colors)}
         plain={plain}
+        large={large}
         onColorPick={(field, color) => {
           setValue(field, color, { shouldValidate: true });
           onPreview({ ...colors, [field]: color });
@@ -99,7 +103,7 @@ export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'Ne
             placeholder="Theme name"
             autoComplete="off"
             aria-invalid={!!errors.name}
-            className="absolute bottom-6 right-2 w-[55%] bg-transparent text-right text-lg font-medium placeholder:text-current focus-visible:outline-none"
+            className={cn('absolute right-2 w-[55%] bg-transparent text-right font-medium placeholder:text-current focus-visible:outline-none', large ? 'bottom-10 text-2xl' : 'bottom-6 text-lg')}
             style={{ color: colors.text }}
             {...register('name', { onChange: (event) => onChange?.({ name: event.target.value, colors }) })}
           />

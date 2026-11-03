@@ -25,17 +25,22 @@ interface ThemeCardProps {
   plain?: boolean;
   /** With `submitLabel`: more buttons at the top right, before the cancel button (e.g. a mode switch). */
   actions?: ReactNode;
+  /** A taller card with bigger text (the admin form, `h-64`) instead of the one of a grid (`h-36`). */
+  large?: boolean;
   /** Makes the four color columns at the bottom clickable color pickers. */
   onColorPick?: (field: ThemeColorField, color: string) => void;
 }
 
 /** One theme previewed in its own colors: a title in the muted color with a plain text line, a button on its background, a strip of the four colors, the name at the bottom right (or `nameSlot`), a check at the top right when it is the chosen one. */
-export const ThemeCard = ({ theme, current = false, className, nameSlot, onColorPick, submitLabel, onCancel, actions, plain }: ThemeCardProps) => {
+export const ThemeCard = ({ theme, current = false, className, nameSlot, onColorPick, submitLabel, onCancel, actions, plain, large }: ThemeCardProps) => {
   const { background, text, muted, accent } = theme.colors;
+  // The buttons at the top right: bigger on a large card.
+  const buttonSize = large ? 'size-9' : 'size-6';
+  const iconSize = large ? 'size-5' : 'size-4';
 
   return (
     <div
-      className={cn('relative flex h-36 flex-col overflow-hidden border', current || (submitLabel && !plain) ? 'border-primary' : 'border-transparent', className)}
+      className={cn('relative flex flex-col overflow-hidden border', large ? 'h-64' : 'h-36', current || (submitLabel && !plain) ? 'border-primary' : 'border-transparent', className)}
       aria-current={current || undefined}
     >
       {current && (
@@ -52,33 +57,33 @@ export const ThemeCard = ({ theme, current = false, className, nameSlot, onColor
               aria-label="Cancel"
               title="Cancel"
               onClick={onCancel}
-              className="flex size-6 items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={cn('flex items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', buttonSize)}
               style={{ backgroundColor: `color-mix(in srgb, ${text} 15%, transparent)`, color: text }}
             >
-              <X className="size-4" aria-hidden />
+              <X className={iconSize} aria-hidden />
             </button>
           )}
           <button
             type="submit"
             aria-label={submitLabel}
             title={submitLabel}
-            className="flex size-6 items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={cn('flex items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', buttonSize)}
             style={{ backgroundColor: accent, color: background }}
           >
-            <Save className="size-4" aria-hidden />
+            <Save className={iconSize} aria-hidden />
           </button>
         </div>
       )}
       <div className="flex flex-1 flex-col items-start gap-2 p-3" style={{ backgroundColor: background, color: text }}>
         <div>
-          <p className="text-xl font-medium" style={{ color: muted }}>
+          <p className={cn('font-medium', large ? 'text-3xl' : 'text-xl')} style={{ color: muted }}>
             Passage
           </p>
-          <p className="text-lg">Sample text</p>
+          <p className={large ? 'text-2xl' : 'text-lg'}>Sample text</p>
         </div>
         {/* Same look as the selected ThemeTabs option: accent text on a 15% accent fill. */}
         <span
-          className="px-3 py-1 text-base"
+          className={cn('px-3 py-1', large ? 'px-4 py-1.5 text-xl' : 'text-base')}
           style={{
             color: accent,
             backgroundColor: `color-mix(in srgb, ${accent} 15%, transparent)`,
@@ -87,7 +92,7 @@ export const ThemeCard = ({ theme, current = false, className, nameSlot, onColor
           Button
         </span>
       </div>
-      <div className={cn('flex shrink-0', onColorPick ? 'h-5' : 'h-3')}>
+      <div className={cn('flex shrink-0', onColorPick ? (large ? 'h-8' : 'h-5') : 'h-3')}>
         {themeColorFields.map(({ name, label }) =>
           onColorPick ? (
             <label key={name} className="relative flex-1 cursor-pointer hover:brightness-125" style={{ backgroundColor: theme.colors[name] }} title={`${label} color`}>
@@ -105,7 +110,7 @@ export const ThemeCard = ({ theme, current = false, className, nameSlot, onColor
         )}
       </div>
       {nameSlot ?? (
-        <span className="absolute bottom-5 right-2 max-w-[calc(100%-1rem)] truncate text-lg font-medium" style={{ color: text }}>
+        <span className={cn('absolute right-2 max-w-[calc(100%-1rem)] truncate font-medium', large ? 'bottom-10 text-2xl' : 'bottom-5 text-lg')} style={{ color: text }}>
           {theme.name}
         </span>
       )}
