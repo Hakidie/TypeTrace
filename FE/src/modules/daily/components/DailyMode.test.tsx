@@ -89,7 +89,8 @@ describe('DailyMode', () => {
   it('sends the try with the 60 seconds of the challenge', async () => {
     await playTry(afterBest);
 
-    expect(complete).toHaveBeenCalledWith('d1', ['nhà', 'cửa'], [expect.any(Number), expect.any(Number)], 60);
+    // The replay of the try is sent with it (SCRUM-35).
+    expect(complete).toHaveBeenCalledWith('d1', ['nhà', 'cửa'], [expect.any(Number), expect.any(Number)], 60, expect.any(Array));
   });
 
   it('shows the result after the try', async () => {

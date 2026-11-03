@@ -59,8 +59,8 @@ export const DailyMode = () => {
         disabled={complete.isPending}
         timeLimitSeconds={card.seconds}
         onStart={() => begin.mutate(session._id)}
-        onFinish={(typedWords, typedAtMs) =>
-          complete.mutate({ id: session._id, typedWords, typedAtMs, timeLimitSeconds: card.seconds }, { onSuccess: done })
+        onFinish={(typedWords, typedAtMs, replay) =>
+          complete.mutate({ id: session._id, typedWords, typedAtMs, timeLimitSeconds: card.seconds, replay }, { onSuccess: done })
         }
         // Time ran out before a word was finished: the try is used, nothing to grade.
         onTimeUp={done}

@@ -6,8 +6,11 @@ import { TypingResultPage } from './TypingResultPage';
 
 const get = vi.fn();
 const stats = vi.fn();
+const replay = vi.fn();
 
-vi.mock('../api/typing.api', () => ({ typingApi: { get: (id: string) => get(id), stats: (id: string) => stats(id) } }));
+vi.mock('../api/typing.api', () => ({
+  typingApi: { get: (id: string) => get(id), stats: (id: string) => stats(id), replay: (id: string) => replay(id) },
+}));
 
 const counts = (overrides: Record<string, number> = {}) => ({
   BASE_LETTER: 0,
@@ -57,6 +60,7 @@ beforeEach(() => {
   get.mockReset();
   stats.mockReset();
   stats.mockResolvedValue(sessionStats());
+  replay.mockReset();
 });
 
 describe('TypingResultPage', () => {
@@ -224,11 +228,52 @@ describe('TypingResultPage', () => {
     expect(screen.queryByText('Mistakes')).not.toBeInTheDocument();
   });
 
-  it('has a Replay button (not working yet) and a Type again link to the Typing page', async () => {
+  it('has a Replay button, off at first, and a Type again link to the Typing page', async () => {
     get.mockResolvedValue(completed);
     renderPage();
 
-    expect(await screen.findByRole('button', { name: 'Replay' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Replay' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('link', { name: 'Type again' })).toHaveAttribute('href', '/typing');
+    expect(replay).not.toHaveBeenCalled(); // loaded only when asked for
+  });
+
+  it('plays the replay in place of the typed passage on Replay, and shows the passage again on a second press (SCRUM-35)', async () => {
+    get.mockResolvedValue(completed);
+    replay.mockResolvedValue({
+      session: 's1',
+      events: [[0, 0, 0, 'Tiếng '], [400, 6, 0, 'Viet ']],
+      createdAt: '2026-11-03T08:00:00.000Z',
+      expiresAt: '2026-12-03T08:00:00.000Z',
+    });
+    renderPage();
+    const button = await screen.findByRole('button', { name: 'Replay' });
+
+    await userEvent.click(button);
+
+    expect(await screen.findByRole('slider', { name: 'Replay position' })).toBeInTheDocument();
+    expect(replay).toHaveBeenCalledWith('s1');
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByLabelText('Passage to type')).toHaveLength(1); // the replay's, not the result's too
+    expect(screen.getByText('Kept until 03 Dec 2026')).toBeInTheDocument();
+
+    await userEvent.click(button);
+    expect(screen.queryByRole('slider', { name: 'Replay position' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Passage to type').children[1]).toHaveAttribute('title', 'Should be: Việt');
+  });
+
+  it('says so when the session has no replay, and offers a retry when it cannot be loaded', async () => {
+    get.mockResolvedValue(completed);
+    replay.mockRejectedValueOnce({ response: { status: 404, data: { message: 'Replay not found' } } });
+    const first = renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Replay' }));
+    expect(await screen.findByText('No replay for this session')).toBeInTheDocument();
+    expect(screen.getByText(/kept for 30 days/)).toBeInTheDocument();
+    first.unmount();
+
+    replay.mockRejectedValueOnce(new Error('down'));
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Replay' }));
+    expect(await screen.findByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 });

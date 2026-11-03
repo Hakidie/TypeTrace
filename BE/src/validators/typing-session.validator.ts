@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_REPLAY_BYTES } from '../models/session-replay.model';
 import { sessionModes, sessionStatuses, startableModes } from '../models/typing-session.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { objectIdSchema } from './common.validator';
@@ -9,6 +10,20 @@ export const createSessionSchema = z.object({
   passageId: objectIdSchema.optional()
 });
 
+const replayNumber = z.number().int().min(0);
+
+/** One change of the typed text: `ReplayEvent` in `session-replay.model.ts`. */
+const replayEventSchema = z.union([
+  z.tuple([replayNumber, replayNumber, replayNumber, z.string()]),
+  z.tuple([replayNumber, replayNumber, replayNumber, z.string(), z.literal(1)])
+]);
+
+/** The replay of the session (SCRUM-35): at most `MAX_REPLAY_BYTES` of JSON. */
+export const replaySchema = z
+  .array(replayEventSchema)
+  .min(1)
+  .refine((events) => Buffer.byteLength(JSON.stringify(events)) <= MAX_REPLAY_BYTES, 'The replay is too big');
+
 /**
  * Only the typed words (and when each was finished) are trusted: score, WPM and accuracy are always computed by the server.
  * `typedAtMs` is optional (an older page does not send it) but, when sent, has one entry per typed word.
@@ -18,7 +33,9 @@ export const completeSessionSchema = z
     typedWords: z.array(z.string().max(60)).min(1, 'Send at least one typed word').max(1000),
     typedAtMs: z.array(z.number().int().min(0)).max(1000).optional(),
     /** The time the learner chose, only used to size the time axis of the chart (3 minutes at most, like `MAX_SESSION_MS`). */
-    timeLimitSeconds: z.number().int().min(1).max(180).optional()
+    timeLimitSeconds: z.number().int().min(1).max(180).optional(),
+    /** Optional. A replay that breaks a rule (too big, not made of changes) is dropped: the session is completed without it. */
+    replay: replaySchema.optional().catch(undefined)
   })
   .refine((body) => !body.typedAtMs || body.typedAtMs.length === body.typedWords.length, {
     message: 'Send one time for each typed word',

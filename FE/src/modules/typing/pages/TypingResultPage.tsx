@@ -6,6 +6,7 @@ import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { ErrorTypeChart } from '../components/ErrorTypeChart';
 import { PassageView } from '../components/PassageView';
+import { ReplayPanel } from '../components/ReplayPanel';
 import { SessionInfoPanel } from '../components/SessionInfoPanel';
 import { SpeedErrorChart } from '../components/SpeedErrorChart';
 import { ResultActions } from '../components/ResultActions';
@@ -19,6 +20,8 @@ export const TypingResultPage = () => {
   const stats = useSessionStats(id);
   // The error panels (by type, mistakes, rates) are hidden until the learner asks for them.
   const [detailOpen, setDetailOpen] = useState(false);
+  // Replay plays the session back in place of the typed passage, until it is pressed again (SCRUM-35).
+  const [replayOpen, setReplayOpen] = useState(false);
   // The note about a session that is not counted goes away with OK (it comes back when the page is opened again).
   const [noticeClosed, setNoticeClosed] = useState(false);
 
@@ -64,12 +67,21 @@ export const TypingResultPage = () => {
         </>
       )}
 
-      {/* PANEL Typed passage */}
+      {/* PANEL Typed passage, or its replay */}
       <Panel bare>
-        <PassageView words={session.targetWords} results={results} />
+        {replayOpen ? (
+          <ReplayPanel sessionId={session._id} targetWords={session.targetWords} />
+        ) : (
+          <PassageView words={session.targetWords} results={results} />
+        )}
       </Panel>
 
-      <ResultActions detailOpen={detailOpen} onToggleDetail={() => setDetailOpen((open) => !open)} />
+      <ResultActions
+        detailOpen={detailOpen}
+        onToggleDetail={() => setDetailOpen((open) => !open)}
+        replayOpen={replayOpen}
+        onToggleReplay={() => setReplayOpen((open) => !open)}
+      />
 
       {detailOpen && (
         <>

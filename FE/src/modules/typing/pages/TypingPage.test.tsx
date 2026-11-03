@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { Link, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
+import { decodeReplay, replayTextAt } from '../utils/session-replay';
 import { TypingPage } from './TypingPage';
 
 const start = vi.fn();
@@ -14,8 +15,8 @@ vi.mock('../api/typing.api', () => ({
   typingApi: {
     start: (input: unknown) => start(input),
     begin: (id: string) => begin(id),
-    complete: (id: string, typedWords: string[], typedAtMs: number[], timeLimitSeconds: number) =>
-      complete(id, typedWords, typedAtMs, timeLimitSeconds),
+    complete: (id: string, typedWords: string[], typedAtMs: number[], timeLimitSeconds: number, replay?: unknown) =>
+      complete(id, typedWords, typedAtMs, timeLimitSeconds, replay),
     passages: (mode: string) => passages(mode),
   },
 }));
@@ -152,13 +153,17 @@ describe('TypingPage', () => {
     expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
   });
 
-  it('sends only the typed words when finished, then opens the result', async () => {
+  it('sends only the typed words and the replay when finished, then opens the result', async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.type(await screen.findByRole('textbox', { name: 'Typing area' }), 'Tiếng Viet ');
 
-    await waitFor(() => expect(complete).toHaveBeenCalledWith('s1', ['Tiếng', 'Viet'], [expect.any(Number), expect.any(Number)], 20));
+    await waitFor(() =>
+      expect(complete).toHaveBeenCalledWith('s1', ['Tiếng', 'Viet'], [expect.any(Number), expect.any(Number)], 20, expect.any(Array)),
+    );
+    // The replay of the typing area (SCRUM-35) ends with what was typed.
+    expect(replayTextAt(decodeReplay(complete.mock.calls[0][4]), Infinity)).toEqual({ shown: 'Tiếng Viet ', committed: 'Tiếng Viet ' });
     expect(await screen.findByText('result page')).toBeInTheDocument();
   });
 
@@ -458,7 +463,9 @@ describe('TypingPage', () => {
 
     await user.type(typing, 'Tiếng Viet ');
 
-    await waitFor(() => expect(complete).toHaveBeenCalledWith('s1', ['Tiếng', 'Viet'], [expect.any(Number), expect.any(Number)], 60));
+    await waitFor(() =>
+      expect(complete).toHaveBeenCalledWith('s1', ['Tiếng', 'Viet'], [expect.any(Number), expect.any(Number)], 60, expect.any(Array)),
+    );
   });
 
   it('keeps the same session and passage when the time choice changes', async () => {

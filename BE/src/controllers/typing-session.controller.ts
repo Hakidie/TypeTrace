@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import * as replayService from '../services/session-replay.service';
 import * as sessionService from '../services/typing-session.service';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
 
@@ -23,6 +24,10 @@ export const getSession = async (req: Request, res: Response) => {
 
 export const getSessionStats = async (req: Request, res: Response) => {
   res.json(await sessionService.getSessionStats(userIdOf(req), req.params.id as string));
+};
+
+export const getSessionReplay = async (req: Request, res: Response) => {
+  res.json(await replayService.getSessionReplay(userIdOf(req), req.params.id as string));
 };
 
 export const beginSession = async (req: Request, res: Response) => {

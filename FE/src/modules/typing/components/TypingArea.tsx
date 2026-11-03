@@ -3,7 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, CompositionEvent, KeyboardEvent, ReactNode } from 'react';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { useElapsedSeconds } from '../hooks/use-elapsed';
+import type { ReplayEvent } from '../types/typing.types';
 import { SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
+import { createReplayRecorder } from '../utils/session-replay';
 import { checkWords, formatDuration, splitTyped } from '../utils/typing-session';
 import { PassageView } from './PassageView';
 
@@ -26,8 +28,11 @@ interface TypingAreaProps {
   disabled?: boolean;
   /** Called once, when the first key is pressed: the timer starts then. */
   onStart?: () => void;
-  /** Called once, with the finished words and when each was finished (ms after the first key), when the session ends. */
-  onFinish: (typedWords: string[], typedAtMs: number[]) => void;
+  /**
+   * Called once when the session ends, with the finished words, when each was finished (ms after the first key) and the
+   * replay of what the learner saw (SCRUM-35; missing when it is too big to send).
+   */
+  onFinish: (typedWords: string[], typedAtMs: number[], replay?: ReplayEvent[]) => void;
   /** How long the session lasts; the page lets the learner choose less than the 3 minute maximum. */
   timeLimitSeconds?: number;
   /** Called once when time runs out and no word was finished, so there is nothing to grade. */
@@ -45,7 +50,8 @@ interface TypingAreaProps {
  * bottom of the page, the word count and the timer. Render it directly inside a flex column that fills the page. A word is finished when a space (or Enter after the last word) comes
  * after it. The text is only graded once the input method has committed it: while a composition is open (Unikey,
  * fcitx and similar can hold text back), keystrokes and the half-written text are ignored (conclusion of US2.0,
- * docs/ime-findings.md). Pasting and dropping text are blocked.
+ * docs/ime-findings.md). Pasting and dropping text are blocked. Every change of the text on screen is recorded for the
+ * replay of the session (`createReplayRecorder`), which is only passed on at the end, with `onFinish`.
  */
 interface TypingStatusProps {
   /** Words finished so far. */
@@ -94,6 +100,9 @@ export const TypingArea = ({
   // When each finished word was finished, in ms after the first key (only noted here, never sent while typing).
   const startTime = useRef(0);
   const wordTimes = useRef<number[]>(initialTyped?.typedAtMs.slice(0, initialTyped.typedWords.length) ?? []);
+  // What the learner sees, change by change (SCRUM-35). Its first change holds the words of a resumed race.
+  const [replay] = useState(createReplayRecorder);
+  const elapsedMs = () => (startTime.current ? Date.now() - startTime.current : 0);
   const seconds = useElapsedSeconds(startedAt, !lastWordDone && !disabled);
 
   const timeIsUp = seconds >= timeLimitSeconds;
@@ -116,9 +125,11 @@ export const TypingArea = ({
     if (!timeIsUp || lastWordDone || expired.current) return;
     expired.current = true;
     const typedWords = splitTyped(committed).done.slice(0, targetWords.length);
-    if (typedWords.length > 0) onFinish(typedWords, wordTimes.current.slice(0, typedWords.length));
+    // The replay ends at the limit: the clock only noticed it at its next tick.
+    const endMs = Math.min(Date.now() - startTime.current, timeLimitSeconds * 1000);
+    if (typedWords.length > 0) onFinish(typedWords, wordTimes.current.slice(0, typedWords.length), replay.finish(endMs));
     else onTimeUp?.();
-  }, [timeIsUp, lastWordDone, committed, targetWords.length, onFinish, onTimeUp]);
+  }, [timeIsUp, lastWordDone, committed, targetWords.length, onFinish, onTimeUp, replay, timeLimitSeconds]);
 
   const commit = (value: string) => {
     setCommitted(value);
@@ -131,21 +142,29 @@ export const TypingArea = ({
     }
     if (!isFinished && typedWords.length >= targetWords.length) {
       setLastWordDone(true);
-      onFinish(typedWords.slice(0, targetWords.length), wordTimes.current.slice(0, targetWords.length));
+      onFinish(typedWords.slice(0, targetWords.length), wordTimes.current.slice(0, targetWords.length), replay.finish(elapsedMs()));
     }
   };
 
+  // Each handler records what the passage shows after it: the text with the part being composed (`withPreedit`), and
+  // whether it is committed. Recorded before `commit`, which may end the session.
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     start();
     setText(event.target.value);
-    if (!composing.current && !(event.nativeEvent as InputEvent).isComposing) commit(event.target.value);
+    const isCommitted = !composing.current && !(event.nativeEvent as InputEvent).isComposing;
+    replay.record(withPreedit(event.target.value, preedit), isCommitted, elapsedMs());
+    if (isCommitted) commit(event.target.value);
   };
 
-  const handleCompositionUpdate = (event: CompositionEvent<HTMLTextAreaElement>) => setPreedit(event.data);
+  const handleCompositionUpdate = (event: CompositionEvent<HTMLTextAreaElement>) => {
+    setPreedit(event.data);
+    replay.record(withPreedit(text, event.data), false, elapsedMs());
+  };
 
   const handleCompositionEnd = (event: CompositionEvent<HTMLTextAreaElement>) => {
     composing.current = false;
     setPreedit('');
+    replay.record(event.currentTarget.value, true, elapsedMs());
     commit(event.currentTarget.value);
   };
 
@@ -157,6 +176,7 @@ export const TypingArea = ({
     if (text === '' || /\s$/.test(text)) return;
     const next = `${text} `;
     setText(next);
+    replay.record(next, true, elapsedMs());
     commit(next);
   };
 

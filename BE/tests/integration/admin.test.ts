@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DailyProgressModel } from '../../src/models/daily-progress.model';
 import { NoteModel } from '../../src/models/note.model';
+import { SessionReplayModel } from '../../src/models/session-replay.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
 import { UserDailyTasksModel } from '../../src/models/user-daily-tasks.model';
 import { UserModel } from '../../src/models/user.model';
@@ -181,12 +182,13 @@ describe('deleting users', () => {
     progress: { sessions: 1 }
   });
 
-  it('deletes a user together with their notes, typing sessions, days (DailyProgress), daily tasks and avatar', async () => {
+  it('deletes a user together with their notes, typing sessions and replays, days (DailyProgress), daily tasks and avatar', async () => {
     const { auth } = await signInAdmin();
     const user = await createUser({ email: 'lan@example.com' });
     await UserModel.updateOne({ _id: user._id }, { avatarPublicId: 'avatars/lan' });
     await NoteModel.create({ title: 'n', owner: user._id });
-    await TypingSessionModel.create({ owner: user._id, passageId: 'basic-1', targetWords: ['a'] });
+    const session = await TypingSessionModel.create({ owner: user._id, passageId: 'basic-1', targetWords: ['a'] });
+    await SessionReplayModel.create({ owner: user._id, session: session._id, events: [[0, 0, 0, 'a']] });
     await DailyProgressModel.create([
       { owner: user._id, date: '2026-03-09', sessions: 1 },
       { owner: user._id, date: '2026-03-10', sessions: 2 }
@@ -199,6 +201,7 @@ describe('deleting users', () => {
     expect(await UserModel.exists({ _id: user._id })).toBeNull();
     expect(await NoteModel.countDocuments()).toBe(0);
     expect(await TypingSessionModel.countDocuments()).toBe(0);
+    expect(await SessionReplayModel.countDocuments()).toBe(0);
     expect(await DailyProgressModel.countDocuments()).toBe(0);
     expect(await UserDailyTasksModel.countDocuments()).toBe(0);
     expect(cloudinaryRecorder.destroyed).toEqual(['avatars/lan']);
