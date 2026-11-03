@@ -13,6 +13,8 @@ const passageFields = {
     .refine((text) => splitWords(text).length <= MAX_PASSAGE_WORDS, `At most ${MAX_PASSAGE_WORDS} words`),
   source: z.string().trim().min(1, 'Source is required').max(300),
   isPlacement: z.boolean(),
+  /** Only an update may set it: a new passage is a draft, and only a published passage can be ranked (checked in the service). */
+  isRanked: z.boolean(),
   /** `en` passages are for ranked duels; they can never be placement passages (checked in the service). */
   language: z.enum(passageLanguages)
 };
@@ -20,6 +22,7 @@ const passageFields = {
 /** A new passage is always a draft: the status cannot be sent here. */
 export const createPassageSchema = z.object({
   ...passageFields,
+  isRanked: passageFields.isRanked.default(false),
   isPlacement: passageFields.isPlacement.default(false),
   language: passageFields.language.default('vi')
 });
@@ -39,6 +42,7 @@ export const listPassagesQuerySchema = paginationQuerySchema.extend({
   /** `public` = the passage bank (TypeTrace's and the approved ones), without the learners' private passages. */
   visibility: z.enum(passageVisibilities).optional(),
   isPlacement: optionalBooleanQuerySchema,
+  isRanked: optionalBooleanQuerySchema,
   language: z.enum(passageLanguages).optional(),
   /** With `status=pending`: `true` = only the learners' edits of public passages, `false` = only the requests to make a passage public. */
   edited: optionalBooleanQuerySchema,

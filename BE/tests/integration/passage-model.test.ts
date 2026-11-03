@@ -105,3 +105,14 @@ describe('PassageModel language (ranked duel, phase 1)', () => {
     expect(passage.tagCounts).toMatchObject({ BASE_LETTER: 0, TONE_WRONG: 0, D_MISSING: 0, MARK_WRONG: 0, HOI_NGA_CONFUSION: 0 });
   });
 });
+
+describe('ranked passages (US6.4)', () => {
+  it('is not ranked by default, and has an index on isRanked and status', async () => {
+    const passage = await PassageModel.create(base);
+    await PassageModel.init();
+
+    expect(passage.isRanked).toBe(false);
+    const indexes = await PassageModel.collection.indexes();
+    expect(indexes.some((index) => JSON.stringify(index.key) === JSON.stringify({ isRanked: 1, status: 1 }))).toBe(true);
+  });
+});

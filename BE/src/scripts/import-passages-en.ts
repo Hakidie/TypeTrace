@@ -1,5 +1,5 @@
 /**
- * Adds the English starter passages (src/data/passages-en.ts, for ranked duels) to the passage bank, owned by TypeTrace.
+ * Adds the English starter passages (src/data/passages-en.ts, for ranked duels, so marked `isRanked`) to the passage bank, owned by TypeTrace.
  * Safe to run many times: passages already in the bank are left untouched. Run with `npm run import:passages:en`.
  */
 import mongoose from 'mongoose';

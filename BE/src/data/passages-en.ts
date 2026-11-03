@@ -5,7 +5,7 @@ import type { PassageSeed } from './passages';
 
 export const ENGLISH_PASSAGE_SOURCE = 'Written for TypeTrace';
 
-const passage = (title: string, content: string): PassageSeed => ({ title, content, source: ENGLISH_PASSAGE_SOURCE, language: 'en' });
+const passage = (title: string, content: string): PassageSeed => ({ title, content, source: ENGLISH_PASSAGE_SOURCE, language: 'en', isRanked: true });
 
 export const ENGLISH_PASSAGE_LIST: readonly PassageSeed[] = [
   passage(
