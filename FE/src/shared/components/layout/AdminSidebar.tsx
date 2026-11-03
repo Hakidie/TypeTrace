@@ -55,10 +55,9 @@ export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSid
       {/* Same height as BrandHeader (py-3 + 36px logo + 1px border = 61px). */}
       <div className={cn('flex h-[61px] shrink-0 items-center border-b px-4', compact && 'justify-center px-0')}>
         <CompactTip compact={compact} label="TypeTrace">
-          <Link to={ADMIN_HOME} onClick={onNavigate} className="flex items-center gap-2 text-lg font-bold">
-            <span className="inline-flex size-9 items-center justify-center bg-destructive text-destructive-foreground">
-              <Keyboard className="size-5" />
-            </span>
+          <Link to={ADMIN_HOME} onClick={onNavigate} className="flex items-center gap-2 text-lg font-bold text-primary">
+            {/* No background: the icon is as high as the name (its line, 28px), in the theme red like the name. */}
+            <Keyboard className="size-7" aria-hidden />
             <span className={labelClass}>TypeTrace</span>
           </Link>
         </CompactTip>

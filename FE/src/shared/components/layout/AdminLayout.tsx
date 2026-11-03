@@ -59,7 +59,7 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
           <Button variant="ghost" size="sm" className="lg:hidden" aria-label="Open menu" onClick={() => setMenuOpen(true)}>
             <Menu className="size-5" />
           </Button>
-          <h1 className="truncate text-xl font-bold text-muted-foreground">{title}</h1>
+          <h1 className="truncate text-xl font-bold text-primary">{title}</h1>
         </header>
         {/* A column, so a page can grow to the height of the screen (`flex-1`), like the passage form of /admin/passages. */}
         <main className="flex w-full min-w-0 flex-1 flex-col p-4">
