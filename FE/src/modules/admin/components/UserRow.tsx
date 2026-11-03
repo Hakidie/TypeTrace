@@ -1,8 +1,10 @@
-import { Ban, CircleCheck, Pencil, Trash2 } from 'lucide-react';
+import { Ban, CircleCheck, MailCheck, MailQuestion, Pencil, Shield, Trash2, User } from 'lucide-react';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
+import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
+import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { ActivityHeatmap, HEATMAP_DAYS } from '@/shared/components/activity-heatmap';
+import { LabeledTag } from '@/shared/components/labeled-tag';
 import { ListRow, ListRowMenu, ListRowStat } from '@/shared/components/list-row';
-import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Badge } from '@/shared/components/ui/badge';
 import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
 import { currentStreak } from '@/shared/lib/streak';
@@ -25,17 +27,22 @@ interface UserRowProps {
 }
 
 export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onToggleStatus, onDelete }: UserRowProps) => {
-  const name = user.displayName || user.email;
+  // Without a display name: the part of the email before the @.
+  const name = user.displayName || user.email.split('@')[0];
+  const showPicture = Boolean(user.avatarUrl) && user.avatarSource !== 'pixel';
 
   return (
     <ListRow
       identity={
         <div className="flex min-w-0 items-center gap-3">
-          {/* 61px = the height of the heatmap. */}
-          <Avatar className="size-[61px] shrink-0">
-            <AvatarImage src={user.avatarUrl} alt="" />
-            <AvatarFallback className="bg-primary/25 text-xl font-black text-primary">{name.slice(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
+          {/* 61px = the height of the heatmap. The uploaded picture, unless the account chose its pixel avatar (or never set a picture): then its face, the default avatar while it never changed it. */}
+          <div className="flex size-[61px] shrink-0 items-center justify-center overflow-hidden">
+            {showPicture ? (
+              <img src={user.avatarUrl} alt="" className="size-full object-cover" />
+            ) : (
+              <AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} crop="head" scale={1.5} label={`Avatar of ${name}`} />
+            )}
+          </div>
           <div className="min-w-0">
             <p className="truncate text-2xl font-extrabold text-primary/80">{name}</p>
             <p className="truncate text-lg text-muted-foreground">{user.email}</p>
@@ -74,11 +81,16 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
       }
       tags={
         <>
+          <LabeledTag icon={user.role === 'admin' ? Shield : User} text={user.role === 'admin' ? 'Admin' : 'User'} hint={user.role === 'admin' ? 'Can open the admin area' : 'A learner'} />
+          <LabeledTag
+            icon={user.isEmailVerified ? MailCheck : MailQuestion}
+            text={user.isEmailVerified ? 'Verified' : 'Unverified'}
+            hint={user.isEmailVerified ? 'The email address is confirmed' : 'The email address is not confirmed yet'}
+          />
           <Badge variant={status === 'locked' ? 'outline' : 'default'} className={status === 'locked' ? 'border-primary text-primary' : undefined}>
+            {status === 'locked' ? <Ban className="mr-1.5 size-4" aria-hidden /> : <CircleCheck className="mr-1.5 size-4" aria-hidden />}
             {status === 'locked' ? 'Locked' : 'Active'}
           </Badge>
-          <Badge>{user.isEmailVerified ? 'Verified' : 'Unverified'}</Badge>
-          <Badge className="capitalize">{user.role}</Badge>
         </>
       }
       meta={new Date(user.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}

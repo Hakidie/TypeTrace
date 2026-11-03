@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { LabeledTag } from '@/shared/components/labeled-tag';
 import { Badge } from '@/shared/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
@@ -68,9 +69,6 @@ interface PassageCardProps {
   own?: OwnPassageActions;
 }
 
-// The chips look like the badges, but are buttons.
-const tagClass = 'bg-primary/15 text-primary transition-colors hover:bg-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
-
 /**
  * What kind of passage this is (Rank, Placement or Regular: one of them), as an icon before the title with a tooltip, without a background; as big and as red as the title text (24px, `text-primary/80`), in the height of one title line (`leading-tight`).
  */
@@ -91,25 +89,6 @@ const PassageTag = ({ icon: Icon, label }: { icon: LucideIcon; label: string }) 
     </Tooltip>
   </TooltipProvider>
 );
-
-/** A tag with an icon and its word (the language, Edited), in the same red tint; `hint` adds a tooltip. */
-const LabeledTag = ({ icon: Icon, text, hint }: { icon: LucideIcon; text: string; hint?: string }) => {
-  const tag = (
-    <span className={cn('inline-flex h-7 items-center gap-1.5 px-2 text-sm font-medium', tagClass)} tabIndex={hint ? 0 : undefined}>
-      <Icon className="size-4" aria-hidden />
-      {text}
-    </span>
-  );
-  if (!hint) return tag;
-  return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>{tag}</TooltipTrigger>
-        <TooltipContent>{hint}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-};
 
 /** The icon of each state a passage can be in, shown before its name in the status badge. */
 const statusIcons: Record<string, LucideIcon> = {
