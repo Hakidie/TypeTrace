@@ -13,16 +13,22 @@ export const ROOM_CODE_LENGTH = 6;
 export const generateRoomCode = () =>
   Array.from({ length: ROOM_CODE_LENGTH }, () => ROOM_CODE_ALPHABET[randomInt(ROOM_CODE_ALPHABET.length)]).join('');
 
-/** A ranked passage: published, public, English, 30 to 80 words; `undefined` when the bank has none. */
+/**
+ * What the ranked duels play (US6.4): the passages an admin marked `isRanked` (published, public, English), nothing else.
+ * `samplePassage` adds `status: 'published'`.
+ */
+const rankedFilter = { isRanked: true, language: 'en', visibility: 'public' } as const;
+
+/** A ranked passage of 30 to 80 words; `undefined` when the bank has none. */
 export const pickRankedPassage = () =>
   samplePassage<{ _id: Types.ObjectId; title: string; content: string }>(
-    { language: 'en', visibility: 'public', wordCount: { $gte: 30, $lte: 80 } },
+    { ...rankedFilter, wordCount: { $gte: 30, $lte: 80 } },
     { title: 1, content: 1 }
   );
 
-/** The words of a rain duel: every word of the published English passages, shuffled; empty when there are none. */
+/** The words of a rain duel: every word of the published ranked passages, shuffled; empty when there are none. */
 export const pickRainWords = async () => {
-  const passages = await PassageModel.find({ language: 'en', status: 'published', visibility: 'public' }).select('content').lean();
+  const passages = await PassageModel.find({ ...rankedFilter, status: 'published' }).select('content').lean();
   const words = rainWordsFrom(passages.map((passage) => passage.content));
   for (let i = words.length - 1; i > 0; i -= 1) {
     const j = randomInt(i + 1);

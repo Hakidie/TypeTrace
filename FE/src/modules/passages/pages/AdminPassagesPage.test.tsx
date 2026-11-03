@@ -39,6 +39,7 @@ const passage = {
   ownerName: 'TypeTrace',
   status: 'draft',
   isPlacement: false,
+  isRanked: false,
   wordCount: 6,
   createdAt: '2026-10-01T00:00:00.000Z',
   updatedAt: '2026-10-01T00:00:00.000Z',
@@ -114,6 +115,7 @@ describe('AdminPassagesPage', () => {
         source: 'TypeTrace',
         content: 'Biển xanh bao la.',
         isPlacement: false,
+        isRanked: false,
         language: 'vi',
       }),
     );
@@ -152,7 +154,7 @@ describe('AdminPassagesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Kiểm tra', source: 'TypeTrace', content: 'một hai ba', isPlacement: true, language: 'vi' }),
+      expect(create).toHaveBeenCalledWith({ title: 'Kiểm tra', source: 'TypeTrace', content: 'một hai ba', isPlacement: true, isRanked: false, language: 'vi' }),
     );
   });
 
@@ -189,6 +191,7 @@ describe('AdminPassagesPage', () => {
         source: 'TypeTrace',
         content: 'Hà Nội mùa thu thật đẹp.',
         isPlacement: false,
+        isRanked: false,
         language: 'vi',
       }),
     );
@@ -579,6 +582,64 @@ describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
 
     expect(await screen.findByText('A quiet morning')).toBeInTheDocument();
     expect(screen.getByText('EN')).toBeInTheDocument();
+  });
+});
+
+describe('AdminPassagesPage: ranked test (US6.4)', () => {
+  const edit = async (bank: unknown[]) => {
+    answer({ bank });
+    renderPage();
+    await screen.findByText('Mùa thu Hà Nội');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Mùa thu Hà Nội' }));
+  };
+
+  it('shows the Test xếp hạng badge on a ranked passage only', async () => {
+    answer({ bank: [{ ...passage, status: 'published', isRanked: true }, { ...passage, _id: 'p2', title: 'Sông quê' }] });
+    renderPage();
+
+    await screen.findByText('Sông quê');
+    expect(screen.getAllByText('Test xếp hạng')).toHaveLength(1);
+  });
+
+  it('marks a published English passage as ranked and sends it with the update', async () => {
+    update.mockResolvedValue({ ...passage, status: 'published', language: 'en', isRanked: true });
+    await edit([{ ...passage, status: 'published', language: 'en' }]);
+
+    const ranked = screen.getByRole('switch', { name: 'Ranked test' });
+    expect(ranked).toBeEnabled();
+    fireEvent.click(ranked);
+    expect(ranked).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Update passage' }));
+
+    await waitFor(() => expect(update).toHaveBeenCalledWith('p1', expect.objectContaining({ isRanked: true })));
+  });
+
+  it('cannot rank a draft', async () => {
+    await edit([{ ...passage, language: 'en' }]);
+
+    expect(screen.getByRole('switch', { name: 'Ranked test' })).toBeDisabled();
+  });
+
+  it('cannot rank a Vietnamese passage', async () => {
+    await edit([{ ...passage, status: 'published' }]);
+    expect(screen.getByRole('switch', { name: 'Ranked test' })).toBeDisabled();
+  });
+
+  it('turns Ranked off when an English ranked passage becomes Vietnamese', async () => {
+    await edit([{ ...passage, status: 'published', language: 'en', isRanked: true }]);
+    const ranked = screen.getByRole('switch', { name: 'Ranked test' });
+    expect(ranked).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('switch', { name: 'English passage' }));
+
+    expect(ranked).toHaveAttribute('aria-checked', 'false');
+    expect(ranked).toBeDisabled();
+  });
+
+  it('keeps a ranked passage published: the status button is disabled', async () => {
+    await edit([{ ...passage, status: 'published', language: 'en', isRanked: true }]);
+
+    expect(screen.getByRole('button', { name: 'Status: published' })).toBeDisabled();
   });
 });
 

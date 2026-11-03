@@ -9,6 +9,7 @@ import {
   publicOwnerName,
   SYSTEM_OWNER_NAME
 } from '../models/passage.model';
+import { MatchModel } from '../models/match.model';
 import { TypingSessionModel } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
@@ -64,7 +65,7 @@ const publicNamesOf = async (owners: (Types.ObjectId | undefined)[]) => {
   return (owner?: Types.ObjectId) => names.get(String(owner)) ?? publicOwnerName();
 };
 
-export const listPassages = ({ q, status, visibility, isPlacement, language, edited, ...pagination }: ListPassagesQuery) => {
+export const listPassages = ({ q, status, visibility, isPlacement, isRanked, language, edited, ...pagination }: ListPassagesQuery) => {
   const filter: QueryFilter<PassageDocument> = {};
   // The review queue holds the edits of public passages too; `edited` keeps only one kind.
   if (status === 'pending') {
@@ -73,6 +74,7 @@ export const listPassages = ({ q, status, visibility, isPlacement, language, edi
   else if (status) filter.status = status;
   if (visibility) filter.visibility = visibility;
   if (isPlacement !== undefined) filter.isPlacement = isPlacement;
+  if (isRanked !== undefined) filter.isRanked = isRanked;
   // `vi` also finds the passages saved before the field (they are Vietnamese, like in the learner flows).
   if (language) Object.assign(filter, language === 'en' ? { language: 'en' } : notEnglish);
   if (q) {
@@ -92,6 +94,28 @@ export const getPassage = async (id: string) => {
   return passage;
 };
 
+// A session of a passage nobody typed in: the Typing page starts one as soon as it shows a passage, and it is abandoned
+// when the learner opens another one. No key pressed (`beganAt`) and not completed.
+const untypedSession = { beganAt: null, status: { $ne: 'completed' as const } };
+
+/** Only a published passage can be ranked (US6.4). */
+const assertRankedIsPublished = ({ isRanked, status }: { isRanked?: boolean; status: PassageStatus }) => {
+  if (isRanked && status !== 'published') throw conflict('Only a published passage can be a ranked test');
+};
+
+/** The ranked duels are in English (US6.4): a Vietnamese passage cannot be ranked. */
+const assertRankedIsEnglish = ({ isRanked, language }: { isRanked?: boolean; language?: string }) => {
+  if (isRanked && language !== 'en') throw badRequest('Only an English passage can be a ranked test');
+};
+
+/** A ranked passage played in a duel that started keeps its text: the results would not be comparable. */
+const assertRankedTextIsFree = async (passage: PassageDocument) => {
+  if (!passage.isRanked || !(passage.isModified('content') || passage.isModified('language'))) return;
+  if (await MatchModel.exists({ passageId: passage._id, startedAt: { $exists: true } })) {
+    throw conflict('This ranked passage has been played in a duel: its content and language can no longer be changed');
+  }
+};
+
 /** The placement test grades Vietnamese error types, so an English passage can never be one of its passages. */
 const assertPlacementIsVietnamese = ({ language, isPlacement }: { language?: string; isPlacement?: boolean }) => {
   if (language === 'en' && isPlacement) throw badRequest('English passages cannot be placement passages');
@@ -100,6 +124,8 @@ const assertPlacementIsVietnamese = ({ language, isPlacement }: { language?: str
 /** Admins write for TypeTrace: the owner is the admin, the name shown to everyone is `TypeTrace`, and it is always public. */
 export const createPassage = async (actorId: string, input: CreatePassageInput) => {
   assertPlacementIsVietnamese(input);
+  assertRankedIsEnglish(input);
+  assertRankedIsPublished({ ...input, status: 'draft' });
   // create() runs the model hook that counts the words and the error tags.
   return PassageModel.create({ ...input, owner: actorId, ownerName: SYSTEM_OWNER_NAME, visibility: 'public' });
 };
@@ -119,6 +145,9 @@ export const updatePassage = async (id: string, input: UpdatePassageInput) => {
   // save() (not findByIdAndUpdate) so the counts are computed again when the content or the language changes.
   passage.set(input);
   assertPlacementIsVietnamese(passage);
+  assertRankedIsEnglish(passage);
+  assertRankedIsPublished(passage);
+  await assertRankedTextIsFree(passage);
   await assertEnglishIsTypeTraces(passage);
   return passage.save();
 };
@@ -129,6 +158,7 @@ export const setPassageStatus = async (id: string, status: PassageStatus) => {
   if (!(nextStatuses[passage.status] ?? []).includes(status)) {
     throw conflict(`A ${passage.status} passage cannot become ${status}`);
   }
+  if (passage.isRanked && status !== 'published') throw conflict('A ranked test must stay published: remove the ranked mark first');
   passage.status = status;
   return passage.save();
 };
@@ -188,10 +218,6 @@ export const rejectPassages = async (ids: string[], reason: string) => {
   const edits = await PassageModel.updateMany({ _id: { $in: ids }, pendingEdit: { $exists: true } }, editRejected(reason));
   return requests.modifiedCount + edits.modifiedCount;
 };
-
-// A session of a passage nobody typed in: the Typing page starts one as soon as it shows a passage, and it is abandoned
-// when the learner opens another one. No key pressed (`beganAt`) and not completed.
-const untypedSession = { beganAt: null, status: { $ne: 'completed' as const } };
 
 /**
  * Hard delete (SCRUM-159). The placement passage, and a passage learners typed in (a session with a key pressed, or a

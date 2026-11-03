@@ -52,6 +52,8 @@ export interface Passage {
   pendingEdit?: PassageEdit;
   /** A passage of the placement test. */
   isPlacement: boolean;
+  /** A passage of the ranked test (US6.4); only a published passage can be one. */
+  isRanked: boolean;
   /** Missing on passages saved before the field: they are Vietnamese. */
   language?: PassageLanguage;
   /** Counted by the backend when the passage is saved. */
@@ -68,6 +70,7 @@ export interface PassageInput {
   source: string;
   /** The passage of the placement test. */
   isPlacement: boolean;
+  isRanked: boolean;
   language: PassageLanguage;
 }
 

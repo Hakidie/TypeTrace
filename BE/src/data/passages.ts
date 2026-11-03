@@ -9,6 +9,8 @@ export interface PassageSeed {
   content: string;
   source: string;
   isPlacement?: boolean;
+  /** Played in the ranked duels (US6.4): only for English passages. */
+  isRanked?: boolean;
   /** Missing = Vietnamese. The English passages (for ranked duels) are in `passages-en.ts`. */
   language?: PassageLanguage;
 }

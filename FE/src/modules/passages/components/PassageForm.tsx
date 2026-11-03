@@ -22,6 +22,8 @@ const schema = z.object({
     .max(5000, 'Max 5000 characters')
     .refine((text) => countWords(text) <= MAX_PASSAGE_WORDS, `At most ${MAX_PASSAGE_WORDS} words`),
   isPlacement: z.boolean(),
+  // Only an edit of a published English passage can turn it on (the backend answers 400 / 409 otherwise).
+  isRanked: z.boolean(),
   // English passages are for ranked duels; the backend refuses an English placement passage.
   language: z.enum(['vi', 'en']),
 });
@@ -35,7 +37,7 @@ const fieldClass = 'border-0 text-[1.125rem]';
 // `field-sizing-content`: the field is as wide as its text (the placeholder while empty); the wrapper caps it at half the row.
 const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-primary/15 focus-visible:ring-0 px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary/60';
 
-const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false, language: 'vi' };
+const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false, isRanked: false, language: 'vi' };
 
 const CONTENT_PLACEHOLDER = 'Hà Nội vào thu, gió heo may se lạnh, hoa sữa thơm nồng trên từng con phố nhỏ.';
 
@@ -73,6 +75,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
           source: passage.source,
           content: passage.content,
           isPlacement: passage.isPlacement,
+          isRanked: passage.isRanked ?? false,
           language: passage.language ?? 'vi',
         }
       : emptyValues,
@@ -80,11 +83,13 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
 
   const content = useWatch({ control, name: 'content' });
   const isEnglish = useWatch({ control, name: 'language' }) === 'en';
+  const isRanked = useWatch({ control, name: 'isRanked' });
 
   // The status button flips between the saved status and the next one; the change is saved with the form.
   const [status, setStatusChoice] = useState<PassageStatus>(passage?.status ?? 'draft');
   // Draft → Published → Archived → Draft; no button for a status outside the cycle (pending, rejected).
-  const next = passage && nextPassageStatus[passage.status] ? nextPassageStatus[status] : undefined;
+  // A ranked test must stay published: the status button waits until the ranked mark is removed.
+  const next = passage && nextPassageStatus[passage.status] && !(isRanked && status === 'published') ? nextPassageStatus[status] : undefined;
 
   /** Saves the passage, then moves it to the status chosen with the status button (a new passage stays a draft). */
   const save = handleSubmit(async (input) => {
@@ -143,7 +148,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
             control={control}
             name="language"
             render={({ field }) => (
-              // English passages are for ranked duels: they can never be placement passages, so Placement turns off.
+              // English passages are for ranked duels; the backend refuses an English placement passage.
               <button
                 type="button"
                 role="switch"
@@ -154,6 +159,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
                   const english = field.value !== 'en';
                   field.onChange(english ? 'en' : 'vi');
                   if (english) setValue('isPlacement', false);
+                  else setValue('isRanked', false);
                 }}
                 className={cn(
                   'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -188,6 +194,37 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
               </button>
             )}
           />
+          {/* Edit mode, published passages only: marks the passage as a ranked test (US6.4). */}
+          {passage && (
+            <Controller
+              control={control}
+              name="isRanked"
+              render={({ field }) => (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={field.value}
+                  aria-label="Ranked test"
+                  title={
+                    !isEnglish
+                      ? 'Only an English passage can be a ranked test.'
+                      : passage.status === 'published'
+                        ? 'Used for the ranked duels of the season.'
+                        : 'Only a published passage can be a ranked test.'
+                  }
+                  disabled={!isEnglish || passage.status !== 'published' || status !== 'published'}
+                  onClick={() => field.onChange(!field.value)}
+                  className={cn(
+                    'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                    field.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground enabled:hover:text-foreground',
+                  )}
+                >
+                  {field.value && <CheckCircle2 className="size-5" />}
+                  {field.value ? 'Ranked test' : 'Not ranked'}
+                </button>
+              )}
+            />
+          )}
           {/* Edit mode: the status of the passage, a button that switches Draft, Published and Archived. Draft and archived look like "Regular passage", published is highlighted. */}
           {passage && (
             <button
