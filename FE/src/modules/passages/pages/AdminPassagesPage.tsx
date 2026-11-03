@@ -1,5 +1,6 @@
 import { FileText } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -8,14 +9,15 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
-import { panelBodyClass, panelTitleClass } from '@/shared/lib/panel-styles';
+import { ListViewSwitch } from '../components/ListViewSwitch';
 import { PassageCard } from '../components/PassageCard';
 import { PassageForm } from '../components/PassageForm';
 import { PendingPassagesPanel } from '../components/PendingPassagesPanel';
 import { useDeletePassage, usePassages } from '../hooks/use-passages';
 import type { Passage, PassageLanguage, PassageStatus } from '../types/passage.types';
 
-const PAGE_SIZE = 9;
+// Two rows of three cards.
+const PAGE_SIZE = 6;
 
 // The first option is the default one.
 const SORT_OPTIONS = [
@@ -46,13 +48,16 @@ const TYPE_OPTIONS = [
   { value: 'regular', label: 'Regular' },
 ];
 
+/** The second panel is the passage bank or the review queue, switched by the button before its search (`?view=pending`). */
+type View = 'passages' | 'pending';
+
 /**
  * The passage bank: a "New passage" panel (the form, also used to edit) and a "Passages" panel with the card grid of the
  * public passages, TypeTrace's and the approved ones. Learners' private passages are not part of it: an admin only sees
  * one when its learner asks for it to become public (the Pending review panel). Search, filters, sort and page stay in
  * the URL (`?q=&status=&type=&sort=&page=`, SCRUM-159); the Pending review panel below uses the `pending-` names.
  */
-const PassageBank = () => {
+const PassageBank = ({ view, onSwitchView }: { view: View; onSwitchView: () => void }) => {
   const list = useListParams({ sort: '-createdAt' });
   const status = list.get('status') as PassageStatus | '';
   const type = list.get('type');
@@ -101,7 +106,7 @@ const PassageBank = () => {
       );
     }
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {passages.data.items.map((passage) => (
             <PassageCard
@@ -112,16 +117,18 @@ const PassageBank = () => {
             />
           ))}
         </div>
-        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" />
+        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
       </div>
     );
   };
 
   return (
     <>
-      <div ref={formPanelRef} className="scroll-mt-4">
-        {/* PANEL Passage form */}
-        <Panel title={editing ? 'Edit passage' : 'New passage'} bare titleClassName={panelTitleClass} className={panelBodyClass}>
+      {/* `flex-1`: the form takes the height the list below leaves on the screen, its text area grows with it. */}
+      <div ref={formPanelRef} className="flex scroll-mt-4 flex-col lg:flex-1">
+        {/* PANEL Passage form: no visible title (the form says what it is); screen readers still get one. */}
+        <Panel bare fill>
+          <h2 className="sr-only">{editing ? 'Edit passage' : 'New passage'}</h2>
           {/* `key` remounts the form, so it starts from the passage being edited (or empty). */}
           <PassageForm
             key={editing?._id ?? 'new'}
@@ -131,27 +138,33 @@ const PassageBank = () => {
           />
         </Panel>
       </div>
-      {/* PANEL Passages */}
-      <Panel title="Passages" bare titleClassName={panelTitleClass} className={panelBodyClass}>
-        <div className="space-y-3">
-          <ListToolbar
-            search={{
-              label: 'Search passages',
-              placeholder: 'Search title or source…',
-              defaultValue: list.q,
-              onSearch: (value) => list.set('q', value),
-            }}
-            sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-            filters={[
-              { label: 'Status', value: status, options: STATUS_OPTIONS, onChange: (value) => list.set('status', value) },
-              { label: 'Type', value: type, options: TYPE_OPTIONS, onChange: (value) => list.set('type', value) },
-              { label: 'Language', value: language, options: LANGUAGE_OPTIONS, onChange: (value) => list.set('language', value) },
-            ]}
-            summary={passages.data ? `${passages.data.total} ${passages.data.total === 1 ? 'passage' : 'passages'}` : 'Loading passages…'}
-          />
-          {renderList()}
-        </div>
-      </Panel>
+      {view === 'pending' ? (
+        <PendingPassagesPanel onSwitchView={onSwitchView} />
+      ) : (
+        // PANEL Passages
+        <Panel bare>
+          <h2 className="sr-only">Passages</h2>
+          <div className="space-y-3">
+            <ListToolbar
+              title={<ListViewSwitch current="Passages" other="Pending review" onSwitch={onSwitchView} />}
+              search={{
+                label: 'Search passages',
+                placeholder: 'Search title or source…',
+                defaultValue: list.q,
+                onSearch: (value) => list.set('q', value),
+              }}
+              sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
+              filters={[
+                { label: 'Status', value: status, options: STATUS_OPTIONS, onChange: (value) => list.set('status', value) },
+                { label: 'Type', value: type, options: TYPE_OPTIONS, onChange: (value) => list.set('type', value) },
+                { label: 'Language', value: language, options: LANGUAGE_OPTIONS, onChange: (value) => list.set('language', value) },
+              ]}
+              summary={passages.data ? `${passages.data.total} ${passages.data.total === 1 ? 'passage' : 'passages'}` : 'Loading passages…'}
+            />
+            {renderList()}
+          </div>
+        </Panel>
+      )}
       {/* One confirmation for both ways to delete for good: the card's Delete icon and Delete passage in the edit form. */}
       <ConfirmDialog
         open={deleting !== null}
@@ -177,12 +190,22 @@ const PassageBank = () => {
 };
 
 /**
- * Admin passages page: the passage bank (New passage and Passages panels), then the Pending review panel below it with
- * the learners' requests to make a passage public (SCRUM-176).
+ * Admin passages page: the New passage panel, then one list panel that is either the passage bank or the Pending review
+ * queue (learners' requests to make a passage public, SCRUM-176); the title button of its toolbar switches between them.
  */
-export const AdminPassagesPage = () => (
-  <div className="space-y-8">
-    <PassageBank />
-    <PendingPassagesPanel />
-  </div>
-);
+export const AdminPassagesPage = () => {
+  const [params, setParams] = useSearchParams();
+  const view: View = params.get('view') === 'pending' ? 'pending' : 'passages';
+  const switchView = () =>
+    setParams((next) => {
+      if (view === 'pending') next.delete('view');
+      else next.set('view', 'pending');
+      return next;
+    });
+
+  return (
+    <div className="flex flex-1 flex-col gap-8">
+      <PassageBank view={view} onSwitchView={switchView} />
+    </div>
+  );
+};
