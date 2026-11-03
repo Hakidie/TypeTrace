@@ -1,8 +1,29 @@
-import { Check, Eye, Globe, Keyboard, Pencil, Trash2, Undo2, X, type LucideIcon } from 'lucide-react';
+import {
+  Archive,
+  Check,
+  CircleCheck,
+  CircleX,
+  ClipboardCheck,
+  Clock,
+  Eye,
+  FileText,
+  Globe,
+  Keyboard,
+  Languages,
+  Pencil,
+  PencilLine,
+  Trash2,
+  Trophy,
+  Undo2,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { LabeledTag } from '@/shared/components/labeled-tag';
 import { Badge } from '@/shared/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { useFitLines } from '@/shared/hooks/use-fit-lines';
 import { cn } from '@/shared/lib/utils';
 import { canHardDelete, type LearnerPassage, type Passage, type ReviewDecision } from '../types/passage.types';
@@ -48,7 +69,47 @@ interface PassageCardProps {
   own?: OwnPassageActions;
 }
 
-// The chips look like the badges, but are buttons.
+/**
+ * What kind of passage this is (Rank, Placement or Regular: one of them), as an icon before the title with a tooltip, without a background; as big and as red as the title text (24px, `text-primary/80`), in the height of one title line (`leading-tight`).
+ */
+const PassageTag = ({ icon: Icon, label }: { icon: LucideIcon; label: string }) => (
+  <TooltipProvider delayDuration={200}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          role="img"
+          aria-label={label}
+          tabIndex={0}
+          className="inline-flex h-[1.875rem] items-center justify-center text-primary/80 transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Icon className="size-6" aria-hidden />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
+
+/** The icon of each state a passage can be in, shown before its name in the status badge. */
+const statusIcons: Record<string, LucideIcon> = {
+  draft: FileText,
+  published: CircleCheck,
+  archived: Archive,
+  pending: Clock,
+  rejected: CircleX,
+};
+
+/** The icon and the name of a state, as the content of the status badge. */
+const StatusContent = ({ status }: { status: string }) => {
+  const Icon = statusIcons[status.toLowerCase()] ?? FileText;
+  return (
+    <>
+      <Icon className="mr-1.5 size-4" aria-hidden />
+      {status}
+    </>
+  );
+};
+
 const chipClass = 'cursor-pointer hover:bg-primary/80';
 
 // Square icon buttons in the red of the card; the name is in `aria-label`, the hint in `title`.
@@ -108,6 +169,11 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
   // A review card of a learner's edit shows the proposed text, not the approved one that is public meanwhile.
   const shown = full?.pendingEdit ?? passage;
   const learner = passage as LearnerPassage;
+  // The learner's list only holds Vietnamese passages that are not for the placement test or the ranked duels, so its items
+  // (which do not say it) are shown as such: the cards of both lists look the same.
+  const isPlacement = full?.isPlacement ?? false;
+  const isRanked = full?.isRanked ?? false;
+  const isEnglish = full?.language === 'en';
   return (
     <Card
       role="article"
@@ -132,7 +198,19 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
     >
       {review?.selected && <span className="sr-only">Selected</span>}
       <CardHeader className={cn('p-4 pb-2', (review || own || onEdit || onDelete) && 'flex-row items-start justify-between gap-2 space-y-0')}>
-        <CardTitle className="line-clamp-2 min-w-0 text-[1.5rem] leading-tight text-primary/80">{shown.title}</CardTitle>
+        <div className="flex min-w-0 items-start gap-2">
+          <div className="flex shrink-0 items-center gap-1">
+            {/* One icon for the kind of passage, the icons of the Typing tabs: Rank (used in ranked duels), else Placement, else Regular (Practice). */}
+            {isRanked ? (
+              <PassageTag icon={Trophy} label="Rank: used in ranked duels" />
+            ) : isPlacement ? (
+              <PassageTag icon={ClipboardCheck} label="Placement passage" />
+            ) : (
+              <PassageTag icon={Keyboard} label="Regular passage" />
+            )}
+          </div>
+          <CardTitle className="line-clamp-2 min-w-0 text-[1.5rem] leading-tight text-primary/80">{shown.title}</CardTitle>
+        </div>
         {review && full && (
           <div className="-mr-1 -mt-1 flex shrink-0 items-center">
             {/* Shown on hover or keyboard focus; always on touch screens, which cannot hover. */}
@@ -189,26 +267,34 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
           </p>
         )}
         {shown.content &&
-          (own ? <FitText>{shown.content}</FitText> : <p className="line-clamp-4 min-h-24 text-base text-muted-foreground">{shown.content}</p>)}
+          (own ? <FitText>{shown.content}</FitText> : <p className="line-clamp-3 min-h-[4.5rem] text-base text-muted-foreground">{shown.content}</p>)}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <div className="flex flex-wrap items-center justify-start gap-2">
-            {full?.isPlacement && <Badge>Placement</Badge>}
-            {full?.isRanked && <Badge>Test xếp hạng</Badge>}
-            {full?.language === 'en' && <Badge title="English passage, for ranked duels">EN</Badge>}
-            {review && full?.pendingEdit && <Badge>Edited</Badge>}
+          <span className="text-sm text-primary/70">{passage.wordCount} words</span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {isEnglish ? (
+              <LabeledTag icon={Languages} text="English" hint="English passage, used in ranked duels" />
+            ) : (
+              <LabeledTag icon={Languages} text="Vietnamese" hint="Vietnamese passage, for practice and the placement test" />
+            )}
+            {review && full?.pendingEdit && <LabeledTag icon={PencilLine} text="Edited" />}
             {own ? (
               own.onShowReason && learner.reviewNote ? (
                 <Badge asChild className={chipClass}>
                   <button type="button" onClick={() => own.onShowReason?.(learner)} aria-label={`Show reason ${passage.title}`} title="Show the reason">
-                    {ownStatus(learner)}
+                    <StatusContent status={ownStatus(learner)} />
                   </button>
                 </Badge>
               ) : (
-                <Badge>{ownStatus(learner)}</Badge>
+                <Badge>
+                  <StatusContent status={ownStatus(learner)} />
+                </Badge>
               )
-            ) : <Badge className="capitalize">{passage.status}</Badge>}
+            ) : (
+              <Badge className="capitalize">
+                <StatusContent status={passage.status} />
+              </Badge>
+            )}
           </div>
-          <span className="text-sm text-primary/70">{passage.wordCount} words</span>
         </div>
       </CardContent>
     </Card>

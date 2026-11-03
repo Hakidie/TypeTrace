@@ -164,7 +164,7 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
 
   return (
     // `noValidate`: the schema checks the number field, with its own messages.
-    <form className="flex flex-col gap-4" aria-label={task ? 'Edit task' : 'New task'} noValidate onSubmit={submit}>
+    <form className="flex min-h-0 flex-1 flex-col gap-4" aria-label={task ? 'Edit task' : 'New task'} noValidate onSubmit={submit}>
       {/* PANEL Title row: the title on the left; on the right Type, Target and Active. */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 max-w-full space-y-2">
@@ -240,9 +240,10 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
       </div>
 
       {/* PANEL Description. */}
-      <div className="space-y-2">
+      {/* The text area takes the height left on the screen (12rem at least), like the text of a passage. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
         <Textarea
-          className={cn(fieldClass, 'min-h-32 resize-none text-[2rem] leading-snug')}
+          className={cn(fieldClass, 'min-h-48 flex-1 resize-none text-[2rem] leading-snug')}
           aria-label="Description"
           placeholder="Describe the task for learners (optional)…"
           {...register('description')}
@@ -251,32 +252,32 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
       </div>
 
       {/* PANEL Bottom row: Focus and the goal in words on the left, Cancel and Add task on the right. */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="flex w-fit flex-wrap">
               {/* Only an accuracy task can focus on one error type. */}
               {type === 'accuracy' && (
-                <div className={partClass}>
+                <div className={cn(partClass, 'px-3 text-[1.125rem]')}>
                   <span className="text-primary">Focus</span>
                   <Controller control={control} name="errorType" render={({ field }) => <StripMenu label="Focus" value={field.value} options={FOCUS_OPTIONS} onChange={field.onChange} />} />
                 </div>
               )}
             </div>
             {/* The goal in words, in the look of the word count of a passage. */}
-            <p className="px-3 py-1.5 text-[1.5rem] text-primary">{goal}</p>
+            <p className="w-fit bg-transparent px-3 py-1.5 text-[1.125rem] text-primary">{goal}</p>
           </div>
           <FieldError message={errors.target?.message} />
         </div>
 
         <div className="flex items-center justify-end gap-4">
           {task && (
-            <Button type="button" variant="ghost" className="px-5 text-muted-foreground hover:bg-transparent hover:text-primary" onClick={onDone}>
+            <Button type="button" variant="outline" onClick={onDone}>
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={saving} className="gap-2 px-6 text-base font-semibold">
-            {saving ? <Loader2 className="size-4 animate-spin" /> : !task && <Plus className="size-4" aria-hidden="true" />}
+          <Button type="submit" disabled={saving}>
+            {saving ? <Loader2 className="size-4 animate-spin" /> : !task && <Plus className="size-4" aria-hidden />}
             {task ? 'Update task' : 'Add task'}
           </Button>
         </div>

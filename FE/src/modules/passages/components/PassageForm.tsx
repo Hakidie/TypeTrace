@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2, Plus } from 'lucide-react';
 import { useState, type BaseSyntheticEvent } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -33,13 +33,14 @@ type FormValues = z.infer<typeof schema>;
 // No border (the focus ring stays) and 1.125rem text, placeholders included.
 const fieldClass = 'border-0 text-[1.125rem]';
 
-// Title and Source look like the status bar of the typing page (red tint, red text).
+// Title and Source look like the learner's passage form (`OwnPassageForm`): no background, red text, as wide as their text.
 // `field-sizing-content`: the field is as wide as its text (the placeholder while empty); the wrapper caps it at half the row.
-const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-primary/15 focus-visible:ring-0 px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary/60';
+const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
 
 const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false, isRanked: false, language: 'vi' };
 
-const CONTENT_PLACEHOLDER = 'Hà Nội vào thu, gió heo may se lạnh, hoa sữa thơm nồng trên từng con phố nhỏ.';
+// The same as the learner's passage form (`OwnPassageForm`).
+const CONTENT_PLACEHOLDER = 'Paste or type the text you want to practice…';
 
 /** No visible labels in this form: the placeholders say what each field is, `aria-label` serves screen readers. */
 const FieldError = ({ id, message }: { id: string; message?: string }) =>
@@ -108,10 +109,10 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
   const submit = (event?: BaseSyntheticEvent) => void save(event).catch(() => undefined);
 
   return (
-    <form className="space-y-4" onSubmit={submit}>
+    <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={submit}>
       <div className="flex flex-col gap-4 md:flex-row md:justify-between">
         <div className="min-w-0 max-w-full space-y-2 md:max-w-[calc(50%-0.5rem)]">
-          <Input className={cn(fieldClass, metaFieldClass)} aria-label="Title" placeholder="Mùa thu Hà Nội" {...register('title')} />
+          <Input className={cn(fieldClass, metaFieldClass)} aria-label="Title" placeholder="Title of The Passage" {...register('title')} />
           <FieldError id="passage-title-error" message={errors.title?.message} />
         </div>
         {/* `ml-auto` keeps Source on the right, also when the two fields are stacked on a phone. */}
@@ -119,16 +120,17 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
           <Input
             className={cn(fieldClass, metaFieldClass)}
             aria-label="Source"
-            placeholder="Wikipedia"
+            placeholder="Source"
             {...register('source')}
           />
           <FieldError id="passage-source-error" message={errors.source?.message} />
         </div>
       </div>
 
-      <div className="space-y-2">
+      {/* The text area takes the height left on the screen (12rem at least); a longer text scrolls inside it. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
         <Textarea
-          className={cn(fieldClass, 'h-48 text-[2rem] leading-snug')}
+          className={cn(fieldClass, 'min-h-48 flex-1 resize-none text-[2rem] leading-snug')}
           aria-label="Content"
           placeholder={CONTENT_PLACEHOLDER}
           {...register('content')}
@@ -137,8 +139,8 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        {/* Bottom left: the same look as the status bar of the typing page. */}
-        <p className="w-fit shrink-0 whitespace-nowrap bg-primary/15 px-3 py-1.5 text-[1.125rem] text-primary">
+        {/* Bottom left: the same look as the learner's passage form. */}
+        <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-3 py-1.5 text-[1.125rem] text-primary">
           {countWords(content)}/{MAX_PASSAGE_WORDS} words
         </p>
 
@@ -260,7 +262,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
             </Button>
           )}
           <Button type="submit" disabled={isPending}>
-            {isPending && <Loader2 className="size-4 animate-spin" />}
+            {isPending ? <Loader2 className="size-4 animate-spin" /> : !passage && <Plus className="size-4" aria-hidden />}
             {passage ? 'Update passage' : 'Add passage'}
           </Button>
         </div>
