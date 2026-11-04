@@ -64,6 +64,24 @@ export interface SessionTimeline {
   points: { second: number; wpm: number; errors: number }[];
 }
 
+/**
+ * One change of the text the learner saw while typing (SCRUM-35), as the typing area records it (`utils/session-replay.ts`):
+ * [ms since the previous change (the first one: since the first key), where it starts, how many characters it removes
+ * there, the text it puts there]. A fifth item, 1: the change is not committed (the input method is still composing it, or
+ * nothing changed: the end of the session), so the graded words stay as they were. Mirrors `ReplayEvent` in
+ * `BE/src/models/session-replay.model.ts`.
+ */
+export type ReplayEvent = [dt: number, at: number, removed: number, inserted: string] | [dt: number, at: number, removed: number, inserted: string, composing: 1];
+
+/** `GET /sessions/:id/replay`: the replay of a completed session, kept 30 days after it was saved. */
+export interface SessionReplay {
+  session: string;
+  events: ReplayEvent[];
+  createdAt: string;
+  /** When the server deletes it. */
+  expiresAt: string;
+}
+
 export interface StartSessionInput {
   mode?: SessionMode;
   passageId?: string;

@@ -111,6 +111,12 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   sessions: with `$max` after each counted session (`completeSession`, through `recordDailyTaskProgress`), so recording a
   session twice changes nothing, and replaced once, with the new `timeZone`, by the day's next counted session or `GET`
   after the learner's zone changed.
+- A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
+  which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen
+  (`createReplayRecorder`, `FE/src/modules/typing/utils/session-replay.ts`), the page sends them as `replay` with
+  `PATCH /api/sessions/:id/complete`, and `GET /api/sessions/:id/replay` reads them back (owner only). A replay never makes
+  a completion fail: one over `MAX_REPLAY_BYTES` (64 KB, a copy in `typing.config.ts`) or not made of changes is dropped,
+  and a failed save is only logged.
 - Word errors have one set per passage language, each a pure file with an identical frontend copy in `FE/src/shared/lib/`
   (keep each pair identical): Vietnamese `utils/vietnamese-errors.ts` (`WordError`, `classifyWord`, `tagWord`) for everything
   learners practice, English `utils/english-errors.ts` (`EnglishError`, `classifyEnglishWord`, `tagEnglishWord`, SCRUM-218)

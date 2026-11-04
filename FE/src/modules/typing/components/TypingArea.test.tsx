@@ -51,7 +51,7 @@ describe('TypingArea', () => {
     await user.type(area, 'Tiếng Việt đẹp. ');
 
     expect(onFinish).toHaveBeenCalledTimes(1);
-    expect(onFinish).toHaveBeenCalledWith(['Tiếng', 'Việt', 'đẹp.'], expect.any(Array));
+    expect(onFinish).toHaveBeenCalledWith(['Tiếng', 'Việt', 'đẹp.'], expect.any(Array), expect.any(Array));
     expect(area).toBeDisabled();
   });
 
@@ -73,7 +73,7 @@ describe('TypingArea', () => {
 
     await user.type(area, 'Tiếng Việt đẹp.{Enter}');
 
-    expect(onFinish).toHaveBeenCalledWith(['Tiếng', 'Việt', 'đẹp.'], expect.any(Array));
+    expect(onFinish).toHaveBeenCalledWith(['Tiếng', 'Việt', 'đẹp.'], expect.any(Array), expect.any(Array));
   });
 
   it('does not grade text the input method has not committed yet', () => {
@@ -248,7 +248,7 @@ describe('TypingArea time limit', () => {
       expect(onFinish).not.toHaveBeenCalled();
       vi.advanceTimersByTime(180_000);
 
-      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]], expect.any(Array)));
+      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]], expect.any(Array), expect.any(Array)));
       expect(onFinish).toHaveBeenCalledTimes(1);
       expect(onTimeUp).not.toHaveBeenCalled();
       expect(screen.getByRole('textbox', { name: 'Typing area' })).toBeDisabled();
@@ -287,7 +287,7 @@ describe('TypingArea time limit', () => {
       expect(onFinish).not.toHaveBeenCalled();
       vi.advanceTimersByTime(1_000);
 
-      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]], expect.any(Array)));
+      await waitFor(() => expect(onFinish).toHaveBeenCalledWith([words[0], words[1]], expect.any(Array), expect.any(Array)));
       expect(onFinish).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();

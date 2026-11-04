@@ -15,7 +15,7 @@ import { redGlassTheme } from '@/shared/lib/red-glass-theme';
 import { MinigamesMode, type MinigameId } from '../components/MinigamesMode';
 import { TypingArea, TypingStatus } from '../components/TypingArea';
 import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession } from '../hooks/use-typing';
-import type { SessionMode } from '../types/typing.types';
+import type { ReplayEvent, SessionMode } from '../types/typing.types';
 import { modeIcons } from '../typing.config';
 
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
@@ -164,10 +164,10 @@ export const TypingPage = () => {
     setTimeIndex(index);
   };
 
-  const finish = (typedWords: string[], typedAtMs: number[]) => {
+  const finish = (typedWords: string[], typedAtMs: number[], replay?: ReplayEvent[]) => {
     if (!session) return;
     complete.mutate(
-      { id: session._id, typedWords, typedAtMs, timeLimitSeconds: timeSeconds },
+      { id: session._id, typedWords, typedAtMs, timeLimitSeconds: timeSeconds, replay },
       { onSuccess: (done) => navigate(`/typing/result/${done._id}`) },
     );
   };

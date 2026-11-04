@@ -9,6 +9,7 @@ import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../
 import { recordTry } from './daily.service';
 import { recentProgressOf, recordCountedSession } from './daily-progress.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
+import { saveSessionReplay } from './session-replay.service';
 import { recordDailyTaskProgress, taskCountsSince } from './user-daily-tasks.service';
 
 /** Sessions with fewer words, or faster than this, are saved but kept out of the error profile (ASSUMPTION). */
@@ -150,8 +151,15 @@ const assertValidTimes = (typedAtMs: number[], durationMs: number) => {
   if (typedAtMs.some((time) => time > durationMs + SESSION_GRACE_MS)) throw badRequest('A word time is after the end of the session');
 };
 
-/** Re-grades the typed words and stores WPM, accuracy and error counts. Anything else the client says is ignored. */
-export const completeSession = async (userId: string, id: string, { typedWords, typedAtMs, timeLimitSeconds }: CompleteSessionInput) => {
+/**
+ * Re-grades the typed words and stores WPM, accuracy and error counts, and the replay apart (SCRUM-35). Anything else the
+ * client says is ignored.
+ */
+export const completeSession = async (
+  userId: string,
+  id: string,
+  { typedWords, typedAtMs, timeLimitSeconds, replay }: CompleteSessionInput
+) => {
   const session = await getSession(userId, id);
   if (session.status !== 'in_progress') throw conflict('Session is not in progress');
   if (typedWords.length > session.targetWords.length) throw badRequest('More words than the passage has');
@@ -185,6 +193,10 @@ export const completeSession = async (userId: string, id: string, { typedWords, 
     { returnDocument: 'after', runValidators: true }
   );
   if (!completed) throw conflict('Session is not in progress');
+  // The session is saved: a replay that cannot be saved must not answer 500, a retry would get 409. It has no replay then.
+  if (replay) {
+    await saveSessionReplay(userId, id, replay).catch((error) => console.error('Replay not saved:', error));
+  }
   if (completed.isCounted) {
     // The session is saved: a failed day write must not answer 500, a retry would get 409. The rebuild adds the day.
     await recordCountedSession(userId, now).catch((error) =>

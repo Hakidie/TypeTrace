@@ -38,3 +38,9 @@ export const errorChartLabels: Record<WordErrorType, string> = {
 
 /** A session lasts at most 3 minutes (the server enforces it too: `MAX_SESSION_MS` in the backend). */
 export const SESSION_TIME_LIMIT_SECONDS = 180;
+
+/** The most a replay may take as JSON (UTF-8 bytes): a bigger one is not sent (the same as `MAX_REPLAY_BYTES` in the backend). */
+export const MAX_REPLAY_BYTES = 64 * 1024;
+
+/** How long the server keeps a replay (`REPLAY_TTL_DAYS` in the backend). */
+export const REPLAY_KEPT_DAYS = 30;

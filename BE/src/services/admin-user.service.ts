@@ -1,6 +1,7 @@
 import type { QueryFilter } from 'mongoose';
 import { DailyProgressModel } from '../models/daily-progress.model';
 import { NoteModel } from '../models/note.model';
+import { SessionReplayModel } from '../models/session-replay.model';
 import { TypingSessionModel } from '../models/typing-session.model';
 import { UserDailyTasksModel } from '../models/user-daily-tasks.model';
 import { UserDocument, UserModel } from '../models/user.model';
@@ -73,8 +74,8 @@ export const setUserStatus = async (actorId: string, id: string, { status }: Set
 };
 
 /**
- * Deletes users with their notes, typing sessions, days (DailyProgress), daily tasks (UserDailyTasks) and avatars. Admins
- * cannot delete themselves.
+ * Deletes users with their notes, typing sessions and their replays, days (DailyProgress), daily tasks (UserDailyTasks)
+ * and avatars. Admins cannot delete themselves.
  */
 export const deleteUsers = async (actorId: string, ids: string[]) => {
   if (ids.includes(actorId)) throw badRequest('You cannot delete your own account here');
@@ -82,6 +83,7 @@ export const deleteUsers = async (actorId: string, ids: string[]) => {
   const { deletedCount } = await UserModel.deleteMany({ _id: { $in: ids } });
   await NoteModel.deleteMany({ owner: { $in: ids } });
   await TypingSessionModel.deleteMany({ owner: { $in: ids } });
+  await SessionReplayModel.deleteMany({ owner: { $in: ids } });
   await DailyProgressModel.deleteMany({ owner: { $in: ids } });
   await UserDailyTasksModel.deleteMany({ owner: { $in: ids } });
   // Best effort: a failed image cleanup must not undo the delete.

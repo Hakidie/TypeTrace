@@ -6,6 +6,7 @@ import {
   createSession,
   getActivity,
   getSession,
+  getSessionReplay,
   getSessionStats,
   listSessions
 } from '../controllers/typing-session.controller';
@@ -32,6 +33,8 @@ typingSessionRouter.get('/', validate({ query: listSessionsQuerySchema }), listS
 typingSessionRouter.get('/activity', getActivity);
 typingSessionRouter.get('/:id', validate({ params: idParamsSchema }), getSession);
 typingSessionRouter.get('/:id/stats', validate({ params: idParamsSchema }), getSessionStats);
+/** The replay of a completed session (SCRUM-35), kept 30 days: owner only. */
+typingSessionRouter.get('/:id/replay', validate({ params: idParamsSchema }), getSessionReplay);
 typingSessionRouter.patch('/:id/begin', validate({ params: idParamsSchema }), beginSession);
 typingSessionRouter.patch(
   '/:id/complete',
