@@ -4,7 +4,7 @@ import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { ListRow, ListRowStat } from '@/shared/components/list-row';
 import { LoadingState } from '@/shared/components/loading-state';
-import { usePlacementBoard } from '../hooks/use-ranked';
+import { usePlacementBoard, usePlacementMinAccuracy } from '../hooks/use-ranked';
 import { formatBoardTime } from '../lib/placement-board';
 import type { PlacementRange } from '../types/ranked.types';
 
@@ -25,6 +25,7 @@ const Stats = ({ wpm, accuracy, durationMs }: StatsProps) => (
 /** The top 50 of one placement passage (US10.1), and the place of the learner when they are not among them. Names and avatars only. */
 export const PlacementBoard = ({ passageId, range }: { passageId: string; range: PlacementRange }) => {
   const board = usePlacementBoard({ passageId, range });
+  const minAccuracy = usePlacementMinAccuracy();
 
   if (board.isPending) return <LoadingState rows={5} />;
   if (board.isError) return <ErrorState error={board.error} onRetry={() => void board.refetch()} />;
@@ -33,7 +34,7 @@ export const PlacementBoard = ({ passageId, range }: { passageId: string; range:
       <EmptyState
         icon={ClipboardCheck}
         title="No placement results yet"
-        description="Finish this passage in a 3-minute placement session with 90% accuracy or more to be on the board."
+        description={`Finish this passage in a 3-minute placement session with ${minAccuracy}% accuracy or more to be on the board.`}
       />
     );
   }

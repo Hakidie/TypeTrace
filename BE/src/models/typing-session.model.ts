@@ -51,7 +51,7 @@ export interface TypingSessionDocument extends mongoose.Document {
    * sent at the end is never used to rank. Changing the time starts a new session. Sessions from before have none.
    */
   chosenLimitSeconds?: number;
-  /** Set once by `completeSession` (`isSessionOnPlacementBoard`): only a placement session that passed the rules can be on the placement leaderboard. */
+  /** Set once by `completeSession` (`isSessionOnPlacementBoard`): only a placement session that passed the rules can be on the placement leaderboard. An admin changing the minimum accuracy sets it again (`rebuildPlacementBoardFlags`). */
   isOnPlacementBoard: boolean;
   completedAt?: Date;
   durationMs?: number;
@@ -120,8 +120,9 @@ typingSessionSchema.index({ owner: 1, status: 1 });
 // daily tasks read at each counted session (SCRUM-112). Without it every completed session of the learner is read.
 typingSessionSchema.index({ owner: 1, completedAt: -1 });
 
-// The placement leaderboard (US10.1): the sessions of one passage that went on it, in the order of the board, per week or all time.
-typingSessionSchema.index({ passageId: 1, isOnPlacementBoard: 1, completedAt: -1 });
+// The placement leaderboard (US10.1): the sessions of one passage that went on it, already in the order of the board (WPM, accuracy,
+// time, who finished first), so the ranking reads them in order without sorting them in memory; a week only filters `completedAt`.
+typingSessionSchema.index({ passageId: 1, isOnPlacementBoard: 1, wpm: -1, accuracy: -1, durationMs: 1, completedAt: 1 });
 
 // Abandoned sessions (a time changed, a page left) are deleted 24 hours after they were abandoned: `updatedAt` is written when the status
 // changes. Only abandoned ones are in this index, so completed sessions are never deleted.

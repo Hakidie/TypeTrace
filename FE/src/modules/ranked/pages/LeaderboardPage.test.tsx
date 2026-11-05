@@ -8,9 +8,10 @@ import { LeaderboardPage } from './LeaderboardPage';
 const leaderboard = vi.fn();
 const placementBoard = vi.fn();
 const passages = vi.fn();
+const placementSettings = vi.fn();
 
 vi.mock('../api/ranked.api', () => ({
-  rankedApi: { leaderboard: (params: unknown) => leaderboard(params), placementBoard: (params: unknown) => placementBoard(params) },
+  rankedApi: { leaderboard: (params: unknown) => leaderboard(params), placementBoard: (params: unknown) => placementBoard(params), placementSettings: () => placementSettings() },
 }));
 
 vi.mock('@/modules/typing/api/typing.api', () => ({
@@ -42,6 +43,7 @@ beforeEach(() => {
   tokenStore.set('test-token');
   leaderboard.mockReset();
   placementBoard.mockReset();
+  placementSettings.mockReset().mockResolvedValue({ minAccuracy: 90 });
   passages.mockReset().mockResolvedValue([
     { _id: 'p1', title: 'Bài kiểm tra đầu vào', wordCount: 40 },
     { _id: 'p2', title: 'Sài Gòn mưa', wordCount: 35 },
@@ -238,6 +240,15 @@ describe('LeaderboardPage placement tab (US10.1)', () => {
     await openPlacement();
 
     expect(await screen.findByText('No placement results yet')).toBeInTheDocument();
+  });
+
+  it('names the minimum accuracy an admin set in the empty board message', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    placementSettings.mockResolvedValue({ minAccuracy: 80 });
+    placementBoard.mockResolvedValue(placement([]));
+    await openPlacement();
+
+    expect(await screen.findByText(/with 80% accuracy or more/i)).toBeInTheDocument();
   });
 
   it('says so when there is no placement passage to choose', async () => {

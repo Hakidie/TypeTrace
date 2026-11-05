@@ -8,6 +8,7 @@ import type {
   Paginated,
   PlacementBoard,
   PlacementRange,
+  PlacementSettings,
   ProgressInput,
   ProgressUpdate,
   PublicMatch,
@@ -31,7 +32,11 @@ export const rankedApi = {
   /** The placement leaderboard of one passage (US10.1), for the current week or all the time. */
   placementBoard: (params: { passageId: string; range: PlacementRange }) =>
     http.get<PlacementBoard>('/placement/leaderboard', { params }).then((r) => r.data),
+  /** The minimum accuracy in use, for the notes of the typing pages. */
+  placementSettings: () => http.get<PlacementSettings>('/placement/settings').then((r) => r.data),
   // Admin only.
+  updatePlacementSettings: (settings: PlacementSettings) =>
+    http.put<PlacementSettings>('/admin/placement/settings', settings).then((r) => r.data),
   seasons: (params: { page: number; limit: number }) => http.get<Paginated<Season>>('/admin/seasons', { params }).then((r) => r.data),
   closeSeason: (id: string) => http.post<Season>(`/admin/seasons/${id}/close`).then((r) => r.data),
 };

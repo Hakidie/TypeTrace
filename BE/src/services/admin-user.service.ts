@@ -7,6 +7,7 @@ import { UserDailyTasksModel } from '../models/user-daily-tasks.model';
 import { UserDocument, UserModel } from '../models/user.model';
 import { badRequest, forbidden, notFound } from '../utils/app-error';
 import { deleteImage } from './cloudinary.service';
+import { placementBoardChanged } from './placement-board-cache';
 import { typingActivityOf } from './typing-session.service';
 import { paginate } from '../utils/pagination';
 import { AdminUpdateUserInput, ListUsersQuery, SetUserStatusInput } from '../validators/admin-user.validator';
@@ -70,6 +71,7 @@ export const setUserStatus = async (actorId: string, id: string, { status }: Set
   user.status = status;
   user.lockedAt = status === 'locked' ? new Date() : undefined;
   await user.save();
+  placementBoardChanged(); // a locked learner has no line on the placement boards, an unlocked one has again
   return user;
 };
 
@@ -83,6 +85,7 @@ export const deleteUsers = async (actorId: string, ids: string[]) => {
   const { deletedCount } = await UserModel.deleteMany({ _id: { $in: ids } });
   await NoteModel.deleteMany({ owner: { $in: ids } });
   await TypingSessionModel.deleteMany({ owner: { $in: ids } });
+  placementBoardChanged(); // their sessions were on the placement boards
   await SessionReplayModel.deleteMany({ owner: { $in: ids } });
   await DailyProgressModel.deleteMany({ owner: { $in: ids } });
   await UserDailyTasksModel.deleteMany({ owner: { $in: ids } });

@@ -1,4 +1,5 @@
 import { QueryFilter, Types } from 'mongoose';
+import { DEFAULT_PLACEMENT_MIN_ACCURACY } from '../models/app-setting.model';
 import { notEnglish, PassageModel, splitWords } from '../models/passage.model';
 import { ErrorCounts, SessionWord, TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
@@ -7,6 +8,8 @@ import { titleSearchPattern } from '../utils/passage-text';
 import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
 import { recordTry } from './daily.service';
+import { getAppSettings } from './app-setting.service';
+import { placementBoardChanged } from './placement-board-cache';
 import { recentProgressOf, recordCountedSession } from './daily-progress.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
 import { saveSessionReplay } from './session-replay.service';
@@ -21,8 +24,6 @@ export const MAX_SESSION_MS = 3 * 60 * 1000;
 export const SESSION_GRACE_MS = 5000;
 /** Only placement sessions started with 3 minutes can go on the leaderboard, so every entry of the leaderboard had the same time (US10.1). */
 export const PLACEMENT_BOARD_LIMIT_SECONDS = MAX_SESSION_MS / 1000;
-/** A session under this accuracy stays off the leaderboard. */
-export const MIN_PLACEMENT_BOARD_ACCURACY = 90;
 
 /** A session belongs to one learner: another user's session answers 404, even for admins. */
 const ownedBy = (userId: string, id?: string) => ({ ...(id ? { _id: id } : {}), owner: userId });
@@ -73,8 +74,9 @@ export const isSessionCounted = (wordCount: number, wpm: number, durationMs = 0)
 
 /**
  * Whether a completed session goes on the placement leaderboard (US10.1). The server decides: the time the page sends at the end is
- * ignored. The session must be a counted placement session started with 3 minutes, with an accuracy of 90% or more, that either lasted
- * the 3 minutes (`durationMs` is the server's own clock) or typed every word of the passage before they were over.
+ * ignored. The session must be a counted placement session started with 3 minutes, with an accuracy of `minAccuracy` or more (the admin's
+ * setting, 90 until they change it), that either lasted the 3 minutes (`durationMs` is the server's own clock) or typed every word of
+ * the passage before they were over.
  */
 export const isSessionOnPlacementBoard = (session: {
   mode: string;
@@ -84,12 +86,46 @@ export const isSessionOnPlacementBoard = (session: {
   totalCount: number;
   accuracy: number;
   isCounted: boolean;
+  minAccuracy: number;
 }) =>
   session.mode === 'placement' &&
   session.chosenLimitSeconds === PLACEMENT_BOARD_LIMIT_SECONDS &&
   session.isCounted &&
-  session.accuracy >= MIN_PLACEMENT_BOARD_ACCURACY &&
+  session.accuracy >= session.minAccuracy &&
   (session.durationMs >= MAX_SESSION_MS || session.typedCount === session.totalCount);
+
+/**
+ * The same rule as `isSessionOnPlacementBoard`, written for MongoDB (an aggregation expression over the stored fields of a completed
+ * session), so the flags in the database can be set again without reading the sessions. Keep both in step:
+ * `placement-board-flags.test.ts` checks the same cases through both.
+ */
+const placementBoardRuleExpression = (minAccuracy: number) => ({
+  $and: [
+    { $eq: ['$mode', 'placement'] },
+    { $eq: ['$chosenLimitSeconds', PLACEMENT_BOARD_LIMIT_SECONDS] },
+    { $eq: ['$isCounted', true] },
+    { $gte: ['$accuracy', minAccuracy] },
+    { $or: [{ $gte: ['$durationMs', MAX_SESSION_MS] }, { $eq: [{ $size: '$words' }, { $size: '$targetWords' }] }] }
+  ]
+});
+
+/**
+ * Sets `isOnPlacementBoard` again, from the rule and the minimum accuracy saved, on every completed placement session. An admin
+ * saving a new minimum runs it; so does `npm run migrate:placement-board`, for flags saved wrong before. The flag comes from the
+ * rule and the minimum, never from the difference between two minimums, so it fixes a wrong flag too and running it again changes
+ * nothing. It reads every completed placement session once, in MongoDB: the minimum changes rarely. Two admins saving at the same
+ * time can leave a wrong flag until the next save (accepted: it is rare and there are few admins).
+ */
+export const rebuildPlacementBoardFlags = async () => {
+  const { placementMinAccuracy } = await getAppSettings();
+  const { modifiedCount } = await TypingSessionModel.updateMany(
+    { mode: 'placement', status: 'completed' },
+    [{ $set: { isOnPlacementBoard: placementBoardRuleExpression(placementMinAccuracy) } }],
+    { updatePipeline: true }
+  );
+  if (modifiedCount > 0) placementBoardChanged(); // any passage may have lines that come on or off
+  return modifiedCount;
+};
 
 /**
  * The passage a session types. With a `passageId` it is that passage, if it belongs to the mode (see `learnerPassageFilter`); for the placement test it is a random
@@ -200,7 +236,9 @@ export const completeSession = async (
   const { errorCounts, opportunityCounts } = countErrors(words);
   const accuracy = round1((correctWords.length / words.length) * 100);
   const isCounted = isSessionCounted(words.length, wpm, elapsedMs);
-  const isOnPlacementBoard = isSessionOnPlacementBoard({
+  // Only a placement session can be on the board: the other modes do not read the settings.
+  const minAccuracy = session.mode === 'placement' ? (await getAppSettings()).placementMinAccuracy : DEFAULT_PLACEMENT_MIN_ACCURACY;
+  const boardInput = {
     mode: session.mode,
     chosenLimitSeconds: session.chosenLimitSeconds,
     durationMs,
@@ -208,7 +246,8 @@ export const completeSession = async (
     totalCount: session.targetWords.length,
     accuracy,
     isCounted
-  });
+  };
+  const isOnPlacementBoard = isSessionOnPlacementBoard({ ...boardInput, minAccuracy });
 
   // One conditional write: only a request that still finds the session in progress completes it, so of two sent at the
   // same time one gets 409. Only that request adds a counted session to the learner's day (SCRUM-31): it counts once.
@@ -230,6 +269,20 @@ export const completeSession = async (
     { returnDocument: 'after', runValidators: true }
   );
   if (!completed) throw conflict('Session is not in progress');
+  // An admin may have saved another minimum accuracy after it was read and before this session was saved: the update of the sessions
+  // already saved (`rebuildPlacementBoardFlags`) did not see this one. Read the minimum again; if it changed, the flag follows it.
+  if (completed.mode === 'placement') {
+    const currentMinAccuracy = (await getAppSettings()).placementMinAccuracy;
+    if (currentMinAccuracy !== minAccuracy) {
+      const flag = isSessionOnPlacementBoard({ ...boardInput, minAccuracy: currentMinAccuracy });
+      if (flag !== completed.isOnPlacementBoard) {
+        await TypingSessionModel.updateOne({ _id: completed._id }, { isOnPlacementBoard: flag });
+        completed.isOnPlacementBoard = flag;
+      }
+    }
+  }
+  // A session on the board changes the board of its passage (the cache builds it again at the next read after its hour).
+  if (isOnPlacementBoard || completed.isOnPlacementBoard) placementBoardChanged(completed.passageId);
   // The session is saved: a replay that cannot be saved must not answer 500, a retry would get 409. It has no replay then.
   if (replay) {
     await saveSessionReplay(userId, id, replay).catch((error) => console.error('Replay not saved:', error));

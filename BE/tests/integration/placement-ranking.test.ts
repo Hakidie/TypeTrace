@@ -141,7 +141,7 @@ describe('PATCH /api/sessions/:id/complete: which placement sessions go on the l
     expect(response.body.isOnPlacementBoard).toBe(false);
   });
 
-  it('keeps off the board an accuracy under 90%', async () => {
+  it('keeps off the board an accuracy under the minimum (90 until an admin changes it)', async () => {
     const auth = bearerFor(await createUser({}));
     const wrong = WORDS.map((word, index) => (index < 4 ? `${word}x` : word)); // 26 of 30 right: 86.7%
 

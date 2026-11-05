@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { afterAll, afterEach, beforeAll } from 'vitest';
+import { clearPlacementBoardCache } from '../../src/services/placement-board-cache';
 
 /**
  * Boots one throwaway MongoDB per test file and wipes all collections between
@@ -27,6 +28,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
+  clearPlacementBoardCache(); // the database is wiped below: the placement boards kept in memory go too
   const collections = await mongoose.connection.db!.collections();
   await Promise.all(collections.map((collection) => collection.deleteMany({})));
 });

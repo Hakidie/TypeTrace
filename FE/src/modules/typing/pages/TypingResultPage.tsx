@@ -11,6 +11,7 @@ import { SessionInfoPanel } from '../components/SessionInfoPanel';
 import { SpeedErrorChart } from '../components/SpeedErrorChart';
 import { ResultActions } from '../components/ResultActions';
 import { ResultsPanel } from '../components/ResultsPanel';
+import { usePlacementMinAccuracy } from '@/modules/ranked/hooks/use-ranked';
 import { useSession, useSessionStats } from '../hooks/use-typing';
 import { placementBoardNote, statsFromCounts, type WordResult } from '../utils/typing-session';
 
@@ -18,6 +19,7 @@ export const TypingResultPage = () => {
   const { id = '' } = useParams();
   const { data: session, isLoading, error, refetch } = useSession(id);
   const stats = useSessionStats(id);
+  const minAccuracy = usePlacementMinAccuracy();
   // The error panels (by type, mistakes, rates) are hidden until the learner asks for them.
   const [detailOpen, setDetailOpen] = useState(false);
   // Replay plays the session back in place of the typed passage, until it is pressed again (SCRUM-35).
@@ -32,7 +34,7 @@ export const TypingResultPage = () => {
   }
 
   const results: WordResult[] = session.words.map((word) => ({ ...word, errors: word.errorTypes }));
-  const boardNote = placementBoardNote(session);
+  const boardNote = placementBoardNote(session, minAccuracy);
 
   return (
     <div className="space-y-12">

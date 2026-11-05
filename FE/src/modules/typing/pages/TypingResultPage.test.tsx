@@ -7,6 +7,11 @@ import { TypingResultPage } from './TypingResultPage';
 const get = vi.fn();
 const stats = vi.fn();
 const replay = vi.fn();
+const placementSettings = vi.fn();
+
+vi.mock('@/modules/ranked/api/ranked.api', () => ({
+  rankedApi: { placementSettings: () => placementSettings() },
+}));
 
 vi.mock('../api/typing.api', () => ({
   typingApi: { get: (id: string) => get(id), stats: (id: string) => stats(id), replay: (id: string) => replay(id) },
@@ -57,6 +62,7 @@ const sessionStats = (overrides = {}) => ({
 });
 
 beforeEach(() => {
+  placementSettings.mockReset().mockResolvedValue({ minAccuracy: 90 });
   get.mockReset();
   stats.mockReset();
   stats.mockResolvedValue(sessionStats());
@@ -93,6 +99,14 @@ describe('TypingResultPage: the placement leaderboard (US10.1)', () => {
 
     expect(await screen.findByText(/not on the placement leaderboard/i)).toBeInTheDocument();
     expect(screen.getByText(reason)).toBeInTheDocument();
+  });
+
+  it('names the minimum accuracy an admin set, not a fixed 90%', async () => {
+    placementSettings.mockResolvedValue({ minAccuracy: 75 });
+    get.mockResolvedValue(placementSession({ accuracy: 70 }));
+    renderPage();
+
+    expect(await screen.findByText(/an accuracy under 75% is not ranked/i)).toBeInTheDocument();
   });
 
   it('says nothing about the leaderboard for a practice session', async () => {

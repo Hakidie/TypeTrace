@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getPlacementBoard, getPlacementPassage } from '../controllers/placement.controller';
+import { getPlacementBoard, getPlacementPassage, getPlacementSettings } from '../controllers/placement.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
@@ -18,3 +18,6 @@ placementRouter.get('/', getPlacementPassage);
  * learner, the top 50 and the learner's own place. Names and avatars only.
  */
 placementRouter.get('/leaderboard', validate({ query: placementBoardQuerySchema }), getPlacementBoard);
+
+/** The minimum accuracy in use, for the notes of the typing pages (an admin sets it: `/api/admin/placement/settings`). */
+placementRouter.get('/settings', getPlacementSettings);

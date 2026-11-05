@@ -151,6 +151,11 @@ export interface PlacementBoard {
   me: { rank: number; wpm: number; accuracy: number; durationMs: number } | null;
 }
 
+/** `GET /placement/settings` (and the admin's `PUT`): the accuracy a placement session needs to go on the leaderboard, in percent. */
+export interface PlacementSettings {
+  minAccuracy: number;
+}
+
 /** A season as the admin sees it. */
 export interface Season extends SeasonInfo {
   _id: string;
