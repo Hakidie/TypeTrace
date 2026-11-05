@@ -113,7 +113,7 @@ export const AdminDailyTasksPage = () => {
   };
 
   return (
-    <div className="flex flex-1 flex-col gap-12">
+    <div className="flex flex-1 flex-col gap-8">
       <div ref={formPanelRef} className="flex scroll-mt-4 flex-col lg:flex-1">
         {/* No visible title (the form says what it is); screen readers still get one. */}
         {/* PANEL Task form */}

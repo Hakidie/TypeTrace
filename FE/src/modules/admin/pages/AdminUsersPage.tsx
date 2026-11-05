@@ -113,7 +113,7 @@ export const AdminUsersPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-12">
+    <div className="flex flex-col gap-8">
       {/* PANEL User info: always there, but only for editing (there is no "new user"): empty and disabled until Edit picks a user. No visible title, screen readers still get one. */}
       <div ref={formPanelRef} className="scroll-mt-4">
         <Panel bare>

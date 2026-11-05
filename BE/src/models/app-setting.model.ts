@@ -10,10 +10,17 @@ export const APP_SETTINGS_KEY = 'global';
 export const DEFAULT_DAILY_TASK_COUNT = 3;
 export const MAX_DAILY_TASK_COUNT = 10;
 
+/** The accuracy a placement session needs to go on the placement leaderboard (US10.1): the default, and the lowest and highest an admin may choose. */
+export const DEFAULT_PLACEMENT_MIN_ACCURACY = 90;
+export const MIN_PLACEMENT_MIN_ACCURACY = 50;
+export const MAX_PLACEMENT_MIN_ACCURACY = 100;
+
 /** The settings themselves, without the bookkeeping fields of the document. */
 export interface AppSettings {
   /** How many of the active daily tasks a learner gets each day (1 to `MAX_DAILY_TASK_COUNT`). */
   dailyTaskCount: number;
+  /** The accuracy (in percent) a placement session needs to go on the placement leaderboard. */
+  placementMinAccuracy: number;
 }
 
 export interface AppSettingDocument extends mongoose.Document, AppSettings {
@@ -31,6 +38,14 @@ const appSettingSchema = new Schema<AppSettingDocument>(
       default: DEFAULT_DAILY_TASK_COUNT,
       min: 1,
       max: MAX_DAILY_TASK_COUNT,
+      validate: { validator: Number.isInteger, message: 'Use a whole number' }
+    },
+    placementMinAccuracy: {
+      type: Number,
+      required: true,
+      default: DEFAULT_PLACEMENT_MIN_ACCURACY,
+      min: MIN_PLACEMENT_MIN_ACCURACY,
+      max: MAX_PLACEMENT_MIN_ACCURACY,
       validate: { validator: Number.isInteger, message: 'Use a whole number' }
     }
   },

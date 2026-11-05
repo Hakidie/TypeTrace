@@ -1,11 +1,22 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { AdminSettingsPage } from './AdminSettingsPage';
 
+vi.mock('@/modules/ranked/api/ranked.api', () => ({
+  rankedApi: { placementSettings: async () => ({ minAccuracy: 90 }), updatePlacementSettings: async (settings: unknown) => settings },
+}));
+
 describe('AdminSettingsPage', () => {
   beforeEach(() => localStorage.clear());
+
+  it('has the Placement leaderboard panel with the minimum accuracy in use', async () => {
+    renderWithProviders(<AdminSettingsPage />, { route: '/admin/settings', path: '/admin/settings' });
+
+    expect(screen.getByRole('heading', { name: 'Placement leaderboard' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Minimum accuracy (%)')).toHaveValue(90);
+  });
 
   it('shows the Appearance panel with the theme above the sidebar option', () => {
     renderWithProviders(<AdminSettingsPage />, { route: '/admin/settings', path: '/admin/settings' });

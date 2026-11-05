@@ -33,6 +33,10 @@ export interface TypingSession {
   /** When the first key was pressed; the timer runs from here. */
   beganAt?: string;
   completedAt?: string;
+  /** The time the learner chose with the first key, in seconds, kept by the server (US10.1); sessions from before have none. */
+  chosenLimitSeconds?: number;
+  /** Whether the placement session went on the placement leaderboard: the server decides when it is completed (US10.1). */
+  isOnPlacementBoard: boolean;
   durationMs?: number;
   wpm?: number;
   accuracy?: number;
@@ -85,6 +89,8 @@ export interface SessionReplay {
 export interface StartSessionInput {
   mode?: SessionMode;
   passageId?: string;
+  /** The time the learner chose; a placement session needs it to be ranked (US10.1). */
+  timeLimitSeconds?: number;
 }
 
 /** One entry of the passage dropdown (`GET /api/passages`): no text. */

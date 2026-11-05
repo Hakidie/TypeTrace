@@ -7,6 +7,11 @@ import { TypingResultPage } from './TypingResultPage';
 const get = vi.fn();
 const stats = vi.fn();
 const replay = vi.fn();
+const placementSettings = vi.fn();
+
+vi.mock('@/modules/ranked/api/ranked.api', () => ({
+  rankedApi: { placementSettings: () => placementSettings() },
+}));
 
 vi.mock('../api/typing.api', () => ({
   typingApi: { get: (id: string) => get(id), stats: (id: string) => stats(id), replay: (id: string) => replay(id) },
@@ -57,10 +62,60 @@ const sessionStats = (overrides = {}) => ({
 });
 
 beforeEach(() => {
+  placementSettings.mockReset().mockResolvedValue({ minAccuracy: 90 });
   get.mockReset();
   stats.mockReset();
   stats.mockResolvedValue(sessionStats());
   replay.mockReset();
+});
+
+const placementSession = (overrides = {}) => ({
+  ...completed,
+  mode: 'placement',
+  accuracy: 96,
+  isCounted: true,
+  chosenLimitSeconds: 180,
+  isOnPlacementBoard: false,
+  ...overrides,
+});
+
+describe('TypingResultPage: the placement leaderboard (US10.1)', () => {
+  it('says a placement session is on the leaderboard', async () => {
+    get.mockResolvedValue(placementSession({ isOnPlacementBoard: true }));
+    renderPage();
+
+    expect(await screen.findByText('This session is on the placement leaderboard.')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['another time was chosen', { chosenLimitSeconds: 60 }, /only 3-minute placement sessions are ranked/i],
+    ['no time was sent', { chosenLimitSeconds: undefined }, /only 3-minute placement sessions are ranked/i],
+    ['the session was not counted', { isCounted: false }, /to be ranked/i],
+    ['the accuracy was under 90%', { accuracy: 85 }, /accuracy under 90%/i],
+    ['it stopped before 3 minutes without finishing the passage', {}, /last the 3 minutes or finish the whole passage/i],
+  ])('says why it is not on the leaderboard when %s', async (_name, overrides, reason) => {
+    get.mockResolvedValue(placementSession(overrides));
+    renderPage();
+
+    expect(await screen.findByText(/not on the placement leaderboard/i)).toBeInTheDocument();
+    expect(screen.getByText(reason)).toBeInTheDocument();
+  });
+
+  it('names the minimum accuracy an admin set, not a fixed 90%', async () => {
+    placementSettings.mockResolvedValue({ minAccuracy: 75 });
+    get.mockResolvedValue(placementSession({ accuracy: 70 }));
+    renderPage();
+
+    expect(await screen.findByText(/an accuracy under 75% is not ranked/i)).toBeInTheDocument();
+  });
+
+  it('says nothing about the leaderboard for a practice session', async () => {
+    get.mockResolvedValue({ ...completed, isOnPlacementBoard: false });
+    renderPage();
+    await screen.findByRole('button', { name: 'Error detail' });
+
+    expect(screen.queryByText(/placement leaderboard/i)).not.toBeInTheDocument();
+  });
 });
 
 describe('TypingResultPage', () => {

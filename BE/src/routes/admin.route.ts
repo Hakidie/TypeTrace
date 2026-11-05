@@ -22,6 +22,7 @@ import {
 } from '../controllers/admin-daily-task.controller';
 import { createTheme, deleteTheme, listThemes, updateTheme } from '../controllers/admin-theme.controller';
 import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, setUserStatus, updateUser } from '../controllers/admin.controller';
+import { getPlacementSettings, updatePlacementSettings } from '../controllers/placement.controller';
 import { closeSeason, listSeasons } from '../controllers/ranked.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
@@ -43,6 +44,7 @@ import {
 import { createAdminThemeSchema, listAdminThemesQuerySchema, updateAdminThemeSchema } from '../validators/admin-theme.validator';
 import { adminUpdateUserSchema, listUsersQuerySchema, setUserStatusSchema } from '../validators/admin-user.validator';
 import { bulkIdsSchema, idParamsSchema } from '../validators/common.validator';
+import { placementSettingsSchema } from '../validators/placement.validator';
 import { listSeasonsQuerySchema } from '../validators/ranked.validator';
 
 export const adminRouter = Router();
@@ -82,6 +84,10 @@ adminRouter.get('/themes', validate({ query: listAdminThemesQuerySchema }), list
 adminRouter.post('/themes', validate({ body: createAdminThemeSchema }), createTheme);
 adminRouter.patch('/themes/:id', validate({ params: idParamsSchema, body: updateAdminThemeSchema }), updateTheme);
 adminRouter.delete('/themes/:id', validate({ params: idParamsSchema }), deleteTheme);
+
+// The placement leaderboard settings (US10.1): the minimum accuracy a session needs to be on it.
+adminRouter.get('/placement/settings', getPlacementSettings);
+adminRouter.put('/placement/settings', validate({ body: placementSettingsSchema }), updatePlacementSettings);
 
 // Daily tasks (SCRUM-210). The settings come before `/daily-tasks/:id`, which would take `settings` for an id.
 adminRouter.get('/daily-tasks/settings', getDailyTaskSettings);

@@ -20,17 +20,18 @@ export const useSessionStats = (id: string) =>
 export const useSessionReplay = (id: string) =>
   useQuery({ queryKey: typingKeys.replay(id), queryFn: () => typingApi.replay(id), staleTime: Infinity });
 
-/** The passages to choose from for a mode. */
-export const usePassageOptions = (mode: SessionMode) =>
-  useQuery({ queryKey: typingKeys.passages(mode), queryFn: () => typingApi.passages(mode) });
+/** The passages to choose from for a mode. `enabled: false` waits until the list is needed (the leaderboard reads it on its Placement tab only). */
+export const usePassageOptions = (mode: SessionMode, { enabled = true }: { enabled?: boolean } = {}) =>
+  useQuery({ queryKey: typingKeys.passages(mode), queryFn: () => typingApi.passages(mode), enabled });
 
 // Mutations: no `onError` — the shared query client toasts the backend message.
 
 /** Starts a session; the server abandons the one still in progress. */
 export const useStartSession = () => useMutation({ mutationFn: typingApi.start });
 
-/** Tells the server the first key was pressed. */
-export const useBeginSession = () => useMutation({ mutationFn: typingApi.begin });
+/** Tells the server the first key was pressed, with the time chosen at that moment (the placement leaderboard only takes 3 minutes). */
+export const useBeginSession = () =>
+  useMutation({ mutationFn: (id: string) => typingApi.begin(id) });
 
 interface CompleteInput {
   id: string;

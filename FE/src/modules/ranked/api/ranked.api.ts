@@ -1,7 +1,20 @@
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { http } from '@/shared/api/http';
 import { parseEvents } from '../lib/sse';
-import type { Leaderboard, MatchEvent, MatchKind, Paginated, ProgressInput, ProgressUpdate, PublicMatch, RankedMe, Season } from '../types/ranked.types';
+import type {
+  Leaderboard,
+  MatchEvent,
+  MatchKind,
+  Paginated,
+  PlacementBoard,
+  PlacementRange,
+  PlacementSettings,
+  ProgressInput,
+  ProgressUpdate,
+  PublicMatch,
+  RankedMe,
+  Season,
+} from '../types/ranked.types';
 
 /** Every function resolves with the response body (not the Axios response). */
 export const rankedApi = {
@@ -16,7 +29,14 @@ export const rankedApi = {
   sendRainWord: (code: string, text: string) => http.post<{ hit: boolean }>(`/matches/${code}/rain`, { text }).then((r) => r.data),
   me: (kind: MatchKind) => http.get<RankedMe>('/ranked/me', { params: { kind } }).then((r) => r.data),
   leaderboard: (params: { page: number; limit: number; kind: MatchKind }) => http.get<Leaderboard>('/ranked/leaderboard', { params }).then((r) => r.data),
+  /** The placement leaderboard of one passage (US10.1), for the current week or all the time. */
+  placementBoard: (params: { passageId: string; range: PlacementRange }) =>
+    http.get<PlacementBoard>('/placement/leaderboard', { params }).then((r) => r.data),
+  /** The minimum accuracy in use, for the notes of the typing pages. */
+  placementSettings: () => http.get<PlacementSettings>('/placement/settings').then((r) => r.data),
   // Admin only.
+  updatePlacementSettings: (settings: PlacementSettings) =>
+    http.put<PlacementSettings>('/admin/placement/settings', settings).then((r) => r.data),
   seasons: (params: { page: number; limit: number }) => http.get<Paginated<Season>>('/admin/seasons', { params }).then((r) => r.data),
   closeSeason: (id: string) => http.post<Season>(`/admin/seasons/${id}/close`).then((r) => r.data),
 };

@@ -104,7 +104,7 @@ export const AdminThemesPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-12">
+    <div className="flex flex-col gap-8">
       <div ref={panelRef} className="scroll-mt-4">
         {/* PANEL Theme form: no visible title (the editor says what it is); screen readers still get one. */}
         <Panel bare>

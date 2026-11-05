@@ -92,7 +92,7 @@ export const AdminSeasonsPage = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* PANEL Seasons: one Season panel (`SeasonPanel`) for each season, no title, border or padding. */}
       <Panel bare>{renderList()}</Panel>
       <ConfirmDialog

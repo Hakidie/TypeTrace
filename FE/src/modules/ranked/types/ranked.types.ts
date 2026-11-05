@@ -1,3 +1,4 @@
+import type { SessionTimeline } from '@/modules/typing/types/typing.types';
 import type { AvatarLook } from '@/modules/avatar/types/avatar.types';
 
 export type MatchStatus = 'waiting' | 'countdown' | 'running' | 'finished' | 'cancelled';
@@ -125,6 +126,38 @@ export interface Paginated<T> {
 }
 
 export type Leaderboard = Paginated<LeaderboardRow> & { season: SeasonInfo };
+
+/** The placement leaderboard (US10.1): the current week (from Monday 0:00 in Vietnam) or all the time. */
+export type PlacementRange = 'week' | 'all';
+
+/** A line of the placement leaderboard: name and avatar only, never an email. Mirrors `getPlacementBoard` of the backend. */
+export interface PlacementBoardRow {
+  rank: number;
+  displayName: string;
+  avatar: AvatarLook;
+  wpm: number;
+  accuracy: number;
+  durationMs: number;
+  /** Speed over time of the best session, drawn as a line. */
+  timeline: SessionTimeline;
+  isMe: boolean;
+}
+
+/** `GET /placement/leaderboard`: the top 50 of one passage, and the place of the learner (also when they are further down). */
+export interface PlacementBoard {
+  passageId: string;
+  range: PlacementRange;
+  /** Start of the week (`null` for all time). */
+  from: string | null;
+  players: number;
+  items: PlacementBoardRow[];
+  me: { rank: number; wpm: number; accuracy: number; durationMs: number; timeline: SessionTimeline } | null;
+}
+
+/** `GET /placement/settings` (and the admin's `PUT`): the accuracy a placement session needs to go on the leaderboard, in percent. */
+export interface PlacementSettings {
+  minAccuracy: number;
+}
 
 /** A season as the admin sees it. */
 export interface Season extends SeasonInfo {

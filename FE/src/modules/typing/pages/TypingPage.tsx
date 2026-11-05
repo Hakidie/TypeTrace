@@ -15,8 +15,8 @@ import { redGlassTheme } from '@/shared/lib/red-glass-theme';
 import { MinigamesMode, type MinigameId } from '../components/MinigamesMode';
 import { TypingArea, TypingStatus } from '../components/TypingArea';
 import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession } from '../hooks/use-typing';
-import type { ReplayEvent, SessionMode } from '../types/typing.types';
-import { modeIcons } from '../typing.config';
+import type { ReplayEvent, SessionMode, StartSessionInput } from '../types/typing.types';
+import { modeIcons, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
@@ -64,6 +64,13 @@ const PassageMenu = ({ mode, selectedId, onSelect }: { mode: SessionMode; select
   );
 };
 
+/** The placement leaderboard ranks only the time the session was started with (US10.1), so a placement session carries it. */
+const startInputOf = (mode: SessionMode, passageId: string | undefined, seconds: number): StartSessionInput => ({
+  mode,
+  ...(passageId && { passageId }),
+  ...(mode === 'placement' && { timeLimitSeconds: seconds }),
+});
+
 // Same look as the login and register pages (shared/lib/red-glass-theme.ts). The passage shows as soon as the page
 // opens; the timer starts at the first key (TypingArea tells the server through `begin`).
 export const TypingPage = () => {
@@ -95,7 +102,10 @@ export const TypingPage = () => {
   const [timeUnit, setTimeUnit] = useState<TimeUnit>(() => defaultTimeOf(mode).unit);
   const [timeIndex, setTimeIndex] = useState(() => defaultTimeOf(mode).index);
   const timeSeconds = timeChoices[timeUnit][timeIndex] * (timeUnit === 'min' ? 60 : 1);
-  const timeTabs = timeChoices[timeUnit].map((n) => ({ value: String(n), label: String(n).padStart(2, '0') }));
+  // The unit button only changes the times shown; the time (and in Placement the session) changes when a specific time is picked.
+  const [shownUnit, setShownUnit] = useState<TimeUnit>();
+  const tabsUnit = shownUnit ?? timeUnit;
+  const timeTabs = timeChoices[tabsUnit].map((n) => ({ value: String(n), label: String(n).padStart(2, '0') }));
   const start = useStartSession();
   const begin = useBeginSession();
   const complete = useCompleteSession();
@@ -115,6 +125,7 @@ export const TypingPage = () => {
     // Each mode opens with its own time: 1 minute for the placement test, 20 seconds for Practice.
     setTimeUnit(defaultTimeOf(mode).unit);
     setTimeIndex(defaultTimeOf(mode).index);
+    setShownUnit(undefined);
   }
   const passageId = chosen?.mode === mode ? chosen.id : undefined;
   const randomPassage = passageId === undefined;
@@ -142,26 +153,31 @@ export const TypingPage = () => {
 
   // A new session when the page opens or the mode changes (once per mode, even when React runs effects twice in development).
   // The first one types the passage from the URL, if any; switching the mode starts a random one.
+  const startInput = (id: string | undefined, seconds: number) => startInputOf(mode, id, seconds);
   const openedFor = useRef<SessionMode | null>(null);
   useEffect(() => {
     // Rank and the minigames have no typing session of their own (a duel is a match on the server, a rain round stays in the browser, a daily try starts its own).
     if (game || openedFor.current === mode) return;
     const firstOpen = openedFor.current === null;
     openedFor.current = mode;
-    start.mutate(firstOpen && passageId ? { mode, passageId } : { mode });
-  }, [mode, game, start, passageId]);
+    start.mutate(startInputOf(mode, firstOpen ? passageId : undefined, timeSeconds));
+  }, [mode, game, start, passageId, timeSeconds]);
 
   // A new session on the picked passage (a random one when none is picked): used by Restart and when the time is up.
-  const restart = () => start.mutate({ mode, passageId });
+  const restart = () => start.mutate(startInput(passageId, timeSeconds));
   const pick = (id: string | undefined) => {
     setChosen(id ? { mode, id } : undefined);
-    start.mutate({ mode, passageId: id });
+    start.mutate(startInput(id, timeSeconds));
   };
 
-  // The time limit changes for the passage on screen: no new session and no new random passage.
+  // The time limit changes for the passage on screen: no new random passage. In Placement the time belongs to the session (US10.1),
+  // so a new time starts a new session (a new random passage, or the one picked in the menu); the old one is abandoned and the server deletes it after 24 hours.
   const pickTime = (unit: TimeUnit, index: number) => {
     setTimeUnit(unit);
     setTimeIndex(index);
+    setShownUnit(undefined);
+    const seconds = timeChoices[unit][index] * (unit === 'min' ? 60 : 1);
+    if (mode === 'placement' && seconds !== timeSeconds) start.mutate(startInput(passageId, seconds));
   };
 
   const finish = (typedWords: string[], typedAtMs: number[], replay?: ReplayEvent[]) => {
@@ -225,21 +241,29 @@ export const TypingPage = () => {
               label="Time"
               framed={false}
               tabs={timeTabs}
-              value={timeTabs[timeIndex].value}
-              onChange={(value) => pickTime(timeUnit, timeTabs.findIndex((tab) => tab.value === value))}
+              value={tabsUnit === timeUnit ? timeTabs[timeIndex].value : ''}
+              onChange={(value) => pickTime(tabsUnit, timeTabs.findIndex((tab) => tab.value === value))}
             />
             <button
               type="button"
               aria-label="Switch between seconds and minutes"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => pickTime(timeUnit === 'sec' ? 'min' : 'sec', timeIndex)}
+              onClick={() => {
+                setShownUnit(tabsUnit === 'sec' ? 'min' : 'sec');
+              }}
               className="inline-flex items-center px-3 py-1.5 text-[1.125rem] text-primary transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {unitLabels[timeUnit]}
+              {unitLabels[tabsUnit]}
             </button>
           </div>
         </div>
       </div>
+      {/* The placement leaderboard takes the sessions of 3 minutes only (US10.1): any other time can still be typed, it is just not ranked. */}
+      {mode === 'placement' && !ranked && !minigames && timeSeconds !== SESSION_TIME_LIMIT_SECONDS && (
+        <p role="status" className="text-center text-muted-foreground">
+          Only 3-minute placement sessions go on the leaderboard.
+        </p>
+      )}
       <ConfirmDialog
         open={placementPrompt.open}
         onOpenChange={(open) => setPlacementPrompt({ open })}

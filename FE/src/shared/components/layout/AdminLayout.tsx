@@ -62,7 +62,7 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
           <h1 className="truncate text-xl font-bold text-primary">{title}</h1>
         </header>
         {/* A column, so a page can grow to the height of the screen (`flex-1`), like the passage form of /admin/passages. */}
-        <main className="flex w-full min-w-0 flex-1 flex-col p-4">
+        <main className="flex w-full min-w-0 flex-1 flex-col p-8">
           <Outlet />
         </main>
       </div>
