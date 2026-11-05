@@ -376,7 +376,7 @@ export const getSessionStats = async (userId: string, id: string) => {
 };
 
 /** `no_data`: an older session without word times; `too_short`: under 10 seconds; otherwise `ok` with the points. */
-const timelineStatus = (words: SessionWord[], durationMs: number) => {
+export const timelineStatus = (words: SessionWord[], durationMs: number) => {
   if (words.length === 0 || words.some((word) => word.typedAtMs === undefined)) return { status: 'no_data', points: [] };
   if (durationMs < MIN_TIMELINE_MS) return { status: 'too_short', points: [] };
   return { status: 'ok', points: timelineOf(words, durationMs) };

@@ -8,7 +8,7 @@ import { addDays, localDateKey } from '../utils/local-date';
 import type { PlacementBoardQuery, PlacementSettingsInput } from '../validators/placement.validator';
 import { getAppSettings, updateAppSettings } from './app-setting.service';
 import { cachedBoardRows } from './placement-board-cache';
-import { rebuildPlacementBoardFlags } from './typing-session.service';
+import { rebuildPlacementBoardFlags, timelineStatus } from './typing-session.service';
 import { learnerPassageFilter } from './passage.service';
 
 /** The placement leaderboard sends this many lines, and the learner's own place when they are further down (US10.1). */
@@ -31,6 +31,8 @@ const RANK_ORDER = { wpm: -1, accuracy: -1, durationMs: 1, completedAt: 1 } as c
 /** One line of the ranking as it is kept in the cache: no name or avatar, which are read again at every request. */
 interface RankedRow {
   _id: Types.ObjectId;
+  /** The best session of the learner, which the line of the board draws. */
+  sessionId: Types.ObjectId;
   wpm: number;
   accuracy: number;
   durationMs: number;
@@ -56,6 +58,7 @@ const buildRanking = (passageId: string, from: Date | null) => {
     {
       $group: {
         _id: '$owner',
+        sessionId: { $first: '$_id' },
         wpm: { $first: '$wpm' },
         accuracy: { $first: '$accuracy' },
         durationMs: { $first: '$durationMs' },
@@ -73,7 +76,7 @@ const buildRanking = (passageId: string, from: Date | null) => {
     },
     { $match: { user: { $ne: [] } } },
     { $sort: RANK_ORDER },
-    { $project: { wpm: 1, accuracy: 1, durationMs: 1 } }
+    { $project: { sessionId: 1, wpm: 1, accuracy: 1, durationMs: 1 } }
   ];
   return TypingSessionModel.aggregate<RankedRow>(pipeline).allowDiskUse(true);
 };
@@ -96,6 +99,14 @@ export const getPlacementBoard = async (userId: string, { passageId, range }: Pl
   const users = await UserModel.find({ _id: { $in: top.map((row) => row._id) }, status: 'active' })
     .select('displayName avatar')
     .lean();
+  const mine = rows.findIndex((row) => String(row._id) === userId);
+  // The speed line of each session shown (the best one of each learner), made from its words like the lines of the profile.
+  const shown = mine === -1 || mine < PLACEMENT_BOARD_SIZE ? top : [...top, rows[mine]];
+  const sessions = await TypingSessionModel.find({ _id: { $in: shown.map((row) => row.sessionId) } })
+    .select('words durationMs')
+    .lean();
+  const timelineById = new Map(sessions.map((session) => [String(session._id), timelineStatus(session.words, session.durationMs ?? 0)]));
+  const timelineOf = (row: RankedRow) => timelineById.get(String(row.sessionId)) ?? { status: 'no_data', points: [] };
   const userById = new Map(users.map((user) => [String(user._id), user]));
   const items = top
     .filter((row) => userById.has(String(row._id)))
@@ -108,18 +119,18 @@ export const getPlacementBoard = async (userId: string, { passageId, range }: Pl
         wpm: row.wpm,
         accuracy: row.accuracy,
         durationMs: row.durationMs,
+        timeline: timelineOf(row),
         isMe: String(row._id) === userId
       };
     });
 
-  const mine = rows.findIndex((row) => String(row._id) === userId);
   return {
     passageId,
     range,
     from,
     players: rows.length,
     items,
-    me: mine === -1 ? null : { rank: mine + 1, wpm: rows[mine].wpm, accuracy: rows[mine].accuracy, durationMs: rows[mine].durationMs }
+    me: mine === -1 ? null : { rank: mine + 1, wpm: rows[mine].wpm, accuracy: rows[mine].accuracy, durationMs: rows[mine].durationMs, timeline: timelineOf(rows[mine]) }
   };
 };
 

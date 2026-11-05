@@ -4,6 +4,7 @@ import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { ListRow, ListRowStat } from '@/shared/components/list-row';
 import { LoadingState } from '@/shared/components/loading-state';
+import { SessionLine } from '@/modules/profile/components/SessionLine';
 import { usePlacementBoard, usePlacementMinAccuracy } from '../hooks/use-ranked';
 import { formatBoardTime } from '../lib/placement-board';
 import type { PlacementRange } from '../types/ranked.types';
@@ -15,10 +16,10 @@ interface StatsProps {
 }
 
 const Stats = ({ wpm, accuracy, durationMs }: StatsProps) => (
-  <div className="flex justify-end gap-6">
-    <ListRowStat label="WPM" value={String(wpm)} className="w-20" />
-    <ListRowStat label="Accuracy" value={`${accuracy}%`} className="w-24" />
-    <ListRowStat label="Time" value={formatBoardTime(durationMs)} className="w-20" />
+  <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-8">
+    <ListRowStat label="WPM" value={String(wpm)} className="w-24" />
+    <ListRowStat label="ACC" value={`${accuracy}%`} className="w-24" />
+    <ListRowStat label="TIME" value={formatBoardTime(durationMs)} className="w-24" />
   </div>
 );
 
@@ -44,6 +45,7 @@ export const PlacementBoard = ({ passageId, range }: { passageId: string; range:
     <div className="space-y-2">
       {items.map((row) => (
         <ListRow
+          plain
           key={row.rank}
           identity={
             <div className="flex min-w-0 items-center gap-3">
@@ -55,18 +57,21 @@ export const PlacementBoard = ({ passageId, range }: { passageId: string; range:
               </p>
             </div>
           }
+          center={<SessionLine timeline={row.timeline} />}
           extra={<Stats wpm={row.wpm} accuracy={row.accuracy} durationMs={row.durationMs} />}
         />
       ))}
       {me && !items.some((row) => row.isMe) && (
         <section aria-label="Your place" className="pt-4">
           <ListRow
+            plain
             identity={
               <div className="flex min-w-0 items-center gap-3">
                 <span className="w-12 shrink-0 text-2xl font-black">#{me.rank}</span>
                 <p className="text-lg font-semibold">You</p>
               </div>
             }
+            center={<SessionLine timeline={me.timeline} />}
             extra={<Stats wpm={me.wpm} accuracy={me.accuracy} durationMs={me.durationMs} />}
           />
         </section>

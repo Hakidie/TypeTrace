@@ -1,3 +1,4 @@
+import type { SessionTimeline } from '@/modules/typing/types/typing.types';
 import type { AvatarLook } from '@/modules/avatar/types/avatar.types';
 
 export type MatchStatus = 'waiting' | 'countdown' | 'running' | 'finished' | 'cancelled';
@@ -137,6 +138,8 @@ export interface PlacementBoardRow {
   wpm: number;
   accuracy: number;
   durationMs: number;
+  /** Speed over time of the best session, drawn as a line. */
+  timeline: SessionTimeline;
   isMe: boolean;
 }
 
@@ -148,7 +151,7 @@ export interface PlacementBoard {
   from: string | null;
   players: number;
   items: PlacementBoardRow[];
-  me: { rank: number; wpm: number; accuracy: number; durationMs: number } | null;
+  me: { rank: number; wpm: number; accuracy: number; durationMs: number; timeline: SessionTimeline } | null;
 }
 
 /** `GET /placement/settings` (and the admin's `PUT`): the accuracy a placement session needs to go on the leaderboard, in percent. */

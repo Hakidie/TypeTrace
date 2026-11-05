@@ -58,6 +58,24 @@ const getBoard = (authorization: string, query = '') =>
   api().get(`/api/placement/leaderboard?passageId=${passageId}${query}`).set('Authorization', authorization);
 
 describe('GET /api/placement/leaderboard', () => {
+  it('sends the speed line of each best session, like the sessions of the profile', async () => {
+    const a = await newUser('A');
+    const words = ['một', 'hai', 'ba'].map((target, index) => ({ index, target, typed: target, errorTypes: [], typedAtMs: (index + 1) * 5000 }));
+    await TypingSessionModel.create({
+      owner: a._id, mode: 'placement', passageId, targetWords: ['một', 'hai', 'ba'], status: 'completed', words,
+      wpm: 50, accuracy: 95, durationMs: 15_000, completedAt: NOW, isCounted: true, isOnPlacementBoard: true
+    });
+    const b = await newUser('B');
+    await addSession(b, { wpm: 40 }); // saved without words
+
+    const response = await getBoard(bearerFor(a));
+
+    expect(response.body.items[0].timeline.status).toBe('ok');
+    expect(response.body.items[0].timeline.points.length).toBeGreaterThan(0);
+    expect(response.body.items[1].timeline).toEqual({ status: 'no_data', points: [] });
+    expect(response.body.me.timeline.status).toBe('ok');
+  });
+
   it('needs a signed-in user and a valid passage id and range', async () => {
     const auth = bearerFor(await newUser());
 
@@ -179,7 +197,7 @@ describe('GET /api/placement/leaderboard', () => {
     expect(response.body.items[49].displayName).toBe('P49');
     expect(response.body.items.some((item: { isMe: boolean }) => item.isMe)).toBe(false);
     expect(response.body.players).toBe(52);
-    expect(response.body.me).toEqual({ rank: 52, wpm: 149, accuracy: 95, durationMs: 180_000 });
+    expect(response.body.me).toMatchObject({ rank: 52, wpm: 149, accuracy: 95, durationMs: 180_000 });
   });
 
   it('gives the learner place and numbers in `me` when they are in the top 50', async () => {
@@ -189,7 +207,7 @@ describe('GET /api/placement/leaderboard', () => {
 
     const response = await getBoard(bearerFor(b));
 
-    expect(response.body.me).toEqual({ rank: 2, wpm: 60, accuracy: 92, durationMs: 150_000 });
+    expect(response.body.me).toMatchObject({ rank: 2, wpm: 60, accuracy: 92, durationMs: 150_000 });
   });
 
   it('is kept after a learner is deleted from the users: no board line without an account', async () => {

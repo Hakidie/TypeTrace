@@ -118,6 +118,7 @@ describe('LeaderboardPage kinds of match (rain duel)', () => {
 });
 
 describe('LeaderboardPage placement tab (US10.1)', () => {
+  const timeline = { status: 'too_short', points: [] };
   const placementRow = (rank: number, displayName: string, wpm: number, accuracy: number, durationMs: number, isMe = false) => ({
     rank,
     displayName,
@@ -125,6 +126,7 @@ describe('LeaderboardPage placement tab (US10.1)', () => {
     wpm,
     accuracy,
     durationMs,
+    timeline,
     isMe,
   });
   const placement = (items: unknown[], extra = {}) => ({
@@ -173,6 +175,9 @@ describe('LeaderboardPage placement tab (US10.1)', () => {
     expect(within(rows[0]).getByText('3:00')).toBeInTheDocument();
     expect(within(rows[1]).getByText('(you)')).toBeInTheDocument();
     expect(within(rows[1]).getByText('2:05')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('ACC')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('TIME')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('Too short to draw a speed line')).toBeInTheDocument();
   });
 
   it('shows the board of all time when All time is picked, and keeps it in the URL', async () => {
@@ -211,7 +216,7 @@ describe('LeaderboardPage placement tab (US10.1)', () => {
   it('tells a learner outside the top 50 where they are', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     placementBoard.mockResolvedValue(
-      placement([placementRow(1, 'Minh', 72.5, 98, 180_000)], { players: 52, me: { rank: 52, wpm: 31, accuracy: 91, durationMs: 180_000 } }),
+      placement([placementRow(1, 'Minh', 72.5, 98, 180_000)], { players: 52, me: { rank: 52, wpm: 31, accuracy: 91, durationMs: 180_000, timeline } }),
     );
 
     await openPlacement();
@@ -225,7 +230,7 @@ describe('LeaderboardPage placement tab (US10.1)', () => {
   it('does not repeat the place of a learner who is already in the list', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     placementBoard.mockResolvedValue(
-      placement([placementRow(1, 'Lan', 60, 94, 180_000, true)], { me: { rank: 1, wpm: 60, accuracy: 94, durationMs: 180_000 } }),
+      placement([placementRow(1, 'Lan', 60, 94, 180_000, true)], { me: { rank: 1, wpm: 60, accuracy: 94, durationMs: 180_000, timeline } }),
     );
 
     await openPlacement();
