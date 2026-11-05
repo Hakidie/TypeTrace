@@ -14,7 +14,7 @@ export const AdminDashboardPage = () => {
   const recentUsers = useAdminUsers({ limit: 5, sort: '-createdAt' });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <p className="text-base text-muted-foreground">Overview of the app.</p>
 
       {stats.isError ? (
