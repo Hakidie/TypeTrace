@@ -1,13 +1,20 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { LeaderboardPage } from './LeaderboardPage';
 
 const leaderboard = vi.fn();
+const placementBoard = vi.fn();
+const passages = vi.fn();
 
 vi.mock('../api/ranked.api', () => ({
-  rankedApi: { leaderboard: (params: unknown) => leaderboard(params) },
+  rankedApi: { leaderboard: (params: unknown) => leaderboard(params), placementBoard: (params: unknown) => placementBoard(params) },
+}));
+
+vi.mock('@/modules/typing/api/typing.api', () => ({
+  typingApi: { passages: (mode: string) => passages(mode) },
 }));
 
 vi.mock('@/modules/auth/api/auth.api', () => ({
@@ -34,6 +41,11 @@ const renderPage = (route = '/leaderboard') => renderWithProviders(<LeaderboardP
 beforeEach(() => {
   tokenStore.set('test-token');
   leaderboard.mockReset();
+  placementBoard.mockReset();
+  passages.mockReset().mockResolvedValue([
+    { _id: 'p1', title: 'Bài kiểm tra đầu vào', wordCount: 40 },
+    { _id: 'p2', title: 'Sài Gòn mưa', wordCount: 35 },
+  ]);
 });
 
 describe('LeaderboardPage (ranked duel, phase 5)', () => {
@@ -100,5 +112,161 @@ describe('LeaderboardPage kinds of match (rain duel)', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Rain' }));
 
     await waitFor(() => expect(leaderboard).toHaveBeenLastCalledWith({ page: 1, limit: 20, kind: 'rain' }));
+  });
+});
+
+describe('LeaderboardPage placement tab (US10.1)', () => {
+  const placementRow = (rank: number, displayName: string, wpm: number, accuracy: number, durationMs: number, isMe = false) => ({
+    rank,
+    displayName,
+    avatar,
+    wpm,
+    accuracy,
+    durationMs,
+    isMe,
+  });
+  const placement = (items: unknown[], extra = {}) => ({
+    passageId: 'p1',
+    range: 'week',
+    from: '2026-03-08T17:00:00.000Z',
+    players: items.length,
+    items,
+    me: null,
+    ...extra,
+  });
+
+  const openPlacement = async (route = '/leaderboard') => {
+    leaderboard.mockResolvedValue(board([]));
+    renderPage(route);
+    await userEvent.click(await screen.findByRole('radio', { name: 'Placement' }));
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('opens on a random placement passage and the week', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99); // the last passage of the list
+    placementBoard.mockResolvedValue(placement([]));
+
+    await openPlacement();
+
+    await waitFor(() => expect(placementBoard).toHaveBeenCalledWith({ passageId: 'p2', range: 'week' }));
+    expect(passages).toHaveBeenCalledWith('placement');
+    expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveTextContent('Sài Gòn mưa');
+    expect(screen.getByRole('radio', { name: 'This week' })).toBeChecked();
+  });
+
+  it('lists the rank, name, WPM, accuracy and time of each line and marks the learner', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    placementBoard.mockResolvedValue(placement([placementRow(1, 'Minh', 72.5, 98, 180_000), placementRow(2, 'Lan', 60, 94.5, 125_000, true)]));
+
+    await openPlacement();
+
+    const rows = await screen.findAllByRole('article');
+    expect(within(rows[0]).getByText('#1')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('Minh')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('72.5')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('98%')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('3:00')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('(you)')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('2:05')).toBeInTheDocument();
+  });
+
+  it('shows the board of all time when All time is picked, and keeps it in the URL', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    placementBoard.mockResolvedValue(placement([]));
+    await openPlacement();
+    await waitFor(() => expect(placementBoard).toHaveBeenCalledWith({ passageId: 'p1', range: 'week' }));
+
+    await userEvent.click(screen.getByRole('radio', { name: 'All time' }));
+
+    await waitFor(() => expect(placementBoard).toHaveBeenLastCalledWith({ passageId: 'p1', range: 'all' }));
+    expect(screen.getByRole('radio', { name: 'All time' })).toBeChecked();
+  });
+
+  it('shows the board of another passage picked in the menu', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    placementBoard.mockResolvedValue(placement([]));
+    await openPlacement();
+    await waitFor(() => expect(placementBoard).toHaveBeenCalledWith({ passageId: 'p1', range: 'week' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await userEvent.click(await screen.findByRole('menuitemradio', { name: /Sài Gòn mưa/ }));
+
+    await waitFor(() => expect(placementBoard).toHaveBeenLastCalledWith({ passageId: 'p2', range: 'week' }));
+    expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveTextContent('Sài Gòn mưa');
+  });
+
+  it('takes the passage and range of the URL', async () => {
+    placementBoard.mockResolvedValue(placement([]));
+
+    await openPlacement('/leaderboard?passage=p2&range=all');
+
+    await waitFor(() => expect(placementBoard).toHaveBeenCalledWith({ passageId: 'p2', range: 'all' }));
+  });
+
+  it('tells a learner outside the top 50 where they are', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    placementBoard.mockResolvedValue(
+      placement([placementRow(1, 'Minh', 72.5, 98, 180_000)], { players: 52, me: { rank: 52, wpm: 31, accuracy: 91, durationMs: 180_000 } }),
+    );
+
+    await openPlacement();
+
+    const mine = await screen.findByLabelText('Your place');
+    expect(mine).toHaveTextContent('#52');
+    expect(mine).toHaveTextContent('31');
+    expect(mine).toHaveTextContent('91%');
+  });
+
+  it('does not repeat the place of a learner who is already in the list', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    placementBoard.mockResolvedValue(
+      placement([placementRow(1, 'Lan', 60, 94, 180_000, true)], { me: { rank: 1, wpm: 60, accuracy: 94, durationMs: 180_000 } }),
+    );
+
+    await openPlacement();
+
+    await screen.findByText('Lan');
+    expect(screen.queryByLabelText('Your place')).not.toBeInTheDocument();
+  });
+
+  it('says when nobody is on the board yet, and when there is no placement passage', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    placementBoard.mockResolvedValue(placement([]));
+    await openPlacement();
+
+    expect(await screen.findByText('No placement results yet')).toBeInTheDocument();
+  });
+
+  it('says so when there is no placement passage to choose', async () => {
+    passages.mockResolvedValue([]);
+
+    await openPlacement();
+
+    expect(await screen.findByText('No placement passages')).toBeInTheDocument();
+    expect(placementBoard).not.toHaveBeenCalled();
+  });
+
+  it('shows an error with a way to try again', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    placementBoard.mockRejectedValue(new Error('down'));
+
+    await openPlacement();
+
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+
+  it('keeps the passage and time bars to the Placement tab', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    placementBoard.mockResolvedValue(placement([]));
+    leaderboard.mockResolvedValue(board([row(1, 'u1', 'Minh', 1420, 'Platinum', 0.75)]));
+    renderPage();
+    await screen.findByText('Minh');
+
+    expect(screen.queryByRole('button', { name: 'Choose passage' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'This week' })).not.toBeInTheDocument();
+    expect(passages).not.toHaveBeenCalled();
   });
 });

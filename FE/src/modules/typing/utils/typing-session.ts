@@ -1,5 +1,9 @@
 import { classifyWord, tagWord, WordError, type WordErrorType } from '@/shared/lib/vietnamese-errors';
+import { SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 import type { ErrorCounts } from '../types/typing.types';
+
+/** A session under this accuracy stays off the placement leaderboard (`MIN_PLACEMENT_BOARD_ACCURACY` in the backend). */
+const MIN_BOARD_ACCURACY = 90;
 
 export interface WordResult {
   index: number;
@@ -58,3 +62,20 @@ export const statsFromCounts = (errorCounts: ErrorCounts, opportunityCounts: Err
   Object.values(WordError)
     .map((type) => ({ type, count: errorCounts[type], chances: opportunityCounts[type] }))
     .filter((stat) => stat.chances > 0);
+
+/** What a placement session tells about the placement leaderboard (US10.1), or `null` for another mode. Mirrors `isSessionOnPlacementBoard` of the backend. */
+export const placementBoardNote = (session: {
+  mode: string;
+  isOnPlacementBoard?: boolean;
+  chosenLimitSeconds?: number;
+  isCounted: boolean;
+  accuracy?: number;
+}): { onBoard: boolean; text: string } | null => {
+  if (session.mode !== 'placement') return null;
+  if (session.isOnPlacementBoard) return { onBoard: true, text: 'This session is on the placement leaderboard.' };
+  const notOnBoard = 'This session is not on the placement leaderboard: ';
+  if (session.chosenLimitSeconds !== SESSION_TIME_LIMIT_SECONDS) return { onBoard: false, text: `${notOnBoard}only 3-minute placement sessions are ranked.` };
+  if (!session.isCounted) return { onBoard: false, text: `${notOnBoard}it needs at least 20 words and at most 200 WPM to be ranked.` };
+  if ((session.accuracy ?? 0) < MIN_BOARD_ACCURACY) return { onBoard: false, text: `${notOnBoard}an accuracy under ${MIN_BOARD_ACCURACY}% is not ranked.` };
+  return { onBoard: false, text: `${notOnBoard}a 3-minute session must last the 3 minutes or finish the whole passage.` };
+};

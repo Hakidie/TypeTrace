@@ -1,13 +1,21 @@
 import { z } from 'zod';
 import { MAX_REPLAY_BYTES } from '../models/session-replay.model';
-import { sessionModes, sessionStatuses, startableModes } from '../models/typing-session.model';
+import { sessionModes, sessionStatuses, startableModes, TIME_LIMIT_CHOICES_SECONDS } from '../models/typing-session.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { objectIdSchema } from './common.validator';
 
 export const createSessionSchema = z.object({
   mode: z.enum(startableModes).default('practice'),
   /** Missing = a random passage (the placement passage in `placement` mode). */
-  passageId: objectIdSchema.optional()
+  passageId: objectIdSchema.optional(),
+  /**
+   * The time the learner chose (US10.1), kept by the server as `chosenLimitSeconds` to decide at the end if a placement session goes
+   * on the leaderboard. One of the times the page offers. Changing the time starts a new session.
+   */
+  timeLimitSeconds: z
+    .number()
+    .refine((seconds) => (TIME_LIMIT_CHOICES_SECONDS as readonly number[]).includes(seconds), 'Choose one of the times offered')
+    .optional()
 });
 
 const replayNumber = z.number().int().min(0);

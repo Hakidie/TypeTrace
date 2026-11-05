@@ -117,6 +117,11 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `PATCH /api/sessions/:id/complete`, and `GET /api/sessions/:id/replay` reads them back (owner only). A replay never makes
   a completion fail: one over `MAX_REPLAY_BYTES` (64 KB, a copy in `typing.config.ts`) or not made of changes is dropped,
   and a failed save is only logged.
+- The placement leaderboard (US10.1, `GET /api/placement/leaderboard`, `services/placement-board.service.ts`) takes only sessions with `isOnPlacementBoard`:
+  the server sets it when a placement session completes (`isSessionOnPlacementBoard`: counted, started with 3 minutes, accuracy 90% or more, lasted
+  the 3 minutes or typed the whole passage). The time the learner chose comes with `POST /api/sessions` (`timeLimitSeconds`, kept as `chosenLimitSeconds`; changing the time in Placement starts a new session (the passage is chosen again), and an abandoned session is deleted 24 hours later by a partial TTL index on `updatedAt`, `ABANDONED_TTL_MS`);
+  the `timeLimitSeconds` of `complete` is only for the chart and is never read for ranking. It is not `Passage.isRanked` (the passages of ranked duels).
+  The week starts on Monday 0:00 in `Asia/Ho_Chi_Minh` (`placementWeekStart`). Names and avatars only, never an email.
 - Word errors have one set per passage language, each a pure file with an identical frontend copy in `FE/src/shared/lib/`
   (keep each pair identical): Vietnamese `utils/vietnamese-errors.ts` (`WordError`, `classifyWord`, `tagWord`) for everything
   learners practice, English `utils/english-errors.ts` (`EnglishError`, `classifyEnglishWord`, `tagEnglishWord`, SCRUM-218)

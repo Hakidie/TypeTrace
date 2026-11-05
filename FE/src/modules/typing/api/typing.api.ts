@@ -19,7 +19,7 @@ export const typingApi = {
   get: (id: string) => http.get<TypingSession>(`/sessions/${id}`).then((r) => r.data),
   /** Right and wrong words and the error rate per type of a completed session (owner only). */
   stats: (id: string) => http.get<SessionStats>(`/sessions/${id}/stats`).then((r) => r.data),
-  /** The learner pressed the first key: the server starts the clock. */
+  /** The learner pressed the first key: the server starts the clock and keeps the time chosen then (it cannot change any more). */
   begin: (id: string) => http.patch<TypingSession>(`/sessions/${id}/begin`).then((r) => r.data),
   /**
    * Sends the typed words, when each was finished, the time the learner chose (for the chart) and the replay (SCRUM-35, kept

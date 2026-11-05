@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { rankedApi } from '../api/ranked.api';
-import type { MatchKind } from '../types/ranked.types';
+import type { MatchKind, PlacementRange } from '../types/ranked.types';
 
 type PageParams = { page: number; limit: number };
 
@@ -9,6 +9,7 @@ export const rankedKeys = {
   all: ['ranked'] as const,
   me: (kind?: MatchKind) => (kind ? ([...rankedKeys.all, 'me', kind] as const) : ([...rankedKeys.all, 'me'] as const)),
   leaderboard: (params: PageParams & { kind: MatchKind }) => [...rankedKeys.all, 'leaderboard', params] as const,
+  placementBoard: (params: { passageId: string; range: PlacementRange }) => [...rankedKeys.all, 'placement-board', params] as const,
   seasons: (params: PageParams) => [...rankedKeys.all, 'seasons', params] as const,
 };
 
@@ -17,6 +18,10 @@ export const useRankedMe = (kind: MatchKind) => useQuery({ queryKey: rankedKeys.
 
 export const useLeaderboard = (params: PageParams & { kind: MatchKind }) =>
   useQuery({ queryKey: rankedKeys.leaderboard(params), queryFn: () => rankedApi.leaderboard(params), placeholderData: keepPreviousData });
+
+/** The placement leaderboard of one passage (US10.1). */
+export const usePlacementBoard = (params: { passageId: string; range: PlacementRange }) =>
+  useQuery({ queryKey: rankedKeys.placementBoard(params), queryFn: () => rankedApi.placementBoard(params), placeholderData: keepPreviousData });
 
 /** Admin. */
 export const useSeasons = (params: PageParams) =>

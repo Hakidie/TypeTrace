@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ClipboardCheck, CloudRain, Swords, Trophy } from 'lucide-react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
+import { usePassageOptions } from '@/modules/typing/hooks/use-typing';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { ListRow, ListRowStat } from '@/shared/components/list-row';
@@ -9,12 +10,19 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { TabGroup } from '@/shared/components/tab-group';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { PlacementBoard } from '../components/PlacementBoard';
+import { PlacementPassageMenu } from '../components/PlacementPassageMenu';
 import { useLeaderboard } from '../hooks/use-ranked';
-import type { MatchKind } from '../types/ranked.types';
+import type { MatchKind, PlacementRange } from '../types/ranked.types';
 
 const PAGE_SIZE = 20;
 
 type LeaderboardTab = 'placement' | 'rank';
+
+const RANGE_TABS = [
+  { value: 'week', label: 'This week' },
+  { value: 'all', label: 'All time' },
+];
 
 const KIND_TABS = [
   { value: 'race', label: 'Race', icon: Swords },
@@ -29,6 +37,13 @@ export const LeaderboardPage = () => {
   const board = useLeaderboard({ page: list.page, limit: PAGE_SIZE, kind });
   const { data: me } = useCurrentUser();
   const [tab, setTab] = useState<LeaderboardTab>('rank');
+  // Placement (US10.1): the passage and the range are in the URL (`?passage=<id>&range=all`); without a passage of the URL the board opens on a
+  // random one (the dice is rolled once, when the page opens: the pick does not change while the learner stays here).
+  const passages = usePassageOptions('placement', { enabled: tab === 'placement' });
+  const [dice] = useState(() => Math.random());
+  const passageList = passages.data;
+  const passage = passageList?.find((option) => option._id === list.get('passage')) ?? passageList?.[Math.floor(dice * passageList.length)];
+  const range: PlacementRange = list.get('range') === 'all' ? 'all' : 'week';
   // The Rank tab names the season: "Rank S1".
   const tabs = [
     { value: 'placement', label: 'Placement', icon: ClipboardCheck },
@@ -73,11 +88,26 @@ export const LeaderboardPage = () => {
     );
   };
 
+  const renderPlacement = () => {
+    if (passages.isPending) return <LoadingState rows={5} />;
+    if (passages.isError) return <ErrorState error={passages.error} onRetry={() => void passages.refetch()} />;
+    if (!passage) return <EmptyState icon={ClipboardCheck} title="No placement passages" description="The board shows up once an admin publishes a placement passage." />;
+    return <PlacementBoard passageId={passage._id} range={range} />;
+  };
+
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
-      {/* Same tabs as the mode tabs of the Typing page, in the center of the page. */}
-      <div className="flex justify-center">
+      {/* Same tabs as the mode tabs of the Typing page, in the center of the page; on the Placement tab the passage is on their left and the range on their right. */}
+      <div className="flex flex-col items-center gap-2 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-x-2">
+        <div className="flex min-w-0 max-w-full md:justify-self-end">
+          {tab === 'placement' && <PlacementPassageMenu passages={passageList} selectedId={passage?._id} onSelect={(id) => list.set('passage', id)} />}
+        </div>
         <TabGroup label="Leaderboard" tabs={tabs} value={tab} onChange={(value) => setTab(value as LeaderboardTab)} />
+        <div className="md:justify-self-start">
+          {tab === 'placement' && (
+            <TabGroup label="Time range" tabs={RANGE_TABS} value={range} onChange={(value) => list.set('range', value === 'all' ? 'all' : '')} />
+          )}
+        </div>
       </div>
       <div role="tabpanel" aria-label={tab === 'rank' ? 'Rank' : 'Placement'}>
         {tab === 'rank' ? (
@@ -94,7 +124,7 @@ export const LeaderboardPage = () => {
             {renderList()}
           </div>
         ) : (
-          <EmptyState icon={Trophy} title="No placement results yet" description="Placement test scores will show up here." />
+          renderPlacement()
         )}
       </div>
     </div>

@@ -12,7 +12,7 @@ import { SpeedErrorChart } from '../components/SpeedErrorChart';
 import { ResultActions } from '../components/ResultActions';
 import { ResultsPanel } from '../components/ResultsPanel';
 import { useSession, useSessionStats } from '../hooks/use-typing';
-import { statsFromCounts, type WordResult } from '../utils/typing-session';
+import { placementBoardNote, statsFromCounts, type WordResult } from '../utils/typing-session';
 
 export const TypingResultPage = () => {
   const { id = '' } = useParams();
@@ -32,9 +32,15 @@ export const TypingResultPage = () => {
   }
 
   const results: WordResult[] = session.words.map((word) => ({ ...word, errors: word.errorTypes }));
+  const boardNote = placementBoardNote(session);
 
   return (
     <div className="space-y-12">
+      {boardNote && (
+        <p role="status" className={boardNote.onBoard ? 'text-primary' : 'text-muted-foreground'}>
+          {boardNote.text}
+        </p>
+      )}
       {!session.isCounted && !noticeClosed && (
         <div className="flex flex-col gap-3 border border-dashed p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-muted-foreground">

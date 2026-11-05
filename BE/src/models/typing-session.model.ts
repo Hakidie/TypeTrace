@@ -6,6 +6,11 @@ import { WordError, WordErrorType } from '../utils/vietnamese-errors';
 export const sessionModes = ['practice', 'placement', 'daily'] as const;
 export const startableModes = ['practice', 'placement'] as const;
 export const sessionStatuses = ['in_progress', 'completed', 'abandoned'] as const;
+/** The times the page offers (10, 20, 30 seconds and 1, 2, 3 minutes): the one a session is started with must be one of them. */
+export const TIME_LIMIT_CHOICES_SECONDS = [10, 20, 30, 60, 120, 180] as const;
+
+/** An abandoned session is deleted this long after it was abandoned. */
+export const ABANDONED_TTL_MS = 24 * 60 * 60 * 1000;
 
 export type SessionMode = (typeof sessionModes)[number];
 export type StartableMode = (typeof startableModes)[number];
@@ -41,6 +46,13 @@ export interface TypingSessionDocument extends mongoose.Document {
   beganAt?: Date;
   /** The time the learner chose for the session, in seconds (the end of the time axis of the speed chart); sessions from before have none. */
   timeLimitSeconds?: number;
+  /**
+   * The time the learner chose when the session started (`POST /api/sessions`), kept by the server (US10.1): the page's `timeLimitSeconds`
+   * sent at the end is never used to rank. Changing the time starts a new session. Sessions from before have none.
+   */
+  chosenLimitSeconds?: number;
+  /** Set once by `completeSession` (`isSessionOnPlacementBoard`): only a placement session that passed the rules can be on the placement leaderboard. */
+  isOnPlacementBoard: boolean;
   completedAt?: Date;
   durationMs?: number;
   wpm?: number;
@@ -80,6 +92,8 @@ const typingSessionSchema = new Schema<TypingSessionDocument>(
     startedAt: { type: Date, default: Date.now },
     beganAt: Date,
     timeLimitSeconds: Number,
+    chosenLimitSeconds: Number,
+    isOnPlacementBoard: { type: Boolean, default: false },
     completedAt: Date,
     durationMs: Number,
     wpm: Number,
@@ -105,5 +119,12 @@ typingSessionSchema.index({ owner: 1, status: 1 });
 // One owner's sessions by completion time: the sessions of one of their days and their last counted sessions, which the
 // daily tasks read at each counted session (SCRUM-112). Without it every completed session of the learner is read.
 typingSessionSchema.index({ owner: 1, completedAt: -1 });
+
+// The placement leaderboard (US10.1): the sessions of one passage that went on it, in the order of the board, per week or all time.
+typingSessionSchema.index({ passageId: 1, isOnPlacementBoard: 1, completedAt: -1 });
+
+// Abandoned sessions (a time changed, a page left) are deleted 24 hours after they were abandoned: `updatedAt` is written when the status
+// changes. Only abandoned ones are in this index, so completed sessions are never deleted.
+typingSessionSchema.index({ updatedAt: 1 }, { expireAfterSeconds: ABANDONED_TTL_MS / 1000, partialFilterExpression: { status: 'abandoned' } });
 
 export const TypingSessionModel = mongoose.model<TypingSessionDocument>('TypingSession', typingSessionSchema);

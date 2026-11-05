@@ -105,12 +105,12 @@ describe('TypingPage', () => {
 
     expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
     expect(start).toHaveBeenCalledTimes(1);
-    expect(start).toHaveBeenCalledWith({ mode: 'placement' });
+    expect(start).toHaveBeenCalledWith({ mode: 'placement', timeLimitSeconds: 60 });
 
     await user.click(screen.getByRole('button', { name: /restart/i }));
 
     await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
-    expect(start).toHaveBeenLastCalledWith({ mode: 'placement' });
+    expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 60 });
   });
 
   it('starts a practice session when the learner leaves the placement test for normal practice', async () => {
@@ -140,6 +140,83 @@ describe('TypingPage', () => {
 
     await waitFor(() => expect(begin).toHaveBeenCalledTimes(1));
     expect(begin).toHaveBeenCalledWith('s1');
+  });
+
+  describe('the placement leaderboard needs 3 minutes (US10.1)', () => {
+    const openPlacement = async () => {
+      start.mockResolvedValue({ ...session, mode: 'placement' });
+      const user = userEvent.setup();
+      renderWithProviders(<TypingPage />, { route: '/typing?mode=placement' });
+      await screen.findByRole('textbox', { name: 'Typing area' });
+      return user;
+    };
+
+    it('warns that a placement session of another time is not ranked, and stops once 3 minutes are picked', async () => {
+      const user = await openPlacement();
+      expect(screen.getByRole('status')).toHaveTextContent('Only 3-minute placement sessions go on the leaderboard');
+
+      await user.click(screen.getByRole('radio', { name: '03' }));
+
+      expect(screen.queryByText(/Only 3-minute placement sessions/)).not.toBeInTheDocument();
+    });
+
+    it('starts a new session with the new time, on a new random passage (the passage is chosen again)', async () => {
+      const user = await openPlacement();
+      expect(start).toHaveBeenCalledTimes(1);
+
+      await user.click(screen.getByRole('radio', { name: '03' }));
+
+      await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+      expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 180 });
+    });
+
+    it('keeps the passage picked in the menu when the time changes', async () => {
+      const user = await openPlacement();
+      await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+      await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
+      await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+
+      await user.click(screen.getByRole('radio', { name: '03' }));
+
+      await waitFor(() => expect(start).toHaveBeenCalledTimes(3));
+      expect(start).toHaveBeenLastCalledWith({ mode: 'placement', passageId: 'p1', timeLimitSeconds: 180 });
+    });
+
+    it('starts no new session when the unit button switches between seconds and minutes, only when a specific time is picked', async () => {
+      const user = await openPlacement();
+
+      await user.click(screen.getByRole('button', { name: 'Switch between seconds and minutes' }));
+
+      expect(start).toHaveBeenCalledTimes(1);
+      await user.click(screen.getByRole('radio', { name: '30' }));
+      await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+      expect(start).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'placement', timeLimitSeconds: 30 }));
+    });
+
+    it('starts no new session when the time picked is the one already chosen', async () => {
+      const user = await openPlacement();
+
+      await user.click(screen.getByRole('radio', { name: '01' }));
+
+      expect(start).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the same session when the time changes in Practice', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await screen.findByRole('textbox', { name: 'Typing area' });
+
+      await user.click(screen.getByRole('radio', { name: '30' }));
+
+      expect(start).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not warn in Practice', async () => {
+      renderPage();
+      await screen.findByRole('textbox', { name: 'Typing area' });
+
+      expect(screen.queryByText(/Only 3-minute placement sessions/)).not.toBeInTheDocument();
+    });
   });
 
   it('shows an error with a retry when the session cannot be started', async () => {
@@ -316,7 +393,7 @@ describe('TypingPage', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'Start' }));
 
-    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 60 }));
     expect(screen.getByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
@@ -366,7 +443,7 @@ describe('TypingPage', () => {
     await user.click(screen.getByRole('radio', { name: 'Placement' }));
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
 
-    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 60 }));
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Typing area' })).toHaveFocus());
     await user.keyboard('T');
     expect(screen.getByRole('textbox', { name: 'Typing area' })).toHaveValue('T');
@@ -384,7 +461,7 @@ describe('TypingPage', () => {
     await user.click(screen.getByRole('radio', { name: 'Placement' }));
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
 
-    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement' }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 60 }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
     expect(passages).toHaveBeenCalledWith('practice');
 
@@ -428,7 +505,10 @@ describe('TypingPage', () => {
 
     expect(unit).toHaveTextContent('Min');
     expect(within(time).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['01', '02', '03']);
-    expect(within(time).getByRole('radio', { name: '01' })).toHaveAttribute('aria-checked', 'true');
+    // Only the times shown change: none is selected until the learner picks one.
+    expect(within(time).getAllByRole('radio').every((tab) => tab.getAttribute('aria-checked') === 'false')).toBe(true);
+    await user.click(within(time).getByRole('radio', { name: '02' }));
+    expect(within(time).getByRole('radio', { name: '02' })).toHaveAttribute('aria-checked', 'true');
 
     await user.click(unit);
     expect(within(time).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['10', '20', '30']);
@@ -478,6 +558,7 @@ describe('TypingPage', () => {
     expect(within(time).getByRole('radio', { name: '10' })).toHaveAttribute('aria-checked', 'true');
 
     await user.click(screen.getByRole('button', { name: /seconds and minutes/i }));
+    await user.click(within(screen.getByRole('radiogroup', { name: 'Time' })).getByRole('radio', { name: '01' }));
     expect(within(screen.getByRole('radiogroup', { name: 'Time' })).getByRole('radio', { name: '01' })).toHaveAttribute('aria-checked', 'true');
 
     expect(screen.getByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();

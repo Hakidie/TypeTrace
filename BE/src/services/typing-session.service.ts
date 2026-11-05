@@ -19,6 +19,10 @@ export const MAX_COUNTED_WPM = 200;
 export const MAX_SESSION_MS = 3 * 60 * 1000;
 /** Time allowed for the request to arrive after the page stopped the clock. */
 export const SESSION_GRACE_MS = 5000;
+/** Only placement sessions started with 3 minutes can go on the leaderboard, so every entry of the leaderboard had the same time (US10.1). */
+export const PLACEMENT_BOARD_LIMIT_SECONDS = MAX_SESSION_MS / 1000;
+/** A session under this accuracy stays off the leaderboard. */
+export const MIN_PLACEMENT_BOARD_ACCURACY = 90;
 
 /** A session belongs to one learner: another user's session answers 404, even for admins. */
 const ownedBy = (userId: string, id?: string) => ({ ...(id ? { _id: id } : {}), owner: userId });
@@ -68,6 +72,26 @@ export const isSessionCounted = (wordCount: number, wpm: number, durationMs = 0)
   wordCount >= MIN_COUNTED_WORDS && wpm <= MAX_COUNTED_WPM && durationMs <= MAX_SESSION_MS + SESSION_GRACE_MS;
 
 /**
+ * Whether a completed session goes on the placement leaderboard (US10.1). The server decides: the time the page sends at the end is
+ * ignored. The session must be a counted placement session started with 3 minutes, with an accuracy of 90% or more, that either lasted
+ * the 3 minutes (`durationMs` is the server's own clock) or typed every word of the passage before they were over.
+ */
+export const isSessionOnPlacementBoard = (session: {
+  mode: string;
+  chosenLimitSeconds?: number;
+  durationMs: number;
+  typedCount: number;
+  totalCount: number;
+  accuracy: number;
+  isCounted: boolean;
+}) =>
+  session.mode === 'placement' &&
+  session.chosenLimitSeconds === PLACEMENT_BOARD_LIMIT_SECONDS &&
+  session.isCounted &&
+  session.accuracy >= MIN_PLACEMENT_BOARD_ACCURACY &&
+  (session.durationMs >= MAX_SESSION_MS || session.typedCount === session.totalCount);
+
+/**
  * The passage a session types. With a `passageId` it is that passage, if it belongs to the mode (see `learnerPassageFilter`); for the placement test it is a random
  * placement passage; otherwise it is a random public practice passage. Only published passages are used.
  */
@@ -100,7 +124,8 @@ export const startSession = async (userId: string, input: CreateSessionInput) =>
     mode: input.mode,
     passageId: String(passage._id),
     passageTitle: passage.title,
-    targetWords: splitWords(passage.content)
+    targetWords: splitWords(passage.content),
+    chosenLimitSeconds: input.timeLimitSeconds
   });
 };
 
@@ -173,6 +198,17 @@ export const completeSession = async (
   const correctWords = words.filter((word) => word.errorTypes.length === 0);
   const wpm = computeWpm(countWpmChars(correctWords.map((word) => word.target)), durationMs);
   const { errorCounts, opportunityCounts } = countErrors(words);
+  const accuracy = round1((correctWords.length / words.length) * 100);
+  const isCounted = isSessionCounted(words.length, wpm, elapsedMs);
+  const isOnPlacementBoard = isSessionOnPlacementBoard({
+    mode: session.mode,
+    chosenLimitSeconds: session.chosenLimitSeconds,
+    durationMs,
+    typedCount: words.length,
+    totalCount: session.targetWords.length,
+    accuracy,
+    isCounted
+  });
 
   // One conditional write: only a request that still finds the session in progress completes it, so of two sent at the
   // same time one gets 409. Only that request adds a counted session to the learner's day (SCRUM-31): it counts once.
@@ -185,10 +221,11 @@ export const completeSession = async (
       timeLimitSeconds,
       durationMs,
       wpm,
-      accuracy: round1((correctWords.length / words.length) * 100),
+      accuracy,
       errorCounts,
       opportunityCounts,
-      isCounted: isSessionCounted(words.length, wpm, elapsedMs)
+      isCounted,
+      isOnPlacementBoard
     },
     { returnDocument: 'after', runValidators: true }
   );
