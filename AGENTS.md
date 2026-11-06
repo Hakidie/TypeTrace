@@ -35,7 +35,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 |---|---|
 | `npm run setup` | Install all dependencies, create `BE/.env` and `FE/.env` from the examples |
 | `docker compose up -d` | Start a local MongoDB on port 27017 |
-| `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234`; and typing sessions for `demo@example.com` (a counted placement test 8 months ago, practice sessions since, two months without any, sessions on the last days) so the charts of the profile have data; made once |
+| `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234`; and typing sessions for `demo@example.com` (a counted placement test 8 months ago, practice sessions since, two months without any, sessions on the last days, each with errors and chances of every error type) so the charts and the error profile of the profile have data; made once (demo sessions seeded before the error profile get its counts on the next run) |
 | `npm run import:words` | Add the starter word list (`BE/src/data/words.ts`) to the word bank with error tags; safe to run many times |
 | `npm run import:passages` | Add the starter passages (`BE/src/data/passages.ts`, source recorded, owner TypeTrace) to the passage bank as published passages; safe to run many times |
 | `npm run import:passages:en` | Add the English starter passages (`BE/src/data/passages-en.ts`, marked `isRanked`, for ranked duels; never offered in Practice or Placement) as published passages; safe to run many times |
@@ -113,6 +113,13 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   sessions: with `$max` after each counted session (`completeSession`, through `recordDailyTaskProgress`), so recording a
   session twice changes nothing, and replaced once, with the new `timeZone`, by the day's next counted session or `GET`
   after the learner's zone changed.
+- A learner's error profile (SCRUM-27) is never stored: `getErrorProfile` (`services/error-profile.service.ts`) works it out
+  when it is read from their last 20 counted sessions that have chances (the current window is the 10 newest, the previous
+  one the 10 before them), with the pure `computeErrorProfile`: per error type the rate in %, the level (`weak` from
+  `WEAK_RATE`, compared in whole numbers, never with a sum of decimals) and the trend (a two-proportion z-test between the
+  windows). Nothing is written in `completeSession`, there is nothing to rebuild or to delete with the user. The thresholds
+  are sent with `GET /api/profile/error-profile`: never write them in the frontend. A feature that needs the learner's weak
+  error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way).
 - A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
   which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen
   (`createReplayRecorder`, `FE/src/modules/typing/utils/session-replay.ts`), the page sends them as `replay` with

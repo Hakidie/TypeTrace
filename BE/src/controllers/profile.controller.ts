@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { UserModel } from '../models/user.model';
 import { deleteImage, uploadImage } from '../services/cloudinary.service';
 import * as dailyProgressService from '../services/daily-progress.service';
+import * as errorProfileService from '../services/error-profile.service';
 import * as monthlyProgressService from '../services/monthly-progress.service';
 import * as userDailyTasksService from '../services/user-daily-tasks.service';
 import { updateTimeZone } from '../services/user.service';
@@ -56,6 +57,11 @@ export const getStreak = async (req: Request, res: Response) => {
 /** The learner's daily tasks of today, each with its progress (SCRUM-112). */
 export const getDailyTasks = async (req: Request, res: Response) => {
   res.json(await userDailyTasksService.getTodayDailyTasks(req.user!.sub));
+};
+
+/** The learner's error profile: rate, level and trend of each error type in their last counted sessions (SCRUM-27). */
+export const getErrorProfile = async (req: Request, res: Response) => {
+  res.json(await errorProfileService.getErrorProfile(req.user!.sub));
 };
 
 /** The learner's WPM and errors of each point of the profile chart: months, weeks or days, by `range` (SCRUM-240). */

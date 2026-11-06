@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getDailyTasks,
+  getErrorProfile,
   getMonthlyProgress,
   getStreak,
   updateAvatarSource,
@@ -31,6 +32,8 @@ profileRouter.patch('/avatar-source', authGuard, validateBody(updateAvatarSource
 profileRouter.get('/streak', authGuard, getStreak);
 /** The learner's own daily tasks of today, with their progress (SCRUM-112). */
 profileRouter.get('/daily-tasks', authGuard, getDailyTasks);
+/** The learner's own error profile: rate, level and trend of each error type in their last counted sessions (SCRUM-27). */
+profileRouter.get('/error-profile', authGuard, getErrorProfile);
 /** The learner's own average WPM and errors by month, week or day: `?range=year|month|week` (SCRUM-240). */
 profileRouter.get('/monthly-progress', authGuard, validate({ query: monthlyProgressQuerySchema }), getMonthlyProgress);
 /** `{ timezone }`: the zone of the learner's days, sent by the browser (SCRUM-31). */
