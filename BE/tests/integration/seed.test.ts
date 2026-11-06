@@ -2,9 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DailyProgressModel } from '../../src/models/daily-progress.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
 import { UserModel } from '../../src/models/user.model';
-import { DEMO_ACCOUNTS, DEMO_STUDENTS, seedDemoAccounts, seedDemoSessions } from '../../src/scripts/seed';
+import {
+  DEMO_ACCOUNTS,
+  DEMO_SESSION_PASSAGE_ID,
+  DEMO_STUDENTS,
+  demoErrorCounts,
+  fillDemoErrorCounts,
+  seedDemoAccounts,
+  seedDemoSessions
+} from '../../src/scripts/seed';
+import { getErrorProfile } from '../../src/services/error-profile.service';
 import { getMonthlyProgress } from '../../src/services/monthly-progress.service';
 import { comparePassword } from '../../src/utils/hash';
+import { WordError } from '../../src/utils/vietnamese-errors';
 
 describe('seedDemoAccounts', () => {
   it('creates verified demo accounts with the documented passwords', async () => {
@@ -98,5 +108,51 @@ describe('seedDemoSessions', () => {
     expect(month.some((point) => point.avgWpm !== null)).toBe(true);
     const week = (await getMonthlyProgress(id, 'week')).points;
     expect(week.every((point) => point.avgWpm !== null)).toBe(true);
+  });
+
+  it('gives the demo learner an error profile: hỏi/ngã weak and improving, the other types ok (SCRUM-27)', async () => {
+    await seedDemoAccounts();
+    await seedDemoSessions();
+
+    const profile = await getErrorProfile(String(await demoId()));
+
+    expect(profile.sessionsUsed).toBe(10);
+    expect(profile.weakTypes).toEqual(['HOI_NGA_CONFUSION']);
+    expect(profile.types.find((item) => item.type === 'HOI_NGA_CONFUSION')).toMatchObject({ level: 'weak', trend: 'improved' });
+    expect(profile.types.filter((item) => item.type !== 'HOI_NGA_CONFUSION').every((item) => item.level === 'ok')).toBe(true);
+  });
+
+  it('shares the errors of a demo session between the types, never more of a type than its chances', () => {
+    for (let wpm = 28; wpm <= 61; wpm += 1) {
+      for (let errors = 0; errors <= 14; errors += 1) {
+        const { errorCounts, opportunityCounts } = demoErrorCounts(wpm, errors);
+        expect(Object.values(errorCounts).reduce((sum, count) => sum + count, 0)).toBe(errors);
+        for (const type of Object.values(WordError)) {
+          expect(errorCounts[type]).toBeGreaterThanOrEqual(0);
+          expect(errorCounts[type]).toBeLessThanOrEqual(opportunityCounts[type]);
+        }
+      }
+    }
+  });
+
+  it('adds the error counts to the demo sessions seeded before the error profile, once', async () => {
+    await seedDemoAccounts();
+    // A demo session in the shape the seed gave before SCRUM-27: every error a BASE_LETTER, no chances.
+    const old = await TypingSessionModel.create({
+      owner: await demoId(),
+      passageId: DEMO_SESSION_PASSAGE_ID,
+      targetWords: ['từ'],
+      status: 'completed',
+      isCounted: true,
+      completedAt: new Date(),
+      wpm: 47,
+      accuracy: 92.8,
+      errorCounts: { BASE_LETTER: 6 }
+    });
+
+    expect(await fillDemoErrorCounts()).toBe(1);
+
+    expect((await TypingSessionModel.findById(old._id).lean())!).toMatchObject(demoErrorCounts(47, 6));
+    expect(await fillDemoErrorCounts()).toBe(0);
   });
 });

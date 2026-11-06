@@ -1,7 +1,16 @@
 import { http } from '@/shared/api/http';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import type { Paginated } from '@/shared/api/types';
-import type { ChartRange, DailyTasks, MonthlyProgress, SessionListParams, SessionSummary, Streak, TypingActivity } from '../types/profile.types';
+import type {
+  ChartRange,
+  DailyTasks,
+  ErrorProfile,
+  MonthlyProgress,
+  SessionListParams,
+  SessionSummary,
+  Streak,
+  TypingActivity,
+} from '../types/profile.types';
 
 export interface UpdateProfileInput {
   displayName?: string;
@@ -29,6 +38,8 @@ export const profileApi = {
   getStreak: () => http.get<Streak>('/profile/streak').then((r) => r.data),
   // The learner's tasks of today, with how far they are (SCRUM-112).
   getDailyTasks: () => http.get<DailyTasks>('/profile/daily-tasks').then((r) => r.data),
+  // The learner's error profile: rate, level and trend of each error type in their last counted sessions (SCRUM-27).
+  getErrorProfile: () => http.get<ErrorProfile>('/profile/error-profile').then((r) => r.data),
   // The learner's average WPM and errors by month (a year), week of this month (a month) or day (a week) (SCRUM-240).
   getMonthlyProgress: (range: ChartRange, date?: string) =>
     http.get<MonthlyProgress>('/profile/monthly-progress', { params: { range, date } }).then((r) => r.data),

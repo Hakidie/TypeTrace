@@ -10,6 +10,7 @@ const getActivity = vi.fn();
 const getSessions = vi.fn();
 const getStreak = vi.fn();
 const getMonthlyProgress = vi.fn();
+const getErrorProfile = vi.fn();
 
 vi.mock('@/modules/auth/api/auth.api', () => ({
   authApi: { getMe: () => getMe() },
@@ -21,6 +22,7 @@ vi.mock('@/modules/profile/api/profile.api', () => ({
     getSessions: (params: unknown) => getSessions(params),
     getStreak: () => getStreak(),
     getMonthlyProgress: (range: string) => getMonthlyProgress(range),
+    getErrorProfile: () => getErrorProfile(),
     updateSecurity: vi.fn(),
     uploadAvatar: vi.fn(),
   },
@@ -90,6 +92,22 @@ beforeEach(() => {
       points: Array.from({ length: 12 }, (_, i) => ({ key: `2025-${String(i + 1).padStart(2, '0')}`, avgWpm: null, avgAccuracy: null, carriedOver: false })),
     }),
   );
+  getErrorProfile.mockReset().mockResolvedValue({
+    window: 10,
+    minOpportunities: 20,
+    weakRate: 15,
+    sessionsUsed: 10,
+    types: (['BASE_LETTER', 'D_MISSING', 'MARK_WRONG', 'TONE_WRONG', 'HOI_NGA_CONFUSION'] as const).map((type) => ({
+      type,
+      errors: type === 'HOI_NGA_CONFUSION' ? 8 : 1,
+      opportunities: 40,
+      rate: type === 'HOI_NGA_CONFUSION' ? 20 : 2.5,
+      level: type === 'HOI_NGA_CONFUSION' ? 'weak' : 'ok',
+      previousRate: 30,
+      trend: 'improved',
+    })),
+    weakTypes: ['HOI_NGA_CONFUSION'],
+  });
 });
 
 afterEach(() => {
@@ -134,7 +152,7 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` })).toBeInTheDocument();
     // The mission is done in these fixtures, so there is no line of today.
     expect(screen.queryByRole('region', { name: 'Today' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual(['Daily Progress', 'My Sessions']);
+    expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual(['Daily Progress', 'Error profile', 'My Sessions']);
     expect(screen.queryByRole('switch', { name: 'Email code at login' })).not.toBeInTheDocument();
   });
 
@@ -174,6 +192,18 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     const heatmap = await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` });
     expect(screen.queryByRole('heading', { name: 'Daily tasks' })).not.toBeInTheDocument();
     expect(heatmap.compareDocumentPosition(screen.getByRole('region', { name: 'My sessions' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('shows the error profile between the heatmap and the sessions (SCRUM-27)', async () => {
+    renderPage();
+
+    const heatmap = await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` });
+    const errorProfile = screen.getByRole('region', { name: 'Error profile' });
+    expect(await within(errorProfile).findAllByRole('listitem')).toHaveLength(5);
+    expect(within(errorProfile).getByText('Weak')).toBeInTheDocument();
+    expect(heatmap.compareDocumentPosition(errorProfile)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(errorProfile.compareDocumentPosition(screen.getByRole('region', { name: 'My sessions' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(getErrorProfile).toHaveBeenCalledOnce();
   });
 
   it('shows zeros to a new learner, and asks for a display name instead of the email twice', async () => {

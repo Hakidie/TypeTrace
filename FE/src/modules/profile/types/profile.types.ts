@@ -96,6 +96,42 @@ export interface DailyTasks {
   tasks: DailyTaskProgress[];
 }
 
+/** How an error type stands in the learner's last counted sessions (SCRUM-27): no level under `minOpportunities` chances. */
+export type ErrorLevel = 'insufficient_data' | 'weak' | 'ok';
+
+/** The change from the sessions before (SCRUM-27): no trend while either window has fewer than `minOpportunities` chances. */
+export type ErrorTrend = 'insufficient_data' | 'improved' | 'worse' | 'unchanged';
+
+/** One error type of the error profile (SCRUM-27). */
+export interface ErrorTypeProfile {
+  type: WordErrorType;
+  /** Errors and chances of the type in the current window: the learner's last `window` counted sessions. */
+  errors: number;
+  opportunities: number;
+  /** Errors / chances in %, one decimal; 0 without a chance. */
+  rate: number;
+  level: ErrorLevel;
+  /** The same rate in the `window` sessions before. */
+  previousRate: number;
+  trend: ErrorTrend;
+}
+
+/** `GET /api/profile/error-profile` (SCRUM-27). The thresholds come from the backend: never write them in the frontend. */
+export interface ErrorProfile {
+  /** How many counted sessions a window has (10). */
+  window: number;
+  /** Chances of a type a window needs for a level or a trend (20). */
+  minOpportunities: number;
+  /** A type is weak from this error rate on, in % (15). */
+  weakRate: number;
+  /** Sessions in the current window: 0 to `window`. */
+  sessionsUsed: number;
+  /** One per error type, in the order of `WordError`. */
+  types: ErrorTypeProfile[];
+  /** The weak types, highest error rate first. */
+  weakTypes: WordErrorType[];
+}
+
 /** What a point of the profile chart covers: a month (`year`: the last 12 months), a block of 7 days of the current month (`month`: 4-5 points) or a day (`week`: the last 7 days). */
 export type ChartRange = 'year' | 'month' | 'week';
 

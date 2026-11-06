@@ -1,17 +1,19 @@
 /**
  * Creates ready-to-use demo accounts, and typing sessions for `demo@example.com` (a placement test and practice sessions over
- * the last months, for the charts of the profile page). Safe to run many times: existing accounts are left untouched and the
- * sessions are made once. Run with `npm run seed`.
+ * the last months, for the charts and the error profile of the profile page). Safe to run many times: existing accounts are
+ * left untouched and the sessions are made once (demo sessions seeded before the error profile get its counts). Run with
+ * `npm run seed`.
  */
 import mongoose from 'mongoose';
 import { connectDb } from '../config/db';
 import { env } from '../config/env';
-import { TypingSessionModel } from '../models/typing-session.model';
+import { ErrorCounts, TypingSessionModel } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
 import { recordCountedSession, usableTimeZone } from '../services/daily-progress.service';
 import { addMonths } from '../services/monthly-progress.service';
 import { hashPassword } from '../utils/hash';
 import { addDays, localDateKey } from '../utils/local-date';
+import { WordError } from '../utils/vietnamese-errors';
 
 export const DEMO_ACCOUNTS = [
   { email: 'demo@example.com', password: 'demo1234', displayName: 'Demo User', role: 'user' },
@@ -79,10 +81,50 @@ const DEMO_RECENT_DAYS: readonly (readonly [number, number, number])[] = [
 ];
 
 /**
+ * How many chances of each error type a word of the starter passages gives (`tagWord` over the 20 passages: every word a
+ * letter and a tone, half of them a vowel mark, about one in five hỏi or ngã, one in nine đ).
+ */
+const DEMO_CHANCES_PER_WORD: ErrorCounts = {
+  BASE_LETTER: 1,
+  D_MISSING: 0.11,
+  MARK_WRONG: 0.5,
+  TONE_WRONG: 1,
+  HOI_NGA_CONFUSION: 0.18
+};
+
+/** The demo learner's weak point, getting better: hỏi and ngã mixed up in 2 of 5 chances while slow, under 1 in 5 from 45 WPM on. */
+const demoHoiNgaRate = (wpm: number) => (wpm < 45 ? 0.4 : 0.17);
+
+/**
+ * The error counts of a demo session at `wpm` WPM (one minute, so `wpm` words) with `errors` errors (SCRUM-27): the chances in
+ * the shares of the starter passages, the hỏi/ngã errors first (`demoHoiNgaRate`), the rest shared by tone, vowel mark, đ
+ * and letter (4:3:1:2). The demo learner's error profile then has hỏi/ngã weak and improving, and the other types ok.
+ */
+export const demoErrorCounts = (wpm: number, errors: number) => {
+  const opportunityCounts = Object.fromEntries(
+    Object.values(WordError).map((type) => [type, Math.round(wpm * DEMO_CHANCES_PER_WORD[type])])
+  ) as ErrorCounts;
+  const hoiNga = Math.min(errors, Math.round(opportunityCounts.HOI_NGA_CONFUSION * demoHoiNgaRate(wpm)));
+  const rest = errors - hoiNga;
+  const tone = Math.round(rest * 0.4);
+  const mark = Math.round(rest * 0.3);
+  const dMissing = Math.round(rest * 0.1);
+  const errorCounts: ErrorCounts = {
+    BASE_LETTER: rest - tone - mark - dMissing,
+    D_MISSING: dMissing,
+    MARK_WRONG: mark,
+    TONE_WRONG: tone,
+    HOI_NGA_CONFUSION: hoiNga
+  };
+  return { errorCounts, opportunityCounts };
+};
+
+/**
  * Gives `demo@example.com` a counted placement test 8 months ago and counted practice sessions since, getting faster and cleaner,
  * with two months without a session and sessions on the last days: every range of the profile chart (a year, a month, a week)
  * shows something, with a month that keeps the figures of the one before. The days are the learner's own (their time zone) and
- * count for their streak and heatmap. Does nothing when the learner already has the sessions. Answers how many it made.
+ * count for their streak and heatmap. Each session has errors and chances of every type (`demoErrorCounts`), for the error
+ * profile. Does nothing when the learner already has the sessions. Answers how many it made.
  */
 export const seedDemoSessions = async (now = new Date()) => {
   const user = await UserModel.findOne({ email: DEMO_ACCOUNTS[0].email });
@@ -116,12 +158,31 @@ export const seedDemoSessions = async (now = new Date()) => {
       timeLimitSeconds: 60,
       wpm,
       accuracy: Math.max(80, Math.round((100 - errors * 1.2) * 10) / 10),
-      errorCounts: { BASE_LETTER: errors },
+      ...demoErrorCounts(wpm, errors),
       isCounted: true
     });
     await recordCountedSession(user._id, completedAt);
   }
   return plan.length;
+};
+
+/**
+ * Gives the demo sessions seeded before the error profile (SCRUM-27: no chances, every error a BASE_LETTER) the counts of
+ * `demoErrorCounts`, from their WPM and their errors, so the error profile of a database seeded earlier shows something
+ * too. Answers how many it changed; a session is changed once.
+ */
+export const fillDemoErrorCounts = async () => {
+  const sessions = await TypingSessionModel.find({ passageId: DEMO_SESSION_PASSAGE_ID, opportunityCounts: { $exists: false } })
+    .select('wpm errorCounts')
+    .lean();
+  for (const session of sessions) {
+    const errors = Object.values(session.errorCounts ?? {}).reduce((sum, count) => sum + (count ?? 0), 0);
+    await TypingSessionModel.updateOne(
+      { _id: session._id, opportunityCounts: { $exists: false } },
+      { $set: demoErrorCounts(session.wpm ?? 0, errors) }
+    );
+  }
+  return sessions.length;
 };
 
 const run = async () => {
@@ -130,8 +191,10 @@ const run = async () => {
   await connectDb();
   const created = await seedDemoAccounts();
   const sessions = await seedDemoSessions();
+  const filled = await fillDemoErrorCounts();
   console.log(created.length ? `Created: ${created.join(', ')}` : 'Demo accounts already exist.');
   console.log(sessions ? `Created ${sessions} typing sessions for ${DEMO_ACCOUNTS[0].email} (placement test and practice).` : 'Demo typing sessions already exist.');
+  if (filled) console.log(`Added the error counts of the error profile to ${filled} demo sessions seeded before it.`);
   for (const account of DEMO_ACCOUNTS) console.log(`  ${account.email} / ${account.password}`);
   console.log(`  + ${DEMO_STUDENTS.length} students: student01..${DEMO_STUDENTS.length}@example.com / student1234`);
   await mongoose.disconnect();

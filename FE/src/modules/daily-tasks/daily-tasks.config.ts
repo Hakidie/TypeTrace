@@ -40,9 +40,9 @@ export const ERROR_FOCUS_LABELS: Record<WordErrorType, string> = {
 /**
  * The words that give a chance of an error type (`tagWord`), as the goal of a focused task names them. `null` where every
  * word is a chance: a counted session has at least 20 words (`MIN_COUNTED_WORDS` of the backend), so it always has
- * `MIN_FOCUS_CHANCES` of them.
+ * `MIN_FOCUS_CHANCES` of them. The error profile of the profile page names them too.
  */
-const ERROR_CHANCE_WORDS: Record<WordErrorType, string | null> = {
+export const ERROR_CHANCE_WORDS: Record<WordErrorType, string | null> = {
   BASE_LETTER: null,
   D_MISSING: 'words with đ',
   MARK_WRONG: 'words with vowel marks',

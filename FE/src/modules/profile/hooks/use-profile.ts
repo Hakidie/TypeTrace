@@ -11,6 +11,7 @@ export const profileKeys = {
   sessions: (params: SessionListParams) => [...profileKeys.all, 'sessions', params] as const,
   streak: () => [...profileKeys.all, 'streak'] as const,
   dailyTasks: () => [...profileKeys.all, 'daily-tasks'] as const,
+  errorProfile: () => [...profileKeys.all, 'error-profile'] as const,
   monthlyProgress: (range: ChartRange, date?: string) => [...profileKeys.all, 'monthly-progress', range, date ?? ''] as const,
 };
 
@@ -38,6 +39,14 @@ export const useStreak = () => useQuery({ queryKey: profileKeys.streak(), queryF
  * streak. Not the admins' list of task templates: that one is `useDailyTasks` of the daily-tasks module.
  */
 export const useDailyTasks = () => useQuery({ queryKey: profileKeys.dailyTasks(), queryFn: profileApi.getDailyTasks, staleTime: 0 });
+
+/**
+ * The learner's error profile (SCRUM-27): rate, level and trend of each error type in their last counted sessions, worked
+ * out by the backend when asked; asked again each time the profile page opens, like the streak, so it has the sessions
+ * just typed.
+ */
+export const useErrorProfile = () =>
+  useQuery({ queryKey: profileKeys.errorProfile(), queryFn: profileApi.getErrorProfile, staleTime: 0 });
 
 /** The learner's average WPM and errors by month, week or day, by `range`, and with `date` the year, month or week that holds that day (SCRUM-240); asked again each time the profile page opens, like the streak. The range on screen stays while the next one loads. */
 export const useMonthlyProgress = (range: ChartRange, date?: string) =>
