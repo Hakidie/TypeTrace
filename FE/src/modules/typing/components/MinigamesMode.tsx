@@ -1,17 +1,20 @@
-import { ArrowLeft, CalendarDays, CloudRain, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, Bot, CalendarDays, CloudRain, type LucideIcon } from 'lucide-react';
 import { DailyMode } from '@/modules/daily/components/DailyMode';
 import { RainMode } from '@/modules/rain/components/RainMode';
 import { hoverFrame, PanelArt, titleClass } from '@/modules/ranked/components/RankLobby';
+import { BotDuelMode } from '@/modules/tutorial/components/BotDuelMode';
 import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 
-export type MinigameId = 'rain' | 'daily';
+export type MinigameId = 'rain' | 'daily' | 'bot';
 
 const minigames: { id: MinigameId; title: string; description: string; icon: LucideIcon }[] = [
   { id: 'rain', title: 'Rain', description: 'Type the falling words before they land. A round lasts a minute.', icon: CloudRain },
   { id: 'daily', title: 'Daily', description: 'One passage for everyone each day. Beat your last try and climb the board.', icon: CalendarDays },
+  { id: 'bot', title: 'Bot duel', description: 'Đấu mưa chữ với Bông, Nhịp hoặc Dạ. Không tính điểm.', icon: Bot },
 ];
+const GAMES: Record<MinigameId, () => React.JSX.Element> = { rain: RainMode, daily: DailyMode, bot: BotDuelMode };
 
 /**
  * The Minigames tab of the Typing page (`?mode=minigames`): a card for each minigame. The picked one lives in the URL
@@ -19,10 +22,11 @@ const minigames: { id: MinigameId; title: string; description: string; icon: Luc
  */
 export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; onSelect: (id: MinigameId) => void; onBack: () => void }) => {
   if (game) {
+    const Game = GAMES[game];
     return (
       <div className="flex flex-1 flex-col gap-4">
         {/* The game sits in the middle of the free height, between the tabs and the back button. */}
-        <div className="flex flex-1 flex-col justify-center">{game === 'rain' ? <RainMode /> : <DailyMode />}</div>
+        <div className="flex flex-1 flex-col justify-center"><Game /></div>
         <div className="mt-auto flex justify-center pb-4">
           <Button variant="ghost" className="h-auto gap-2 px-3 py-1.5 text-base text-muted-foreground" onClick={onBack}>
             <ArrowLeft className="size-4" /> All minigames
@@ -33,7 +37,7 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
   }
   // The lobby of the Rank tab again: a framed panel for each game with a big icon, its description that opens the card while hovered; a click on it opens the game.
   return (
-    <div className="mx-auto mt-20 grid w-full max-w-7xl items-start gap-x-12 gap-y-6 md:grid-cols-2">
+    <div className="mx-auto mt-20 grid w-full max-w-7xl items-start gap-x-12 gap-y-6 md:grid-cols-3">
       {minigames.map(({ id, title, description, icon }) => (
         <button
           key={id}

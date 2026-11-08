@@ -218,6 +218,9 @@ The mascot Ping guides new learners (`docs/superpowers/specs/2026-10-30-ping-tut
   (`rain-word`: `RainMode` freezes the rain and frames its lowest word until it is typed). Skipping is a button, never Escape.
 - The practice duel against Ping-bot (`lib/practice-duel.ts`, Bronze pace, words of `GET /api/rain/words`) runs in the browser
   only: it never calls `/api/matches` or `/api/ranked` and never changes a rating.
+- The Bot duel minigame (`?mode=minigames&game=bot`, `BotDuelMode`, SCRUM-247) reuses that practice duel at three levels
+  (`BOT_LEVELS`: Bông/Bronze, Nhịp/Gold, Dạ/Diamond, each with its typing speed and miss rate). The bots are their own pixel
+  sprites (`BotSprite`, strips in `FE/public/bots`, see its README), keep their colors like Ping, and are not edited by hand.
 
 ## AI chat bot (OpenAI)
 
