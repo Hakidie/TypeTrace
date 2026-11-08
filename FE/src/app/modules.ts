@@ -21,6 +21,7 @@ import type { AppModule } from './module.types';
 export const appModules: AppModule[] = [homeModule, notesModule, typingModule, rankedModule, profileModule, progressModule, adminModule, passagesModule, dailyTasksModule, seasonsAdminModule, chatModule, settingsModule, avatarModule, tutorialModule];
 
 export const protectedRoutes = appModules.flatMap((module) => module.routes);
+export const publicRoutes = appModules.flatMap((module) => module.publicRoutes ?? []);
 export const navItems = appModules.flatMap((module) => module.navItems ?? []);
 export const menuItems = appModules.flatMap((module) => module.menuItems ?? []);
 export const adminRoutes = appModules.flatMap((module) => module.adminRoutes ?? []);

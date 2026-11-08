@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { adminNavItems, adminRoutes, appWidgets, menuItems, navItems, protectedRoutes } from '@/app/modules';
+import { adminNavItems, adminRoutes, appWidgets, menuItems, navItems, protectedRoutes, publicRoutes } from '@/app/modules';
 import { AdminLayout } from '@/shared/components/layout/AdminLayout';
 import { AppLayout } from '@/shared/components/layout/AppLayout';
 import { AuthLayout } from '@/modules/auth/components/AuthLayout';
@@ -15,13 +15,18 @@ function App() {
     <Routes>
       {/* Auth routes */}
       <Route element={<GuestRoute />}>
-        <Route element={<AuthLayout />}>
+        <Route element={<AuthLayout navItems={navItems} />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         </Route>
       </Route>
       <Route path="/logout" element={<LogoutPage />} />
+
+      {/* Public routes — pages for everyone (the home page: guests try typing, signed-in users go to /typing) */}
+      {publicRoutes.map(({ path, Component }) => (
+        <Route key={path} path={path} element={<Component />} />
+      ))}
 
       {/* Protected routes — registered by feature modules in src/app/modules.ts */}
       <Route element={<ProtectedRoute><AppLayout navItems={navItems} menuItems={menuItems} widgets={appWidgets} /></ProtectedRoute>}>

@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { KeyRound, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { authApi } from '../api/auth.api';
+import { AuthInput } from '../components/AuthInput';
+import { useFormShake } from '../hooks/use-form-shake';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { FormField } from '@/shared/components/form-field';
+import { cn } from '@/shared/lib/utils';
 
 const requestSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email'),
@@ -28,6 +29,8 @@ export const ForgotPasswordPage = () => {
   const [step, setStep] = useState<'request' | 'reset'>('request');
   const [email, setEmail] = useState('');
 
+  const { shake, shakeProps } = useFormShake();
+
   const requestForm = useForm<RequestValues>({
     resolver: zodResolver(requestSchema),
   });
@@ -43,8 +46,9 @@ export const ForgotPasswordPage = () => {
       toast.success('Reset token sent to your email.');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Something went wrong'));
+      shake();
     }
-  });
+  }, shake);
 
   const onResetPassword = resetForm.handleSubmit(async (values) => {
     try {
@@ -53,12 +57,13 @@ export const ForgotPasswordPage = () => {
       setStep('request');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Something went wrong'));
+      shake();
     }
-  });
+  }, shake);
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-6 pt-0 text-center">
         <CardTitle>{step === 'request' ? 'Forgot password' : 'Reset password'}</CardTitle>
         <CardDescription>
           {step === 'request'
@@ -68,39 +73,37 @@ export const ForgotPasswordPage = () => {
       </CardHeader>
       <CardContent>
         {step === 'request' ? (
-          <form className="space-y-4" onSubmit={onRequestToken}>
-            <div className="space-y-3">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="email" className="pl-9" placeholder="name@example.com" {...requestForm.register('email')} />
-              </div>
-              {requestForm.formState.errors.email && (
-                <p className="text-sm text-destructive">{requestForm.formState.errors.email.message}</p>
-              )}
-            </div>
-            <Button className="w-full" type="submit">Send Reset Token</Button>
+          <form className={cn('space-y-3', shakeProps.className)} onAnimationEnd={shakeProps.onAnimationEnd} onSubmit={onRequestToken}>
+            <FormField hideLabel id="email" label="Email" error={requestForm.formState.errors.email?.message}>
+              <AuthInput
+                id="email"
+                placeholder="Email"
+                aria-invalid={!!requestForm.formState.errors.email}
+                {...requestForm.register('email')}
+              />
+            </FormField>
+            <Button className="mt-6 w-full" type="submit">Send Reset Token</Button>
           </form>
         ) : (
-          <form className="space-y-4" onSubmit={onResetPassword}>
-            <div className="space-y-3">
-              <Label htmlFor="token">Reset Token</Label>
-              <Input id="token" placeholder="Paste token from email" {...resetForm.register('token')} />
-              {resetForm.formState.errors.token && (
-                <p className="text-sm text-destructive">{resetForm.formState.errors.token.message}</p>
-              )}
-            </div>
-            <div className="space-y-3">
-              <Label htmlFor="newPassword">New Password</Label>
-              <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="newPassword" className="pl-9" type="password" placeholder="At least 6 characters" {...resetForm.register('newPassword')} />
-              </div>
-              {resetForm.formState.errors.newPassword && (
-                <p className="text-sm text-destructive">{resetForm.formState.errors.newPassword.message}</p>
-              )}
-            </div>
-            <Button className="w-full" type="submit">Reset Password</Button>
+          <form className={cn('space-y-3', shakeProps.className)} onAnimationEnd={shakeProps.onAnimationEnd} onSubmit={onResetPassword}>
+            <FormField hideLabel id="token" label="Reset Token" error={resetForm.formState.errors.token?.message}>
+              <AuthInput
+                id="token"
+                placeholder="Reset token"
+                aria-invalid={!!resetForm.formState.errors.token}
+                {...resetForm.register('token')}
+              />
+            </FormField>
+            <FormField hideLabel id="newPassword" label="New Password" error={resetForm.formState.errors.newPassword?.message}>
+              <AuthInput
+                id="newPassword"
+                type="password"
+                placeholder="New password"
+                aria-invalid={!!resetForm.formState.errors.newPassword}
+                {...resetForm.register('newPassword')}
+              />
+            </FormField>
+            <Button className="mt-6 w-full" type="submit">Reset Password</Button>
             <button
               type="button"
               onClick={() => setStep('request')}

@@ -3,16 +3,18 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { KeyRound, Loader2, Mail } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { GoogleSignInButton } from '../components/GoogleSignInButton';
+import { AuthInput } from '../components/AuthInput';
+import { SocialButtons } from '../components/SocialButtons';
+import { useFormShake } from '../hooks/use-form-shake';
 import { authApi } from '../api/auth.api';
 import { useFinishLogin } from '../hooks/use-finish-login';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { FormField } from '@/shared/components/form-field';
+import { cn } from '@/shared/lib/utils';
 import { OtpInput } from '@/shared/components/ui/otp-input';
 
 const registerSchema = z.object({
@@ -32,6 +34,7 @@ export const RegisterPage = () => {
   });
   const navigate = useNavigate();
   const finishLogin = useFinishLogin();
+  const { shake, shakeProps } = useFormShake();
 
   /** Signs the new account in with the password just entered; false when that did not work. */
   const signIn = async () => {
@@ -54,10 +57,11 @@ export const RegisterPage = () => {
       toast.success('OTP sent to your email.');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Something went wrong'));
+      shake();
     } finally {
       setLoading(false);
     }
-  });
+  }, shake);
 
   const onVerifySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +85,7 @@ export const RegisterPage = () => {
   if (step === 'verify') {
     return (
       <Card>
-        <CardHeader className="text-center">
+        <CardHeader className="pb-6 pt-0 text-center">
           <CardTitle>Confirm OTP</CardTitle>
           <CardDescription>
             Enter the 6-digit code sent to <span className="font-medium text-foreground">{email}</span>
@@ -109,42 +113,36 @@ export const RegisterPage = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Create account</CardTitle>
-        <CardDescription>Register with your email and password.</CardDescription>
+      <CardHeader className="pb-6 pt-0 text-center">
+        <CardTitle>Register</CardTitle>
       </CardHeader>
       <CardContent>
-        <form className="space-y-4" onSubmit={onRegisterSubmit}>
-          <div className="space-y-3">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input id="email" className="pl-9" placeholder="name@example.com" {...register('email')} />
-            </div>
-            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-          </div>
+        <form className={cn('space-y-3', shakeProps.className)} onAnimationEnd={shakeProps.onAnimationEnd} onSubmit={onRegisterSubmit}>
+          <FormField hideLabel id="email" label="Email" error={errors.email?.message}>
+            <AuthInput id="email" placeholder="Email" aria-invalid={!!errors.email} {...register('email')} />
+          </FormField>
 
-          <div className="space-y-3">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input id="password" className="pl-9" type="password" placeholder="At least 6 characters" {...register('password')} />
-            </div>
-            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
-          </div>
+          <FormField hideLabel id="password" label="Password" error={errors.password?.message}>
+            <AuthInput
+              id="password"
+              type="password"
+              placeholder="Password"
+              aria-invalid={!!errors.password}
+              {...register('password')}
+            />
+          </FormField>
 
-          <Button className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit" disabled={loading}>
+          <Button className="mt-6 h-12 w-full bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit" disabled={loading}>
             {loading && <Loader2 className="size-4 animate-spin" />}
             Register and Send OTP
           </Button>
+          <Button asChild variant="outline" className="mt-6 h-12 w-full">
+            <Link to="/login">Log in to your account</Link>
+          </Button>
         </form>
-        <GoogleSignInButton />
-        <p className="mt-4 text-center text-base text-muted-foreground">
-          Already have an account?{' '}
-          <Link to="/login" className="font-medium text-foreground hover:underline">
-            Login
-          </Link>
-        </p>
+        <div className="mt-6">
+          <SocialButtons />
+        </div>
       </CardContent>
     </Card>
   );
