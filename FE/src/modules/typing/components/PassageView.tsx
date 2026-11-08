@@ -45,7 +45,7 @@ export const PassageView = ({ words, results, current, maxRows }: PassageViewPro
   return (
     <p
       ref={passageRef}
-      className="relative flex flex-wrap gap-x-3 gap-y-2 overflow-hidden text-[2rem] leading-snug"
+      className="relative flex flex-wrap content-start gap-x-3 gap-y-2 overflow-hidden text-[2rem] leading-snug"
       style={maxRows ? { height: `${maxRows * LINE_REM + (maxRows - 1) * GAP_REM}rem` } : undefined}
       aria-label="Passage to type"
     >

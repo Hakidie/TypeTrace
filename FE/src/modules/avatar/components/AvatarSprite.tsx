@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { AVATAR_MANIFEST } from '../data/avatar-manifest';
 import { layerFiles } from '../lib/layers';
@@ -21,17 +22,19 @@ interface AvatarSpriteProps {
   /** Read by screen readers (default "Avatar"). */
   label?: string;
   className?: string;
+  /** Extra inline style for the frame (e.g. a negative margin to line the visible figure up with something). */
+  style?: CSSProperties;
 }
 
 /**
  * A pixel avatar: one image per layer (`layerFiles`), stacked in a frame of a fixed size, so the layout does not move
  * while the images load or when one is missing. The avatar art keeps its own colors (an exception to the theme tokens).
  */
-export const AvatarSprite = ({ look, pose = 'idle', scale = 2, crop = 'full', eager = false, label = 'Avatar', className }: AvatarSpriteProps) => {
+export const AvatarSprite = ({ look, pose = 'idle', scale = 2, crop = 'full', eager = false, label = 'Avatar', className, style }: AvatarSpriteProps) => {
   const head = crop === 'head';
   const size = head ? { width: HEAD.size * scale, height: HEAD.size * scale } : { width: FRAME_W * scale, height: FRAME_H * scale };
   return (
-    <div role="img" aria-label={label} className={cn('relative shrink-0 overflow-hidden', className)} style={size}>
+    <div role="img" aria-label={label} className={cn('relative shrink-0 overflow-hidden', className)} style={{ ...size, ...style }}>
       <div
         className="absolute"
         style={{ width: FRAME_W * scale, height: FRAME_H * scale, left: head ? -HEAD.x * scale : 0, top: head ? -HEAD.y * scale : 0 }}

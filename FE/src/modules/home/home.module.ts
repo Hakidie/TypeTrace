@@ -1,6 +1,8 @@
 import type { AppModule } from '@/app/module.types';
-import { HomeRedirect } from './pages/HomeRedirect';
+import { HomePage } from './pages/HomePage';
 
 export const homeModule: AppModule = {
-  routes: [{ path: '/', Component: HomeRedirect }],
+  routes: [],
+  // `/` is public: guests try typing there, signed-in users are sent on to the typing page.
+  publicRoutes: [{ path: '/', Component: HomePage }],
 };
