@@ -1,14 +1,15 @@
-import { ArrowLeft, ArrowRight, CalendarDays, CloudRain, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, CloudRain, Link2, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { DailyMode } from '@/modules/daily/components/DailyMode';
 import { RainMode } from '@/modules/rain/components/RainMode';
 import { hoverFrame, titleClass } from '@/modules/ranked/components/RankLobby';
 import { BotDuelMode } from '@/modules/tutorial/components/BotDuelMode';
 import { BotSprite } from '@/modules/tutorial/components/BotSprite';
+import { WordChainMode } from '@/modules/word-chain/components/WordChainMode';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 
-export type MinigameId = 'rain' | 'daily' | 'bot';
+export type MinigameId = 'rain' | 'daily' | 'bot' | 'chain';
 
 const BigIcon = ({ icon: Icon }: { icon: LucideIcon }) => <Icon className="size-28 text-primary" strokeWidth={1.25} aria-hidden="true" />;
 
@@ -29,12 +30,19 @@ const minigames: { id: MinigameId; title: string; description: string; facts: st
       </span>
     ),
   },
+  {
+    id: 'chain',
+    title: 'Nối từ',
+    description: 'Chain Vietnamese words with a friendly bot. The faster you type, the more time you get.',
+    facts: ['60 seconds', 'Speed adds time', 'Beat your best'],
+    art: <BigIcon icon={Link2} />,
+  },
 ];
-const GAMES: Record<MinigameId, () => React.JSX.Element> = { rain: RainMode, daily: DailyMode, bot: BotDuelMode };
+const GAMES: Record<MinigameId, () => React.JSX.Element> = { rain: RainMode, daily: DailyMode, bot: BotDuelMode, chain: WordChainMode };
 
 /**
  * The Minigames tab of the Typing page (`?mode=minigames`): a card for each minigame. The picked one lives in the URL
- * (`&game=rain|daily|bot`) and opens in place of the cards, with a button under it, in the center, back to them.
+ * (`&game=rain|daily|bot|chain`) and opens in place of the cards, with a button under it, in the center, back to them.
  */
 export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; onSelect: (id: MinigameId) => void; onBack: () => void }) => {
   if (game) {
@@ -55,7 +63,7 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
   }
   // A framed card for each game, as tall as the free height: its title, its art, what it is, a few facts and a Play line.
   return (
-    <div className="mx-auto grid w-full max-w-7xl flex-1 gap-6 py-8 md:grid-cols-3 md:gap-8">
+    <div className="mx-auto grid w-full max-w-7xl flex-1 gap-6 py-8 md:grid-cols-2 md:gap-8 xl:grid-cols-4">
       {minigames.map(({ id, title, description, facts, art }) => (
         <button
           key={id}
