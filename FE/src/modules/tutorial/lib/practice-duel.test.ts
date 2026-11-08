@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { botPlan, buildPracticeSchedule, duelOutcome, pickThrown, practiceReducer, PRACTICE_PACE, startPractice, type PracticeState } from './practice-duel';
+import { BOT_LEVELS, botPlan, buildPracticeSchedule, duelOutcome, pickThrown, practiceReducer, PRACTICE_PACE, startPractice, type PracticeState } from './practice-duel';
 
 /** A repeatable stand-in for Math.random. */
 const seeded = (seed = 7) => {
@@ -21,6 +21,32 @@ describe('practice duel rules', () => {
     expect(botPlan(1000, () => 0.1)).toBeNull();
     expect(botPlan(1000, () => 0.5)).toBe(1000 + 2500 + 0.5 * 3500);
     expect(botPlan(0, () => 0.99)).toBeLessThanOrEqual(6000);
+  });
+
+  it('gives each level its bot, its pace and its typing speed', () => {
+    expect(BOT_LEVELS.medium).toMatchObject({ bot: 'nhip', name: 'Nhịp', tier: 'Gold', missRate: 1 / 10, typeAfterMs: [1500, 4000] });
+    expect(BOT_LEVELS.hard.pace).toEqual({ spawnFromMs: 1800, spawnToMs: 800, fallFromMs: 6500, fallToMs: 3500, maxThrownFalling: 3, maxWordLength: 10 });
+    expect(botPlan(1000, () => 0.04, 'hard')).toBeNull();
+    expect(botPlan(1000, () => 0.06, 'hard')).toBe(1000 + 800 + 0.06 * 1700);
+    expect(botPlan(1000, () => 0.5, 'easy')).toBe(1000 + 2500 + 0.5 * 3500);
+  });
+
+  it('rains faster with longer words at a harder level', () => {
+    const words = [...WORDS, 'tenletters', 'elevenwords'];
+    const hard = buildPracticeSchedule(words, seeded(), 'hard');
+    expect(hard[0]).toMatchObject({ atMs: 0, fallMs: 6500 });
+    expect(hard.every((spawn) => [...spawn.text].length <= 10)).toBe(true);
+    expect(hard.some((spawn) => spawn.text === 'tenletters')).toBe(true);
+    expect(hard.length).toBeGreaterThan(buildPracticeSchedule(words, seeded(), 'easy').length);
+  });
+
+  it('uses every word when none is short enough for the level', () => {
+    expect(buildPracticeSchedule(['elevenwords'], seeded(), 'easy')[0].text).toBe('elevenwords');
+  });
+
+  it('starts at the easy level by default (the tutorial)', () => {
+    expect(startPractice(WORDS, seeded()).level).toBe('easy');
+    expect(startPractice(WORDS, seeded(), 'hard').level).toBe('hard');
   });
 
   it('throws a word not falling on that side yet', () => {
