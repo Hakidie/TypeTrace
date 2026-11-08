@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  emailExists,
   forgotPassword,
   googleLogin,
   getMe,
@@ -10,8 +11,9 @@ import {
   verifyRegisterOtp
 } from '../controllers/auth.controller';
 import { authGuard } from '../middlewares/auth.middleware';
-import { validateBody } from '../middlewares/validate.middleware';
+import { validate, validateBody } from '../middlewares/validate.middleware';
 import {
+  emailExistsQuerySchema,
   forgotPasswordSchema,
   googleLoginSchema,
   loginSchema,
@@ -23,6 +25,7 @@ import {
 export const authRouter = Router();
 
 authRouter.post('/register', validateBody(registerSchema), register);
+authRouter.get('/email-exists', validate({ query: emailExistsQuerySchema }), emailExists);
 authRouter.post('/register/verify-otp', validateBody(otpSchema), verifyRegisterOtp);
 authRouter.post('/login', validateBody(loginSchema), login);
 authRouter.post('/login/verify-otp', validateBody(otpSchema), verifyLoginOtp);

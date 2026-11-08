@@ -5,6 +5,8 @@ import type { AuthPayload, CurrentUser, LoginResponse, MessageResponse } from '.
 export const authApi = {
   register: (payload: AuthPayload) =>
     http.post<MessageResponse>('/auth/register', payload).then((r) => r.data),
+  emailExists: (email: string) =>
+    http.get<{ exists: boolean }>('/auth/email-exists', { params: { email } }).then((r) => r.data),
   verifyRegisterOtp: (email: string, otp: string) =>
     http.post<MessageResponse>('/auth/register/verify-otp', { email, otp }).then((r) => r.data),
   login: (payload: AuthPayload) =>

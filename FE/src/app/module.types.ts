@@ -9,6 +9,12 @@ export interface ModuleRoute {
   roles?: UserRole[];
 }
 
+/** A page anyone can open, signed in or not, with no layout around it: the page draws its own header and footer. */
+export interface PublicRoute {
+  path: string;
+  Component: ComponentType;
+}
+
 /** A link in the top navigation bar. */
 export interface NavItem {
   to: string;
@@ -38,6 +44,8 @@ export interface MenuItem {
 export interface AppModule {
   /** Pages inside the main app layout (top navigation). */
   routes: ModuleRoute[];
+  /** Pages for everyone, outside the login lock and the main layout (the home page for guests). */
+  publicRoutes?: PublicRoute[];
   navItems?: (NavItem | NavWidget)[];
   /** Entries in the account menu: Wardrobe, Mode, these (AI chat), Admin, then the ones with `last` (Settings). */
   menuItems?: MenuItem[];

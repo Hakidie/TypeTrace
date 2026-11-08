@@ -3,16 +3,18 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
-import { KeyRound, Loader2, Mail } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { authApi } from '../api/auth.api';
 import { useFinishLogin } from '../hooks/use-finish-login';
-import { GoogleSignInButton } from '../components/GoogleSignInButton';
+import { AuthInput } from '../components/AuthInput';
+import { SocialButtons } from '../components/SocialButtons';
+import { useFormShake } from '../hooks/use-form-shake';
 import { getApiErrorBody, getApiErrorMessage } from '@/shared/api/api-error';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { FormField } from '@/shared/components/form-field';
+import { cn } from '@/shared/lib/utils';
 import { OtpInput } from '@/shared/components/ui/otp-input';
 
 const loginSchema = z.object({
@@ -31,6 +33,7 @@ export const LoginPage = () => {
     resolver: zodResolver(loginSchema),
   });
   const finishLogin = useFinishLogin();
+  const { shake, shakeProps } = useFormShake();
 
   const onLoginSubmit = handleSubmit(async (values) => {
     setLoading(true);
@@ -51,11 +54,12 @@ export const LoginPage = () => {
         toast.info('OTP required. Check your email.');
       } else {
         toast.error(body?.message ?? 'Something went wrong');
+        shake();
       }
     } finally {
       setLoading(false);
     }
-  });
+  }, shake);
 
   const onVerifySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +79,7 @@ export const LoginPage = () => {
   if (step === 'verify') {
     return (
       <Card>
-        <CardHeader className="text-center">
+        <CardHeader className="pb-6 pt-0 text-center">
           <CardTitle>Verify OTP</CardTitle>
           <CardDescription>
             Enter the 6-digit code sent to <span className="font-medium text-foreground">{email}</span>
@@ -103,42 +107,44 @@ export const LoginPage = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Welcome back</CardTitle>
-        <CardDescription>Enter your account details to continue.</CardDescription>
+      <CardHeader className="pb-6 pt-0 text-center">
+        <CardTitle>Login</CardTitle>
       </CardHeader>
       <CardContent>
-        <form className="space-y-4" onSubmit={onLoginSubmit}>
-          <div className="space-y-3">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input id="email" className="pl-9" placeholder="name@example.com" {...register('email')} />
-            </div>
-            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-          </div>
+        <form className={cn('space-y-3', shakeProps.className)} onAnimationEnd={shakeProps.onAnimationEnd} onSubmit={onLoginSubmit}>
+          <FormField hideLabel id="email" label="Email" error={errors.email?.message}>
+            <AuthInput id="email" placeholder="Email" aria-invalid={!!errors.email} {...register('email')} />
+          </FormField>
 
-          <div className="space-y-3">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input id="password" className="pl-9" type="password" placeholder="Enter your password" {...register('password')} />
-            </div>
-            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
-          </div>
+          <FormField
+            hideLabel
+            id="password"
+            label="Password"
+            error={errors.password?.message}
+          >
+            <AuthInput
+              id="password"
+              type="password"
+              placeholder="Password"
+              aria-invalid={!!errors.password}
+              {...register('password')}
+            />
+          </FormField>
 
-          <Button className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit" disabled={loading}>
+          <Button className="mt-6 h-12 w-full bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit" disabled={loading}>
             {loading && <Loader2 className="size-4 animate-spin" />}
             Sign in
           </Button>
+          <Button asChild variant="outline" className="mt-6 h-12 w-full">
+            <Link to="/register">Create a new account</Link>
+          </Button>
         </form>
-        <GoogleSignInButton />
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-base text-muted-foreground">
+        <div className="mt-6">
+          <SocialButtons />
+        </div>
+        <div className="mt-6 text-right text-sm text-muted-foreground">
           <Link to="/forgot-password" className="transition hover:text-foreground">
             Forgot password?
-          </Link>
-          <Link to="/register" className="font-medium text-foreground hover:underline">
-            Register
           </Link>
         </div>
       </CardContent>

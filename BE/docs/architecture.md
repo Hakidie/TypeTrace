@@ -88,6 +88,7 @@ Mount in `app.ts`: `app.use('/api/<plural>', <name>Router)` (before `notFoundHan
 - `requireRole(...roles)` loads the user's role from the database (so promotions apply without re-login), sets `req.user.role`, and answers 403 otherwise.
 - Login: password check → if `user.loginOtpEnabled`, email an OTP (202 `{ requiresOtp }`), else return `{ token }`. Users toggle it with `PATCH /api/profile/security`.
 - Profile picture: `POST /api/profile/avatar` uploads an image (Cloudinary) and shows it; `PATCH /api/profile/avatar-source` with `{ avatarSource: 'picture' | 'pixel' }` chooses what the account shows, its uploaded picture or its pixel avatar (`avatarSource` on the user, default `picture`). The picture is kept while the pixel avatar is shown; `picture` answers 400 when none was uploaded.
+- `GET /api/auth/email-exists?email=` (public, auth rate limit) answers `{ exists: boolean }` for the register form. `register` already tells a taken email with 409, so this adds no new information, only earlier.
 - Google login (`POST /api/auth/google` `{ credential }`) answers `{ token, isNewUser }`: `isNewUser` is true when this login created the account (`findOrCreateGoogleUser`), and the app then starts Ping's tour for the new learner, like after a registration (`POST /api/tutorial/start`).
 
 ### 5. Controllers — thin

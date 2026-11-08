@@ -1,12 +1,12 @@
 import type { ComponentType } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import type { MenuItem, NavItem, NavWidget } from '@/app/module.types';
 import { BrandFooter } from '@/shared/components/layout/BrandFooter';
 import { BrandHeader } from '@/shared/components/layout/BrandHeader';
+import { NavLinks } from '@/shared/components/layout/NavLinks';
 import { UserMenu } from '@/shared/components/layout/UserMenu';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { useThemeSync } from '@/modules/settings/hooks/use-theme-mode';
-import { cn } from '@/shared/lib/utils';
 
 interface AppLayoutProps {
   navItems: (NavItem | NavWidget)[];
@@ -21,7 +21,6 @@ export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] 
   // into a redirect to /logout. Other failures (server down) keep the user signed in.
   const { data: user } = useCurrentUser();
   useThemeSync();
-  const location = useLocation();
 
   const navItems = allNavItems.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
 
@@ -31,29 +30,7 @@ export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] 
       <div className="sticky top-0 z-50 bg-background/75 backdrop-blur-xs">
         <BrandHeader
           themeToggle={false}
-          nav={
-            <nav className="flex items-center gap-1">
-              {navItems.map((item, index) =>
-                'Component' in item ? (
-                  <item.Component key={index} />
-                ) : (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 px-3 py-1.5 text-base transition-colors',
-                      location.pathname === item.to
-                        ? 'bg-primary/15 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    )}
-                  >
-                    <item.icon className="size-4" />
-                    <span className="hidden sm:inline">{item.label}</span>
-                  </Link>
-                ),
-              )}
-            </nav>
-          }
+          nav={<NavLinks items={navItems} />}
         >
           <UserMenu user={user} menuItems={menuItems} />
         </BrandHeader>
