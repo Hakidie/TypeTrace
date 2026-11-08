@@ -41,4 +41,12 @@ describe('PracticeResult', () => {
     expect(onAgain).toHaveBeenCalledOnce();
     expect(onRank).toHaveBeenCalledOnce();
   });
+
+  it('takes its own button labels', () => {
+    coach.mockResolvedValue({ tip: 'Hay!', ai: true });
+    renderWithProviders(<PracticeResult stats={STATS} againLabel="Chơi lại" nextLabel="Đổi độ khó" onAgain={vi.fn()} onRank={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Chơi lại' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Đổi độ khó' })).toBeInTheDocument();
+  });
 });

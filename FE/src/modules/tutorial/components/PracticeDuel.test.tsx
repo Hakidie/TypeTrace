@@ -43,6 +43,16 @@ describe('PracticeDuel', () => {
     expect(urls.some((url) => url.includes('/matches') || url.includes('/ranked'))).toBe(false);
   });
 
+  it('shows the level bot instead of Ping', () => {
+    renderWithProviders(<PracticeDuel words={['nhà']} level="hard" skipLabel="Thoát" onDone={vi.fn()} onSkip={vi.fn()} />);
+
+    expect(screen.getByRole('region', { name: "Dạ's field" })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Dạ' })).toBeInTheDocument();
+    expect(screen.getByText('Diamond')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thoát' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Ping' })).not.toBeInTheDocument();
+  });
+
   it('can be skipped', () => {
     const onSkip = vi.fn();
     renderWithProviders(<PracticeDuel words={['nhà']} onDone={vi.fn()} onSkip={onSkip} />);
