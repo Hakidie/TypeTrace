@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { answerWpm, botReply, bonusMs, checkAnswer, hintFor, keyOf, parseWordList, sylKey } from './word-chain';
+import { answerWpm, botReply, bonusMs, checkAnswer, composeAnswer, hintFor, keyOf, parseWordList, sylKey } from './word-chain';
 
-const LIST = ['*học sinh', '*sinh viên', '*sinh nhật', '*viên chức', '*viên phấn', '*nhật ký', '*nhật báo', 'sinh sôi', '*hoà bình', '*bình yên', '*bình minh', 'giỏi giắn', '*học giỏi'].join('\n');
+const LIST = [
+  '*học sinh',
+  '*sinh viên',
+  '*sinh nhật',
+  '*viên chức',
+  '*viên phấn',
+  '*nhật ký',
+  '*nhật báo',
+  'sinh sôi',
+  '*hoà bình',
+  '*bình yên',
+  '*bình minh',
+  'giỏi giắn',
+  '*học giỏi',
+].join('\n');
 const bank = parseWordList(LIST);
 const none = new Set<string>();
 
@@ -14,19 +28,43 @@ describe('word chain rules', () => {
 
   it('compares tone marks wherever they sit', () => {
     expect(sylKey('hòa')).toBe(sylKey('hoà'));
-    expect(checkAnswer(bank, 'cuộc hoà', 'hòa bình', none)).toEqual({ ok: true, word: 'hoà bình' });
+    expect(checkAnswer(bank, 'cuộc hoà', 'hòa bình', none)).toEqual({
+      ok: true,
+      word: 'hoà bình',
+    });
   });
 
   it('accepts a listed word that starts with the last syllable, in any case and spacing', () => {
-    expect(checkAnswer(bank, 'học sinh', '  Sinh   VIÊN ', none)).toEqual({ ok: true, word: 'sinh viên' });
-    expect(checkAnswer(bank, 'học sinh', 'sinh sôi', none)).toEqual({ ok: true, word: 'sinh sôi' });
+    expect(checkAnswer(bank, 'học sinh', '  Sinh   VIÊN ', none)).toEqual({
+      ok: true,
+      word: 'sinh viên',
+    });
+    expect(checkAnswer(bank, 'học sinh', 'sinh sôi', none)).toEqual({
+      ok: true,
+      word: 'sinh sôi',
+    });
   });
 
   it('turns down the wrong shape, start, an unknown word and a used one', () => {
-    expect(checkAnswer(bank, 'học sinh', 'sinh', none)).toEqual({ ok: false, reason: 'shape' });
-    expect(checkAnswer(bank, 'học sinh', 'viên chức', none)).toEqual({ ok: false, reason: 'start' });
-    expect(checkAnswer(bank, 'học sinh', 'sinh tố', none)).toEqual({ ok: false, reason: 'unknown' });
+    expect(checkAnswer(bank, 'học sinh', 'sinh', none)).toEqual({
+      ok: false,
+      reason: 'shape',
+    });
+    expect(checkAnswer(bank, 'học sinh', 'viên chức', none)).toEqual({
+      ok: false,
+      reason: 'start',
+    });
+    expect(checkAnswer(bank, 'học sinh', 'sinh tố', none)).toEqual({
+      ok: false,
+      reason: 'unknown',
+    });
     expect(checkAnswer(bank, 'học sinh', 'sinh viên', new Set([keyOf('sinh viên')]))).toEqual({ ok: false, reason: 'used' });
+  });
+
+  it('puts the linking syllable before a one-syllable answer, and keeps a whole word as typed', () => {
+    expect(composeAnswer('phân', 'Bón ')).toBe('phân bón');
+    expect(composeAnswer('phân', 'phân  bón')).toBe('phân bón');
+    expect(composeAnswer('phân', '  ')).toBe('');
   });
 
   it('gives the time bonus by the speed of the answer', () => {

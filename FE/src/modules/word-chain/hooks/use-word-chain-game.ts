@@ -5,12 +5,14 @@ import {
   botReply,
   bonusMs,
   checkAnswer,
+  composeAnswer,
   HINT_COST_MS,
   hintFor,
   keyOf,
   lastSyllable,
   SKIP_COST_MS,
   START_MS,
+  WRONG_COST_MS,
   type WordBank,
 } from '../lib/word-chain';
 
@@ -22,10 +24,7 @@ export interface ChainLink {
   bonusMs?: number;
 }
 
-export type Feedback =
-  | { kind: 'good'; text: string }
-  | { kind: 'bad'; text: string }
-  | { kind: 'hint'; text: string };
+export type Feedback = { kind: 'good'; text: string } | { kind: 'bad'; text: string } | { kind: 'hint'; text: string };
 
 export type Phase = 'ready' | 'playing' | 'over';
 
@@ -47,9 +46,10 @@ const readBest = (userId: string) => {
 
 /**
  * One game of Nối từ: the clock, the chain, the score and the best score (kept in this browser, per user).
- * The bot answers at once; the clock runs from the moment its word appears.
+ * The bot answers at once; the clock runs from the moment its word appears. `onOver` gets the chain and the score when the
+ * clock reaches 0 (the page sends them to the leaderboard).
  */
-export const useWordChainGame = (bank: WordBank | undefined, userId: string) => {
+export const useWordChainGame = (bank: WordBank | undefined, userId: string, onOver?: (chain: ChainLink[], score: number) => void) => {
   const [phase, setPhase] = useState<Phase>('ready');
   const [chain, setChain] = useState<ChainLink[]>([]);
   const [score, setScore] = useState(0);
@@ -101,16 +101,20 @@ export const useWordChainGame = (bank: WordBank | undefined, userId: string) => 
   /** Checks the typed word; returns whether it was taken (the box is then cleared). */
   const submit = (input: string) => {
     if (phase !== 'playing' || !bank || !last) return false;
-    const result = checkAnswer(bank, last.word, input, used.current);
+    const answer = composeAnswer(lastSyllable(last.word), input);
+    const result = checkAnswer(bank, last.word, answer, used.current);
     if (!result.ok) {
       const reason = result.reason;
+      moveClock(-WRONG_COST_MS);
+      const why = reason === 'start' ? REASONS.start(lastSyllable(last.word)) : reason === 'unknown' ? REASONS.unknown(answer) : REASONS[reason];
       setFeedback({
         kind: 'bad',
-        text: reason === 'start' ? REASONS.start(lastSyllable(last.word)) : reason === 'unknown' ? REASONS.unknown(input.trim()) : REASONS[reason],
+        text: `${why} −${WRONG_COST_MS / 1000} giây`,
       });
       return false;
     }
-    const bonus = bonusMs(answerWpm(result.word, Date.now() - shownAt.current));
+    // the speed counts only what the player typed (the linking syllable was typed for them)
+    const bonus = bonusMs(answerWpm(input, Date.now() - shownAt.current));
     moveClock(bonus);
     let links = [...chain, add('me', result.word, bonus)];
     let points = 1;
@@ -118,11 +122,17 @@ export const useWordChainGame = (bank: WordBank | undefined, userId: string) => 
     if (reply) {
       shownAt.current = Date.now();
       links = [...links, add('bot', reply)];
-      setFeedback({ kind: 'good', text: `Đúng! +1 điểm, +${bonus / 1000} giây` });
+      setFeedback({
+        kind: 'good',
+        text: `Đúng! +1 điểm, +${bonus / 1000} giây`,
+      });
     } else {
       points += BOT_STUCK_POINTS;
       links = freshWord(links);
-      setFeedback({ kind: 'good', text: `Bot bí "${lastSyllable(result.word)}"! +${points} điểm, +${bonus / 1000} giây` });
+      setFeedback({
+        kind: 'good',
+        text: `Bot bí "${lastSyllable(result.word)}"! +${points} điểm, +${bonus / 1000} giây`,
+      });
     }
     setScore((s) => s + points);
     setChain(links);
@@ -132,16 +142,26 @@ export const useWordChainGame = (bank: WordBank | undefined, userId: string) => 
   const skip = () => {
     if (phase !== 'playing' || !last) return;
     moveClock(-SKIP_COST_MS);
-    setFeedback({ kind: 'bad', text: `Bỏ qua "${last.word}", −${SKIP_COST_MS / 1000} giây` });
+    setFeedback({
+      kind: 'bad',
+      text: `Bỏ qua "${last.word}", −${SKIP_COST_MS / 1000} giây`,
+    });
     setChain((links) => freshWord(links));
   };
 
   const hint = () => {
     if (phase !== 'playing' || !bank || !last) return;
     const word = hintFor(bank, last.word, used.current);
-    if (!word) return setFeedback({ kind: 'bad', text: 'Không còn từ nào nối được. Bấm Bỏ qua.' });
+    if (!word)
+      return setFeedback({
+        kind: 'bad',
+        text: 'Không còn từ nào nối được. Bấm Bỏ qua.',
+      });
     moveClock(-HINT_COST_MS);
-    setFeedback({ kind: 'hint', text: `Gợi ý: ${word} (−${HINT_COST_MS / 1000} giây)` });
+    setFeedback({
+      kind: 'hint',
+      text: `Gợi ý: ${word} (−${HINT_COST_MS / 1000} giây)`,
+    });
   };
 
   // The clock: ticks while playing, and ends the game at 0 (the best score is saved then).
@@ -152,6 +172,7 @@ export const useWordChainGame = (bank: WordBank | undefined, userId: string) => 
       setNow(time);
       if (time < deadline) return;
       setPhase('over');
+      onOver?.(chain, score);
       if (score <= best) return;
       setBest(score);
       setNewBest(true);
@@ -162,7 +183,20 @@ export const useWordChainGame = (bank: WordBank | undefined, userId: string) => 
       }
     }, 100);
     return () => clearInterval(timer);
-  }, [phase, deadline, score, best, userId]);
+  }, [phase, deadline, score, best, userId, chain, onOver]);
 
-  return { phase, chain, score, best, newBest, leftMs, feedback, prompt: last ? lastSyllable(last.word) : '', start, submit, skip, hint };
+  return {
+    phase,
+    chain,
+    score,
+    best,
+    newBest,
+    leftMs,
+    feedback,
+    prompt: last ? lastSyllable(last.word) : '',
+    start,
+    submit,
+    skip,
+    hint,
+  };
 };

@@ -61,7 +61,11 @@ vi.mock('@/modules/tutorial/api/tutorial.api', () => ({
 
 vi.mock('@lottiefiles/dotlottie-react', () => ({ DotLottieReact: () => null }));
 vi.mock('@/modules/word-chain/api/word-chain.api', () => ({
-  wordChainApi: { words: vi.fn().mockResolvedValue('*học sinh\nsinh viên') },
+  wordChainApi: {
+    words: vi.fn().mockResolvedValue('*học sinh\nsinh viên'),
+    board: vi.fn().mockResolvedValue({ range: 'week', items: [], me: null }),
+    saveScore: vi.fn(),
+  },
 }));
 
 const session = {

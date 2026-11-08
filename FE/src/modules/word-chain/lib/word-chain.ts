@@ -8,6 +8,8 @@ export const START_MS = 60_000;
 /** Skipping a word costs 5 s, a hint 3 s. */
 export const SKIP_COST_MS = 5_000;
 export const HINT_COST_MS = 3_000;
+/** A refused word (not in the list, wrong first syllable, already used) costs 3 s. */
+export const WRONG_COST_MS = 3_000;
 /** Points you get when the bot has no answer to your word. */
 export const BOT_STUCK_POINTS = 2;
 
@@ -51,7 +53,12 @@ const push = (map: Map<string, string[]>, key: string, word: string) => {
 
 /** Reads `words.txt`: one two-syllable word per line, `*` in front of the words the bot may play. */
 export const parseWordList = (text: string): WordBank => {
-  const bank: WordBank = { byKey: new Map(), all: new Map(), bot: new Map(), botWords: [] };
+  const bank: WordBank = {
+    byKey: new Map(),
+    all: new Map(),
+    bot: new Map(),
+    botWords: [],
+  };
   for (const line of text.split(/\r?\n/)) {
     const forBot = line.startsWith('*');
     const word = cleanWord(forBot ? line.slice(1) : line);
@@ -84,8 +91,17 @@ export const checkAnswer = (bank: WordBank, previous: string, input: string, use
   return { ok: true, word };
 };
 
+/**
+ * The answer the player means. The linking syllable is typed for them, so they type only the second syllable ("bón" after
+ * "xuân phân" means "phân bón"); a whole two-syllable word typed anyway is taken as it is.
+ */
+export const composeAnswer = (prompt: string, typed: string) => {
+  const text = cleanWord(typed);
+  return text && !text.includes(' ') ? `${cleanWord(prompt)} ${text}` : text;
+};
+
 /** The speed of an answer in words per minute: its characters / 5 in the time since the bot's word appeared. */
-export const answerWpm = (answer: string, elapsedMs: number) => (cleanWord(answer).length / 5) / (Math.max(elapsedMs, 1) / 60_000);
+export const answerWpm = (answer: string, elapsedMs: number) => cleanWord(answer).length / 5 / (Math.max(elapsedMs, 1) / 60_000);
 
 /** The time a right answer adds, by its speed (`BONUS_TIERS`). */
 export const bonusMs = (wpm: number) => (BONUS_TIERS.find((tier) => wpm >= tier.minWpm) ?? BONUS_TIERS[BONUS_TIERS.length - 1]).ms;

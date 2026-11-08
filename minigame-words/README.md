@@ -1,6 +1,7 @@
 # Word lists of the minigames
 
-`build-noi-tu.mjs` builds `FE/public/noi-tu/words.txt`, the word list of the Nối từ minigame. Each line holds one
+`build-noi-tu.mjs` builds `FE/public/noi-tu/words.txt`, the word list of the Nối từ minigame, and its server copy
+`BE/src/data/noi-tu-words.ts` (the backend checks a chain against it before it goes on the leaderboard). Each line holds one
 two-syllable word. A `*` in front marks a word the bot may play. The file is generated, never edited by hand.
 
 ## Downloads (not in the repo)
