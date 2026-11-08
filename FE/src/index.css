@@ -186,6 +186,59 @@ body {
 }
 
 /*
+ * Nối từ (modules/word-chain). A word slides into the chain from its side, the time a right answer adds floats up, and
+ * the clock beats under 10 s (it also turns red, so the warning does not depend on the motion). All skipped for people
+ * who ask for less motion; every class shows its final look without the animation.
+ */
+@keyframes chain-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--chain-from, -0.75rem));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes chain-bonus {
+  0% {
+    opacity: 0;
+    transform: translateY(0.25rem) scale(0.9);
+  }
+  20% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-1.25rem);
+  }
+}
+
+@keyframes chain-urgent {
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.chain-bonus {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chain-in {
+    animation: chain-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .chain-bonus {
+    animation: chain-bonus 1s ease-out both;
+  }
+  .chain-urgent {
+    animation: chain-urgent 1s ease-in-out infinite;
+  }
+}
+
+/*
  * Ranked duel motion (modules/ranked). Every class shows its final look without the animation, so people who ask for
  * less motion still see everything: the loading ring only turns slower, the sparks of a win are skipped.
  */
