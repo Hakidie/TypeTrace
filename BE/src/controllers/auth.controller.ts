@@ -13,6 +13,12 @@ export const register = async (req: Request, res: Response) => {
   return res.status(201).json({ message: 'OTP has been sent to your email' });
 };
 
+/** Tells the register form, before it is sent, whether an account already uses this email. Answers only true or false. */
+export const emailExists = async (req: Request, res: Response) => {
+  const { email } = req.query as { email: string };
+  return res.json({ exists: await UserModel.exists({ email }) !== null });
+};
+
 export const verifyRegisterOtp = async (req: Request, res: Response) => {
   const { email, otp } = req.body as { email: string; otp: string };
   const user = await UserModel.findOne({ email });

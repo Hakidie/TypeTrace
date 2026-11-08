@@ -6,9 +6,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AuthInput } from '../components/AuthInput';
+import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
 import { SocialButtons } from '../components/SocialButtons';
 import { useFormShake } from '../hooks/use-form-shake';
 import { authApi } from '../api/auth.api';
+import { useEmailExists } from '../hooks/use-email-exists';
 import { useFinishLogin } from '../hooks/use-finish-login';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Button } from '@/shared/components/ui/button';
@@ -29,9 +31,11 @@ export const RegisterPage = () => {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, getValues, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, getValues, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(registerSchema),
   });
+  const emailValue = watch('email') ?? '';
+  const { exists: emailTaken } = useEmailExists(emailValue);
   const navigate = useNavigate();
   const finishLogin = useFinishLogin();
   const { shake, shakeProps } = useFormShake();
@@ -119,7 +123,13 @@ export const RegisterPage = () => {
       <CardContent>
         <form className={cn('space-y-3', shakeProps.className)} onAnimationEnd={shakeProps.onAnimationEnd} onSubmit={onRegisterSubmit}>
           <FormField hideLabel id="email" label="Email" error={errors.email?.message}>
-            <AuthInput id="email" placeholder="Email" aria-invalid={!!errors.email} {...register('email')} />
+            <AuthInput
+              id="email"
+              placeholder="Email"
+              aria-invalid={!!errors.email || emailTaken}
+              warning={emailTaken ? 'This email already has an account. Log in instead.' : undefined}
+              {...register('email')}
+            />
           </FormField>
 
           <FormField hideLabel id="password" label="Password" error={errors.password?.message}>
@@ -130,6 +140,7 @@ export const RegisterPage = () => {
               aria-invalid={!!errors.password}
               {...register('password')}
             />
+            <PasswordStrengthMeter password={watch('password') ?? ''} />
           </FormField>
 
           <Button className="mt-6 h-12 w-full bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit" disabled={loading}>

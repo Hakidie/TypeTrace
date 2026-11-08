@@ -123,3 +123,26 @@ describe('POST /api/auth/register/verify-otp', () => {
     expect(response.body.message).toBe('Invalid or expired OTP');
   });
 });
+
+describe('GET /api/auth/email-exists', () => {
+  it('says false for an email nobody uses', async () => {
+    const response = await api().get('/api/auth/email-exists').query({ email: 'free@example.com' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ exists: false });
+  });
+
+  it('says true for an email that has an account, and nothing else', async () => {
+    await createUser({ email: 'taken@example.com' });
+
+    const response = await api().get('/api/auth/email-exists').query({ email: 'taken@example.com' });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ exists: true });
+  });
+
+  it('rejects a missing or malformed email', async () => {
+    expect((await api().get('/api/auth/email-exists')).status).toBe(400);
+    expect((await api().get('/api/auth/email-exists').query({ email: 'nope' })).status).toBe(400);
+  });
+});

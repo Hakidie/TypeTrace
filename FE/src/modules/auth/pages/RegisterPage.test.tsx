@@ -10,6 +10,7 @@ import { RegisterPage } from './RegisterPage';
 const register = vi.fn();
 const verifyRegisterOtp = vi.fn();
 const login = vi.fn();
+const emailExists = vi.fn();
 const getMe = vi.fn();
 
 vi.mock('@/modules/auth/api/auth.api', () => ({
@@ -17,6 +18,7 @@ vi.mock('@/modules/auth/api/auth.api', () => ({
     register: (payload: unknown) => register(payload),
     verifyRegisterOtp: (email: string, otp: string) => verifyRegisterOtp(email, otp),
     login: (payload: unknown) => login(payload),
+    emailExists: (email: string) => emailExists(email),
     getMe: () => getMe(),
   },
 }));
@@ -52,6 +54,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   register.mockReset().mockResolvedValue({ message: 'OTP has been sent to your email' });
   verifyRegisterOtp.mockReset().mockResolvedValue({ message: 'Email verified successfully' });
+  emailExists.mockReset().mockResolvedValue({ exists: false });
   login.mockReset().mockResolvedValue({ token: 'jwt-new' });
   getMe.mockReset().mockResolvedValue({ role: 'user' });
   tokenStore.clear();
@@ -90,5 +93,40 @@ describe('RegisterPage', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(screen.getByText('Confirm OTP')).toBeInTheDocument();
     expect(login).not.toHaveBeenCalled();
+  });
+
+  it('tells the learner that the email already has an account', async () => {
+    emailExists.mockResolvedValue({ exists: true });
+    renderPage();
+
+    await userEvent.setup().type(screen.getByLabelText('Email'), 'taken@b.com');
+
+    expect(await screen.findByRole('img', { name: /already has an account/i })).toBeInTheDocument();
+    expect(emailExists).toHaveBeenCalledWith('taken@b.com');
+  });
+
+  it('says nothing about a free email and does not ask for an invalid one', async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.type(screen.getByLabelText('Email'), 'nope');
+    await user.type(screen.getByLabelText('Email'), '@b.com');
+
+    await waitFor(() => expect(emailExists).toHaveBeenCalledWith('nope@b.com'));
+    expect(emailExists).not.toHaveBeenCalledWith('nope');
+    expect(screen.queryByRole('img', { name: /already has an account/i })).not.toBeInTheDocument();
+  });
+
+  it('shows how strong the password is while typing', async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    expect(screen.queryByTestId('password-strength')).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Password'), 'abcdefgh');
+    expect(screen.getByRole('meter', { name: 'Password strength' })).toHaveAttribute('aria-valuetext', 'Weak');
+    await user.type(screen.getByLabelText('Password'), 'A1!');
+    expect(screen.getByRole('meter', { name: 'Password strength' })).toHaveAttribute('aria-valuetext', 'Strong');
+    await user.hover(screen.getByTestId('password-strength'));
+    expect((await screen.findAllByText('Password strength: Strong')).length).toBeGreaterThan(0);
   });
 });

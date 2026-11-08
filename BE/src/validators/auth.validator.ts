@@ -25,3 +25,7 @@ export const resetPasswordSchema = z.object({
 export const googleLoginSchema = z.object({
   credential: z.string().min(1)
 });
+
+export const emailExistsQuerySchema = z.object({
+  email: z.string().email()
+});
