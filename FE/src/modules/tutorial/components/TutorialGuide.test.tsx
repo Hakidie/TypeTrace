@@ -59,13 +59,13 @@ describe('TutorialGuide', () => {
   });
 
   it('marks a mode done after its last step', async () => {
-    renderGuide({ tour: 'skipped', modes: {} }, '/typing?mode=minigames&game=daily');
+    renderGuide({ tour: 'skipped', modes: {} }, '/typing?mode=placement');
 
     fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
     fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
     fireEvent.click(screen.getByRole('button', { name: 'Tiếp' }));
 
-    await waitFor(() => expect(update).toHaveBeenCalledWith({ mode: 'daily', status: 'done' }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith({ mode: 'placement', status: 'done' }));
   });
 
   it('guides a mode not learned yet after the tour was skipped', () => {

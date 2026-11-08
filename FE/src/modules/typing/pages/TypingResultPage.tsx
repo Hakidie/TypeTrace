@@ -11,6 +11,7 @@ import { SessionInfoPanel } from '../components/SessionInfoPanel';
 import { SpeedErrorChart } from '../components/SpeedErrorChart';
 import { ResultActions } from '../components/ResultActions';
 import { ResultsPanel } from '../components/ResultsPanel';
+import { StreakRewardDialog } from '@/modules/profile/components/StreakRewardDialog';
 import { usePlacementMinAccuracy } from '@/modules/ranked/hooks/use-ranked';
 import { useSession, useSessionStats } from '../hooks/use-typing';
 import { placementBoardNote, statsFromCounts, type WordResult } from '../utils/typing-session';
@@ -38,6 +39,8 @@ export const TypingResultPage = () => {
 
   return (
     <div className="space-y-12">
+      {/* The day's streak reward, once today has a counted session (this one or an earlier one). */}
+      <StreakRewardDialog />
       {boardNote && (
         <p role="status" className={boardNote.onBoard ? 'text-primary' : 'text-muted-foreground'}>
           {boardNote.text}

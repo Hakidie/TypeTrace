@@ -1,28 +1,26 @@
-import { ArrowLeft, CalendarDays, CloudRain, type LucideIcon } from 'lucide-react';
-import { DailyMode } from '@/modules/daily/components/DailyMode';
+import { ArrowLeft, CloudRain, type LucideIcon } from 'lucide-react';
 import { RainMode } from '@/modules/rain/components/RainMode';
 import { hoverFrame, PanelArt, titleClass } from '@/modules/ranked/components/RankLobby';
 import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 
-export type MinigameId = 'rain' | 'daily';
+export type MinigameId = 'rain';
 
 const minigames: { id: MinigameId; title: string; description: string; icon: LucideIcon }[] = [
   { id: 'rain', title: 'Rain', description: 'Type the falling words before they land. A round lasts a minute.', icon: CloudRain },
-  { id: 'daily', title: 'Daily', description: 'One passage for everyone each day. Beat your last try and climb the board.', icon: CalendarDays },
 ];
 
 /**
  * The Minigames tab of the Typing page (`?mode=minigames`): a card for each minigame. The picked one lives in the URL
- * (`&game=rain|daily`) and opens in place of the cards, with a button under it, in the center, back to them.
+ * (`&game=rain`) and opens in place of the cards, with a button under it, in the center, back to them.
  */
 export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; onSelect: (id: MinigameId) => void; onBack: () => void }) => {
   if (game) {
     return (
       <div className="flex flex-1 flex-col gap-4">
         {/* The game sits in the middle of the free height, between the tabs and the back button. */}
-        <div className="flex flex-1 flex-col justify-center">{game === 'rain' ? <RainMode /> : <DailyMode />}</div>
+        <div className="flex flex-1 flex-col justify-center"><RainMode /></div>
         <div className="mt-auto flex justify-center pb-4">
           <Button variant="ghost" className="h-auto gap-2 px-3 py-1.5 text-base text-muted-foreground" onClick={onBack}>
             <ArrowLeft className="size-4" /> All minigames

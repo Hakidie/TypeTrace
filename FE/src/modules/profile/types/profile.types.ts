@@ -65,7 +65,15 @@ export interface Streak {
     /** Counted sessions the daily mission asks for (`DAILY_MISSION_SESSIONS` of the backend). */
     missionGoal: number;
     missionCompleted: boolean;
+    /** Today's streak reward: the coins it gives (or gave), claimable once today has a counted session. */
+    reward: { coins: number; claimed: boolean };
   };
+}
+
+/** `POST /api/profile/streak/reward`: the coins just given, and the learner's coins now. */
+export interface StreakRewardClaim {
+  coins: number;
+  totalCoins: number;
 }
 
 /** One of the learner's tasks of today (SCRUM-112): a copy of an admin's daily task template, and how far they are. */

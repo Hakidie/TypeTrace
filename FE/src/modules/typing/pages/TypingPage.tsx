@@ -21,7 +21,7 @@ import { modeIcons, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
 
-// Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain, `&game=daily` the daily challenge, which starts its own tries), instead of a passage to practise.
+// Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain), instead of a passage to practise.
 const modeTabs = [
   { value: 'practice', label: 'Practice', icon: modeIcons.practice },
   { value: 'placement', label: 'Placement', icon: modeIcons.placement },
@@ -80,12 +80,12 @@ export const TypingPage = () => {
   // `/typing?mode=placement` types the placement test passage (Start on the placement intro page opens it).
   const mode: SessionMode = searchParams.get('mode') === 'placement' ? 'placement' : 'practice';
   const ranked = searchParams.get('mode') === 'rank';
-  // `?mode=rain` and `?mode=daily` are the old links of the two minigames: they open the same game and are rewritten below.
+  // `?mode=rain` is the old link of word rain: it opens the same game and is rewritten below. The old `?mode=daily` opens Practice, where the daily reward now is.
   const modeParam = searchParams.get('mode');
-  const legacyGame: MinigameId | undefined = modeParam === 'rain' || modeParam === 'daily' ? modeParam : undefined;
+  const legacyGame: MinigameId | undefined = modeParam === 'rain' ? modeParam : undefined;
   const minigames = modeParam === 'minigames' || legacyGame !== undefined;
   const gameParam = searchParams.get('game');
-  const minigame: MinigameId | undefined = legacyGame ?? (minigames && (gameParam === 'rain' || gameParam === 'daily') ? gameParam : undefined);
+  const minigame: MinigameId | undefined = legacyGame ?? (minigames && gameParam === 'rain' ? gameParam : undefined);
   /** A tab without a typing session, a passage to choose or a time limit. */
   const game = ranked || minigames;
   const pageRef = useRef<HTMLDivElement>(null);
@@ -156,7 +156,7 @@ export const TypingPage = () => {
   const startInput = (id: string | undefined, seconds: number) => startInputOf(mode, id, seconds);
   const openedFor = useRef<SessionMode | null>(null);
   useEffect(() => {
-    // Rank and the minigames have no typing session of their own (a duel is a match on the server, a rain round stays in the browser, a daily try starts its own).
+    // Rank and the minigames have no typing session of their own (a duel is a match on the server, a rain round stays in the browser).
     if (game || openedFor.current === mode) return;
     const firstOpen = openedFor.current === null;
     openedFor.current = mode;

@@ -1,6 +1,6 @@
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 
-/** `daily` sessions are tries of the daily challenge (started from the Daily tab, `modules/daily`). */
+/** `daily` sessions are old tries of the removed daily challenge: they still show in the history. */
 export type SessionMode = 'practice' | 'placement' | 'daily';
 export type SessionStatus = 'in_progress' | 'completed' | 'abandoned';
 

@@ -34,6 +34,18 @@ export const useSessions = (params: SessionListParams) =>
 /** The learner's current and longest streak and today's daily mission; asked again each time the profile page opens, like the activity. */
 export const useStreak = () => useQuery({ queryKey: profileKeys.streak(), queryFn: profileApi.getStreak, staleTime: 0 });
 
+/** Claims today's streak reward, then shows the new coins of the signed-in user and asks for the streak again. */
+export const useClaimStreakReward = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: profileApi.claimStreakReward,
+    onSuccess: ({ totalCoins }) => {
+      queryClient.setQueryData<CurrentUser>(currentUserKey, (user) => (user ? { ...user, coins: totalCoins } : user));
+      void queryClient.invalidateQueries({ queryKey: profileKeys.streak() });
+    },
+  });
+};
+
 /**
  * The learner's tasks of today and how far they are (SCRUM-112); asked again each time the profile page opens, like the
  * streak. Not the admins' list of task templates: that one is `useDailyTasks` of the daily-tasks module.

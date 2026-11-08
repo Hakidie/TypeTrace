@@ -101,9 +101,13 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   skip `toJSON`: with them, `.select()` the public fields explicitly.
 - A learner's days (streak, daily mission, profile heatmap) are calendar days in their `settings.timezone` (`DEFAULT_TIMEZONE`
   when it is missing or unknown): cut them with `localDateKey(date, zone)` and count them with `addDays` (`utils/local-date.ts`),
-  never with `toISOString().slice(0, 10)`. They live in `DailyProgress`, which only `completeSession` writes, through
+  never with `toISOString().slice(0, 10)`. They live in `DailyProgress`, which only `completeSession` (and `claimStreakReward`) writes, through
   `recordCountedSession`. The mission goal is `DAILY_MISSION_SESSIONS` (`services/daily-progress.service.ts`), sent to the
   frontend as `missionGoal`. The admin user list keeps its own UTC days from `TypingSession`.
+- The streak reward replaced the daily challenge (its `/api/daily`, card and board are gone; old data stays unread): today's
+  first counted session makes it claimable, once, with `POST /api/profile/streak/reward` (`claimStreakReward`: one conditional
+  update sets `rewardClaimedAt` and `rewardCoins` on today's `DailyProgress` row, so two claims pay once; coins
+  `streakRewardCoins` = 20 + 5 per streak day before today, at most 50). The result page asks with `StreakRewardDialog`.
 - A learner's daily tasks (SCRUM-112) live in `UserDailyTasks` (`models/user-daily-tasks.model.ts`): one document per learner
   and local day, made by the day's first `GET /api/profile/daily-tasks` or counted session, with a snapshot of `dailyTaskCount`
   active `DailyTask` templates (weak error types first) and the numbers of the sessions already counted that day, cut in the
@@ -208,7 +212,8 @@ To add an admin page for a feature module:
 
 The mascot Ping guides new learners (`docs/superpowers/specs/2026-10-30-ping-tutorial-design.md`):
 
-- State: `user.tutorial = { tour: 'active' | 'done' | 'skipped', modes: { practice?, placement?, rain?, daily?, rank?: 'done' | 'skipped' } }`.
+- State: `user.tutorial = { tour: 'active' | 'done' | 'skipped', modes: { practice?, placement?, rain?, rank?: 'done' | 'skipped' } }`
+  (the Daily mode left with the daily challenge; an old stored `modes.daily` is ignored).
   **Missing = an account from before the tutorial: nothing is shown.** Never give it a default. `/api/tutorial`
   (`routes/tutorial.route.ts`): `POST /start` (after sign-up, keeps an existing state), `PATCH /` (`{ mode, status }` and/or
   `{ tour }`, 400 without a state), `POST /reset` (Settings "Xem lại hướng dẫn"), `POST /coach` (Ping's tip after the practice
