@@ -92,7 +92,7 @@ Story đầy đủ và tiêu chí chấp nhận: https://tronghuan1007.atlassian
 - Hình dạng schema cụ thể của gói, subscription và API.
 - Chỗ đặt điều kiện "bị khóa" để mọi truy vấn passage (luyện, chọn, thi, danh sách, hiển thị cho người khác) dùng chung một nơi.
 - Cách chống hai lần đọc đồng thời cùng ghi dòng "auto".
-- Giá trị mặc định ban đầu của hạn mức và giá (đề xuất: Free giữ 20 như hằng hiện tại; Premium và giá do builder đề xuất, Admin sửa được).
+- Giá trị mặc định ban đầu của hạn mức và giá (đề xuất: Free 9 passage, Premium 90 passage, giá Premium 99.000đ; Admin sửa được).
 - Tên route, cấu trúc file, nội dung văn bản tiếng Việt của huy hiệu, modal, cảnh báo.
 
 ## Các quyết định của tôi sau khi reviewer đọc (người yêu cầu kiểm tra)
