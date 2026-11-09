@@ -20,6 +20,9 @@ export const adminApi = {
   /** Adds `months` of Premium on top of what the user has left (US11.1). */
   grantPremium: (id: string, months: number) =>
     http.post<{ plan: 'premium'; expiresAt: string }>(`/admin/users/${id}/premium`, { months }).then((r) => r.data),
+  /** Premium stays until the last paid term ends, then the user is Free (US11.1). */
+  cancelPremium: (id: string) => http.post(`/admin/users/${id}/premium/cancel`).then(() => undefined),
+  /** Takes Premium away at once. */
   revokePremium: (id: string) => http.delete(`/admin/users/${id}/premium`).then(() => undefined),
   deleteUser: (id: string) => http.delete(`/admin/users/${id}`).then(() => undefined),
   bulkDeleteUsers: (ids: string[]) =>

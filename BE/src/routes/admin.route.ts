@@ -21,7 +21,7 @@ import {
   updateDailyTaskSettings
 } from '../controllers/admin-daily-task.controller';
 import { createTheme, deleteTheme, listThemes, updateTheme } from '../controllers/admin-theme.controller';
-import { getPlans, grantPremium, listSubscriptions, previewPlans, revokePremium, savePlans } from '../controllers/admin-plan.controller';
+import { cancelPremium, getPlans, grantPremium, listSubscriptions, previewPlans, revokePremium, savePlans } from '../controllers/admin-plan.controller';
 import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, setUserStatus, updateUser } from '../controllers/admin.controller';
 import { getPlacementSettings, updatePlacementSettings } from '../controllers/placement.controller';
 import { closeSeason, listSeasons } from '../controllers/ranked.controller';
@@ -61,8 +61,9 @@ adminRouter.get('/users/:id', validate({ params: idParamsSchema }), getUser);
 adminRouter.patch('/users/:id', validate({ params: idParamsSchema, body: adminUpdateUserSchema }), updateUser);
 adminRouter.patch('/users/:id/status', validate({ params: idParamsSchema, body: setUserStatusSchema }), setUserStatus);
 adminRouter.delete('/users/:id', validate({ params: idParamsSchema }), deleteUser);
-// Premium by hand (US11.1): months are added to what the user has left; revoking makes them Free from now.
+// Premium by hand (US11.1): months are added as a new term after the last one; cancelling lets the paid time run out; revoking (DELETE) makes them Free from now.
 adminRouter.post('/users/:id/premium', validate({ params: idParamsSchema, body: grantPremiumSchema }), grantPremium);
+adminRouter.post('/users/:id/premium/cancel', validate({ params: idParamsSchema }), cancelPremium);
 adminRouter.delete('/users/:id/premium', validate({ params: idParamsSchema }), revokePremium);
 
 // The Free and Premium plans (US11.1): read, preview what a change would lock, save.

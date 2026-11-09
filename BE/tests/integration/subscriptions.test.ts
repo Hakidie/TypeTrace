@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SubscriptionModel } from '../../src/models/subscription.model';
 import { UserModel } from '../../src/models/user.model';
 import {
+  cancelPremium,
   getCurrentSubscription,
   grantPremium,
   recordPaidMonth,
@@ -54,7 +55,7 @@ describe('subscriptions', () => {
     expect(await getCurrentSubscription(String(user._id), NOW)).toEqual({ plan: 'premium', expiresAt });
   });
 
-  it('extends a live premium from its expiry when an admin grants more months', async () => {
+  it('queues more months after the last term when an admin grants again', async () => {
     const user = await createUser();
     const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
 
@@ -84,12 +85,86 @@ describe('subscriptions', () => {
     const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
     await grantPremium(String(user._id), 1, String(admin._id), NOW);
 
-    await revokePremium(String(user._id), String(admin._id));
+    await revokePremium(String(user._id), String(admin._id), NOW);
 
     expect(await getCurrentSubscription(String(user._id), NOW)).toEqual({ plan: 'free', expiresAt: null });
     const last = (await rows(user._id)).at(-1)!;
     expect(last).toMatchObject({ plan: 'free', source: 'admin' });
     expect(String(last.changedBy)).toBe(String(admin._id));
+  });
+
+  it('starts the next grant when the last term ends, so every term keeps its own dates', async () => {
+    const user = await createUser();
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
+    await grantPremium(String(user._id), 1, String(admin._id), NOW);
+    await grantPremium(String(user._id), 1, String(admin._id), NOW);
+
+    const terms = (await rows(user._id)).filter((row) => row.plan === 'premium');
+    expect(terms.map((row) => [row.startsAt.toISOString(), row.expiresAt!.toISOString()])).toEqual([
+      ['2026-01-15T00:00:00.000Z', '2026-02-15T00:00:00.000Z'],
+      ['2026-02-15T00:00:00.000Z', '2026-03-15T00:00:00.000Z']
+    ]);
+    // The queued term takes over by itself when the first one ends, without an auto row.
+    const later = new Date('2026-02-20T00:00:00Z');
+    expect(await getCurrentSubscription(String(user._id), later)).toEqual({ plan: 'premium', expiresAt: new Date('2026-03-15T00:00:00Z') });
+    expect((await rows(user._id)).filter((row) => row.source === 'auto')).toHaveLength(0);
+  });
+
+  it('closes the free row when premium starts', async () => {
+    const user = await createUser();
+    await grantPremium(String(user._id), 1, undefined as never, NOW);
+
+    const free = (await rows(user._id)).find((row) => row.plan === 'free')!;
+    expect(free.endedAt?.toISOString()).toBe(NOW.toISOString());
+  });
+
+  it('cancels at the end of the last term: premium stays until then, then the user is free', async () => {
+    const user = await createUser();
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
+    await grantPremium(String(user._id), 1, String(admin._id), NOW);
+    await grantPremium(String(user._id), 1, String(admin._id), NOW);
+
+    await cancelPremium(String(user._id), NOW);
+
+    const terms = (await rows(user._id)).filter((row) => row.plan === 'premium');
+    expect(terms[0].cancelledAt).toBeUndefined();
+    expect(terms[1].cancelledAt?.toISOString()).toBe(NOW.toISOString());
+    expect(await getCurrentSubscription(String(user._id), new Date('2026-03-01T00:00:00Z'))).toMatchObject({ plan: 'premium' });
+    expect(await getCurrentSubscription(String(user._id), new Date('2026-03-20T00:00:00Z'))).toEqual({ plan: 'free', expiresAt: null });
+    const auto = (await rows(user._id)).find((row) => row.source === 'auto')!;
+    expect(auto.startsAt.toISOString()).toBe('2026-03-15T00:00:00.000Z');
+  });
+
+  it('refuses to cancel a user without premium', async () => {
+    const user = await createUser();
+
+    await expect(cancelPremium(String(user._id), NOW)).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('takes the cancel back when more months are granted', async () => {
+    const user = await createUser();
+    await grantPremium(String(user._id), 1, undefined as never, NOW);
+    await cancelPremium(String(user._id), NOW);
+
+    await grantPremium(String(user._id), 1, undefined as never, NOW);
+
+    const terms = (await rows(user._id)).filter((row) => row.plan === 'premium');
+    expect(terms.map((row) => row.cancelledAt)).toEqual([undefined, undefined]);
+  });
+
+  it('revokes at once: the running term stops now and the terms not started never start', async () => {
+    const user = await createUser();
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
+    await grantPremium(String(user._id), 1, String(admin._id), NOW);
+    await grantPremium(String(user._id), 1, String(admin._id), NOW);
+    const now = new Date('2026-01-20T00:00:00Z');
+
+    await revokePremium(String(user._id), String(admin._id), now);
+
+    const [running, queued] = (await rows(user._id)).filter((row) => row.plan === 'premium');
+    expect([running.endedAt?.toISOString(), running.cancelledAt?.toISOString()]).toEqual([now.toISOString(), now.toISOString()]);
+    expect([queued.endedAt?.toISOString(), queued.cancelledAt?.toISOString()]).toEqual(['2026-02-15T00:00:00.000Z', now.toISOString()]);
+    expect(await getCurrentSubscription(String(user._id), new Date('2026-03-01T00:00:00Z'))).toEqual({ plan: 'free', expiresAt: null });
   });
 
   it('records a paid month with source payment and no changer', async () => {

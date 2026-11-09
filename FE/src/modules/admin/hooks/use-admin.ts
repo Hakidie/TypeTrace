@@ -68,6 +68,17 @@ export const useGrantPremium = () => {
   });
 };
 
+export const useCancelPremium = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => adminApi.cancelPremium(id),
+    onSuccess: () => {
+      toast.success('Premium cancelled.');
+      return queryClient.invalidateQueries({ queryKey: adminKeys.all });
+    },
+  });
+};
+
 export const useRevokePremium = () => {
   const queryClient = useQueryClient();
   return useMutation({

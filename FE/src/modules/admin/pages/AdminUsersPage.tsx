@@ -12,7 +12,7 @@ import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { UserForm } from '../components/UserForm';
 import { UserRow } from '../components/UserRow';
-import { useAdminUsers, useDeleteUsers, useGrantPremium, useRevokePremium, useSetUserStatus } from '../hooks/use-admin';
+import { useAdminUsers, useCancelPremium, useDeleteUsers, useGrantPremium, useRevokePremium, useSetUserStatus } from '../hooks/use-admin';
 import type { AdminUser, AdminUserListParams } from '../types/admin.types';
 
 // Four users a page.
@@ -67,10 +67,12 @@ export const AdminUsersPage = () => {
   const deleteUsers = useDeleteUsers();
   const setStatus = useSetUserStatus();
   const grantPremium = useGrantPremium();
+  const cancelPremium = useCancelPremium();
   const revokePremium = useRevokePremium();
   // The user Premium is being granted to (with the months typed) or taken away from, waiting for confirmation (US11.1).
   const [granting, setGranting] = useState<AdminUser>();
   const [months, setMonths] = useState('1');
+  const [cancelling, setCancelling] = useState<AdminUser>();
   const [revoking, setRevoking] = useState<AdminUser>();
   const monthsNumber = Number(months);
   const monthsValid = Number.isInteger(monthsNumber) && monthsNumber >= 1 && monthsNumber <= MAX_GRANT_MONTHS;
@@ -114,10 +116,12 @@ export const AdminUsersPage = () => {
               status={user.status}
               plan={user.plan}
               planExpiresAt={user.planExpiresAt}
+              planCancelled={user.planCancelled}
               onGrantPremium={() => {
                 setMonths('1');
                 setGranting(user);
               }}
+              onCancelPremium={() => setCancelling(user)}
               onRevokePremium={() => setRevoking(user)}
               onEdit={() => setEditing(user)}
               // Admins cannot be disabled (the backend refuses), but a locked one can always be enabled again.
@@ -193,7 +197,7 @@ export const AdminUsersPage = () => {
         open={granting !== undefined}
         onOpenChange={(open) => !open && setGranting(undefined)}
         title="Grant Premium"
-        description={`The months are added to the current expiry date of ${granting?.email ?? ''} (from today if they have no Premium).`}
+        description={`The months become a new term that starts when the Premium of ${granting?.email ?? ''} ends (today if they have none).`}
         confirmLabel="Grant"
         pending={grantPremium.isPending}
         confirmDisabled={!monthsValid}
@@ -212,9 +216,21 @@ export const AdminUsersPage = () => {
       </ConfirmDialog>
 
       <ConfirmDialog
+        open={cancelling !== undefined}
+        onOpenChange={(open) => !open && setCancelling(undefined)}
+        title="Cancel Premium?"
+        description={`${cancelling?.email ?? ''} keeps Premium until the paid time ends, then goes back to the Free plan.`}
+        confirmLabel="Cancel Premium"
+        cancelLabel="Keep"
+        destructive
+        pending={cancelPremium.isPending}
+        onConfirm={() => cancelPremium.mutate(cancelling!._id, { onSuccess: () => setCancelling(undefined) })}
+      />
+
+      <ConfirmDialog
         open={revoking !== undefined}
         onOpenChange={(open) => !open && setRevoking(undefined)}
-        title="Revoke Premium?"
+        title="Revoke Premium now?"
         description={`${revoking?.email ?? ''} goes back to the Free plan now. Passages over the Free limit get locked; nothing is deleted.`}
         confirmLabel="Revoke"
         destructive

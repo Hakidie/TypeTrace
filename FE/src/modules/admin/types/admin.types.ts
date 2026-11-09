@@ -35,6 +35,8 @@ export interface AdminUser extends CurrentUser {
   /** The plan the account is on now (US11.1) and the day Premium ends (`null` on Free). */
   plan?: 'free' | 'premium';
   planExpiresAt?: string | null;
+  /** An admin cancelled Premium: it runs to its end, then the user is Free. */
+  planCancelled?: boolean;
 }
 
 export interface AdminUserListParams {

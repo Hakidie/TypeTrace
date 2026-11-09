@@ -48,8 +48,8 @@ export const listUsers = async ({ q, role, verified, status, plan, ...pagination
   return {
     ...page,
     items: page.items.map((user) => {
-      const planExpiresAt = premium.get(String(user._id)) ?? null;
-      return { ...user.toJSON(), ...activityOf(user._id), plan: planExpiresAt ? 'premium' : 'free', planExpiresAt };
+      const live = premium.get(String(user._id));
+      return { ...user.toJSON(), ...activityOf(user._id), plan: live ? 'premium' : 'free', planExpiresAt: live?.expiresAt ?? null, planCancelled: live?.cancelled ?? false };
     })
   };
 };

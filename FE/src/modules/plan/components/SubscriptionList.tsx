@@ -9,7 +9,7 @@ import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { useSubscriptions } from '../hooks/use-admin-plans';
-import type { PlanId } from '../types/plan.types';
+import type { PlanId, SubscriptionStatus } from '../types/plan.types';
 import { SubscriptionCard } from './SubscriptionCard';
 
 // Three rows like the sessions of the profile.
@@ -27,13 +27,19 @@ const PLAN_OPTIONS = [
 ];
 // The payment methods (VNPay, MoMo...) are added here when the payments record them.
 const SOURCE_OPTIONS = [{ value: 'none', label: 'None' }];
+const STATUS_OPTIONS = [
+  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'active', label: 'Active' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'ended', label: 'Ended' },
+];
 const BY_OPTIONS = [
   { value: 'admin', label: 'Admin' },
   { value: 'system', label: 'System' },
 ];
 
 /**
- * Every plan change of every user (US11.1), built like My Sessions of the profile: a title and a toolbar (search by user, Sort, Filter by plan, source and who changed it, the total),
+ * Every plan change of every user (US11.1), built like My Sessions of the profile: a title and a toolbar (search by user, Sort, Filter by plan, source, status and who changed it, the total),
  * a list of cards (`SubscriptionCard`) and pages. No frame or background.
  */
 export const SubscriptionList = () => {
@@ -41,6 +47,7 @@ export const SubscriptionList = () => {
   const plan = list.get('plan') as PlanId | '';
   const method = list.get('method') as 'none' | '';
   const by = list.get('by') as 'admin' | 'system' | '';
+  const status = list.get('status') as SubscriptionStatus | '';
   const rows = useSubscriptions({
     page: list.page,
     limit: PAGE_SIZE,
@@ -49,6 +56,7 @@ export const SubscriptionList = () => {
     plan: plan || undefined,
     method: method || undefined,
     by: by || undefined,
+    status: status || undefined,
   });
 
   // A page past the end (an old link) goes back to the last page, but not while the previous list is still on screen.
@@ -63,7 +71,7 @@ export const SubscriptionList = () => {
     if (rows.isError) return <ErrorState error={rows.error} onRetry={() => void rows.refetch()} />;
     if (rows.data.items.length === 0) {
       if (rows.data.totalPages > 0 && rows.data.page > rows.data.totalPages) return <LoadingState rows={3} />;
-      return list.q || plan || method || by ? (
+      return list.q || plan || method || by || status ? (
         <EmptyState icon={History} title="No matching plan changes" description="Try another search or filter." />
       ) : (
         <EmptyState icon={History} title="No plan changes yet" description="Every time a user's plan changes, it shows here." />
@@ -95,6 +103,7 @@ export const SubscriptionList = () => {
             filters={[
               { label: 'Plan', value: plan, options: PLAN_OPTIONS, onChange: (value) => list.set('plan', value) },
               { label: 'Source', value: method, options: SOURCE_OPTIONS, onChange: (value) => list.set('method', value) },
+              { label: 'Status', value: status, options: STATUS_OPTIONS, onChange: (value) => list.set('status', value) },
               { label: 'By', value: by, options: BY_OPTIONS, onChange: (value) => list.set('by', value) },
             ]}
             count={{ icon: History, value: rows.data?.total ?? '…', label: 'Changes' }}

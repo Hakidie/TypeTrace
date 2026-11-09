@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PLAN_IDS } from '../models/subscription.model';
+import { PLAN_IDS, SUBSCRIPTION_STATUSES } from '../models/subscription.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 
 const planConfigSchema = z.object({
@@ -36,6 +36,8 @@ export const listSubscriptionsQuerySchema = paginationQuerySchema.extend({
   method: z.enum(['none']).optional(),
   /** Who made the change: an admin, or the system (sign-up, expiry, a payment, the migration script). */
   by: z.enum(['admin', 'system']).optional(),
+  /** Where the term is: not started, in effect, cancelled (also while it runs to its end) or over. */
+  status: z.enum(SUBSCRIPTION_STATUSES).optional(),
   sort: sortSchema(['createdAt', 'startsAt', 'expiresAt'])
 });
 

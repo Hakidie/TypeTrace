@@ -1,3 +1,4 @@
+import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor, within } from '@testing-library/react';
 import { toast } from 'sonner';
@@ -36,10 +37,14 @@ const setNumber = async (user: ReturnType<typeof userEvent.setup>, label: string
 const row = (over: object = {}) => ({
   _id: 'r1',
   userName: 'An',
+  email: 'an@example.com',
+  avatarUrl: null,
+  avatar: DEFAULT_AVATAR,
   plan: 'premium',
   source: 'admin',
   startsAt: '2026-01-15T00:00:00.000Z',
-  expiresAt: '2026-03-15T00:00:00.000Z',
+  endsAt: '2026-03-15T00:00:00.000Z',
+  status: 'active',
   changedByName: 'Boss',
   createdAt: '2026-01-15T00:00:00.000Z',
   ...over,
@@ -145,20 +150,55 @@ describe('AdminPlansPage', () => {
 
   it('shows who changed whose plan, to what, from where and when it ends', async () => {
     listSubscriptions.mockResolvedValue(
-      subscriptionPage([row(), row({ _id: 'r2', userName: 'Binh', plan: 'free', source: 'signup', expiresAt: null, changedByName: null })]),
+      subscriptionPage([row(), row({ _id: 'r2', userName: 'Binh', plan: 'free', source: 'signup', endsAt: null, changedByName: null, email: 'binh@example.com' })]),
     );
     renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
 
     expect(await screen.findByText('Binh')).toBeInTheDocument();
     expect(screen.getByText(/by Boss/)).toBeInTheDocument();
-    // The term of the Premium row is drawn as a bar with its length; a Free row has no term.
-    expect(screen.getByText('59-day term')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'No term' })).toBeInTheDocument();
-    expect(screen.queryByText('No term')).not.toBeInTheDocument();
+    // The email is under the name and the period in the middle; there is no chart of the term.
+    expect(screen.getByText('an@example.com')).toBeInTheDocument();
+    expect(screen.queryByText('59-day term')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'No term' })).not.toBeInTheDocument();
     expect(screen.queryByText('BY')).not.toBeInTheDocument();
     // Neither row was paid for: their source reads None.
-    expect(screen.getAllByText('None')).toHaveLength(3);
-    expect(screen.getByText('15 Mar 2026')).toBeInTheDocument();
+    expect(screen.getAllByText('None')).toHaveLength(2);
+    // The period in the middle reads start – end, and Now while a Free row has no end; the status says where the term is.
+    expect(screen.getByText('15/03/26')).toBeInTheDocument();
+    expect(screen.getAllByText('15/01/26')).toHaveLength(2);
+    expect(screen.getByText('Now')).toBeInTheDocument();
+    expect(screen.getAllByText('Active')).toHaveLength(2);
+    expect(screen.queryByText('EXPIRES')).not.toBeInTheDocument();
+  });
+
+  it('shows the avatar of each user: the picture, else the pixel avatar', async () => {
+    listSubscriptions.mockResolvedValue(subscriptionPage([row(), row({ _id: 'r2', userName: 'Binh', avatarUrl: 'https://img.example.com/binh.png' })]));
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+
+    expect(await screen.findByRole('img', { name: 'Avatar of An' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Avatar of Binh' })).not.toBeInTheDocument();
+    expect(document.querySelector('img[src="https://img.example.com/binh.png"]')).not.toBeNull();
+  });
+
+  it('names the four statuses', async () => {
+    listSubscriptions.mockResolvedValue(
+      subscriptionPage(['upcoming', 'cancelled', 'ended'].map((status, index) => row({ _id: `s${index}`, userName: `User ${status}`, status }))),
+    );
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+
+    expect(await screen.findByText('Upcoming')).toBeInTheDocument();
+    expect(screen.getByText('Cancelled')).toBeInTheDocument();
+    expect(screen.getByText('Ended')).toBeInTheDocument();
+  });
+
+  it('filters by status', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    await screen.findByText('An');
+
+    await user.click(screen.getByRole('button', { name: /filter/i }));
+    await user.click(within(await screen.findByRole('group', { name: 'Status' })).getByRole('menuitemradio', { name: 'Cancelled' }));
+    await waitFor(() => expect(listSubscriptions).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'cancelled' })));
   });
 
   it('shows None for a source the list does not know', async () => {
@@ -169,7 +209,7 @@ describe('AdminPlansPage', () => {
   });
 
   it('shows None as the source of a row made by the migration script', async () => {
-    listSubscriptions.mockResolvedValue(subscriptionPage([row({ plan: 'free', source: 'migration', expiresAt: '2026-03-15T00:00:00.000Z', changedByName: null })]));
+    listSubscriptions.mockResolvedValue(subscriptionPage([row({ plan: 'free', source: 'migration', endsAt: '2026-03-15T00:00:00.000Z', changedByName: null })]));
     renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
 
     expect(await screen.findByText('None')).toBeInTheDocument();

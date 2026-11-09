@@ -9,6 +9,7 @@ const updateUser = vi.fn();
 const deleteUser = vi.fn();
 const setUserStatus = vi.fn();
 const grantPremium = vi.fn();
+const cancelPremium = vi.fn();
 const revokePremium = vi.fn();
 
 vi.mock('../api/admin.api', () => ({
@@ -18,6 +19,7 @@ vi.mock('../api/admin.api', () => ({
     deleteUser: (id: string) => deleteUser(id),
     setUserStatus: (id: string, status: string) => setUserStatus(id, status),
     grantPremium: (id: string, months: number) => grantPremium(id, months),
+    cancelPremium: (id: string) => cancelPremium(id),
     revokePremium: (id: string) => revokePremium(id),
   },
 }));
@@ -55,11 +57,12 @@ beforeEach(() => {
   deleteUser.mockReset();
   setUserStatus.mockReset();
   grantPremium.mockReset();
+  cancelPremium.mockReset();
   revokePremium.mockReset();
 });
 
 // Opens the kebab menu of a user card and picks one of its entries.
-const pickAction = async (email: string, action: 'Edit' | 'Disable' | 'Enable' | 'Delete' | 'Grant Premium' | 'Revoke Premium') => {
+const pickAction = async (email: string, action: 'Edit' | 'Disable' | 'Enable' | 'Delete' | 'Grant Premium' | 'Cancel Premium' | 'Revoke Premium now') => {
   const cards = await screen.findByLabelText('User cards');
   fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${email}` }));
   fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
@@ -315,19 +318,41 @@ describe('AdminUsersPage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
-  it('revokes premium after confirmation and offers it only to Premium users', async () => {
+  it('revokes premium at once after confirmation and offers it only to Premium users', async () => {
     listUsers.mockResolvedValue(page([{ ...lan, plan: 'premium', planExpiresAt: '2026-02-15T00:00:00.000Z' }, { ...minh, plan: 'free', planExpiresAt: null }]));
     revokePremium.mockResolvedValue(undefined);
     renderPage();
 
     const cards = await screen.findByLabelText('User cards');
     fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
-    expect(within(cards).queryByRole('menuitem', { name: 'Revoke Premium' })).not.toBeInTheDocument();
+    expect(within(cards).queryByRole('menuitem', { name: 'Revoke Premium now' })).not.toBeInTheDocument();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
 
-    await pickAction('lan@example.com', 'Revoke Premium');
+    await pickAction('lan@example.com', 'Revoke Premium now');
     fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Revoke' }));
 
     await waitFor(() => expect(revokePremium).toHaveBeenCalledWith('u1'));
+  });
+
+  it('cancels premium at the end of the paid time, and shows a cancelled Premium without the Cancel entry', async () => {
+    listUsers.mockResolvedValue(
+      page([
+        { ...lan, plan: 'premium', planExpiresAt: '2026-02-15T00:00:00.000Z' },
+        { ...minh, plan: 'premium', planExpiresAt: '2026-02-15T00:00:00.000Z', planCancelled: true },
+      ]),
+    );
+    cancelPremium.mockResolvedValue(undefined);
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    expect(await within(cards).findByText(/^Cancelled · /)).toBeInTheDocument();
+    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
+    expect(within(cards).queryByRole('menuitem', { name: 'Cancel Premium' })).not.toBeInTheDocument();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+    await pickAction('lan@example.com', 'Cancel Premium');
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel Premium' }));
+
+    await waitFor(() => expect(cancelPremium).toHaveBeenCalledWith('u1'));
   });
 });

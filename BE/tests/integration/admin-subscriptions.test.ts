@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { grantPremium, recordPaidMonth, revokePremium } from '../../src/services/subscription.service';
+import { UserModel } from '../../src/models/user.model';
+import { cancelPremium, grantPremium, recordPaidMonth, revokePremium } from '../../src/services/subscription.service';
 import { api } from '../helpers/api';
 import { bearerFor, createUser } from '../helpers/user-factory';
 
@@ -25,12 +26,12 @@ describe('GET /api/admin/subscriptions', () => {
     expect(res.body).toMatchObject({ page: 1, total: 3, totalPages: 1 });
     // Sign-up rows of the admin and the learner, then the grant (the newest is first).
     expect(res.body.items[0]).toMatchObject({ userName: 'An', plan: 'premium', source: 'admin', changedByName: 'Boss' });
-    expect(res.body.items[0].expiresAt).toBe('2026-03-15T00:00:00.000Z');
+    expect(res.body.items[0].endsAt).toBe('2026-03-15T00:00:00.000Z');
     const signup = res.body.items.find((item: { userName: string; source: string }) => item.userName === 'An' && item.source === 'signup');
-    expect(signup).toMatchObject({ plan: 'free', changedByName: null, expiresAt: null });
+    expect(signup).toMatchObject({ plan: 'free', changedByName: null, endsAt: '2026-01-15T00:00:00.000Z' });
   });
 
-  it('names a user by display name, and by email only when they have none; never an id or a password', async () => {
+  it('names a user by display name, and by email only when they have none; gives the email apart; never an id or a password', async () => {
     const admin = await createUser({ email: 'admin@example.com', role: 'admin', displayName: 'Boss' });
     const named = await createUser({ email: 'named@example.com', displayName: 'An' });
     const unnamed = await createUser({ email: 'unnamed@example.com' });
@@ -38,11 +39,12 @@ describe('GET /api/admin/subscriptions', () => {
 
     const res = await list(bearerFor(admin));
     const text = JSON.stringify(res.body);
+    const of = (email: string) => res.body.items.find((item: { email: string }) => item.email === email);
 
-    expect(text).not.toContain('"named@example.com"');
-    expect(res.body.items.map((item: { userName: string }) => item.userName)).toContain('unnamed@example.com');
+    expect(of('named@example.com')).toMatchObject({ userName: 'An', email: 'named@example.com' });
+    expect(of('unnamed@example.com')).toMatchObject({ userName: 'unnamed@example.com', email: 'unnamed@example.com' });
     expect(text).not.toContain(String(unnamed._id));
-    expect(text).not.toMatch(/password|admin@example\.com/);
+    expect(text).not.toMatch(/password/);
   });
 
   it('filters by plan, by payment method and by who changed it, and searches the user name', async () => {
@@ -60,6 +62,47 @@ describe('GET /api/admin/subscriptions', () => {
     expect((await list(auth, '?by=system')).body.total).toBe(4);
     const found = await list(auth, '?q=binh');
     expect(found.body.items.map((item: { userName: string }) => item.userName)).toEqual(['Binh']);
+  });
+
+  it('gives every row its period and status, and filters by status', async () => {
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin', displayName: 'Boss' });
+    const an = await createUser({ email: 'an@example.com', displayName: 'An' });
+    const binh = await createUser({ email: 'binh@example.com', displayName: 'Binh' });
+    await grantPremium(String(an._id), 1, String(admin._id), NOW);
+    await grantPremium(String(an._id), 1, String(admin._id), NOW);
+    await grantPremium(String(binh._id), 1, String(admin._id), NOW);
+    await cancelPremium(String(binh._id), NOW);
+    const auth = bearerFor(admin);
+    const premium = async (status: string) => (await list(auth, `?plan=premium&status=${status}`)).body.items.map((item: { userName: string }) => item.userName);
+
+    const items = (await list(auth, '?plan=premium&sort=startsAt')).body.items;
+    expect(items.map((item: { userName: string; status: string; endsAt: string }) => [item.userName, item.status, item.endsAt])).toEqual([
+      ['An', 'active', '2026-02-15T00:00:00.000Z'],
+      ['Binh', 'cancelled', '2026-02-15T00:00:00.000Z'],
+      ['An', 'upcoming', '2026-03-15T00:00:00.000Z']
+    ]);
+    expect(await premium('active')).toEqual(['An']);
+    expect(await premium('upcoming')).toEqual(['An']);
+    expect(await premium('cancelled')).toEqual(['Binh']);
+    expect(await premium('ended')).toEqual([]);
+    // The Free rows of the three people were closed when Premium started: they ended.
+    expect((await list(auth, '?plan=free&status=ended')).body.total).toBe(2);
+    expect((await list(auth, '?plan=free&status=active')).body.total).toBe(1);
+    expect((await list(auth, '?status=gold')).status).toBe(400);
+  });
+
+  it('gives each row the avatar of its user: the picture they show, else the pixel avatar', async () => {
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin', displayName: 'Boss' });
+    await createUser({ email: 'pic@example.com', displayName: 'Pic', avatarUrl: 'https://img.example.com/pic.png' });
+    const pix = await createUser({ email: 'pix@example.com', displayName: 'Pix', avatarUrl: 'https://img.example.com/pix.png' });
+    await UserModel.updateOne({ _id: pix._id }, { avatarSource: 'pixel' });
+
+    const items = (await list(bearerFor(admin), '?q=pi')).body.items;
+    const of = (name: string) => items.find((item: { userName: string }) => item.userName === name);
+
+    expect(of('Pic').avatarUrl).toBe('https://img.example.com/pic.png');
+    expect(of('Pix').avatarUrl).toBeNull();
+    expect(of('Pix').avatar).toHaveProperty('skin');
   });
 
   it('pages the list and rejects a sort it does not allow', async () => {

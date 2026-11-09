@@ -20,6 +20,11 @@ export const grantPremium = async (req: Request, res: Response) => {
   res.json({ plan: result.plan, expiresAt: result.expiresAt });
 };
 
+export const cancelPremium = async (req: Request, res: Response) => {
+  await adminPlanService.cancelUserPremium(req.params.id as string);
+  res.status(204).end();
+};
+
 export const revokePremium = async (req: Request, res: Response) => {
   await adminPlanService.revokeUserPremium(req.user!.sub, req.params.id as string);
   res.status(204).end();

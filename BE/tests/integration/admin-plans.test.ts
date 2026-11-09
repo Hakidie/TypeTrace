@@ -23,6 +23,7 @@ const as = (auth: string) => ({
   putPlans: (body: object) => api().put('/api/admin/plans').set('Authorization', auth).send(body),
   preview: (body: object) => api().post('/api/admin/plans/preview').set('Authorization', auth).send(body),
   grant: (id: unknown, body: object) => api().post(`/api/admin/users/${id}/premium`).set('Authorization', auth).send(body),
+  cancel: (id: unknown) => api().post(`/api/admin/users/${id}/premium/cancel`).set('Authorization', auth),
   revoke: (id: unknown) => api().delete(`/api/admin/users/${id}/premium`).set('Authorization', auth),
   users: (query = '') => api().get(`/api/admin/users${query}`).set('Authorization', auth)
 });
@@ -48,7 +49,7 @@ describe('admin plans', () => {
     const learner = as(bearerFor(await createUser()));
     const target = await createUser({ email: 'target@example.com' });
 
-    for (const call of [learner.getPlans(), learner.putPlans(plans()), learner.preview(plans()), learner.grant(target._id, { months: 1 }), learner.revoke(target._id)]) {
+    for (const call of [learner.getPlans(), learner.putPlans(plans()), learner.preview(plans()), learner.grant(target._id, { months: 1 }), learner.revoke(target._id), learner.cancel(target._id)]) {
       expect((await call).status).toBe(403);
     }
     expect((await api().get('/api/admin/plans')).status).toBe(401);
@@ -124,6 +125,20 @@ describe('admin grants of premium', () => {
     expect(last).toMatchObject({ plan: 'free', source: 'admin' });
     expect(String(last.changedBy)).toBe(String(admin._id));
     expect((await as(auth).revoke('64b000000000000000000000')).status).toBe(404);
+  });
+
+  it('cancels at the end of the paid time: the user stays premium, marked as cancelled', async () => {
+    const { auth } = await signInAdmin();
+    const user = await createUser({ email: 'user@example.com' });
+    const free = await createUser({ email: 'free@example.com' });
+    await as(auth).grant(user._id, { months: 1 });
+
+    expect((await as(auth).cancel(user._id)).status).toBe(204);
+
+    const found = (await as(auth).users('?plan=premium')).body.items[0];
+    expect(found).toMatchObject({ email: 'user@example.com', plan: 'premium', planExpiresAt: '2026-02-15T00:00:00.000Z', planCancelled: true });
+    expect((await as(auth).cancel(free._id)).status).toBe(400);
+    expect((await as(auth).cancel('64b000000000000000000000')).status).toBe(404);
   });
 
   it('shows the plan and expiry in the user list and filters by plan', async () => {
