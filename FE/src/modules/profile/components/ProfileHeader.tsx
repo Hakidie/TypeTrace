@@ -31,10 +31,12 @@ interface DisplayNameProps {
   user: CurrentUser;
   /** Classes of the name, shared by the text and the input so the row does not jump when editing starts. */
   textClassName: string;
+  /** Shown between the name and the pencil (not while the name is edited). */
+  beforeEdit?: ReactNode;
 }
 
 /** The name, with a pencil that shows on hover (or focus; always on touch screens) to change it right there: Enter saves, Escape cancels. */
-const EditableDisplayName = ({ user, textClassName }: DisplayNameProps) => {
+const EditableDisplayName = ({ user, textClassName, beforeEdit }: DisplayNameProps) => {
   const [editing, setEditing] = useState(false);
   const setCurrentUser = useSetCurrentUser();
   const name = user.displayName || user.email;
@@ -68,6 +70,7 @@ const EditableDisplayName = ({ user, textClassName }: DisplayNameProps) => {
     return (
       <div className="group flex min-w-0 items-center gap-1">
         <p className={cn('truncate', textClassName)}>{name}</p>
+        {beforeEdit}
         <button
           type="button"
           aria-label="Edit display name"
@@ -238,8 +241,7 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
       </div>
       <div className="col-span-3 min-w-0 sm:col-start-2 sm:row-start-2 lg:col-span-1 lg:col-start-2">
         <div className="flex min-w-0 items-center gap-3">
-          <EditableDisplayName user={user} textClassName="text-[1.875rem] font-black text-primary sm:text-[2.25rem]" />
-          <PlanBadge />
+          <EditableDisplayName user={user} textClassName="text-[1.875rem] font-black text-primary sm:text-[2.25rem]" beforeEdit={<PlanBadge />} />
         </div>
         <EditableBio key={user.bio ?? ''} user={user} />
       </div>
