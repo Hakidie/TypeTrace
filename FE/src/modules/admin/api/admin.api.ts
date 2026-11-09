@@ -17,6 +17,10 @@ export const adminApi = {
     http.patch<CurrentUser>(`/admin/users/${id}`, input).then((r) => r.data),
   setUserStatus: (id: string, status: UserStatus) =>
     http.patch<AdminUser>(`/admin/users/${id}/status`, { status }).then((r) => r.data),
+  /** Adds `months` of Premium on top of what the user has left (US11.1). */
+  grantPremium: (id: string, months: number) =>
+    http.post<{ plan: 'premium'; expiresAt: string }>(`/admin/users/${id}/premium`, { months }).then((r) => r.data),
+  revokePremium: (id: string) => http.delete(`/admin/users/${id}/premium`).then(() => undefined),
   deleteUser: (id: string) => http.delete(`/admin/users/${id}`).then(() => undefined),
   bulkDeleteUsers: (ids: string[]) =>
     http.post<{ deleted: number }>('/admin/users/bulk-delete', { ids }).then((r) => r.data),

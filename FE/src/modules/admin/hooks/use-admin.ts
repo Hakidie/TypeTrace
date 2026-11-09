@@ -57,6 +57,28 @@ export const useSetUserStatus = () => {
   });
 };
 
+export const useGrantPremium = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, months }: { id: string; months: number }) => adminApi.grantPremium(id, months),
+    onSuccess: () => {
+      toast.success('Đã cấp Premium.');
+      return queryClient.invalidateQueries({ queryKey: adminKeys.all });
+    },
+  });
+};
+
+export const useRevokePremium = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => adminApi.revokePremium(id),
+    onSuccess: () => {
+      toast.success('Đã thu hồi Premium.');
+      return queryClient.invalidateQueries({ queryKey: adminKeys.all });
+    },
+  });
+};
+
 export const useDeleteUsers = () => {
   const queryClient = useQueryClient();
   return useMutation({

@@ -8,6 +8,8 @@ const listUsers = vi.fn();
 const updateUser = vi.fn();
 const deleteUser = vi.fn();
 const setUserStatus = vi.fn();
+const grantPremium = vi.fn();
+const revokePremium = vi.fn();
 
 vi.mock('../api/admin.api', () => ({
   adminApi: {
@@ -15,6 +17,8 @@ vi.mock('../api/admin.api', () => ({
     updateUser: (id: string, input: unknown) => updateUser(id, input),
     deleteUser: (id: string) => deleteUser(id),
     setUserStatus: (id: string, status: string) => setUserStatus(id, status),
+    grantPremium: (id: string, months: number) => grantPremium(id, months),
+    revokePremium: (id: string) => revokePremium(id),
   },
 }));
 
@@ -50,10 +54,12 @@ beforeEach(() => {
   updateUser.mockReset();
   deleteUser.mockReset();
   setUserStatus.mockReset();
+  grantPremium.mockReset();
+  revokePremium.mockReset();
 });
 
 // Opens the kebab menu of a user card and picks one of its entries.
-const pickAction = async (email: string, action: 'Edit' | 'Disable' | 'Enable' | 'Delete') => {
+const pickAction = async (email: string, action: 'Edit' | 'Disable' | 'Enable' | 'Delete' | 'Cấp Premium' | 'Thu hồi Premium') => {
   const cards = await screen.findByLabelText('User cards');
   fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${email}` }));
   fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
@@ -277,5 +283,51 @@ describe('AdminUsersPage', () => {
     listUsers.mockResolvedValue(page([]));
     renderPage('/admin/users?q=nobody');
     expect(await screen.findByText('No matching users')).toBeInTheDocument();
+  });
+
+  it('shows the plan and its expiry on each user and filters by plan', async () => {
+    const premium = user('u3', 'premium@example.com', { plan: 'premium', planExpiresAt: '2026-02-15T00:00:00.000Z' });
+    listUsers.mockResolvedValue(page([{ ...lan, plan: 'free', planExpiresAt: null }, premium]));
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    expect(within(cards).getByText('Premium · 15 Feb 2026')).toBeInTheDocument();
+    expect(within(cards).getByText('Free')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Plan' })).getByRole('menuitemradio', { name: 'Premium' }));
+    await waitFor(() => expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ plan: 'premium' })));
+  });
+
+  it('grants premium for the months typed after confirmation', async () => {
+    grantPremium.mockResolvedValue({ plan: 'premium', expiresAt: '2026-03-15T00:00:00.000Z' });
+    renderPage();
+    await pickAction('lan@example.com', 'Cấp Premium');
+
+    const dialog = await screen.findByRole('dialog');
+    const months = within(dialog).getByLabelText('Số tháng');
+    fireEvent.change(months, { target: { value: '0' } });
+    expect(within(dialog).getByRole('button', { name: 'Cấp' })).toBeDisabled();
+    fireEvent.change(months, { target: { value: '3' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cấp' }));
+
+    await waitFor(() => expect(grantPremium).toHaveBeenCalledWith('u1', 3));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('revokes premium after confirmation and offers it only to Premium users', async () => {
+    listUsers.mockResolvedValue(page([{ ...lan, plan: 'premium', planExpiresAt: '2026-02-15T00:00:00.000Z' }, { ...minh, plan: 'free', planExpiresAt: null }]));
+    revokePremium.mockResolvedValue(undefined);
+    renderPage();
+
+    const cards = await screen.findByLabelText('User cards');
+    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
+    expect(within(cards).queryByRole('menuitem', { name: 'Thu hồi Premium' })).not.toBeInTheDocument();
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+    await pickAction('lan@example.com', 'Thu hồi Premium');
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Thu hồi' }));
+
+    await waitFor(() => expect(revokePremium).toHaveBeenCalledWith('u1'));
   });
 });

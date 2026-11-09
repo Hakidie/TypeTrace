@@ -32,6 +32,9 @@ export interface AdminUser extends CurrentUser {
   /** Absent until the user completed a typing session. */
   stats?: UserTypingStats;
   sessions?: UserSessionDay[];
+  /** The plan the account is on now (US11.1) and the day Premium ends (`null` on Free). */
+  plan?: 'free' | 'premium';
+  planExpiresAt?: string | null;
 }
 
 export interface AdminUserListParams {
@@ -41,6 +44,8 @@ export interface AdminUserListParams {
   role?: UserRole | '';
   /** `'true'` / `'false'`, or `''` for all users. */
   verified?: 'true' | 'false' | '';
+  /** The plan the account is on now, or `''` for all. */
+  plan?: 'free' | 'premium' | '';
   sort?: string;
 }
 
