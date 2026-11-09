@@ -14,19 +14,19 @@ const RANGES: { id: BoardRange; label: string }[] = [
 ];
 
 /**
- * The Nối từ leaderboard beside the game: this week (from Monday 0:00 in Vietnam) or all the time, one line per player
+ * The Nối từ leaderboard (in the game's modal and on the Minigames tab of the Leaderboard page): this week (from Monday 0:00 in Vietnam) or all the time, one line per player
  * (rank, avatar head, name, best score), the player's line tinted, and their own place under the list when they are further down.
  */
-export const WordChainBoard = () => {
+export const WordChainBoard = ({ title = 'Xếp hạng', className }: { title?: string; className?: string }) => {
   const [range, setRange] = useState<BoardRange>('week');
   const board = useWordChainBoard(range);
   const meShown = board.data?.items.some((row) => row.isMe);
 
   return (
-    <section aria-label="Bảng xếp hạng Nối từ" className="flex flex-col border border-primary/20 bg-background/30 backdrop-blur-sm">
+    <section aria-label="Bảng xếp hạng Nối từ" className={cn('flex flex-col border border-primary/20 bg-background/30 backdrop-blur-sm', className)}>
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Trophy className="size-4 text-primary" aria-hidden="true" /> Xếp hạng
+          <Trophy className="size-4 text-primary" aria-hidden="true" /> {title}
         </h2>
         <div role="tablist" aria-label="Khoảng thời gian" className="flex border border-primary/20">
           {RANGES.map(({ id, label }) => (

@@ -236,7 +236,7 @@ The mascot Ping guides new learners (`docs/superpowers/specs/2026-10-30-ping-tut
 - The Nối từ minigame (`?mode=minigames&game=chain`, `WordChainMode`, `modules/word-chain`) is a Vietnamese word chain against a
   friendly bot, played in the browser: a 60 s clock, the linking syllable is typed for the player (`composeAnswer`), a right word
   adds time by its WPM (`BONUS_TIERS` in `lib/word-chain.ts`), a refused word, a hint or a skip costs time. A finished game goes to
-  its leaderboard (`/api/word-chain`, `services/word-chain.service.ts`, this week from Monday 0:00 in Vietnam and all the time): the
+  its leaderboard (a modal from the game, and the Minigames tab of the Leaderboard page, `?tab=minigames`; `/api/word-chain`, `services/word-chain.service.ts`, this week from Monday 0:00 in Vietnam and all the time): the
   server works the score out again from the chain (`scoreChain`, `utils/word-chain-rules.ts`, against `data/noi-tu-words.ts`), never
   takes it from the client. Its word list `FE/public/noi-tu/words.txt` (`*` = the bot may
   play it; sources and licences, GPL-2.0 and CC BY, in its `CREDITS.md`) and its server copy `BE/src/data/noi-tu-words.ts` are
