@@ -38,12 +38,16 @@ describe('WordChainMode', () => {
     expect(await screen.findByRole('listitem', { name: 'Bot: học sinh' })).toBeInTheDocument();
   };
 
-  it('shows the rules, the time bonus by speed and the leaderboard', async () => {
+  it('shows the rules, the time bonus by speed, and the leaderboard in a modal that links to the Leaderboard page', async () => {
     renderWithProviders(<WordChainMode />);
     expect(await screen.findByRole('heading', { name: 'Nối từ' })).toBeInTheDocument();
     expect(screen.getByText('≥ 40 WPM:')).toBeInTheDocument();
     expect(screen.getByRole('timer')).toHaveTextContent('60s');
-    const board = screen.getByRole('region', { name: 'Bảng xếp hạng Nối từ' });
+    expect(screen.queryByRole('region', { name: 'Bảng xếp hạng Nối từ' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Bảng xếp hạng' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Bảng xếp hạng Nối từ' });
+    expect(within(dialog).getByRole('link', { name: 'Xem trang Leaderboard' })).toHaveAttribute('href', '/leaderboard?tab=minigames');
+    const board = within(dialog).getByRole('region', { name: 'Bảng xếp hạng Nối từ' });
     expect(await within(board).findByText('Lan')).toBeInTheDocument();
     expect(within(board).getByText(/Bạn đứng thứ/)).toHaveTextContent('Bạn đứng thứ 4 với 3 điểm.');
     await userEvent.click(within(board).getByRole('tab', { name: 'Mọi lúc' }));

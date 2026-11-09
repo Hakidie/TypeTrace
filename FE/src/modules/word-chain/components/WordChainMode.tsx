@@ -1,4 +1,5 @@
-import { Lightbulb, Link2, SkipForward, Timer } from 'lucide-react';
+import { Lightbulb, Link2, SkipForward, Timer, Trophy } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR, type AvatarPose } from '@/modules/avatar/types/avatar.types';
@@ -9,6 +10,8 @@ import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Lottie } from '@/shared/components/lottie';
 import { Button } from '@/shared/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/shared/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
 import { useSaveWordChainScore, useWordBank } from '../hooks/use-word-chain';
 import { useWordChainGame, type ChainLink } from '../hooks/use-word-chain-game';
@@ -16,6 +19,34 @@ import { WordChainBoard } from './WordChainBoard';
 import { BONUS_TIERS, HINT_COST_MS, SKIP_COST_MS, START_MS } from '../lib/word-chain';
 
 const seconds = (ms: number) => Math.ceil(ms / 1000);
+
+/** The trophy beside the score: opens the leaderboard in a modal, with a link to the Minigames tab of the Leaderboard page. */
+const BoardButton = () => (
+  <Dialog>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DialogTrigger asChild>
+            <Button type="button" variant="ghost" aria-label="Bảng xếp hạng" className="size-10 self-center p-0 text-primary hover:bg-primary hover:text-primary-foreground">
+              <Trophy className="size-5" aria-hidden="true" />
+            </Button>
+          </DialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Bảng xếp hạng</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+    <DialogContent className="max-w-md gap-4">
+      <DialogHeader>
+        <DialogTitle>Bảng xếp hạng Nối từ</DialogTitle>
+        <DialogDescription>Điểm cao nhất của mỗi người, tuần này hoặc mọi lúc.</DialogDescription>
+      </DialogHeader>
+      <WordChainBoard className="border-0 bg-transparent backdrop-blur-none" />
+      <Button asChild variant="outline">
+        <RouterLink to="/leaderboard?tab=minigames">Xem trang Leaderboard</RouterLink>
+      </Button>
+    </DialogContent>
+  </Dialog>
+);
 
 /** A glass card over the board, for the start and result screens (as in Rain). */
 const Overlay = ({ children }: { children: ReactNode }) => (
@@ -124,7 +155,7 @@ export const WordChainMode = () => {
   const botMove: BotMove = reaction === 'good' ? 'lose' : reaction === 'bad' ? 'win' : playing && !text ? 'typing' : 'idle';
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+    <div className="mx-auto w-full max-w-4xl">
       <section aria-label="Nối từ" className="flex w-full flex-col gap-4 lg:px-20">
         {/* the clock, the time bar and the score */}
         <div className="flex items-end justify-between gap-4">
@@ -134,7 +165,7 @@ export const WordChainMode = () => {
               {seconds(game.leftMs)}s
             </span>
           </div>
-          <dl className="flex gap-5 text-sm text-muted-foreground">
+          <dl className="ml-auto flex gap-5 text-sm text-muted-foreground">
             <div className="flex items-baseline gap-1.5">
               <dt>Điểm</dt>
               <dd className="text-2xl font-bold tabular-nums text-foreground">{game.score}</dd>
@@ -144,6 +175,7 @@ export const WordChainMode = () => {
               <dd className="text-2xl font-bold tabular-nums text-foreground">{game.best}</dd>
             </div>
           </dl>
+          <BoardButton />
         </div>
         <div className="h-1.5 bg-muted" aria-hidden="true">
           <div
@@ -263,7 +295,6 @@ export const WordChainMode = () => {
           )}
         </div>
       </section>
-      <WordChainBoard />
     </div>
   );
 };
