@@ -5,11 +5,12 @@ import { usePlan } from '@/modules/plan/hooks/use-plan';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
-import { ListToolbar } from '@/shared/components/list-toolbar';
+import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { OwnPassageForm } from '../components/OwnPassageForm';
 import { PassageCard } from '../components/PassageCard';
 import { RejectionReasonDialog } from '../components/RejectionReasonDialog';
@@ -113,7 +114,8 @@ export const PassagesPage = () => {
     // Like the passage bank of the admin area: a grid of cards, the pages at the bottom right.
     return (
       <>
-        <div className="grid gap-4 sm:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-[repeat(2,minmax(0,1fr))]" aria-label="Passage cards">
+        {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar above and the pages below */}
+        <div className="-mx-4 grid gap-4 sm:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-[repeat(2,minmax(0,1fr))]" aria-label="Passage cards">
           {passages.data.items.map((passage) => {
             // A private passage is the learner's to change and delete; while it waits for review it can only be taken back
             // or deleted. A public one can be edited (an admin approves the edit, the approved text stays public
@@ -138,7 +140,7 @@ export const PassagesPage = () => {
             );
           })}
         </div>
-        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
+        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
       </>
     );
   };
@@ -158,11 +160,14 @@ export const PassagesPage = () => {
 
       <div className="lg:flex lg:min-h-[28rem] lg:flex-[2_1_0] lg:flex-col">
         {/* PANEL My passages */}
-        <Panel bare fill>
-          <h2 className="sr-only">My passages</h2>
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <ListToolbar
-              title="My Passages"
+        <Panel
+          title="My Passages"
+          bare
+          fill
+          titleClassName={sectionTitleClass}
+          className="flex min-h-0 flex-1 flex-col gap-3"
+          actions={
+            <CompactToolbar
               search={{
                 label: 'Search passages',
                 placeholder: 'Search titles…',
@@ -170,14 +175,15 @@ export const PassagesPage = () => {
                 onSearch: (value) => list.set('q', value),
               }}
               sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-              summary={passages.data ? `${passages.data.total} passages` : 'Loading passages…'}
               filters={[
                 { label: 'Visibility', value: visibility, options: VISIBILITY_OPTIONS, onChange: (value) => list.set('visibility', value) },
               ]}
+              count={{ icon: FileText, value: passages.data?.total ?? '…', label: 'Passages' }}
             />
-            {renderList()}
-          </div>
-      </Panel>
+          }
+        >
+          {renderList()}
+        </Panel>
       </div>
 
       <RejectionReasonDialog passage={reasonOf} onClose={() => setReasonOf(undefined)} />

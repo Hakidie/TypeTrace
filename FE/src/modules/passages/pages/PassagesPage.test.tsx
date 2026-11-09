@@ -88,10 +88,10 @@ describe('PassagesPage', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'My passages' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'My Passages' })).toBeInTheDocument();
     expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
     expect(list).toHaveBeenCalledWith({ page: 1, limit: 6, sort: '-createdAt', q: undefined, visibility: undefined, mine: true });
-    expect(screen.getByText('2 passages')).toBeInTheDocument();
+    expect(screen.getByText('Passages').parentElement).toHaveTextContent('2Passages');
 
     // One card per passage like the admin's: title and the icon buttons on top, the text, the word count and where it stands.
     const row = screen.getByRole('heading', { name: 'Hà Nội vào thu' }).closest<HTMLElement>('[role="article"]')!;
@@ -319,7 +319,7 @@ describe('PassagesPage', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
-    expect(screen.getByText('6 passages')).toBeInTheDocument();
+    expect(screen.getByText('Passages').parentElement).toHaveTextContent('6Passages');
     expect(screen.queryByText('No passages yet')).not.toBeInTheDocument();
   });
 
@@ -336,12 +336,12 @@ describe('PassagesPage', () => {
 
     const pages = await screen.findByRole('navigation', { name: 'Pagination' });
     expect(pages).toHaveClass('justify-end');
-    expect(within(pages).getByText('Page 1 of 2')).toBeInTheDocument();
+    expect(within(pages).getByText('1 of 2')).toBeInTheDocument();
     await user.click(within(pages).getByRole('button', { name: /Next/ }));
 
     await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 2, limit: 6, mine: true })));
     expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
-    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+    expect(screen.getByText('2 of 2')).toBeInTheDocument();
   });
 
   it('shows the actions as icon buttons at the top right of each card', async () => {

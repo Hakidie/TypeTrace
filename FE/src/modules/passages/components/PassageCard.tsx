@@ -180,6 +180,8 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
       role="article"
       className={cn(
         'group flex h-full flex-col border-0 bg-primary/15 text-primary shadow-none',
+        // The learner's own list has no background: the tint shows on hover, like the rows of My Sessions.
+        own && 'bg-transparent transition-colors hover:bg-primary/15',
         review && 'cursor-pointer transition-colors hover:bg-primary/20',
         review?.selected && 'bg-primary/25 ring-2 ring-primary',
         // Past the limit of the owner's plan (US11.1): dimmed.
