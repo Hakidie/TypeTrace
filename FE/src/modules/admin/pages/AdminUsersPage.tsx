@@ -1,5 +1,5 @@
 import { Users } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { Input } from '@/shared/components/ui/input';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
@@ -11,7 +11,9 @@ import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
+import { Dialog, DialogContent, DialogTitle } from '@/shared/components/ui/dialog';
 import { UserForm } from '../components/UserForm';
+import { UsersChart } from '../components/UsersChart';
 import { UserRow } from '../components/UserRow';
 import { useAdminUsers, useCancelPremium, useDeleteUsers, useGrantPremium, useRevokePremium, useSetUserStatus } from '../hooks/use-admin';
 import type { AdminUser, AdminUserListParams } from '../types/admin.types';
@@ -79,12 +81,6 @@ export const AdminUsersPage = () => {
   const monthsValid = Number.isInteger(monthsNumber) && monthsNumber >= 1 && monthsNumber <= MAX_GRANT_MONTHS;
 
   const [editing, setEditing] = useState<AdminUser>();
-  const formPanelRef = useRef<HTMLDivElement>(null);
-  // The form is at the top of the page: bring it into view when a row asks to be edited.
-  const editingId = editing?._id;
-  useEffect(() => {
-    if (editingId) formPanelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-  }, [editingId]);
   // Id of the user waiting for delete confirmation.
   const [pendingDelete, setPendingDelete] = useState<string>();
 
@@ -143,21 +139,8 @@ export const AdminUsersPage = () => {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* PANEL User info: always there, but only for editing (there is no "new user"): empty and disabled until Edit picks a user. No visible title, screen readers still get one. */}
-      <div ref={formPanelRef} className="scroll-mt-4">
-        <Panel bare>
-          <h2 className="sr-only">User info</h2>
-          <UserForm
-            key={editing?._id ?? 'none'}
-            user={editing}
-            stats={editing?.stats}
-            sessions={editing?.sessions}
-            status={editing?.status}
-            isSelf={editing?._id === currentUser?._id}
-            onDone={() => setEditing(undefined)}
-          />
-        </Panel>
-      </div>
+      {/* PANEL Users: the number of users over time, as bars. */}
+      <UsersChart />
 
       {/* PANEL Users */}
       <Panel
@@ -186,6 +169,24 @@ export const AdminUsersPage = () => {
       >
         {renderList()}
       </Panel>
+
+      {/* The edit form (there is no "new user"): a modal in the look of the menus, opened by Edit. */}
+      <Dialog open={editing !== undefined} onOpenChange={(open) => !open && setEditing(undefined)}>
+        <DialogContent overlay={false} className="border-border bg-background/75 pt-12 shadow-md backdrop-blur-xs sm:max-w-6xl" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">User info</DialogTitle>
+          {editing && (
+            <UserForm
+              key={editing._id}
+              user={editing}
+              stats={editing.stats}
+              sessions={editing.sessions}
+              status={editing.status}
+              isSelf={editing._id === currentUser?._id}
+              onDone={() => setEditing(undefined)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={pendingDelete !== undefined}

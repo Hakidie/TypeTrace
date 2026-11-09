@@ -24,6 +24,19 @@ vi.mock('../api/admin.api', () => ({
   },
 }));
 
+vi.mock('@/modules/plan/api/admin-plan.api', () => ({
+  adminPlanApi: {
+    usersOverTime: () =>
+      Promise.resolve({
+        range: 'year',
+        points: [
+          { key: '2026-09', premium: 1, free: 2 },
+          { key: '2026-10', premium: 2, free: 4 },
+        ],
+      }),
+  },
+}));
+
 vi.mock('@/modules/auth/api/auth.api', () => ({
   authApi: { getMe: () => Promise.resolve(admin) },
 }));
@@ -100,18 +113,20 @@ describe('AdminUsersPage', () => {
     fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Actions for minh@example.com' }));
     fireEvent.click(within(cards).getByRole('menuitem', { name: 'Edit' }));
 
+    // The form opens in a modal.
     expect(await screen.findByDisplayValue('minh')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'User info' })).toBeInTheDocument();
   });
 
-  it('shows the user form empty and disabled until a user is picked', async () => {
+  it('shows the users chart and no form until Edit picks a user', async () => {
     renderPage();
     await screen.findByLabelText('User cards');
 
-    expect(screen.getByLabelText('Display name')).toBeDisabled();
-    expect(screen.getByLabelText('Description')).toBeDisabled();
-    expect(screen.getByRole('switch', { name: 'Admin role' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Update user' })).toBeDisabled();
+    expect(screen.getByRole('region', { name: 'Users chart' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Total users' })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: 'Users by month' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Display name')).not.toBeInTheDocument();
   });
 
   it('starts with the filters Role user and Email verified, and All removes them', async () => {
@@ -220,7 +235,7 @@ describe('AdminUsersPage', () => {
     await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ sort: 'email' })));
   });
 
-  it('edits a user in the form above the list', async () => {
+  it('edits a user in the modal', async () => {
     updateUser.mockResolvedValue({ ...minh, role: 'admin', isEmailVerified: true });
     renderPage();
 
@@ -239,8 +254,8 @@ describe('AdminUsersPage', () => {
         loginOtpEnabled: false,
       }),
     );
-    // The form goes back to empty once the user is saved.
-    await waitFor(() => expect(screen.getByLabelText('Display name')).toBeDisabled());
+    // The modal closes once the user is saved.
+    await waitFor(() => expect(screen.queryByLabelText('Display name')).not.toBeInTheDocument());
     expect(setUserStatus).not.toHaveBeenCalled();
   });
 
@@ -256,14 +271,14 @@ describe('AdminUsersPage', () => {
     await waitFor(() => expect(setUserStatus).toHaveBeenCalledWith('u2', 'locked'));
   });
 
-  it('cancels the edit and empties the form', async () => {
+  it('cancels the edit and closes the modal', async () => {
     renderPage();
 
     await pickAction('minh@example.com', 'Edit');
     expect(await screen.findByDisplayValue('minh')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    await waitFor(() => expect(screen.getByLabelText('Display name')).toBeDisabled());
+    await waitFor(() => expect(screen.queryByLabelText('Display name')).not.toBeInTheDocument());
     expect(updateUser).not.toHaveBeenCalled();
   });
 
