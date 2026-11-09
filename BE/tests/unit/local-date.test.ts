@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { addDays, isValidTimeZone, localDateKey, MAX_FORMATTERS } from '../../src/utils/local-date';
+import { addDays, addMonths, isValidTimeZone, localDateKey, MAX_FORMATTERS } from '../../src/utils/local-date';
 
 const dayOf = (instant: string, timeZone: string) => localDateKey(new Date(instant), timeZone);
 
@@ -100,5 +100,23 @@ describe('the formatter cache', () => {
 
     // A cache that kept every name would check them all again without making a single formatter.
     expect(made).toHaveBeenCalled();
+  });
+});
+
+describe('addMonths', () => {
+  const zone = 'Asia/Ho_Chi_Minh';
+
+  it('clamps 31 Jan to the last day of February, in a leap year too', () => {
+    expect(addMonths(new Date('2026-01-31T00:00:00Z'), 1, zone).toISOString()).toBe('2026-02-28T00:00:00.000Z');
+    expect(addMonths(new Date('2028-01-31T00:00:00Z'), 1, zone).toISOString()).toBe('2028-02-29T00:00:00.000Z');
+  });
+
+  it('keeps the time of day and counts the month in the zone, not in UTC', () => {
+    // 31 Jan 20:00 UTC is already 1 Feb 03:00 in Ho Chi Minh: one month later is 1 Mar 03:00 there.
+    expect(addMonths(new Date('2026-01-31T20:00:00Z'), 1, zone).toISOString()).toBe('2026-02-28T20:00:00.000Z');
+  });
+
+  it('adds many months across a year', () => {
+    expect(addMonths(new Date('2026-11-15T00:00:00Z'), 3, zone).toISOString()).toBe('2027-02-15T00:00:00.000Z');
   });
 });

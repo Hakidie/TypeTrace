@@ -1,5 +1,6 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import { AvatarLook, DEFAULT_AVATAR } from '../data/avatar-catalog';
+import { SubscriptionModel } from './subscription.model';
 
 export const USER_ROLES = ['user', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -157,5 +158,15 @@ const userSchema = new Schema<UserDocument>(
     }
   }
 );
+
+// Every new account starts on the Free plan (US11.1). A hook on the model, so every way of making an account gets it.
+userSchema.pre('save', function () {
+  this.$locals.wasNew = this.isNew;
+});
+userSchema.post('save', async function () {
+  if (!this.$locals.wasNew) return;
+  this.$locals.wasNew = false;
+  await SubscriptionModel.create({ user: this._id, plan: 'free', startsAt: this.createdAt, source: 'signup', changedBy: null });
+});
 
 export const UserModel = mongoose.model<UserDocument>('User', userSchema);
