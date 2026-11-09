@@ -5,8 +5,9 @@ import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { RainStage } from '@/modules/rain/components/RainStage';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
-import { practiceReducer, PRACTICE_PACE, startPractice, type PracticeSide, type PracticeState } from '../lib/practice-duel';
+import { BOT_LEVELS, practiceReducer, PRACTICE_PACE, startPractice, type BotLevel, type PracticeSide, type PracticeState } from '../lib/practice-duel';
 import type { CoachStats } from '../types/tutorial.types';
+import { BotSprite } from './BotSprite';
 import { Ping } from './Ping';
 
 const TICK_MS = 100;
@@ -34,6 +35,9 @@ const pingMove = (state: PracticeState) => {
   return 'typing';
 };
 
+/** Ping's moves as the Bot duel's bots play them. */
+const BOT_MOVES = { typing: 'typing', happy: 'win', sad: 'lose' } as const;
+
 /** The numbers Ping's tip is written from. */
 const statsOf = (state: PracticeState, me: PracticeSide): CoachStats => ({
   result: state.result ?? 'draw',
@@ -48,14 +52,21 @@ interface PracticeDuelProps {
   words: string[];
   onDone: (stats: CoachStats) => void;
   onSkip: () => void;
+  /** The Bot duel's level: its bot (Bông, Nhịp, Dạ) and pace. Without it, the tutorial's duel against Ping at Bronze. */
+  level?: BotLevel;
+  skipLabel?: string;
 }
 
 /**
- * The practice rain duel against Ping-bot, in the layout of the ranked rain duel: my field large with the box under it,
- * Ping's small beside it (a strip above it on a phone), always tagged as unrated. It runs only here (`practice-duel.ts`).
+ * The practice rain duel against a bot (Ping in the tutorial, a level's bot in the Bot duel), in the layout of the ranked
+ * rain duel: my field large with the box under it, the bot's small beside it (a strip above it on a phone), always tagged
+ * as unrated. It runs only in the browser (`practice-duel.ts`).
  */
-export const PracticeDuel = ({ words, onDone, onSkip }: PracticeDuelProps) => {
-  const [state, dispatch] = useReducer(practiceReducer, words, (list) => startPractice(shuffled(list), Math.random));
+export const PracticeDuel = ({ words, onDone, onSkip, level, skipLabel = 'Bỏ qua' }: PracticeDuelProps) => {
+  const [state, dispatch] = useReducer(practiceReducer, words, (list) => startPractice(shuffled(list), Math.random, level));
+  const botName = level ? BOT_LEVELS[level].name : 'Ping';
+  const tier = level ? BOT_LEVELS[level].tier : 'Bronze';
+  const move = pingMove(state);
   const [box, setBox] = useState('');
   const input = useRef<HTMLInputElement>(null);
   const { data: me } = useCurrentUser();
@@ -98,12 +109,12 @@ export const PracticeDuel = ({ words, onDone, onSkip }: PracticeDuelProps) => {
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="border border-primary/50 px-2 py-0.5 text-primary">Đấu tập · không tính điểm</span>
         <span className="flex items-center gap-3 text-muted-foreground">
-          Bronze
+          {tier}
           <span aria-label="Time left" className="font-semibold tabular-nums text-foreground">
             {clock(PRACTICE_PACE.durationMs - state.elapsed)}
           </span>
           <Button variant="ghost" size="sm" onClick={onSkip}>
-            Bỏ qua
+            {skipLabel}
           </Button>
         </span>
       </div>
@@ -116,7 +127,7 @@ export const PracticeDuel = ({ words, onDone, onSkip }: PracticeDuelProps) => {
             <p role="status" className="min-w-0 flex-1 truncate text-center">
               {thrownAtMe && (
                 <span key={thrownAtMe.at} className="rain-banner bg-primary/80 px-2 py-0.5 font-semibold text-primary-foreground">
-                  Ping threw: {thrownAtMe.text}
+                  {botName} threw: {thrownAtMe.text}
                 </span>
               )}
             </p>
@@ -124,17 +135,17 @@ export const PracticeDuel = ({ words, onDone, onSkip }: PracticeDuelProps) => {
           </div>
           <RainStage drops={state.me.drops} avatar={me?.avatar ?? DEFAULT_AVATAR} phase="playing" paused={over} />
         </section>
-        <section aria-label="Ping's field" className="relative order-1 flex min-w-0 flex-col gap-2 lg:order-2">
+        <section aria-label={`${botName}'s field`} className="relative order-1 flex min-w-0 flex-col gap-2 lg:order-2">
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
             <span className="flex items-center gap-2 font-semibold text-foreground">
-              Ping <Lives who="Ping" lives={state.bot.lives} />
+              {botName} <Lives who={botName} lives={state.bot.lives} />
             </span>
             <span className="tabular-nums">{state.bot.hits} words</span>
           </div>
           <RainStage
             drops={state.bot.drops}
             avatar={DEFAULT_AVATAR}
-            character={<Ping move={pingMove(state)} />}
+            character={level ? <BotSprite level={level} move={BOT_MOVES[move]} /> : <Ping move={move} />}
             phase="playing"
             paused={over}
             compact

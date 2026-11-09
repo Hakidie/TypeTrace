@@ -21,7 +21,7 @@ import { modeIcons, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
 
-// Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain), instead of a passage to practise.
+// Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain, `&game=bot` the unrated duel against a bot), instead of a passage to practise.
 const modeTabs = [
   { value: 'practice', label: 'Practice', icon: modeIcons.practice },
   { value: 'placement', label: 'Placement', icon: modeIcons.placement },
@@ -85,7 +85,7 @@ export const TypingPage = () => {
   const legacyGame: MinigameId | undefined = modeParam === 'rain' ? modeParam : undefined;
   const minigames = modeParam === 'minigames' || legacyGame !== undefined;
   const gameParam = searchParams.get('game');
-  const minigame: MinigameId | undefined = legacyGame ?? (minigames && gameParam === 'rain' ? gameParam : undefined);
+  const minigame: MinigameId | undefined = legacyGame ?? (minigames && (gameParam === 'rain' || gameParam === 'bot') ? gameParam : undefined);
   /** A tab without a typing session, a passage to choose or a time limit. */
   const game = ranked || minigames;
   const pageRef = useRef<HTMLDivElement>(null);

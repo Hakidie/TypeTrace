@@ -285,6 +285,17 @@ describe('TypingPage', () => {
     expect(start).toHaveBeenCalledTimes(1);
   });
 
+  it('opens the bot duel from its card', async () => {
+    const user = userEvent.setup();
+    renderWithUrl('/typing?mode=minigames');
+
+    await user.click(await screen.findByRole('button', { name: /^Bot duel/ }));
+
+    expect(await screen.findByRole('button', { name: /^Dạ · Khó/ })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames&game=bot');
+    expect(start).not.toHaveBeenCalled();
+  });
+
   it('opens word rain from its card and goes back to the cards', async () => {
     const user = userEvent.setup();
     renderWithUrl('/typing?mode=minigames');
