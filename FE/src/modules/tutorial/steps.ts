@@ -40,7 +40,7 @@ export const MODE_STEPS: Record<TutorialMode, TutorialStep[]> = {
   practice: [
     { id: 'practice-passage', mode: 'practice', move: 'point', target: 'typing-passage', text: 'Đây là đoạn văn để luyện. Cứ gõ theo: chữ đúng sáng lên, chữ sai hiện đỏ, sai thì Backspace sửa lại.' },
     { id: 'practice-stats', mode: 'practice', move: 'talk', target: 'typing-stats', place: 'top', text: 'Dưới đây là số từ đã gõ và thời gian. Gõ xong, màn kết quả cho bạn WPM (số từ mỗi phút) và độ chính xác. Gõ đúng trước, tốc độ tự lên!' },
-    { id: 'practice-reward', mode: 'practice', move: 'talk', text: 'Mỗi ngày, phiên đầu tiên được tính giữ streak của bạn và mở quà: bấm Nhận để lấy xu. Streak càng dài, xu càng nhiều!' },
+    { id: 'practice-reward', mode: 'practice', move: 'talk', target: 'streak-reward', text: 'Đây là streak của bạn. Mỗi ngày, phiên đầu tiên được tính giữ streak và mở quà: bấm Nhận để lấy xu. Streak càng dài, xu càng nhiều!' },
     { id: 'practice-try', mode: 'practice', move: 'happy', text: 'Gõ thử vài từ đi. Xong thì bấm "Hiểu rồi" nhé.', next: 'Hiểu rồi' },
   ],
   placement: [

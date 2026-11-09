@@ -2,6 +2,7 @@ import { Gamepad2, RotateCcw, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
+import { StreakRewardBar } from '@/modules/profile/components/StreakRewardBar';
 import { useStartTutorial } from '@/modules/tutorial/hooks/use-tutorial';
 import { RankMode } from '@/modules/ranked/components/RankMode';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
@@ -258,6 +259,8 @@ export const TypingPage = () => {
           </div>
         </div>
       </div>
+      {/* The streak and today's reward (the daily challenge became this reward): Practice and Placement only, the page learners land on. */}
+      {!game && <StreakRewardBar />}
       {/* The placement leaderboard takes the sessions of 3 minutes only (US10.1): any other time can still be typed, it is just not ranked. */}
       {mode === 'placement' && !ranked && !minigames && timeSeconds !== SESSION_TIME_LIMIT_SECONDS && (
         <p role="status" className="text-center text-muted-foreground">

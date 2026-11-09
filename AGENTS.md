@@ -107,7 +107,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - The streak reward replaced the daily challenge (its `/api/daily`, card and board are gone; old data stays unread): today's
   first counted session makes it claimable, once, with `POST /api/profile/streak/reward` (`claimStreakReward`: one conditional
   update sets `rewardClaimedAt` and `rewardCoins` on today's `DailyProgress` row, so two claims pay once; coins
-  `streakRewardCoins` = 20 + 5 per streak day before today, at most 50). The result page asks with `StreakRewardDialog`.
+  `streakRewardCoins` = 20 + 5 per streak day before today, at most 50). The result page asks with `StreakRewardDialog`; Practice and Placement show the streak and today's reward
+  (what it gives, a claim button once due, or claimed) under the mode tabs with `StreakRewardBar`.
 - A learner's daily tasks (SCRUM-112) live in `UserDailyTasks` (`models/user-daily-tasks.model.ts`): one document per learner
   and local day, made by the day's first `GET /api/profile/daily-tasks` or counted session, with a snapshot of `dailyTaskCount`
   active `DailyTask` templates (weak error types first) and the numbers of the sessions already counted that day, cut in the

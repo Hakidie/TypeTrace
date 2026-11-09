@@ -33,6 +33,18 @@ vi.mock('@/modules/rain/api/rain.api', () => ({
   rainApi: { words: () => Promise.resolve({ words: ['nhà', 'cửa'], focus: [] }) },
 }));
 
+vi.mock('@/modules/profile/api/profile.api', () => ({
+  profileApi: {
+    getStreak: () =>
+      Promise.resolve({
+        current: 4,
+        longest: 4,
+        today: { date: '2026-11-09', sessions: 0, missionGoal: 1, missionCompleted: false, reward: { coins: 40, claimed: false } },
+      }),
+    claimStreakReward: vi.fn(),
+  },
+}));
+
 const startTutorial = vi.fn();
 vi.mock('@/modules/tutorial/api/tutorial.api', () => ({
   tutorialApi: { start: () => startTutorial(), update: vi.fn(), reset: vi.fn(), coach: vi.fn() },
@@ -290,6 +302,15 @@ describe('TypingPage', () => {
     // Tests load no CSS: the time tabs are hidden by the `hidden` class of their frame.
     expect(screen.getByRole('radiogroup', { name: 'Time', hidden: true }).parentElement).toHaveClass('hidden');
     expect(start).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('region', { name: 'Streak and daily reward' })).not.toBeInTheDocument();
+  });
+
+  it("shows the streak and today's reward in Practice, the page learners land on", async () => {
+    renderWithUrl('/typing');
+
+    const bar = await screen.findByRole('region', { name: 'Streak and daily reward' });
+    expect(bar).toHaveTextContent('4 ngày streak');
+    expect(bar).toHaveTextContent('40 xu');
   });
 
   it('opens the bot duel from its card', async () => {
