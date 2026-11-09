@@ -192,9 +192,9 @@ export const AdminUsersPage = () => {
       <ConfirmDialog
         open={granting !== undefined}
         onOpenChange={(open) => !open && setGranting(undefined)}
-        title="Cấp Premium"
-        description={`Số tháng được cộng nối vào ngày hết hạn hiện tại của ${granting?.email ?? ''} (từ hôm nay nếu họ chưa có Premium).`}
-        confirmLabel="Cấp"
+        title="Grant Premium"
+        description={`The months are added to the current expiry date of ${granting?.email ?? ''} (from today if they have no Premium).`}
+        confirmLabel="Grant"
         pending={grantPremium.isPending}
         confirmDisabled={!monthsValid}
         onConfirm={() => grantPremium.mutate({ id: granting!._id, months: monthsNumber }, { onSuccess: () => setGranting(undefined) })}
@@ -204,19 +204,19 @@ export const AdminUsersPage = () => {
           min={1}
           max={MAX_GRANT_MONTHS}
           step={1}
-          aria-label="Số tháng"
+          aria-label="Months"
           value={months}
           onChange={(event) => setMonths(event.target.value)}
         />
-        {!monthsValid && <p role="alert" className="text-sm text-destructive">Nhập số tháng từ 1 đến {MAX_GRANT_MONTHS}.</p>}
+        {!monthsValid && <p role="alert" className="text-sm text-destructive">Enter a number of months from 1 to {MAX_GRANT_MONTHS}.</p>}
       </ConfirmDialog>
 
       <ConfirmDialog
         open={revoking !== undefined}
         onOpenChange={(open) => !open && setRevoking(undefined)}
-        title="Thu hồi Premium?"
-        description={`${revoking?.email ?? ''} về gói Free ngay bây giờ. Passage vượt hạn mức của gói Free sẽ bị khóa, dữ liệu không mất.`}
-        confirmLabel="Thu hồi"
+        title="Revoke Premium?"
+        description={`${revoking?.email ?? ''} goes back to the Free plan now. Passages over the Free limit get locked; nothing is deleted.`}
+        confirmLabel="Revoke"
         destructive
         pending={revokePremium.isPending}
         onConfirm={() => revokePremium.mutate(revoking!._id, { onSuccess: () => setRevoking(undefined) })}

@@ -277,7 +277,7 @@ describe('PassagesPage', () => {
     renderPage();
 
     const card = (await screen.findByRole('heading', { name: 'Hà Nội vào thu' })).closest<HTMLElement>('[role="article"]')!;
-    expect(within(card).getByText('Bị khóa')).toBeInTheDocument();
+    expect(within(card).getByText('Locked')).toBeInTheDocument();
     expect(card).toHaveClass('opacity-60');
     expect(screen.queryByRole('link', { name: 'Practice Hà Nội vào thu' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit Hà Nội vào thu' })).not.toBeInTheDocument();

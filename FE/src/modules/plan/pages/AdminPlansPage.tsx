@@ -11,6 +11,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
+import { SubscriptionList } from '../components/SubscriptionList';
 import { useAdminPlans, usePreviewPlans, useSavePlans } from '../hooks/use-admin-plans';
 import type { LockPreview, PlansConfig } from '../types/plan.types';
 
@@ -53,22 +54,25 @@ const PlansForm = ({ plans }: { plans: PlansConfig }) => {
     preview.mutate(values, { onSuccess: (lock) => (lock.lockedUsers > 0 ? setPending({ values, lock }) : saveValues(values)) }),
   );
 
+  const users = pending?.lock.lockedUsers ?? 0;
+  const passages = pending?.lock.lockedPassages ?? 0;
+
   return (
     <form onSubmit={submit} className="space-y-6" noValidate>
       <div className="grid gap-6 md:grid-cols-2">
         {PLANS.map(({ key, name }) => (
           <fieldset key={key} className="space-y-4 border border-border p-4">
-            <legend className="px-2 text-xl font-bold text-primary">{`Gói ${name}`}</legend>
-            <FormField id={`${key}-price`} label={`Giá theo tháng (${name})`} error={errors[key]?.priceVnd?.message} hint="VND">
+            <legend className="px-2 text-xl font-bold text-primary">{`${name} plan`}</legend>
+            <FormField id={`${key}-price`} label={`Monthly price (${name})`} error={errors[key]?.priceVnd?.message} hint="VND">
               <Input id={`${key}-price`} type="number" min={0} step={1} {...register(`${key}.priceVnd`, { valueAsNumber: true })} />
             </FormField>
-            <FormField id={`${key}-max`} label={`Hạn mức passage (${name})`} error={errors[key]?.maxPassages?.message}>
+            <FormField id={`${key}-max`} label={`Passage limit (${name})`} error={errors[key]?.maxPassages?.message}>
               <Input id={`${key}-max`} type="number" min={0} step={1} {...register(`${key}.maxPassages`, { valueAsNumber: true })} />
             </FormField>
             {(
               [
-                ['canCreateErrorPractice', 'Tạo bài luyện theo lỗi'],
-                ['canUsePublicPassages', 'Luyện passage công khai của người khác'],
+                ['canCreateErrorPractice', 'Create error practice'],
+                ['canUsePublicPassages', 'Practice public passages of other learners'],
               ] as const
             ).map(([field, label]) => (
               <div key={field} className="flex items-center justify-between gap-4">
@@ -86,15 +90,15 @@ const PlansForm = ({ plans }: { plans: PlansConfig }) => {
         ))}
       </div>
       <Button type="submit" disabled={preview.isPending || save.isPending}>
-        Lưu
+        Save
       </Button>
 
       <ConfirmDialog
         open={pending !== undefined}
         onOpenChange={(open) => !open && setPending(undefined)}
-        title="Lưu thay đổi?"
-        description={`${pending?.lock.lockedUsers ?? 0} user sẽ bị khóa passage (${pending?.lock.lockedPassages ?? 0} passage). Dữ liệu không mất: passage mở lại khi họ mua Premium hoặc khi bạn tăng hạn mức.`}
-        confirmLabel="Lưu"
+        title="Save changes?"
+        description={`${users} ${users === 1 ? 'user' : 'users'} will have passages locked (${passages} ${passages === 1 ? 'passage' : 'passages'}). Nothing is deleted: passages open again when they buy Premium or when you raise the limit.`}
+        confirmLabel="Save"
         pending={save.isPending}
         onConfirm={() => pending && saveValues(pending.values)}
       />
@@ -102,15 +106,21 @@ const PlansForm = ({ plans }: { plans: PlansConfig }) => {
   );
 };
 
-/** The Free and Premium plans: price, passage limit and the two permissions (US11.1). Saving first warns how many users would lose access to passages. */
+/**
+ * The plans page (US11.1) in two panels without title, padding, border or background: the cards of the Free and Premium plans (price, passage limit and the
+ * two permissions; saving first warns how many users would lose access to passages), and under them the list of every plan change of every user.
+ */
 export const AdminPlansPage = () => {
   const plans = useAdminPlans();
 
   return (
-    <Panel title="Gói Free và Premium" description="Giá, hạn mức passage và quyền của từng gói.">
-      {plans.isPending && <LoadingState rows={3} />}
-      {plans.isError && <ErrorState error={plans.error} onRetry={() => void plans.refetch()} />}
-      {plans.data && <PlansForm plans={plans.data} />}
-    </Panel>
+    <div className="space-y-8">
+      <Panel bare>
+        {plans.isPending && <LoadingState rows={3} />}
+        {plans.isError && <ErrorState error={plans.error} onRetry={() => void plans.refetch()} />}
+        {plans.data && <PlansForm plans={plans.data} />}
+      </Panel>
+      <SubscriptionList />
+    </div>
   );
 };

@@ -11,7 +11,7 @@ const formatDay = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { t
 const Permission = ({ label, allowed }: { label: string; allowed: boolean }) => (
   <li className="flex items-center justify-between gap-4">
     <span>{label}</span>
-    <span className={allowed ? 'font-semibold text-primary' : 'text-muted-foreground'}>{allowed ? 'Có' : 'Không'}</span>
+    <span className={allowed ? 'font-semibold text-primary' : 'text-muted-foreground'}>{allowed ? 'Yes' : 'No'}</span>
   </li>
 );
 
@@ -28,21 +28,21 @@ export const PlanDialog = ({ open, onOpenChange }: PlanDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogTitle className="text-2xl font-bold">{plan ? `Gói ${PLAN_NAMES[plan.plan]}` : 'Gói của bạn'}</DialogTitle>
+        <DialogTitle className="text-2xl font-bold">{plan ? `${PLAN_NAMES[plan.plan]} plan` : 'Your plan'}</DialogTitle>
         {query.isPending && <LoadingState rows={3} />}
         {query.isError && <ErrorState error={query.error} onRetry={() => void query.refetch()} />}
         {plan && (
           <>
             <DialogDescription>
-              {plan.expiresAt ? `Hết hạn ngày ${formatDay(plan.expiresAt)}` : 'Gói miễn phí, không có ngày hết hạn.'}
+              {plan.expiresAt ? `Expires on ${formatDay(plan.expiresAt)}` : 'Free plan, no expiry date.'}
             </DialogDescription>
             <div className="flex items-center justify-between gap-4">
-              <span>Passage của bạn</span>
+              <span>Your passages</span>
               <span className="font-semibold text-primary">{`${plan.usedPassages}/${plan.maxPassages}`}</span>
             </div>
             <ul className="space-y-2 text-base">
-              <Permission label="Tạo bài luyện theo lỗi" allowed={plan.canCreateErrorPractice} />
-              <Permission label="Luyện passage công khai của người khác" allowed={plan.canUsePublicPassages} />
+              <Permission label="Create error practice" allowed={plan.canCreateErrorPractice} />
+              <Permission label="Practice public passages of other learners" allowed={plan.canUsePublicPassages} />
             </ul>
           </>
         )}

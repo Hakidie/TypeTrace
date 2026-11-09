@@ -282,7 +282,7 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
               <LabeledTag icon={Languages} text="Vietnamese" hint="Vietnamese passage, for practice and the placement test" />
             )}
             {review && full?.pendingEdit && <LabeledTag icon={PencilLine} text="Edited" />}
-            {own && learner.locked && <LabeledTag icon={Lock} text="Bị khóa" hint="Quá hạn mức của gói: nâng cấp lên Premium hoặc xóa bớt passage để mở lại" />}
+            {own && learner.locked && <LabeledTag icon={Lock} text="Locked" hint="Over your plan's limit: upgrade to Premium or delete some passages to open it again" />}
             {own ? (
               own.onShowReason && learner.reviewNote ? (
                 <Badge asChild className={chipClass}>

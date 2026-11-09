@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { PLAN_IDS } from '../models/subscription.model';
+import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 
 const planConfigSchema = z.object({
   priceVnd: z.number().int('Use a whole number').min(0, 'At least 0'),
@@ -24,3 +26,17 @@ export const grantPremiumSchema = z.object({
 });
 
 export type GrantPremiumInput = z.infer<typeof grantPremiumSchema>;
+
+/** `GET /api/admin/subscriptions`: the plan changes of all users. */
+export const listSubscriptionsQuerySchema = paginationQuerySchema.extend({
+  /** Text searched in the user's display name and email. */
+  q: z.string().trim().max(100).optional(),
+  plan: z.enum(PLAN_IDS).optional(),
+  /** How it was paid for: `none` is every row that was not a payment. VNPay, MoMo... are added here when US11.2 and US11.3 record the method. */
+  method: z.enum(['none']).optional(),
+  /** Who made the change: an admin, or the system (sign-up, expiry, a payment, the migration script). */
+  by: z.enum(['admin', 'system']).optional(),
+  sort: sortSchema(['createdAt', 'startsAt', 'expiresAt'])
+});
+
+export type ListSubscriptionsQuery = z.infer<typeof listSubscriptionsQuerySchema>;

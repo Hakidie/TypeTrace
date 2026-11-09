@@ -627,11 +627,11 @@ describe('TypingPage', () => {
 
     // A passage of another learner on the Free plan: the plan opens instead of the session.
     await user.click(await screen.findByRole('menuitemradio', { name: /Của người khác.*Premium/ }));
-    expect(await screen.findByText('Gói Free')).toBeInTheDocument();
+    expect(await screen.findByText('Free plan')).toBeInTheDocument();
     // A passage past the owner's limit: nothing happens.
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Choose passage' }));
-    const locked = await screen.findByRole('menuitemradio', { name: /Quá hạn mức.*Bị khóa/ });
+    const locked = await screen.findByRole('menuitemradio', { name: /Quá hạn mức.*Locked/ });
     expect(locked).toHaveAttribute('aria-disabled', 'true');
     await user.click(locked);
 

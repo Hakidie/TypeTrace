@@ -7,7 +7,7 @@ const LABELS = { free: 'Free', premium: 'Premium' } as const;
 
 /**
  * The learner's plan as a badge next to their name (Free or Premium). It opens `PlanDialog`. Nothing shows while the plan
- * loads; when it cannot load the badge reads "Gói" and the dialog shows the error.
+ * loads; when it cannot load the badge reads "Plan" and the dialog shows the error.
  */
 export const PlanBadge = () => {
   const { data, isPending } = usePlan();
@@ -19,7 +19,7 @@ export const PlanBadge = () => {
     <>
       <Badge asChild variant={data?.plan === 'premium' ? 'default' : 'outline'}>
         <button type="button" onClick={() => setOpen(true)} className="shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {data ? LABELS[data.plan] : 'Gói'}
+          {data ? LABELS[data.plan] : 'Plan'}
         </button>
       </Badge>
       {/* Mounted only while open: its own `usePlan` would otherwise ask again as soon as the badge shows an error. */}

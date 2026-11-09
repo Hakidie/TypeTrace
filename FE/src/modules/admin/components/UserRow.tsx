@@ -27,9 +27,9 @@ interface UserRowProps {
   /** The plan now (US11.1), shown as a tag; Premium also shows the day it ends. */
   plan?: 'free' | 'premium';
   planExpiresAt?: string | null;
-  /** Adds a "Cấp Premium" entry. */
+  /** Adds a "Grant Premium" entry. */
   onGrantPremium?: (user: CurrentUser) => void;
-  /** Adds a "Thu hồi Premium" entry (only for a user on Premium). */
+  /** Adds a "Revoke Premium" entry (only for a user on Premium). */
   onRevokePremium?: (user: CurrentUser) => void;
 }
 
@@ -84,13 +84,13 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
           {onGrantPremium && (
             <DropdownMenuItem className="gap-2" onClick={() => onGrantPremium(user)}>
               <Gem className="size-4" />
-              Cấp Premium
+              Grant Premium
             </DropdownMenuItem>
           )}
           {onRevokePremium && plan === 'premium' && (
             <DropdownMenuItem className="gap-2" onClick={() => onRevokePremium(user)}>
               <Crown className="size-4" />
-              Thu hồi Premium
+              Revoke Premium
             </DropdownMenuItem>
           )}
           {onDelete && (

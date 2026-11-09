@@ -62,7 +62,7 @@ export const useGrantPremium = () => {
   return useMutation({
     mutationFn: ({ id, months }: { id: string; months: number }) => adminApi.grantPremium(id, months),
     onSuccess: () => {
-      toast.success('Đã cấp Premium.');
+      toast.success('Premium granted.');
       return queryClient.invalidateQueries({ queryKey: adminKeys.all });
     },
   });
@@ -73,7 +73,7 @@ export const useRevokePremium = () => {
   return useMutation({
     mutationFn: (id: string) => adminApi.revokePremium(id),
     onSuccess: () => {
-      toast.success('Đã thu hồi Premium.');
+      toast.success('Premium revoked.');
       return queryClient.invalidateQueries({ queryKey: adminKeys.all });
     },
   });

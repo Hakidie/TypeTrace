@@ -32,11 +32,11 @@ describe('PlanBadge', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Free' }));
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Gói Free')).toBeInTheDocument();
+    expect(screen.getByText('Free plan')).toBeInTheDocument();
     expect(screen.getByText('8/9')).toBeInTheDocument();
-    expect(screen.getByText(/Tạo bài luyện theo lỗi/).closest('li')).toHaveTextContent('Không');
-    expect(screen.getByText(/Luyện passage công khai của người khác/).closest('li')).toHaveTextContent('Không');
-    expect(screen.queryByText(/Hết hạn/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Create error practice/).closest('li')).toHaveTextContent('No');
+    expect(screen.getByText(/Practice public passages of other learners/).closest('li')).toHaveTextContent('No');
+    expect(screen.queryByText(/Expires on/)).not.toBeInTheDocument();
   });
 
   it('shows Premium with its expiry date and the permissions it gives', async () => {
@@ -53,18 +53,18 @@ describe('PlanBadge', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Premium' }));
 
-    expect(await screen.findByText('Gói Premium')).toBeInTheDocument();
-    expect(screen.getByText('Hết hạn ngày 15/02/2026')).toBeInTheDocument();
+    expect(await screen.findByText('Premium plan')).toBeInTheDocument();
+    expect(screen.getByText('Expires on 15/02/2026')).toBeInTheDocument();
     expect(screen.getByText('12/90')).toBeInTheDocument();
-    expect(screen.getByText(/Tạo bài luyện theo lỗi/).closest('li')).toHaveTextContent('Có');
-    expect(screen.getByText(/Luyện passage công khai của người khác/).closest('li')).toHaveTextContent('Có');
+    expect(screen.getByText(/Create error practice/).closest('li')).toHaveTextContent('Yes');
+    expect(screen.getByText(/Practice public passages of other learners/).closest('li')).toHaveTextContent('Yes');
   });
 
   it('shows an error state when the plan cannot be loaded', async () => {
     getPlan.mockRejectedValue(new Error('boom'));
     renderWithProviders(<PlanBadge />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Gói' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Plan' }));
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });

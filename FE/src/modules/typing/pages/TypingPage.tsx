@@ -78,7 +78,7 @@ const PassageMenu = ({
           {(passage.locked || passage.lockedByPlan) && (
             <span className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
               <Lock className="size-3.5" aria-hidden />
-              {passage.locked ? 'Bị khóa' : 'Premium'}
+              {passage.locked ? 'Locked' : 'Premium'}
             </span>
           )}
           <span className="ml-auto shrink-0 pl-4 text-sm text-muted-foreground">{passage.wordCount} words</span>

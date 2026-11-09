@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 // Opens the kebab menu of a user card and picks one of its entries.
-const pickAction = async (email: string, action: 'Edit' | 'Disable' | 'Enable' | 'Delete' | 'Cấp Premium' | 'Thu hồi Premium') => {
+const pickAction = async (email: string, action: 'Edit' | 'Disable' | 'Enable' | 'Delete' | 'Grant Premium' | 'Revoke Premium') => {
   const cards = await screen.findByLabelText('User cards');
   fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${email}` }));
   fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
@@ -302,14 +302,14 @@ describe('AdminUsersPage', () => {
   it('grants premium for the months typed after confirmation', async () => {
     grantPremium.mockResolvedValue({ plan: 'premium', expiresAt: '2026-03-15T00:00:00.000Z' });
     renderPage();
-    await pickAction('lan@example.com', 'Cấp Premium');
+    await pickAction('lan@example.com', 'Grant Premium');
 
     const dialog = await screen.findByRole('dialog');
-    const months = within(dialog).getByLabelText('Số tháng');
+    const months = within(dialog).getByLabelText('Months');
     fireEvent.change(months, { target: { value: '0' } });
-    expect(within(dialog).getByRole('button', { name: 'Cấp' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Grant' })).toBeDisabled();
     fireEvent.change(months, { target: { value: '3' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cấp' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Grant' }));
 
     await waitFor(() => expect(grantPremium).toHaveBeenCalledWith('u1', 3));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -322,11 +322,11 @@ describe('AdminUsersPage', () => {
 
     const cards = await screen.findByLabelText('User cards');
     fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
-    expect(within(cards).queryByRole('menuitem', { name: 'Thu hồi Premium' })).not.toBeInTheDocument();
+    expect(within(cards).queryByRole('menuitem', { name: 'Revoke Premium' })).not.toBeInTheDocument();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
 
-    await pickAction('lan@example.com', 'Thu hồi Premium');
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Thu hồi' }));
+    await pickAction('lan@example.com', 'Revoke Premium');
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Revoke' }));
 
     await waitFor(() => expect(revokePremium).toHaveBeenCalledWith('u1'));
   });
