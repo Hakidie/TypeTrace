@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { planKeys } from '@/modules/plan/hooks/use-plan';
 import { typingKeys } from '@/modules/typing/hooks/use-typing';
 import { getApiErrorBody, getApiErrorMessage } from '@/shared/api/api-error';
 import { learnerPassagesApi } from '../api/learner-passages.api';
@@ -35,6 +36,8 @@ const useRefreshPassages = () => {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: learnerPassageKeys.all }),
       queryClient.invalidateQueries({ queryKey: typingKeys.all }),
+      // The number used of the plan's limit changed.
+      queryClient.invalidateQueries({ queryKey: planKeys.all }),
     ]);
 };
 

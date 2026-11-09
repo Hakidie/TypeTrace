@@ -1,9 +1,10 @@
-import { Gamepad2, RotateCcw, Trophy } from 'lucide-react';
+import { Gamepad2, Lock, RotateCcw, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
 import { useStartTutorial } from '@/modules/tutorial/hooks/use-tutorial';
 import { RankMode } from '@/modules/ranked/components/RankMode';
+import { PlanDialog } from '@/modules/plan/components/PlanDialog';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -41,7 +42,18 @@ const defaultTimeOf = (mode: SessionMode): { unit: TimeUnit; index: number } =>
   mode === 'placement' ? { unit: 'min', index: 0 } : { unit: 'sec', index: 1 };
 
 /** The passages to choose from for `mode`; the picked one is red. It is only mounted while the menu is open, so the list is fetched when the learner opens it. */
-const PassageMenu = ({ mode, selectedId, onSelect }: { mode: SessionMode; selectedId?: string; onSelect: (id: string) => void }) => {
+const PassageMenu = ({
+  mode,
+  selectedId,
+  onSelect,
+  onNeedPremium,
+}: {
+  mode: SessionMode;
+  selectedId?: string;
+  onSelect: (id: string) => void;
+  /** Called for a passage the plan does not allow (US11.1): the page opens the plan instead of starting it. */
+  onNeedPremium: () => void;
+}) => {
   const { data, isLoading, isError } = usePassageOptions(mode);
   if (isLoading) return <p className="px-2 py-1.5 text-base text-muted-foreground">Loading…</p>;
   if (isError) return <p className="px-2 py-1.5 text-base text-destructive">Could not load passages</p>;
@@ -53,10 +65,22 @@ const PassageMenu = ({ mode, selectedId, onSelect }: { mode: SessionMode; select
           key={passage._id}
           role="menuitemradio"
           aria-checked={passage._id === selectedId}
-          className={cn('gap-2', passage._id === selectedId && 'text-primary')}
-          onClick={() => onSelect(passage._id)}
+          // A passage past the owner's limit cannot be picked; one locked by the plan opens the plan (US11.1).
+          aria-disabled={passage.locked ? true : undefined}
+          className={cn('gap-2', passage._id === selectedId && 'text-primary', (passage.locked || passage.lockedByPlan) && 'opacity-60')}
+          onClick={(event) => {
+            if (passage.locked) return event.preventDefault();
+            if (passage.lockedByPlan) return onNeedPremium();
+            onSelect(passage._id);
+          }}
         >
           <span className="truncate">{passage.title}</span>
+          {(passage.locked || passage.lockedByPlan) && (
+            <span className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+              <Lock className="size-3.5" aria-hidden />
+              {passage.locked ? 'Bị khóa' : 'Premium'}
+            </span>
+          )}
           <span className="ml-auto shrink-0 pl-4 text-sm text-muted-foreground">{passage.wordCount} words</span>
         </DropdownMenuItem>
       ))}
@@ -91,6 +115,8 @@ export const TypingPage = () => {
   const pageRef = useRef<HTMLDivElement>(null);
   // Asks before the placement test when the learner picks the Placement tab. Cancel (or closing it) stays in practice.
   const [placementPrompt, setPlacementPrompt] = useState({ open: false });
+  // The plan (US11.1), opened by a passage the plan does not allow.
+  const [planOpen, setPlanOpen] = useState(false);
   // A learner who has just created their account starts Ping's tour (it brings the placement test in its turn), once:
   // the state leaves the history entry at once, so a reload or Back does not start it again.
   const { mutate: startTutorial } = useStartTutorial();
@@ -214,7 +240,7 @@ export const TypingPage = () => {
             </div>
             {/* The page theme tints --color-background; the menu keeps the normal one, like the Sort and Filter menus. */}
             <DropdownMenuContent role="menu" aria-label="Passages" className="max-h-72 w-full min-w-0 overflow-y-auto [--color-background:var(--background)]">
-              <PassageMenu mode={mode} selectedId={passageId} onSelect={pick} />
+              <PassageMenu mode={mode} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
             </DropdownMenuContent>
           </DropdownMenu>
           )}
@@ -281,6 +307,7 @@ export const TypingPage = () => {
           setSearchParams({ mode: 'placement' });
         }}
       />
+      {planOpen && <PlanDialog open onOpenChange={setPlanOpen} />}
       {minigames ? (
         <MinigamesMode
           game={minigame}

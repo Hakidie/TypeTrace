@@ -13,6 +13,7 @@ const update = vi.fn();
 const remove = vi.fn();
 const requestPublic = vi.fn();
 const withdrawRequest = vi.fn();
+const getPlan = vi.fn();
 
 vi.mock('../api/learner-passages.api', () => ({
   learnerPassagesApi: {
@@ -25,6 +26,8 @@ vi.mock('../api/learner-passages.api', () => ({
     withdrawRequest: (id: string) => withdrawRequest(id),
   },
 }));
+
+vi.mock('@/modules/plan/api/plan.api', () => ({ planApi: { get: () => getPlan() } }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -56,9 +59,11 @@ const mine = {
 
 const page = (items: unknown[], total = items.length) => ({ items, page: 1, limit: 6, total, totalPages: 1 });
 
-/** The page asks twice: for the list itself, and for the number of the learner's own passages (`limit: 1`). */
-const answer = ({ items = [mine, approvedMine], own = 1 }: { items?: unknown[]; own?: number } = {}) =>
-  list.mockImplementation(async (params: { limit?: number }) => (params.limit === 1 ? page([mine], own) : page(items)));
+/** The list itself, and the plan (US11.1) that says how many own passages there are and how many may be added. */
+const answer = ({ items = [mine, approvedMine], own = 1, max = 9 }: { items?: unknown[]; own?: number; max?: number } = {}) => {
+  list.mockImplementation(async () => page(items));
+  getPlan.mockResolvedValue({ plan: 'free', expiresAt: null, maxPassages: max, usedPassages: own, canUsePublicPassages: false, canCreateErrorPractice: false });
+};
 
 const twentyWords = Array.from({ length: 20 }, (_, index) => `chữ${index}`).join(' ');
 
@@ -72,6 +77,7 @@ beforeEach(() => {
   remove.mockReset();
   requestPublic.mockReset();
   withdrawRequest.mockReset();
+  getPlan.mockReset();
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
   answer();
@@ -110,7 +116,7 @@ describe('PassagesPage', () => {
     renderPage();
     await screen.findByText('Hà Nội vào thu');
 
-    list.mockImplementation(async (params: { limit?: number }) => (params.limit === 1 ? page([mine], 1) : page([])));
+    list.mockImplementation(async () => page([]));
     await user.type(screen.getByLabelText('Search passages'), 'thu{Enter}');
     await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, q: 'thu', visibility: undefined, mine: true })));
     expect(await screen.findByText('No matching passages')).toBeInTheDocument();
@@ -129,8 +135,7 @@ describe('PassagesPage', () => {
 
   it('shows the backend error with a retry button', async () => {
     let fail = true;
-    list.mockImplementation(async (params: { limit?: number }) => {
-      if (params.limit === 1) return page([mine], 1);
+    list.mockImplementation(async () => {
       if (fail) throw { response: { status: 500, data: { message: 'Database offline' } } };
       return page([approvedMine]);
     });
@@ -246,17 +251,38 @@ describe('PassagesPage', () => {
     expect(screen.getByLabelText('Content')).toHaveValue(twentyWords);
   });
 
-  it('counts the own passages and stops adding at 20', async () => {
+  it('counts the own passages and stops adding at the limit of the plan', async () => {
     answer({ own: 3 });
     const { unmount } = renderPage();
-    expect(await screen.findByText('Your passages: 3/20')).toBeInTheDocument();
+    expect(await screen.findByText('Your passages: 3/9')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add passage' })).toBeEnabled();
     unmount();
 
-    answer({ own: 20 });
+    answer({ own: 9 });
     renderPage();
-    expect(await screen.findByText('Your passages: 20/20. Delete one to add another.')).toBeInTheDocument();
+    expect(await screen.findByText('Your passages: 9/9. Delete one to add another.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add passage' })).toBeDisabled();
+  });
+
+  it('shows the limit of the plan, not a fixed number', async () => {
+    answer({ own: 12, max: 90 });
+    renderPage();
+
+    expect(await screen.findByText('Your passages: 12/90')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add passage' })).toBeEnabled();
+  });
+
+  it('dims a locked own passage, labels it and still lets the learner delete it, even when it is public', async () => {
+    answer({ items: [{ ...approvedMine, locked: true }, mine] });
+    renderPage();
+
+    const card = (await screen.findByRole('heading', { name: 'Hà Nội vào thu' })).closest<HTMLElement>('[role="article"]')!;
+    expect(within(card).getByText('Bị khóa')).toBeInTheDocument();
+    expect(card).toHaveClass('opacity-60');
+    expect(screen.queryByRole('link', { name: 'Practice Hà Nội vào thu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit Hà Nội vào thu' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete Hà Nội vào thu' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Practice Bài của tôi' })).toBeInTheDocument();
   });
 
   it('deletes an own passage after confirmation', async () => {
@@ -282,7 +308,6 @@ describe('PassagesPage', () => {
     });
     // 7 passages: page 2 holds only `mine`. Once it is deleted, 6 are left and all fit on page 1.
     list.mockImplementation(async (params: { limit?: number; page?: number }) => {
-      if (params.limit === 1) return page([mine], deleted ? 0 : 1);
       const total = deleted ? 6 : 7;
       const totalPages = Math.ceil(total / 6);
       if (params.page === 2) return { items: deleted ? [] : [mine], page: 2, limit: 6, total, totalPages };
@@ -300,9 +325,13 @@ describe('PassagesPage', () => {
 
   it('pages through the own passages 6 at a time, with the pages at the bottom right', async () => {
     const user = userEvent.setup();
-    list.mockImplementation(async (params: { limit?: number; page?: number }) =>
-      params.limit === 1 ? page([mine], 1) : { items: [params.page === 2 ? approvedMine : mine], page: params.page ?? 1, limit: 6, total: 7, totalPages: 2 },
-    );
+    list.mockImplementation(async (params: { limit?: number; page?: number }) => ({
+      items: [params.page === 2 ? approvedMine : mine],
+      page: params.page ?? 1,
+      limit: 6,
+      total: 7,
+      totalPages: 2,
+    }));
     renderPage();
 
     const pages = await screen.findByRole('navigation', { name: 'Pagination' });

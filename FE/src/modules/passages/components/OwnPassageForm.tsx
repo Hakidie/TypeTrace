@@ -10,7 +10,6 @@ import { useAddOwnPassage, useUpdateOwnPassage } from '../hooks/use-learner-pass
 import { cleanPassageText } from '../lib/passage-text';
 import {
   countWords,
-  MAX_OWN_PASSAGES,
   MAX_PASSAGE_WORDS,
   MIN_OWN_PASSAGE_WORDS,
   PASSAGE_CONTENT_MAX,
@@ -54,8 +53,9 @@ const FieldError = ({ message }: { message?: string }) =>
   ) : null;
 
 interface OwnPassageFormProps {
-  /** How many passages of their own the learner has (unknown while loading); adding stops at `MAX_OWN_PASSAGES`. */
+  /** How many passages of their own the learner has and how many their plan allows (unknown while loading); adding stops at the limit. */
   ownCount?: number;
+  maxCount?: number;
   /** The passage to edit, with its text. Without it the form adds a new passage. */
   passage?: OwnPassage;
   /** Edit mode: called after a successful update and by the Cancel button. */
@@ -66,7 +66,7 @@ interface OwnPassageFormProps {
  * Where a learner pastes (or types) a text of their own to practice. It is saved private and can be typed at once. With
  * `passage` it edits that passage instead, like the admin `PassageForm`; remount it (`key`) to switch passage.
  */
-export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProps) => {
+export const OwnPassageForm = ({ ownCount, maxCount, passage, onDone }: OwnPassageFormProps) => {
   const addPassage = useAddOwnPassage();
   const updatePassage = useUpdateOwnPassage();
   const isPending = addPassage.isPending || updatePassage.isPending;
@@ -76,7 +76,7 @@ export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProp
   });
   // Counted as it will be saved.
   const content = cleanPassageText(useWatch({ control, name: 'content' }));
-  const full = !passage && ownCount !== undefined && ownCount >= MAX_OWN_PASSAGES;
+  const full = !passage && ownCount !== undefined && maxCount !== undefined && ownCount >= maxCount;
 
   const submit = handleSubmit((input) => {
     if (passage) {
@@ -123,9 +123,9 @@ export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProp
         </p>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          {!passage && ownCount !== undefined && (
+          {!passage && ownCount !== undefined && maxCount !== undefined && (
             <p className="text-base text-muted-foreground">
-              Your passages: {ownCount}/{MAX_OWN_PASSAGES}
+              Your passages: {ownCount}/{maxCount}
               {full && '. Delete one to add another.'}
             </p>
           )}

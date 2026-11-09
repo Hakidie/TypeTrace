@@ -1,6 +1,7 @@
 import { FileText } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
+import { usePlan } from '@/modules/plan/hooks/use-plan';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -56,8 +57,8 @@ export const PassagesPage = () => {
     visibility: visibility || undefined,
     mine: true,
   });
-  // Only its total is used: how many passages of their own the learner has.
-  const own = useLearnerPassages({ visibility: 'private', limit: 1 });
+  // How many passages of their own the learner has and how many their plan allows (US11.1).
+  const plan = usePlan();
   // The author everyone sees once a passage is approved: the display name, else ANONYMOUS_OWNER_NAME (never the email).
   const displayName = useCurrentUser().data?.displayName?.trim();
   const deletePassage = useDeleteOwnPassage();
@@ -82,7 +83,7 @@ export const PassagesPage = () => {
   const stopEditing = (id: string) => setEditingId((current) => (current === id ? undefined : current));
 
   const renderForm = () => {
-    if (!editingId) return <OwnPassageForm key="new" ownCount={own.data?.total} />;
+    if (!editingId) return <OwnPassageForm key="new" ownCount={plan.data?.usedPassages} maxCount={plan.data?.maxPassages} />;
     if (editing.isPending) return <LoadingState rows={2} />;
     if (editing.isError) return <ErrorState error={editing.error} onRetry={() => void editing.refetch()} />;
     // `key` remounts the form, so it starts from the passage being edited.
@@ -120,15 +121,17 @@ export const PassagesPage = () => {
             const ownPrivate = passage.isOwn && passage.visibility === 'private';
             const ownPublic = passage.isOwn && passage.visibility === 'public';
             const waiting = passage.status === 'pending';
+            // Past the limit of the plan: nothing but deleting, public or not (it is the way to get a place back).
+            const locked = passage.locked === true;
             return (
               <PassageCard
                 key={passage._id}
                 passage={passage}
                 own={{
-                  onEdit: (ownPrivate && !waiting) || ownPublic ? startEditing : undefined,
-                  onDelete: ownPrivate ? setDeleting : undefined,
-                  onRequestPublic: ownPrivate && !waiting ? setRequesting : undefined,
-                  onWithdraw: (ownPrivate && waiting) || (ownPublic && passage.editPending) ? (target) => withdrawRequest.mutate(target._id) : undefined,
+                  onEdit: !locked && ((ownPrivate && !waiting) || ownPublic) ? startEditing : undefined,
+                  onDelete: ownPrivate || locked ? setDeleting : undefined,
+                  onRequestPublic: !locked && ownPrivate && !waiting ? setRequesting : undefined,
+                  onWithdraw: !locked && ((ownPrivate && waiting) || (ownPublic && passage.editPending)) ? (target) => withdrawRequest.mutate(target._id) : undefined,
                   onShowReason: setReasonOf,
                 }}
               />
