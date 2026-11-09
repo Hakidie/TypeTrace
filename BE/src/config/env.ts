@@ -35,7 +35,11 @@ const envSchema = z
     OPENAI_API_KEY: optionalString,
     // Optional. OAuth client ID for "Login with Google" (https://console.cloud.google.com/apis/credentials).
     GOOGLE_CLIENT_ID: optionalString,
-    OPENAI_MODEL: z.string().trim().min(1).default('gpt-4.1-mini')
+    OPENAI_MODEL: z.string().trim().min(1).default('gpt-4.1-mini'),
+    // Optional. VNPay payment gateway (sandbox: https://sandbox.vnpayment.vn/merchantv2/). Without them, payments answer 503.
+    VNP_TMN_CODE: optionalString,
+    VNP_HASH_SECRET: optionalString,
+    VNP_URL: z.string().trim().min(1).default('https://sandbox.vnpayment.vn/paymentv2/vpcpay.html')
   })
   .superRefine((value, ctx) => {
     const weakSecret = value.JWT_SECRET === PLACEHOLDER_JWT_SECRET || value.JWT_SECRET.length < 32;
@@ -80,7 +84,10 @@ export const parseEnv = (raw: RawEnv) => {
     cloudinaryApiSecret: v.CLOUDINARY_API_SECRET,
     openaiApiKey: v.OPENAI_API_KEY,
     googleClientId: v.GOOGLE_CLIENT_ID,
-    openaiModel: v.OPENAI_MODEL
+    openaiModel: v.OPENAI_MODEL,
+    vnpTmnCode: v.VNP_TMN_CODE,
+    vnpHashSecret: v.VNP_HASH_SECRET,
+    vnpUrl: v.VNP_URL
   };
 };
 

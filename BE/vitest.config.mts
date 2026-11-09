@@ -21,7 +21,9 @@ export default defineConfig({
       CLOUDINARY_API_SECRET: 'test-secret',
       OPENAI_API_KEY: 'test-openai-key',
       OPENAI_MODEL: 'test-model',
-      GOOGLE_CLIENT_ID: 'test-google-client-id'
+      GOOGLE_CLIENT_ID: 'test-google-client-id',
+      VNP_TMN_CODE: 'TESTCODE',
+      VNP_HASH_SECRET: 'test-vnpay-secret'
     },
     globalSetup: ['./tests/setup/download-mongod.ts'],
     setupFiles: ['./tests/setup/mock-external-services.ts', './tests/setup/in-memory-database.ts'],

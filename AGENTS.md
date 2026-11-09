@@ -54,7 +54,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run gen:module -- <name> --remove` | Delete a generated feature again |
 
 Optional services: without SMTP, emails (OTP and reset codes) are printed in the backend terminal in development and
-answer 503 in production; without Cloudinary, image upload answers 503; without `OPENAI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden.
+answer 503 in production; without Cloudinary, image upload answers 503; without `OPENAI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden; without `VNP_TMN_CODE` / `VNP_HASH_SECRET` (BE, `VNP_URL` defaults to the VNPay sandbox), payments answer 503.
 Everything else keeps working. `npm run seed` refuses `NODE_ENV=production`. Behind a proxy set `TRUST_PROXY=1`.
 Tests never read `BE/.env`: their variables are in `BE/vitest.config.mts`.
 
@@ -140,6 +140,12 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   learners practice, English `utils/english-errors.ts` (`EnglishError`, `classifyEnglishWord`, `tagEnglishWord`, SCRUM-218)
   for the English passages of ranked duels. Never mix the two: a passage's `tagCounts` counts the set of its `language`
   (`computePassageStats`). After changing a `tag…` function, run `npm run rebuild:tag-counts`.
+- Payments (VNPay, `/api/payments`, `services/payment.service.ts`): what can be bought and its price live in `config/payment.ts`
+  (`PAYMENT_PRODUCTS`, today only `pro`); the client sends a product id, never an amount. `POST /vnpay` saves a pending `Payment`
+  (its `_id` is `vnp_TxnRef`) and returns `paymentUrl`; VNPay sends the learner back to `${CLIENT_URL}/payments/vnpay/return`
+  and calls `GET /vnpay/ipn` (server to server, answers `RspCode`). Both go through `applyVnpayResult`, which checks the
+  `vnp_SecureHash` (`utils/vnpay.ts`), the payment and the amount, and changes a still-pending payment once. A payment never
+  grants anything by itself yet: the Pro plan and coin top-ups read `Payment.status === 'paid'`.
 - App-wide settings that admins change live in the one `AppSetting` document (`models/app-setting.model.ts`, SCRUM-210):
   read them with `getAppSettings()` (the model's defaults until an admin saves) and save them with `updateAppSettings(changes)`
   (`services/app-setting.service.ts`). A new setting is a new field there, with its default, not a new collection.

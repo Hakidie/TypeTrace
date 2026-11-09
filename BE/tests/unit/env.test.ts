@@ -23,6 +23,15 @@ describe('parseEnv', () => {
     expect(parseEnv({ ...base, SMTP_HOST: '  ' }).smtpHost).toBeUndefined();
   });
 
+  it('reads the VNPay settings and defaults to the sandbox url', () => {
+    const unset = parseEnv({ ...base, VNP_TMN_CODE: ' ' });
+    expect(unset.vnpTmnCode).toBeUndefined();
+    expect(unset.vnpHashSecret).toBeUndefined();
+    expect(unset.vnpUrl).toBe('https://sandbox.vnpayment.vn/paymentv2/vpcpay.html');
+    const set = parseEnv({ ...base, VNP_TMN_CODE: 'CODE', VNP_HASH_SECRET: 'secret', VNP_URL: 'https://pay.example/vpcpay.html' });
+    expect(set).toMatchObject({ vnpTmnCode: 'CODE', vnpHashSecret: 'secret', vnpUrl: 'https://pay.example/vpcpay.html' });
+  });
+
   it('lists every missing required variable', () => {
     expect(() => parseEnv({})).toThrow(/MONGO_URI[\s\S]*JWT_SECRET/);
   });

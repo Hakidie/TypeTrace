@@ -6,3 +6,6 @@ build
 plans
 .claude
 .playwright-mcp
+
+# Deploy guide with real keys: never commit
+HUONG-DAN-DEPLOY-VERCEL.txt
