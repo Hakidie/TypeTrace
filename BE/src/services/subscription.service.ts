@@ -49,3 +49,13 @@ export const revokePremium = async (userId: string, adminId: string, now = new D
 /** A paid month (US11.2, US11.3): the same as a grant, written as a payment. */
 export const recordPaidMonth = (userId: string, months: number, now = new Date()) =>
   addPremiumMonths(userId, months, 'payment', null, now);
+
+/** Everyone on a live Premium now, with the day it ends (keyed by user id). Read only: it writes no `auto` row. */
+export const getPremiumExpiries = async (now = new Date()) => {
+  const rows = await SubscriptionModel.aggregate<{ _id: unknown; expiresAt: Date }>([
+    { $sort: { user: 1, createdAt: -1, _id: -1 } },
+    { $group: { _id: '$user', plan: { $first: '$plan' }, expiresAt: { $first: '$expiresAt' } } },
+    { $match: { plan: 'premium', expiresAt: { $gt: now } } }
+  ]);
+  return new Map(rows.map((row) => [String(row._id), row.expiresAt]));
+};

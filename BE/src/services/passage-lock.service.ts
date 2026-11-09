@@ -45,19 +45,41 @@ const lockedOf = async (ownerId: string, plans: AppSettings['plans']) => {
   return rows.map((row) => row._id);
 };
 
+const smallestLimit = (plans: AppSettings['plans']) => Math.min(...(Object.keys(plans) as PlanId[]).map((plan) => plans[plan].maxPassages));
+
+/** The owners with more counted passages than `limit`: only they can have a locked one. */
+const ownersOver = async (limit: number) =>
+  (
+    await PassageModel.aggregate<{ _id: Types.ObjectId }>([
+      { $match: { owner: { $exists: true }, status: { $ne: 'archived' }, isPlacement: false } },
+      { $group: { _id: '$owner', total: { $sum: 1 } } },
+      { $match: { total: { $gt: limit } } }
+    ])
+  ).map((owner) => owner._id);
+
 /** The ids of the locked passages of `ownerId`, or of every owner. Use them as `_id: { $nin: ids }`. */
 export const getLockedPassageIds = async ({ ownerId }: { ownerId?: string } = {}): Promise<Types.ObjectId[]> => {
   const { plans } = await getAppSettings();
   if (ownerId) return lockedOf(ownerId, plans);
 
-  // Only owners with more passages than the smallest limit can have a locked one.
-  const smallest = Math.min(...(Object.keys(plans) as PlanId[]).map((plan) => plans[plan].maxPassages));
-  const owners = await PassageModel.aggregate<{ _id: Types.ObjectId }>([
-    { $match: { owner: { $exists: true }, status: { $ne: 'archived' }, isPlacement: false } },
-    { $group: { _id: '$owner', total: { $sum: 1 } } },
-    { $match: { total: { $gt: smallest } } }
-  ]);
-  return (await Promise.all(owners.map((owner) => lockedOf(String(owner._id), plans)))).flat();
+  const owners = await ownersOver(smallestLimit(plans));
+  return (await Promise.all(owners.map((owner) => lockedOf(String(owner), plans)))).flat();
+};
+
+/** What would newly be locked if the plans were these: the owners that lose a passage and how many passages they lose. */
+export const previewLockChange = async (next: AppSettings['plans']) => {
+  const { plans: current } = await getAppSettings();
+  let lockedUsers = 0;
+  let lockedPassages = 0;
+  for (const owner of await ownersOver(Math.min(smallestLimit(current), smallestLimit(next)))) {
+    const before = new Set((await lockedOf(String(owner), current)).map(String));
+    const added = (await lockedOf(String(owner), next)).filter((id) => !before.has(String(id))).length;
+    if (added > 0) {
+      lockedUsers += 1;
+      lockedPassages += added;
+    }
+  }
+  return { lockedUsers, lockedPassages };
 };
 
 /** What the learner's plan lets them do with passages, and how much of the limit they use. */

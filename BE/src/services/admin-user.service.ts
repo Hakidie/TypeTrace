@@ -8,6 +8,7 @@ import { UserDocument, UserModel } from '../models/user.model';
 import { badRequest, forbidden, notFound } from '../utils/app-error';
 import { deleteImage } from './cloudinary.service';
 import { placementBoardChanged } from './placement-board-cache';
+import { getPremiumExpiries } from './subscription.service';
 import { typingActivityOf } from './typing-session.service';
 import { paginate } from '../utils/pagination';
 import { AdminUpdateUserInput, ListUsersQuery, SetUserStatusInput } from '../validators/admin-user.validator';
@@ -30,8 +31,10 @@ export const getAdminStats = async () => {
 };
 
 /** The users page, each user with `stats` (absent until a session is completed) and `sessions` (completed sessions per day). */
-export const listUsers = async ({ q, role, verified, status, ...pagination }: ListUsersQuery) => {
+export const listUsers = async ({ q, role, verified, status, plan, ...pagination }: ListUsersQuery) => {
   const filter: QueryFilter<UserDocument> = {};
+  const premium = await getPremiumExpiries();
+  if (plan) filter._id = plan === 'premium' ? { $in: [...premium.keys()] } : { $nin: [...premium.keys()] };
   if (role) filter.role = role;
   if (status) filter.status = status;
   if (verified !== undefined) filter.isEmailVerified = verified;
@@ -41,7 +44,13 @@ export const listUsers = async ({ q, role, verified, status, ...pagination }: Li
   }
   const page = await paginate(UserModel, filter, pagination);
   const activityOf = await typingActivityOf(page.items.map((user) => user._id));
-  return { ...page, items: page.items.map((user) => ({ ...user.toJSON(), ...activityOf(user._id) })) };
+  return {
+    ...page,
+    items: page.items.map((user) => {
+      const planExpiresAt = premium.get(String(user._id)) ?? null;
+      return { ...user.toJSON(), ...activityOf(user._id), plan: planExpiresAt ? 'premium' : 'free', planExpiresAt };
+    })
+  };
 };
 
 export const getUser = async (id: string) => {
