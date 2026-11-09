@@ -55,8 +55,8 @@ export const UsersChart = () => {
     const top = Math.max(1, ...data.map((point) => point.total));
     const marks = [0, Math.round(top / 2), top].filter((mark, index, all) => all.indexOf(mark) === index);
     return (
-      // The chart takes the height the page leaves it (at least 20rem): the box is positioned, so the chart reads its size from it.
-      <div role="img" aria-label={`Users by ${rangeUnit(shown)}`} className="relative min-h-80 flex-1">
+      // The chart takes the height the page leaves it (at least 13rem): the box is positioned, so the chart reads its size from it.
+      <div role="img" aria-label={`Users by ${rangeUnit(shown)}`} className="relative min-h-52 flex-1">
         <div className="absolute inset-0">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 28, bottom: 0, left: 28 }}>

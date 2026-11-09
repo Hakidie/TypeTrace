@@ -59,7 +59,7 @@ const admin = user('a1', 'admin@example.com', { role: 'admin' });
 const lan = user('u1', 'lan@example.com');
 const minh = user('u2', 'minh@example.com', { isEmailVerified: false });
 
-const page = (items: unknown[]) => ({ items, page: 1, limit: 4, total: items.length, totalPages: 1 });
+const page = (items: unknown[]) => ({ items, page: 1, limit: 3, total: items.length, totalPages: 1 });
 
 const renderPage = (route = '/admin/users') => renderWithProviders(<AdminUsersPage />, { route, path: '/admin/users' });
 
@@ -90,7 +90,7 @@ describe('AdminUsersPage', () => {
     expect(within(cards).getAllByText('Verified')).toHaveLength(2);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Search users').closest('div.flex')).toHaveTextContent('3Users');
-    expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 4, sort: '-createdAt' }));
+    expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 3, sort: '-createdAt' }));
   });
 
   it('shows each user as a card with the typing stats from the backend', async () => {
@@ -214,15 +214,15 @@ describe('AdminUsersPage', () => {
     await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ role: 'admin' })));
   });
 
-  it('pages through the users, 4 per page, from the Users panel', async () => {
-    listUsers.mockResolvedValue({ items: [admin, lan, minh], page: 1, limit: 4, total: 25, totalPages: 7 });
+  it('pages through the users, 3 per page, from the Users panel', async () => {
+    listUsers.mockResolvedValue({ items: [admin, lan, minh], page: 1, limit: 3, total: 25, totalPages: 7 });
     renderPage();
     await screen.findAllByText('lan@example.com');
     expect(screen.getByText('1 of 7')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
-    await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, limit: 4 })));
+    await waitFor(() => expect(listUsers).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, limit: 3 })));
   });
 
   it('sorts from the toolbar of the Users panel', async () => {

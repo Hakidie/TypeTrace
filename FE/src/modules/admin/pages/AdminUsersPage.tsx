@@ -18,8 +18,8 @@ import { UserRow } from '../components/UserRow';
 import { useAdminUsers, useCancelPremium, useDeleteUsers, useGrantPremium, useRevokePremium, useSetUserStatus } from '../hooks/use-admin';
 import type { AdminUser, AdminUserListParams } from '../types/admin.types';
 
-// Four users a page.
-const PAGE_SIZE = 4;
+// Three users a page: with the chart above, the page fits one screen.
+const PAGE_SIZE = 3;
 
 // In the URL, `all` means no filter at all (an empty value means the filter was not touched: its default applies).
 const ALL = 'all';
@@ -138,8 +138,9 @@ export const AdminUsersPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* PANEL Users: the number of users over time, as bars. */}
+    // As tall as the screen leaves it (the screen minus the 61px header and the 2rem padding of the page above and below): the chart takes the height the list leaves.
+    <div className="flex min-h-[calc(100svh-61px-4rem)] flex-col gap-8">
+      {/* PANEL Total users: the number of users over time. */}
       <UsersChart />
 
       {/* PANEL Users */}
