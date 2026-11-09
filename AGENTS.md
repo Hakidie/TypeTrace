@@ -35,7 +35,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 |---|---|
 | `npm run setup` | Install all dependencies, create `BE/.env` and `FE/.env` from the examples |
 | `docker compose up -d` | Start a local MongoDB on port 27017 |
-| `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234`; and typing sessions for `demo@example.com` (a counted placement test 8 months ago, practice sessions since, two months without any, sessions on the last days, each with errors and chances of every error type) so the charts and the error profile of the profile have data; made once (demo sessions seeded before the error profile get its counts on the next run) |
+| `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234` (`student01` is on Premium for a month, given by the demo admin); and typing sessions for `demo@example.com` (a counted placement test 8 months ago, practice sessions since, two months without any, sessions on the last days, each with errors and chances of every error type) so the charts and the error profile of the profile have data; made once (demo sessions seeded before the error profile get its counts on the next run) |
 | `npm run import:words` | Add the starter word list (`BE/src/data/words.ts`) to the word bank with error tags; safe to run many times |
 | `npm run import:passages` | Add the starter passages (`BE/src/data/passages.ts`, source recorded, owner TypeTrace) to the passage bank as published passages; safe to run many times |
 | `npm run import:passages:en` | Add the English starter passages (`BE/src/data/passages-en.ts`, marked `isRanked`, for ranked duels; never offered in Practice or Placement) as published passages; safe to run many times |
@@ -46,6 +46,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run migrate:user-status` | Give `active` to the accounts saved before the `status` field existed (they have none, and the placement leaderboard lists only `active` accounts); locked accounts keep theirs. Run it once; safe to run many times |
 | `npm run migrate:placement-board` | Set `isOnPlacementBoard` again, from the rules and the minimum accuracy saved, on every completed placement session (fixes flags saved wrong; saving the minimum in the admin Settings page does the same). Run it after deploying the minimum accuracy setting; safe to run many times |
 | `npm run migrate:ranked-passages` | Mark the published public English passages already in the bank as `isRanked`: ranked duels (races and word rain) play only those. Run it once after deploying US6.4; safe to run many times |
+| `npm run migrate:subscriptions` | Give a Free `migration` subscription row to the accounts saved before subscriptions existed (a missing row already reads as Free; this only gives them a history). Run it once after deploying US11.1; safe to run many times |
 | `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together |
 | `npm test` | Run backend and frontend tests |
 | `npm run lint` | Lint the frontend |

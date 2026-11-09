@@ -64,6 +64,8 @@ export interface UserDocument extends mongoose.Document {
    * from before the tutorial (they know how to play): nothing is shown to them.
    */
   tutorial?: TutorialState;
+  /** Set by the timestamps option of the schema. */
+  createdAt: Date;
 }
 
 /** Fields that must never leave the server. Stripped from every JSON response. */

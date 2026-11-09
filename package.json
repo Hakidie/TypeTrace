@@ -15,6 +15,7 @@
     "migrate:rating-kinds": "npm run migrate:rating-kinds --prefix BE",
     "migrate:placement-board": "npm run migrate:placement-board --prefix BE",
     "migrate:user-status": "npm run migrate:user-status --prefix BE",
+    "migrate:subscriptions": "npm run migrate:subscriptions --prefix BE",
     "migrate:ranked-passages": "npm run migrate:ranked-passages --prefix BE",
     "test": "npm test --prefix BE && npm test --prefix FE",
     "lint": "npm run lint --prefix FE",
