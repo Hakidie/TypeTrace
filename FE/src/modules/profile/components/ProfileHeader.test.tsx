@@ -14,6 +14,10 @@ vi.mock('@/modules/profile/api/profile.api', () => ({
   profileApi: { updateProfile: (input: unknown) => updateProfile(input), uploadAvatar: vi.fn() },
 }));
 
+vi.mock('@/modules/plan/api/plan.api', () => ({
+  planApi: { get: () => new Promise(() => {}) },
+}));
+
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
