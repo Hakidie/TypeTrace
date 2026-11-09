@@ -36,7 +36,7 @@ vi.mock('@/modules/rain/api/rain.api', () => ({
 vi.mock('@/modules/plan/api/plan.api', () => ({
   planApi: {
     get: () =>
-      Promise.resolve({ plan: 'free', expiresAt: null, maxPassages: 9, usedPassages: 2, canUsePublicPassages: false, canCreateErrorPractice: false }),
+      Promise.resolve({ plan: 'free', expiresAt: null, maxPassages: 9, usedPassages: 2, canUsePublicPassages: false, canCreateErrorPractice: false, plans: { free: { priceVnd: 0, maxPassages: 9, canCreateErrorPractice: false, canUsePublicPassages: false }, premium: { priceVnd: 99000, maxPassages: 90, canCreateErrorPractice: true, canUsePublicPassages: true } } }),
   },
 }));
 
@@ -627,7 +627,7 @@ describe('TypingPage', () => {
 
     // A passage of another learner on the Free plan: the plan opens instead of the session.
     await user.click(await screen.findByRole('menuitemradio', { name: /Của người khác.*Premium/ }));
-    expect(await screen.findByText('Free plan')).toBeInTheDocument();
+    expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
     // A passage past the owner's limit: nothing happens.
     await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Choose passage' }));

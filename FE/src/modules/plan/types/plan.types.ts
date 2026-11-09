@@ -12,6 +12,8 @@ export interface PlanInfo {
   usedPassages: number;
   canUsePublicPassages: boolean;
   canCreateErrorPractice: boolean;
+  /** Both plans with their price, to show them side by side. */
+  plans: PlansConfig;
 }
 
 /** What one plan gives; the same fields as the backend's `PlanConfig` (`BE/src/models/app-setting.model.ts`). */

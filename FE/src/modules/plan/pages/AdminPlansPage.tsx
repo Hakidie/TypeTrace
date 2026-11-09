@@ -1,5 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CircleHelp } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { useState } from 'react';
 import { z } from 'zod';
@@ -9,14 +8,13 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
+import { HelpLabel } from '../components/HelpLabel';
 import { PlanUsersChart } from '../components/PlanUsersChart';
 import { SubscriptionList } from '../components/SubscriptionList';
 import { useAdminPlans, usePreviewPlans, useSavePlans } from '../hooks/use-admin-plans';
-import type { PlanLines } from '../plan.config';
+import { PASSAGE_LIMIT_HELP, PERMISSIONS, PLAN_CARDS, type PlanLines } from '../plan.config';
 import type { LockPreview, PlansConfig } from '../types/plan.types';
 
 const whole = (message: string) => z.number({ error: message }).int('Use a whole number').min(0, 'At least 0');
@@ -30,32 +28,8 @@ const planSchema = z.object({
 });
 const schema = z.object({ free: planSchema, premium: planSchema });
 
-const PLANS = [
-  { key: 'free', name: 'Free' },
-  { key: 'premium', name: 'Premium' },
-] as const;
-
 // Number fields that look like text: no border, background or focus ring.
 const bareInput = 'h-auto border-0 bg-transparent p-0 text-right shadow-none focus-visible:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
-
-const statLabel = 'text-2xl font-semibold leading-none tracking-wide text-primary/70';
-
-// A label with a "?" that explains the option on hover or focus.
-const HelpLabel = ({ htmlFor, text, help }: { htmlFor: string; text: string; help: string }) => (
-  <TooltipProvider>
-    <span className="flex items-center gap-1.5">
-      <Label htmlFor={htmlFor} className={statLabel}>
-        {text}
-      </Label>
-      <Tooltip>
-        <TooltipTrigger type="button" aria-label={`About: ${text}`} className="text-primary/70 transition-opacity hover:text-primary pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100 pointer-fine:data-[state=delayed-open]:opacity-100 pointer-fine:data-[state=instant-open]:opacity-100">
-          <CircleHelp className="size-4" />
-        </TooltipTrigger>
-        <TooltipContent className="max-w-64 whitespace-normal">{help}</TooltipContent>
-      </Tooltip>
-    </span>
-  </TooltipProvider>
-);
 
 const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: PlanLines; onPickLine: (line: 'free' | 'premium') => void }) => {
   const preview = usePreviewPlans();
@@ -98,7 +72,7 @@ const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: Pl
     >
       <form id="plans-form" onSubmit={submit} noValidate>
         <div className="grid gap-6 md:grid-cols-2">
-          {PLANS.map(({ key, name }) => (
+          {PLAN_CARDS.map(({ key, name }) => (
             <fieldset
             key={key}
             aria-label={`${name} plan`}
@@ -127,7 +101,7 @@ const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: Pl
                   <HelpLabel
                     htmlFor={`${key}-max`}
                     text="Passage limit"
-                    help="The most passages a learner on this plan can keep. Older ones stay usable; the newest passages over the limit are locked, never deleted."
+                    help={PASSAGE_LIMIT_HELP}
                   />
                   <div className="text-right">
                     <Input
@@ -142,12 +116,7 @@ const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: Pl
                     {errors[key]?.maxPassages && <p className="text-sm text-destructive">{errors[key]?.maxPassages?.message}</p>}
                   </div>
                 </div>
-                {(
-                  [
-                    ['canCreateErrorPractice', 'Generate practice passage', 'Lets learners generate a practice passage made from the words they mistyped the most.'],
-                    ['canUsePublicPassages', 'Allow premium passage', 'Lets learners practice the public passages that other learners wrote. Without it, they practice only the system passages and their own.'],
-                  ] as const
-                ).map(([field, label, help]) => (
+                {PERMISSIONS.map(({ field, label, help }) => (
                   <div key={field} className="flex min-h-9 items-center justify-between gap-4">
                     <HelpLabel htmlFor={`${key}-${field}`} text={label} help={help} />
                     <Controller

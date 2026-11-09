@@ -22,7 +22,8 @@ describe('GET /api/plan', () => {
       maxPassages: DEFAULT_PLANS.free.maxPassages,
       usedPassages: 0,
       canUsePublicPassages: false,
-      canCreateErrorPractice: false
+      canCreateErrorPractice: false,
+      plans: DEFAULT_PLANS
     });
   });
 
@@ -53,7 +54,14 @@ describe('GET /api/plan', () => {
     expect(response.body).toMatchObject({ plan: 'free', expiresAt: null, maxPassages: DEFAULT_PLANS.free.maxPassages });
   });
 
-  it('never sends a price, an email or who granted the plan', async () => {
+  it('sends both plans with their price, to show them next to each other', async () => {
+    const response = await getPlan(bearerFor(await createUser()));
+
+    expect(response.body.plans).toEqual(DEFAULT_PLANS);
+    expect(response.body.plans.premium.priceVnd).toBe(DEFAULT_PLANS.premium.priceVnd);
+  });
+
+  it('never sends an email or who granted the plan', async () => {
     const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
     const me = await createUser();
     await SubscriptionModel.create({ user: me._id, plan: 'premium', startsAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000), source: 'admin', changedBy: admin._id });
@@ -61,7 +69,6 @@ describe('GET /api/plan', () => {
     const text = JSON.stringify((await getPlan(bearerFor(me))).body);
 
     expect(text).not.toContain('admin@example.com');
-    expect(text).not.toContain('priceVnd');
     expect(text).not.toContain('changedBy');
   });
 });

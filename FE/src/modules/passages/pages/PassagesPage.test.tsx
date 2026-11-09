@@ -62,7 +62,7 @@ const page = (items: unknown[], total = items.length) => ({ items, page: 1, limi
 /** The list itself, and the plan (US11.1) that says how many own passages there are and how many may be added. */
 const answer = ({ items = [mine, approvedMine], own = 1, max = 9 }: { items?: unknown[]; own?: number; max?: number } = {}) => {
   list.mockImplementation(async () => page(items));
-  getPlan.mockResolvedValue({ plan: 'free', expiresAt: null, maxPassages: max, usedPassages: own, canUsePublicPassages: false, canCreateErrorPractice: false });
+  getPlan.mockResolvedValue({ plan: 'free', expiresAt: null, maxPassages: max, usedPassages: own, canUsePublicPassages: false, canCreateErrorPractice: false, plans: { free: { priceVnd: 0, maxPassages: 9, canCreateErrorPractice: false, canUsePublicPassages: false }, premium: { priceVnd: 99000, maxPassages: 90, canCreateErrorPractice: true, canUsePublicPassages: true } } });
 };
 
 const twentyWords = Array.from({ length: 20 }, (_, index) => `chữ${index}`).join(' ');

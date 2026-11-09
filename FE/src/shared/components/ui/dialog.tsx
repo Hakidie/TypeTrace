@@ -26,10 +26,11 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { overlay?: boolean }
+>(({ className, children, overlay = true, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    {/* The dark screen over the page; `overlay={false}` leaves the page as it is (the plan dialog). */}
+    {overlay && <DialogOverlay />}
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
