@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { chatbotConfig } from '../../src/config/chatbot';
 import { api } from '../helpers/api';
-import { openaiRecorder } from '../helpers/openai-recorder';
+import { geminiRecorder } from '../helpers/gemini-recorder';
 import { bearerFor, createUser } from '../helpers/user-factory';
 
 const send = async (messages: unknown, authorization?: string) => {
@@ -20,7 +20,7 @@ describe('POST /api/chat', () => {
     expect(response.body).toEqual({ reply: 'Hello from the test model' });
   });
 
-  it('sends the system prompt, history and model to OpenAI', async () => {
+  it('sends the system prompt, history and model to Gemini', async () => {
     const auth = bearerFor(await createUser({}));
 
     await send(
@@ -32,17 +32,17 @@ describe('POST /api/chat', () => {
       auth
     );
 
-    expect(openaiRecorder.requests).toHaveLength(1);
-    expect(openaiRecorder.requests[0]).toEqual({
-      authorization: 'Bearer test-openai-key',
+    expect(geminiRecorder.requests).toHaveLength(1);
+    expect(geminiRecorder.requests[0]).toEqual({
+      apiKey: 'test-gemini-key',
       model: 'test-model',
-      messages: [
-        { role: 'system', content: chatbotConfig.systemPrompt },
-        { role: 'user', content: 'My name is Lan' },
-        { role: 'assistant', content: 'Hi Lan!' },
-        { role: 'user', content: 'What is my name?' }
+      systemInstruction: { parts: [{ text: chatbotConfig.systemPrompt }] },
+      contents: [
+        { role: 'user', parts: [{ text: 'My name is Lan' }] },
+        { role: 'model', parts: [{ text: 'Hi Lan!' }] },
+        { role: 'user', parts: [{ text: 'What is my name?' }] }
       ],
-      max_completion_tokens: chatbotConfig.maxReplyTokens
+      generationConfig: { maxOutputTokens: chatbotConfig.maxReplyTokens }
     });
   });
 
@@ -52,14 +52,13 @@ describe('POST /api/chat', () => {
 
     await send(messages, auth);
 
-    const sent = openaiRecorder.requests[0].messages as { role: string; content: string }[];
-    // The system prompt, then the latest messages.
-    expect(sent).toHaveLength(chatbotConfig.historyLimit + 1);
-    expect(sent.at(-1)?.content).toBe('m30');
+    const sent = geminiRecorder.requests[0].contents as { role: string; parts: { text: string }[] }[];
+    expect(sent).toHaveLength(chatbotConfig.historyLimit);
+    expect(sent.at(-1)?.parts[0].text).toBe('m30');
   });
 
   it('falls back to a polite reply when the model returns no text', async () => {
-    openaiRecorder.replyText = null;
+    geminiRecorder.replyText = null;
     const auth = bearerFor(await createUser({}));
 
     const response = await send([{ role: 'user', text: 'Hi' }], auth);
@@ -70,7 +69,7 @@ describe('POST /api/chat', () => {
   it('requires authentication', async () => {
     const response = await send([{ role: 'user', text: 'Hi' }]);
     expect(response.status).toBe(401);
-    expect(openaiRecorder.requests).toHaveLength(0);
+    expect(geminiRecorder.requests).toHaveLength(0);
   });
 
   it('validates the conversation', async () => {
@@ -83,16 +82,16 @@ describe('POST /api/chat', () => {
     const lastFromModel = await send([{ role: 'user', text: 'Hi' }, { role: 'model', text: 'Hello' }], auth);
     expect(lastFromModel.status).toBe(400);
     expect(lastFromModel.body.errors[0].message).toBe('The last message must come from the user');
-    expect(openaiRecorder.requests).toHaveLength(0);
+    expect(geminiRecorder.requests).toHaveLength(0);
   });
 
   it.each([
     [429, 429, 'The AI quota is used up for now. Wait a minute and try again.'],
-    [401, 503, 'The AI is not set up correctly. Check OPENAI_API_KEY and OPENAI_MODEL in BE/.env.'],
-    [404, 503, 'The AI is not set up correctly. Check OPENAI_API_KEY and OPENAI_MODEL in BE/.env.'],
+    [401, 503, 'The AI is not set up correctly. Check GEMINI_API_KEY and GEMINI_MODEL in BE/.env.'],
+    [404, 503, 'The AI is not set up correctly. Check GEMINI_API_KEY and GEMINI_MODEL in BE/.env.'],
     [500, 502, 'The AI did not answer. Please try again.']
-  ])('maps an OpenAI %i error to %i', async (openaiStatus, status, message) => {
-    openaiRecorder.errorStatus = openaiStatus;
+  ])('maps a Gemini %i error to %i', async (geminiStatus, status, message) => {
+    geminiRecorder.errorStatus = geminiStatus;
     const auth = bearerFor(await createUser({}));
     const errorLog = console.error;
     console.error = () => undefined;

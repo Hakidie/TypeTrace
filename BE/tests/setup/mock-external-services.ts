@@ -1,7 +1,7 @@
 import { beforeEach, vi } from 'vitest';
 
 /**
- * Replaces every outbound third-party dependency (SMTP, Cloudinary, OpenAI) with an
+ * Replaces every outbound third-party dependency (SMTP, Cloudinary, Gemini) with an
  * in-memory recorder. Real application code still runs end to end; only the
  * network boundary is faked.
  */
@@ -48,21 +48,28 @@ vi.mock('cloudinary', async () => {
   return { v2, default: { v2 } };
 });
 
-// OpenAI is called with plain `fetch`: answer its URL here, let every other request through.
+// Gemini is called with plain `fetch`: answer its URL here, let every other request through.
+const GEMINI_URL = /^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/([^/:]+):generateContent$/;
 const realFetch = globalThis.fetch;
 vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
-  if (String(input) !== 'https://api.openai.com/v1/chat/completions') return realFetch(input, init);
-  const { openaiRecorder } = await import('../helpers/openai-recorder');
-  openaiRecorder.requests.push({ ...JSON.parse(String(init?.body)), authorization: new Headers(init?.headers).get('Authorization') });
-  if (openaiRecorder.errorStatus) return new Response('{"error":"upstream"}', { status: openaiRecorder.errorStatus });
-  return Response.json({ choices: [{ message: { role: 'assistant', content: openaiRecorder.replyText } }] });
+  const match = GEMINI_URL.exec(String(input));
+  if (!match) return realFetch(input, init);
+  const { geminiRecorder } = await import('../helpers/gemini-recorder');
+  geminiRecorder.requests.push({
+    ...JSON.parse(String(init?.body)),
+    apiKey: new Headers(init?.headers).get('x-goog-api-key'),
+    model: match[1]
+  });
+  if (geminiRecorder.errorStatus) return new Response('{"error":"upstream"}', { status: geminiRecorder.errorStatus });
+  const parts = geminiRecorder.replyText === null ? [] : [{ text: geminiRecorder.replyText }];
+  return Response.json({ candidates: [{ content: { role: 'model', parts } }] });
 });
 
 beforeEach(async () => {
   const { clearEmailOutbox } = await import('../helpers/email-outbox');
   const { cloudinaryRecorder } = await import('../helpers/cloudinary-recorder');
-  const { openaiRecorder } = await import('../helpers/openai-recorder');
+  const { geminiRecorder } = await import('../helpers/gemini-recorder');
   clearEmailOutbox();
   cloudinaryRecorder.reset();
-  openaiRecorder.reset();
+  geminiRecorder.reset();
 });
