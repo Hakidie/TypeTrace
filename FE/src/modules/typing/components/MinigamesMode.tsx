@@ -61,7 +61,7 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
   }
   // A framed card for each game, as tall as the free height: its title, its art, what it is, a few facts and a Play line.
   return (
-    <div className="mx-auto grid w-full max-w-7xl flex-1 gap-6 py-8 md:grid-cols-2 md:gap-8 xl:grid-cols-4">
+    <div className="mx-auto grid w-full max-w-7xl flex-1 gap-6 py-8 md:grid-cols-2 md:gap-8 xl:grid-cols-3">
       {minigames.map(({ id, title, description, facts, art }) => (
         <button
           key={id}
