@@ -19,8 +19,8 @@ export default defineConfig({
       CLOUDINARY_CLOUD_NAME: 'test-cloud',
       CLOUDINARY_API_KEY: 'test-key',
       CLOUDINARY_API_SECRET: 'test-secret',
-      OPENAI_API_KEY: 'test-openai-key',
-      OPENAI_MODEL: 'test-model',
+      GEMINI_API_KEY: 'test-gemini-key',
+      GEMINI_MODEL: 'test-model',
       GOOGLE_CLIENT_ID: 'test-google-client-id',
       VNP_TMN_CODE: 'TESTCODE',
       VNP_HASH_SECRET: 'test-vnpay-secret'

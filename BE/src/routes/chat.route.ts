@@ -7,7 +7,7 @@ import { chatRequestSchema } from '../validators/chat.validator';
 
 export const chatRouter = Router();
 
-// Every message costs OpenAI tokens on the project's key, so each signed-in user
+// Every message costs Gemini tokens on the project's key, so each signed-in user
 // gets a small share.
 export const chatLimiter = rateLimit({
   windowMs: 60 * 1000,

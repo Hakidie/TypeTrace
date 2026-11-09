@@ -1,8 +1,8 @@
 /**
- * Records requests sent to the OpenAI Chat Completions URL (through the mocked
- * `fetch`) and decides what it answers, so chat tests never call OpenAI.
+ * Records requests sent to the Gemini generateContent URL (through the mocked
+ * `fetch`) and decides what it answers, so chat tests never call Gemini.
  */
-export const openaiRecorder = {
+export const geminiRecorder = {
   requests: [] as Record<string, unknown>[],
   /** Text of the next reply. */
   replyText: 'Hello from the test model' as string | null,
