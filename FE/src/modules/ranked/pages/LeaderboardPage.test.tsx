@@ -125,6 +125,25 @@ describe('LeaderboardPage minigames tab', () => {
   });
 });
 
+describe('LeaderboardPage minigames tab look', () => {
+  it('lists plain rows with a score, switches the range and shows the own place', async () => {
+    wordChainBoard.mockResolvedValue({
+      range: 'week',
+      items: [{ rank: 1, displayName: 'Lan', avatar, score: 12, isMe: false }],
+      me: { rank: 7, score: 3 },
+    });
+    renderPage('/leaderboard?tab=minigames');
+    const panel = screen.getByRole('tabpanel', { name: 'Minigames' });
+    expect(await within(panel).findByText('Lan')).toBeInTheDocument();
+    expect(within(panel).getAllByText('SCORE').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Minigame')).toHaveTextContent('Word chain');
+    expect(within(panel).getByRole('region', { name: 'Your place' })).toHaveTextContent('#7');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'All time' }));
+    await waitFor(() => expect(wordChainBoard).toHaveBeenLastCalledWith('all'));
+  });
+});
+
 describe('LeaderboardPage kinds of match (rain duel)', () => {
   it('switches to the rain board', async () => {
     leaderboard.mockResolvedValue(board([row(1, 'u1', 'Minh', 1420, 'Platinum', 0.75)]));
