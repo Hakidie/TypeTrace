@@ -60,6 +60,13 @@ vi.mock('@/modules/tutorial/api/tutorial.api', () => ({
 }));
 
 vi.mock('@lottiefiles/dotlottie-react', () => ({ DotLottieReact: () => null }));
+vi.mock('@/modules/word-chain/api/word-chain.api', () => ({
+  wordChainApi: {
+    words: vi.fn().mockResolvedValue('*học sinh\nsinh viên'),
+    board: vi.fn().mockResolvedValue({ range: 'week', items: [], me: null }),
+    saveScore: vi.fn(),
+  },
+}));
 
 const session = {
   _id: 's1',
@@ -304,6 +311,28 @@ describe('TypingPage', () => {
     // Tests load no CSS: the time tabs are hidden by the `hidden` class of their frame.
     expect(screen.getByRole('radiogroup', { name: 'Time', hidden: true }).parentElement).toHaveClass('hidden');
     expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the bot duel from its card', async () => {
+    const user = userEvent.setup();
+    renderWithUrl('/typing?mode=minigames');
+
+    await user.click(await screen.findByRole('button', { name: /^Bot duel/ }));
+
+    expect(await screen.findByRole('button', { name: /^Dạ · Khó/ })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames&game=bot');
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('opens Nối từ from its card', async () => {
+    const user = userEvent.setup();
+    renderWithUrl('/typing?mode=minigames');
+
+    await user.click(await screen.findByRole('button', { name: /^Nối từ/ }));
+
+    expect(await screen.findByRole('button', { name: 'Bắt đầu' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames&game=chain');
+    expect(start).not.toHaveBeenCalled();
   });
 
   it('opens word rain from its card and goes back to the cards', async () => {

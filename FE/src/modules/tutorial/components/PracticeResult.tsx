@@ -12,10 +12,13 @@ interface PracticeResultProps {
   stats: CoachStats;
   onAgain: () => void;
   onRank: () => void;
+  /** The two buttons: the tutorial plays Ping again or goes to Rank; the Bot duel plays again or changes level. */
+  againLabel?: string;
+  nextLabel?: string;
 }
 
 /** After the practice duel: the numbers, and Ping's tip written from them (AI, or a written one). */
-export const PracticeResult = ({ stats, onAgain, onRank }: PracticeResultProps) => {
+export const PracticeResult = ({ stats, onAgain, onRank, againLabel = 'Đấu lại với Ping', nextLabel = 'Vào Rank thật' }: PracticeResultProps) => {
   const { data, isError } = useCoachTip(stats);
   const tip = data?.tip ?? (isError ? OFFLINE_TIP : undefined);
 
@@ -44,9 +47,9 @@ export const PracticeResult = ({ stats, onAgain, onRank }: PracticeResultProps) 
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         <Button variant="outline" onClick={onAgain}>
-          Đấu lại với Ping
+          {againLabel}
         </Button>
-        <Button onClick={onRank}>Vào Rank thật</Button>
+        <Button onClick={onRank}>{nextLabel}</Button>
       </div>
     </div>
   );

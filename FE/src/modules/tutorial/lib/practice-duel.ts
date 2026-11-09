@@ -18,6 +18,53 @@ export const PRACTICE_PACE = {
   laneGap: 0.3,
   thrownSpeedUp: 1.15,
 };
+/** How hard the rain is: the server's `rainDuelSettings.paces` of one tier. */
+export interface BotPace {
+  spawnFromMs: number;
+  spawnToMs: number;
+  fallFromMs: number;
+  fallToMs: number;
+  maxThrownFalling: number;
+  maxWordLength: number;
+}
+export type BotLevel = 'easy' | 'medium' | 'hard';
+export interface BotLevelInfo {
+  /** The sprite of the bot (`/bots/<bot>-<move>.png`). */
+  bot: 'bong' | 'nhip' | 'da';
+  name: string;
+  label: string;
+  tier: 'Bronze' | 'Gold' | 'Diamond';
+  pace: BotPace;
+  /** The bot types a word this long (ms) after it appeared, from the first number to the second. */
+  typeAfterMs: [number, number];
+  /** The share of words the bot lets fall. */
+  missRate: number;
+}
+
+/** The three bots of the Bot duel (SCRUM-247); the tutorial plays the easy one, as Ping. */
+export const BOT_LEVELS: Record<BotLevel, BotLevelInfo> = {
+  easy: { bot: 'bong', name: 'Bông', label: 'Dễ', tier: 'Bronze', pace: PRACTICE_PACE, typeAfterMs: [2500, 6000], missRate: 1 / 6 },
+  medium: {
+    bot: 'nhip',
+    name: 'Nhịp',
+    label: 'Vừa',
+    tier: 'Gold',
+    pace: { spawnFromMs: 2100, spawnToMs: 1100, fallFromMs: 7500, fallToMs: 4500, maxThrownFalling: 2, maxWordLength: 8 },
+    typeAfterMs: [1500, 4000],
+    missRate: 1 / 10,
+  },
+  hard: {
+    bot: 'da',
+    name: 'Dạ',
+    label: 'Khó',
+    tier: 'Diamond',
+    pace: { spawnFromMs: 1800, spawnToMs: 800, fallFromMs: 6500, fallToMs: 3500, maxThrownFalling: 3, maxWordLength: 10 },
+    typeAfterMs: [800, 2500],
+    missRate: 1 / 20,
+  },
+};
+const paceOf = (level: BotLevel): BotPace => BOT_LEVELS[level].pace;
+
 /** A typed or landed word stays this long (its pop or splat), then it is removed. */
 const SETTLE_MS = 600;
 /** Missed words kept for Ping's tip (the coach takes at most 10). */
@@ -51,6 +98,7 @@ export interface PracticeSide {
   waiting: number;
 }
 export interface PracticeState {
+  level: BotLevel;
   elapsed: number;
   schedule: PracticeSpawn[];
   next: number;
@@ -77,12 +125,18 @@ export type PracticeAction =
 
 const lerp = (from: number, to: number, elapsed: number) =>
   Math.round(from + (to - from) * Math.min(1, Math.max(0, elapsed / PRACTICE_PACE.durationMs)));
-const fallAt = (elapsed: number) => lerp(PRACTICE_PACE.fallFromMs, PRACTICE_PACE.fallToMs, elapsed);
-const spawnGapAt = (elapsed: number) => lerp(PRACTICE_PACE.spawnFromMs, PRACTICE_PACE.spawnToMs, elapsed);
+const fallAt = (elapsed: number, pace: BotPace) => lerp(pace.fallFromMs, pace.fallToMs, elapsed);
+const spawnGapAt = (elapsed: number, pace: BotPace) => lerp(pace.spawnFromMs, pace.spawnToMs, elapsed);
 const pick = <T,>(items: T[], rand: Rand) => items[Math.min(items.length - 1, Math.floor(rand() * items.length))];
 
-/** When Ping-bot types a word that appeared at `spawnedAt`: one word in six it lets fall (`null`), else after 2.5–6 s. */
-export const botPlan = (spawnedAt: number, rand: Rand): number | null => (rand() < 1 / 6 ? null : spawnedAt + 2500 + rand() * 3500);
+/** When the bot types a word that appeared at `spawnedAt`: `null` for a word it lets fall, else after its `typeAfterMs`. */
+export const botPlan = (spawnedAt: number, rand: Rand, level: BotLevel = 'easy'): number | null => {
+  const {
+    missRate,
+    typeAfterMs: [from, to],
+  } = BOT_LEVELS[level];
+  return rand() < missRate ? null : spawnedAt + from + rand() * (to - from);
+};
 
 /** A word to throw: one of `words` not falling on that side already, so it is a new word to type (else any). */
 export const pickThrown = (words: string[], falling: Set<string>, rand: Rand) => {
@@ -102,13 +156,14 @@ export const duelOutcome = (me: { lives: number; hits: number }, bot: { lives: n
 
 /** The rain of the whole duel, the same for both sides: short words, each in a lane whose newest word has fallen a bit. */
 /** The words of a duel at this pace: no longer than `maxWordLength` letters (all of them if none is that short). */
-const shortWords = (words: string[]) => {
-  const short = words.filter((word) => [...word].length <= PRACTICE_PACE.maxWordLength);
+const shortWords = (words: string[], pace: BotPace) => {
+  const short = words.filter((word) => [...word].length <= pace.maxWordLength);
   return short.length ? short : words;
 };
 
-export const buildPracticeSchedule = (words: string[], rand: Rand): PracticeSpawn[] => {
-  const list = shortWords(words);
+export const buildPracticeSchedule = (words: string[], rand: Rand, level: BotLevel = 'easy'): PracticeSpawn[] => {
+  const pace = paceOf(level);
+  const list = shortWords(words, pace);
   if (!list.length) return [];
   const newest: (PracticeSpawn | undefined)[] = Array.from({ length: PRACTICE_PACE.lanes });
   const schedule: PracticeSpawn[] = [];
@@ -119,10 +174,10 @@ export const buildPracticeSchedule = (words: string[], rand: Rand): PracticeSpaw
       atMs += 100;
       continue;
     }
-    const spawn = { text: list[schedule.length % list.length], lane: pick(free, rand), atMs, fallMs: fallAt(atMs) };
+    const spawn = { text: list[schedule.length % list.length], lane: pick(free, rand), atMs, fallMs: fallAt(atMs, pace) };
     schedule.push(spawn);
     newest[spawn.lane] = spawn;
-    atMs += spawnGapAt(atMs);
+    atMs += spawnGapAt(atMs, pace);
   }
   return schedule;
 };
@@ -130,11 +185,12 @@ export const buildPracticeSchedule = (words: string[], rand: Rand): PracticeSpaw
 const side = (): PracticeSide => ({ lives: PRACTICE_PACE.lives, hits: 0, thrown: 0, drops: [], waiting: 0 });
 
 /** A duel about to start: the words shuffled by the caller, the rain built from them. */
-export const startPractice = (words: string[], rand: Rand): PracticeState => ({
+export const startPractice = (words: string[], rand: Rand, level: BotLevel = 'easy'): PracticeState => ({
+  level,
   elapsed: 0,
-  schedule: buildPracticeSchedule(words, rand),
+  schedule: buildPracticeSchedule(words, rand, level),
   next: 0,
-  words: shortWords(words),
+  words: shortWords(words, paceOf(level)),
   me: side(),
   bot: side(),
   input: '',
@@ -159,20 +215,20 @@ const addDrop = (s: PracticeState, key: SideKey, text: string, lane: number, fal
     lane,
     bornAt: s.elapsed,
     thrown,
-    ...(key === 'bot' && { botAt: botPlan(s.elapsed, rand) }),
+    ...(key === 'bot' && { botAt: botPlan(s.elapsed, rand, s.level) }),
   });
 };
 
 const throwTo = (s: PracticeState, key: SideKey, rand: Rand) => {
   const target = s[key];
-  if (falling(target).filter((drop) => drop.thrown).length >= PRACTICE_PACE.maxThrownFalling) {
+  if (falling(target).filter((drop) => drop.thrown).length >= paceOf(s.level).maxThrownFalling) {
     target.waiting += 1;
     return;
   }
   const text = pickThrown(s.words, new Set(falling(target).map((drop) => drop.text)), rand);
   const counts = Array.from({ length: PRACTICE_PACE.lanes }, () => 0);
   falling(target).forEach((drop) => (counts[drop.lane] += 1));
-  addDrop(s, key, text, counts.indexOf(Math.min(...counts)), Math.round(fallAt(s.elapsed) / PRACTICE_PACE.thrownSpeedUp), true, rand);
+  addDrop(s, key, text, counts.indexOf(Math.min(...counts)), Math.round(fallAt(s.elapsed, paceOf(s.level)) / PRACTICE_PACE.thrownSpeedUp), true, rand);
   s.lastThrow = { to: key, text, at: s.elapsed };
 };
 
