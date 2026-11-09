@@ -6,11 +6,17 @@ import { BotSprite } from '@/modules/tutorial/components/BotSprite';
 import { cn } from '@/shared/lib/utils';
 import { useWordChainBoard } from '../hooks/use-word-chain';
 
-/** A sample game: the bot's word, the player's answer (with the time it earned), the bot's answer. */
+/**
+ * A sample game: the bot's word, the player's answer (with the time it earned), the bot's answer, then answers that cost time,
+ * one typed with a hint (−3s) and a word the bot refuses (struck through, −3s); the sides alternate.
+ */
 const SAMPLE = [
   { by: 'bot', first: 'học', second: 'sinh' },
   { by: 'me', first: 'sinh', second: 'viên', bonus: '+5s' },
   { by: 'bot', first: 'viên', second: 'chức' },
+  { by: 'me', first: 'chức', second: 'vụ', penalty: 'Hint −3s' },
+  { by: 'bot', first: 'vụ', second: 'án' },
+  { by: 'me', first: 'án', second: 'xa', penalty: 'Wrong −3s', refused: true },
 ] as const;
 
 /**
@@ -26,13 +32,13 @@ export const WordChainPreview = () => {
         const mine = word.by === 'me';
         return (
           <span key={word.second} className="flex flex-col">
-            <span className={cn('flex items-end gap-3', i > 0 && 'mt-2', mine && 'flex-row-reverse')}>
+            <span className={cn('flex items-end gap-3', i > 0 && 'mt-1', mine && 'flex-row-reverse')}>
               {mine ? (
-                <span className="grid size-12 shrink-0 place-items-center overflow-hidden border border-primary/30 bg-primary/10">
+                <span className="grid size-10 shrink-0 place-items-center overflow-hidden border border-primary/30 bg-primary/10">
                   <AvatarSprite look={me?.avatar ?? DEFAULT_AVATAR} crop="head" scale={1} label="" />
                 </span>
               ) : (
-                <span className="flex size-12 shrink-0 justify-center overflow-hidden border border-border bg-background/40">
+                <span className="flex size-10 shrink-0 justify-center overflow-hidden border border-border bg-background/40">
                   {/* the top of the bot's strip (its head), a little smaller */}
                   <span className="-mt-1 origin-top scale-[0.7]">
                     <BotSprite level="medium" move={i === 0 ? 'idle' : 'typing'} />
@@ -41,12 +47,15 @@ export const WordChainPreview = () => {
               )}
               <span
                 className={cn(
-                  'relative border px-4 py-2 text-xl transition-transform duration-300 sm:text-2xl',
+                  'relative border px-4 py-1 text-xl transition-transform duration-300 sm:text-2xl',
                   mine ? 'border-primary/50 bg-primary/10 group-hover:-translate-x-1' : 'border-border bg-background/50 group-hover:translate-x-1',
                 )}
               >
                 <span className={cn(i > 0 && 'underline decoration-primary/50 decoration-dashed underline-offset-4')}>{word.first}</span>{' '}
-                <span className="font-semibold text-primary">{word.second}</span>
+                <span className={cn('font-semibold text-primary', 'refused' in word && 'text-destructive line-through decoration-2')}>{word.second}</span>
+                {'penalty' in word && (
+                  <span className="absolute -top-3 -left-3 border border-destructive/50 bg-background px-1.5 text-xs font-bold text-destructive">{word.penalty}</span>
+                )}
                 {'bonus' in word && (
                   <span className="absolute -top-3 -left-3 border border-primary/40 bg-background px-1.5 text-xs font-bold text-primary">{word.bonus}</span>
                 )}

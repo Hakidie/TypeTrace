@@ -310,11 +310,11 @@ describe('TypingPage', () => {
     expect(start).not.toHaveBeenCalled();
   });
 
-  it('opens Nối từ from its card', async () => {
+  it('opens Word chain from its card', async () => {
     const user = userEvent.setup();
     renderWithUrl('/typing?mode=minigames');
 
-    await user.click(await screen.findByRole('button', { name: /^Nối từ/ }));
+    await user.click(await screen.findByRole('button', { name: /^Word chain/ }));
 
     expect(await screen.findByRole('button', { name: 'Bắt đầu' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames&game=chain');
