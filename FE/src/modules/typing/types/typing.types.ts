@@ -98,4 +98,8 @@ export interface PassageOption {
   _id: string;
   title: string;
   wordCount: number;
+  /** One of the learner's own passages past the limit of their plan (US11.1): shown, but it cannot be picked. */
+  locked?: boolean;
+  /** Another learner's public passage on a plan that may not practice it (US11.1): picking it opens the plan. */
+  lockedByPlan?: boolean;
 }

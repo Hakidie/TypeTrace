@@ -15,6 +15,7 @@ import { Input } from '@/shared/components/ui/input';
 import { cn } from '@/shared/lib/utils';
 import { profileApi } from '../api/profile.api';
 import type { Streak, TypingActivity } from '../types/profile.types';
+import { PlanBadge } from '@/modules/plan/components/PlanBadge';
 import { AvatarUpload } from './AvatarUpload';
 
 // Same rule as the display name in `ProfileEditForm`.
@@ -236,7 +237,10 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
         </p>
       </div>
       <div className="col-span-3 min-w-0 sm:col-start-2 sm:row-start-2 lg:col-span-1 lg:col-start-2">
-        <EditableDisplayName user={user} textClassName="text-[1.875rem] font-black text-primary sm:text-[2.25rem]" />
+        <div className="flex min-w-0 items-center gap-3">
+          <EditableDisplayName user={user} textClassName="text-[1.875rem] font-black text-primary sm:text-[2.25rem]" />
+          <PlanBadge />
+        </div>
         <EditableBio key={user.bio ?? ''} user={user} />
       </div>
       {statList.map(({ label, tip }, i) => (

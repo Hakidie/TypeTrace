@@ -1,6 +1,7 @@
 import type { QueryFilter } from 'mongoose';
 import { DailyProgressModel } from '../models/daily-progress.model';
 import { NoteModel } from '../models/note.model';
+import { SubscriptionModel } from '../models/subscription.model';
 import { SessionReplayModel } from '../models/session-replay.model';
 import { TypingSessionModel } from '../models/typing-session.model';
 import { UserDailyTasksModel } from '../models/user-daily-tasks.model';
@@ -8,6 +9,7 @@ import { UserDocument, UserModel } from '../models/user.model';
 import { badRequest, forbidden, notFound } from '../utils/app-error';
 import { deleteImage } from './cloudinary.service';
 import { placementBoardChanged } from './placement-board-cache';
+import { getPremiumExpiries } from './subscription.service';
 import { typingActivityOf } from './typing-session.service';
 import { paginate } from '../utils/pagination';
 import { AdminUpdateUserInput, ListUsersQuery, SetUserStatusInput } from '../validators/admin-user.validator';
@@ -30,8 +32,10 @@ export const getAdminStats = async () => {
 };
 
 /** The users page, each user with `stats` (absent until a session is completed) and `sessions` (completed sessions per day). */
-export const listUsers = async ({ q, role, verified, status, ...pagination }: ListUsersQuery) => {
+export const listUsers = async ({ q, role, verified, status, plan, ...pagination }: ListUsersQuery) => {
   const filter: QueryFilter<UserDocument> = {};
+  const premium = await getPremiumExpiries();
+  if (plan) filter._id = plan === 'premium' ? { $in: [...premium.keys()] } : { $nin: [...premium.keys()] };
   if (role) filter.role = role;
   if (status) filter.status = status;
   if (verified !== undefined) filter.isEmailVerified = verified;
@@ -41,7 +45,13 @@ export const listUsers = async ({ q, role, verified, status, ...pagination }: Li
   }
   const page = await paginate(UserModel, filter, pagination);
   const activityOf = await typingActivityOf(page.items.map((user) => user._id));
-  return { ...page, items: page.items.map((user) => ({ ...user.toJSON(), ...activityOf(user._id) })) };
+  return {
+    ...page,
+    items: page.items.map((user) => {
+      const live = premium.get(String(user._id));
+      return { ...user.toJSON(), ...activityOf(user._id), plan: live ? 'premium' : 'free', planExpiresAt: live?.expiresAt ?? null, planCancelled: live?.cancelled ?? false };
+    })
+  };
 };
 
 export const getUser = async (id: string) => {
@@ -89,6 +99,8 @@ export const deleteUsers = async (actorId: string, ids: string[]) => {
   await SessionReplayModel.deleteMany({ owner: { $in: ids } });
   await DailyProgressModel.deleteMany({ owner: { $in: ids } });
   await UserDailyTasksModel.deleteMany({ owner: { $in: ids } });
+  // Their plan history goes with them; their passages stay (shown as anonymous) and count as system passages.
+  await SubscriptionModel.deleteMany({ user: { $in: ids } });
   // Best effort: a failed image cleanup must not undo the delete.
   await Promise.all(withAvatar.map((user) => deleteImage(user.avatarPublicId!).catch(() => undefined)));
   return deletedCount;

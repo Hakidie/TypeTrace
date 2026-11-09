@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PASSAGE_LIST } from '../../src/data/passages';
-import { MAX_USER_PASSAGES, MAX_PASSAGE_WORDS, MIN_USER_PASSAGE_WORDS, PassageModel } from '../../src/models/passage.model';
+import { DEFAULT_PLANS } from '../../src/models/app-setting.model';
+import { MAX_PASSAGE_WORDS, MIN_USER_PASSAGE_WORDS, PassageModel } from '../../src/models/passage.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { learnerPassageFilter } from '../../src/services/passage.service';
 import { api } from '../helpers/api';
 import { bearerFor, createUser } from '../helpers/user-factory';
+
+// The limit of a learner on the Free plan (US11.1).
+const MAX_USER_PASSAGES = DEFAULT_PLANS.free.maxPassages;
 
 const listPassages = (authorization: string, query = '') => api().get(`/api/passages${query}`).set('Authorization', authorization);
 const addPassage = (authorization: string, body: Record<string, unknown>) =>
@@ -331,8 +335,8 @@ describe('POST /api/passages', () => {
   it(`allows at most ${MAX_USER_PASSAGES} own passages per learner`, async () => {
     const me = await createUser({});
     const auth = bearerFor(me);
-    for (let i = 1; i < MAX_USER_PASSAGES; i += 1) await ownPassage(me, `Bài ${i}`);
-    // Public passages, other people's passages and an own passage an admin archived do not count.
+    for (let i = 2; i < MAX_USER_PASSAGES; i += 1) await ownPassage(me, `Bài ${i}`);
+    // A public passage counts (US11.1); other people's passages and an own passage an admin archived do not.
     await ownPassage(me, 'Công khai', { visibility: 'public' });
     await ownPassage(await createUser({ email: 'other@example.com' }), 'Của họ');
     await ownPassage(me, 'Đã lưu trữ', { status: 'archived' });

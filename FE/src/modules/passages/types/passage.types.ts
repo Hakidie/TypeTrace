@@ -120,6 +120,10 @@ export interface LearnerPassage {
   isOwn: boolean;
   /** Only on the learner's own public passages: an edit of it waits for an admin, the approved text stays public meanwhile. */
   editPending?: boolean;
+  /** Past the limit of the owner's plan (US11.1): shown dimmed to its owner, who can only delete it. */
+  locked?: boolean;
+  /** Another learner's public passage on a plan that may not practice it (US11.1): shown, but locked. */
+  lockedByPlan?: boolean;
   createdAt: string;
   /** Only in the list asked with `mine: true`. */
   content?: string;

@@ -11,6 +11,7 @@ import { ErrorCounts, TypingSessionModel } from '../models/typing-session.model'
 import { UserModel } from '../models/user.model';
 import { recordCountedSession, usableTimeZone } from '../services/daily-progress.service';
 import { addMonths } from '../services/monthly-progress.service';
+import { grantPremium } from '../services/subscription.service';
 import { hashPassword } from '../utils/hash';
 import { addDays, localDateKey } from '../utils/local-date';
 import { WordError } from '../utils/vietnamese-errors';
@@ -33,6 +34,9 @@ export const DEMO_STUDENTS = Array.from({ length: 12 }, (_, index) => {
   } as const;
 });
 
+/** The demo student who is on Premium. */
+export const DEMO_PREMIUM_EMAIL = 'student01@example.com';
+
 export const seedDemoAccounts = async () => {
   const created: string[] = [];
   const accounts = [...DEMO_ACCOUNTS.map((account) => ({ ...account, isEmailVerified: true })), ...DEMO_STUDENTS];
@@ -40,7 +44,7 @@ export const seedDemoAccounts = async () => {
     const exists = await UserModel.exists({ email: account.email });
     if (exists) continue;
 
-    await UserModel.create({
+    const user = await UserModel.create({
       email: account.email,
       password: await hashPassword(account.password),
       displayName: account.displayName,
@@ -48,6 +52,11 @@ export const seedDemoAccounts = async () => {
       isEmailVerified: account.isEmailVerified
     });
     created.push(account.email);
+    // One student on Premium for a month (given by the demo admin, made before the students) to try the plans (US11.1).
+    if (account.email === DEMO_PREMIUM_EMAIL) {
+      const admin = await UserModel.findOne({ email: DEMO_ACCOUNTS[1].email });
+      if (admin) await grantPremium(String(user._id), 1, String(admin._id));
+    }
   }
   return created;
 };

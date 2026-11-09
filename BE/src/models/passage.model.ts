@@ -80,9 +80,6 @@ export interface PassageDocument extends mongoose.Document {
 
 export const SYSTEM_OWNER_NAME = 'TypeTrace';
 
-/** How many private passages of their own a learner may have to type (`POST /api/passages`); archived ones do not count. */
-export const MAX_USER_PASSAGES = 20;
-
 /** A learner's own passage needs at least this many words: a shorter session never counts (`MIN_COUNTED_WORDS`). */
 export const MIN_USER_PASSAGE_WORDS = 20;
 

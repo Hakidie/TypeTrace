@@ -1,4 +1,4 @@
-import { Ban, CircleCheck, MailCheck, MailQuestion, Pencil, Shield, Trash2, User } from 'lucide-react';
+import { Ban, CircleCheck, Crown, Gem, MailCheck, MailQuestion, Pencil, Shield, Trash2, User } from 'lucide-react';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
@@ -24,9 +24,23 @@ interface UserRowProps {
   onToggleStatus?: (user: CurrentUser) => void;
   /** Adds a "Delete" entry to the kebab menu. The caller asks for confirmation. */
   onDelete?: (user: CurrentUser) => void;
+  /** The plan now (US11.1), shown as a tag; Premium also shows the day it ends. */
+  plan?: 'free' | 'premium';
+  planExpiresAt?: string | null;
+  /** Premium is cancelled: it runs to its end. */
+  planCancelled?: boolean;
+  /** Adds a "Grant Premium" entry. */
+  onGrantPremium?: (user: CurrentUser) => void;
+  /** Adds a "Cancel Premium" entry (only for a user on Premium that is not cancelled yet): it ends with the paid time. */
+  onCancelPremium?: (user: CurrentUser) => void;
+  /** Adds a "Revoke Premium now" entry (only for a user on Premium): it ends at once. */
+  onRevokePremium?: (user: CurrentUser) => void;
 }
 
-export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onToggleStatus, onDelete }: UserRowProps) => {
+const formatDay = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
+
+export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onToggleStatus, onDelete, plan, planExpiresAt, planCancelled, onGrantPremium, onCancelPremium, onRevokePremium }: UserRowProps) => {
   // Without a display name: the part of the email before the @.
   const name = user.displayName || user.email.split('@')[0];
   const showPicture = Boolean(user.avatarUrl) && user.avatarSource !== 'pixel';
@@ -71,6 +85,24 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
               {status === 'locked' ? 'Enable' : 'Disable'}
             </DropdownMenuItem>
           )}
+          {onGrantPremium && (
+            <DropdownMenuItem className="gap-2" onClick={() => onGrantPremium(user)}>
+              <Gem className="size-4" />
+              Grant Premium
+            </DropdownMenuItem>
+          )}
+          {onCancelPremium && plan === 'premium' && !planCancelled && (
+            <DropdownMenuItem className="gap-2" onClick={() => onCancelPremium(user)}>
+              <Crown className="size-4" />
+              Cancel Premium
+            </DropdownMenuItem>
+          )}
+          {onRevokePremium && plan === 'premium' && (
+            <DropdownMenuItem className="gap-2" onClick={() => onRevokePremium(user)}>
+              <Crown className="size-4" />
+              Revoke Premium now
+            </DropdownMenuItem>
+          )}
           {onDelete && (
             <DropdownMenuItem className="gap-2 text-destructive" onClick={() => onDelete(user)}>
               <Trash2 className="size-4" />
@@ -87,6 +119,13 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
             text={user.isEmailVerified ? 'Verified' : 'Unverified'}
             hint={user.isEmailVerified ? 'The email address is confirmed' : 'The email address is not confirmed yet'}
           />
+          {plan && (
+            <LabeledTag
+              icon={plan === 'premium' ? Crown : User}
+              text={plan === 'premium' && planExpiresAt ? `${planCancelled ? 'Cancelled' : 'Premium'} · ${formatDay(planExpiresAt)}` : plan === 'premium' ? 'Premium' : 'Free'}
+              hint={plan === 'premium' ? (planCancelled ? 'Premium was cancelled: it ends this day' : 'On Premium until this day') : 'On the Free plan'}
+            />
+          )}
           <Badge variant={status === 'locked' ? 'outline' : 'default'} className={status === 'locked' ? 'border-primary text-primary' : undefined}>
             {status === 'locked' ? <Ban className="mr-1.5 size-4" aria-hidden /> : <CircleCheck className="mr-1.5 size-4" aria-hidden />}
             {status === 'locked' ? 'Locked' : 'Active'}

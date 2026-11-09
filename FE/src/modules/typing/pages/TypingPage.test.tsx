@@ -33,6 +33,13 @@ vi.mock('@/modules/rain/api/rain.api', () => ({
   rainApi: { words: () => Promise.resolve({ words: ['nhà', 'cửa'], focus: [] }) },
 }));
 
+vi.mock('@/modules/plan/api/plan.api', () => ({
+  planApi: {
+    get: () =>
+      Promise.resolve({ plan: 'free', expiresAt: null, maxPassages: 9, usedPassages: 2, canUsePublicPassages: false, canCreateErrorPractice: false, plans: { free: { priceVnd: 0, maxPassages: 9, canCreateErrorPractice: false, canUsePublicPassages: false }, premium: { priceVnd: 99000, maxPassages: 90, canCreateErrorPractice: true, canUsePublicPassages: true } } }),
+  },
+}));
+
 const startTutorial = vi.fn();
 vi.mock('@/modules/tutorial/api/tutorial.api', () => ({
   tutorialApi: { start: () => startTutorial(), update: vi.fn(), reset: vi.fn(), coach: vi.fn() },
@@ -604,6 +611,33 @@ describe('TypingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Random' }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: undefined }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
+  });
+
+  it('shows the passages locked by the plan or by the limit and does not start them', async () => {
+    const user = userEvent.setup();
+    passages.mockResolvedValue([
+      { _id: 'p1', title: 'Hà Nội vào thu', wordCount: 40 },
+      { _id: 'p9', title: 'Của người khác', wordCount: 30, lockedByPlan: true },
+      { _id: 'p8', title: 'Quá hạn mức', wordCount: 20, locked: true },
+    ]);
+    start.mockResolvedValue({ ...session, passageTitle: 'Bữa cơm gia đình' });
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Choose passage' }));
+    const startedBefore = start.mock.calls.length;
+
+    // A passage of another learner on the Free plan: the plan opens instead of the session.
+    await user.click(await screen.findByRole('menuitemradio', { name: /Của người khác.*Premium/ }));
+    expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
+    // A passage past the owner's limit: nothing happens.
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    const locked = await screen.findByRole('menuitemradio', { name: /Quá hạn mức.*Locked/ });
+    expect(locked).toHaveAttribute('aria-disabled', 'true');
+    await user.click(locked);
+
+    expect(start.mock.calls.length).toBe(startedBefore);
+    expect(start).not.toHaveBeenCalledWith(expect.objectContaining({ passageId: 'p9' }));
+    expect(start).not.toHaveBeenCalledWith(expect.objectContaining({ passageId: 'p8' }));
   });
 
   it('types the passage from the URL first, as when Practice is clicked on the Passages page', async () => {

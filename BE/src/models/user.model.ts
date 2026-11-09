@@ -1,5 +1,6 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import { AvatarLook, DEFAULT_AVATAR } from '../data/avatar-catalog';
+import { SubscriptionModel } from './subscription.model';
 
 export const USER_ROLES = ['user', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -63,6 +64,8 @@ export interface UserDocument extends mongoose.Document {
    * from before the tutorial (they know how to play): nothing is shown to them.
    */
   tutorial?: TutorialState;
+  /** Set by the timestamps option of the schema. */
+  createdAt: Date;
 }
 
 /** Fields that must never leave the server. Stripped from every JSON response. */
@@ -157,5 +160,15 @@ const userSchema = new Schema<UserDocument>(
     }
   }
 );
+
+// Every new account starts on the Free plan (US11.1). A hook on the model, so every way of making an account gets it.
+userSchema.pre('save', function () {
+  this.$locals.wasNew = this.isNew;
+});
+userSchema.post('save', async function () {
+  if (!this.$locals.wasNew) return;
+  this.$locals.wasNew = false;
+  await SubscriptionModel.create({ user: this._id, plan: 'free', startsAt: this.get('createdAt') as Date, source: 'signup', changedBy: null });
+});
 
 export const UserModel = mongoose.model<UserDocument>('User', userSchema);

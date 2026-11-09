@@ -10,6 +10,7 @@ import {
   Globe,
   Keyboard,
   Languages,
+  Lock,
   Pencil,
   PencilLine,
   Trash2,
@@ -181,6 +182,8 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
         'group flex h-full flex-col border-0 bg-primary/15 text-primary shadow-none',
         review && 'cursor-pointer transition-colors hover:bg-primary/20',
         review?.selected && 'bg-primary/25 ring-2 ring-primary',
+        // Past the limit of the owner's plan (US11.1): dimmed.
+        own && learner.locked && 'opacity-60',
       )}
       // A card of the review queue is chosen by clicking it (or Space / Enter on it), for a decision on many at once.
       {...(review && {
@@ -245,9 +248,11 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
         {own && (
           // Shown on hover or keyboard focus; always on touch screens, which cannot hover.
           <div className="-mr-1 -mt-1 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
-            <Link to={`/typing?passage=${passage._id}`} aria-label={`Practice ${passage.title}`} title="Practice" className={iconButtonClass}>
-              <Keyboard className="size-4" aria-hidden />
-            </Link>
+            {!learner.locked && (
+              <Link to={`/typing?passage=${passage._id}`} aria-label={`Practice ${passage.title}`} title="Practice" className={iconButtonClass}>
+                <Keyboard className="size-4" aria-hidden />
+              </Link>
+            )}
             {own.onEdit && <IconButton icon={Pencil} hint="Edit" label={`Edit ${passage.title}`} onClick={() => own.onEdit?.(learner)} />}
             {own.onRequestPublic && (
               <IconButton icon={Globe} hint="Request public" label={`Request public ${passage.title}`} onClick={() => own.onRequestPublic?.(learner)} />
@@ -277,6 +282,7 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
               <LabeledTag icon={Languages} text="Vietnamese" hint="Vietnamese passage, for practice and the placement test" />
             )}
             {review && full?.pendingEdit && <LabeledTag icon={PencilLine} text="Edited" />}
+            {own && learner.locked && <LabeledTag icon={Lock} text="Locked" hint="Over your plan's limit: upgrade to Premium or delete some passages to open it again" />}
             {own ? (
               own.onShowReason && learner.reviewNote ? (
                 <Badge asChild className={chipClass}>

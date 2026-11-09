@@ -18,7 +18,8 @@
     "migrate:rating-kinds": "tsx src/scripts/migrate-rating-kinds.ts",
     "migrate:ranked-passages": "tsx src/scripts/migrate-ranked-passages.ts",
     "migrate:placement-board": "tsx src/scripts/migrate-placement-board.ts",
-    "migrate:user-status": "tsx src/scripts/migrate-user-status.ts"
+    "migrate:user-status": "tsx src/scripts/migrate-user-status.ts",
+    "migrate:subscriptions": "tsx src/scripts/migrate-subscriptions.ts"
   },
   "keywords": [],
   "author": "",

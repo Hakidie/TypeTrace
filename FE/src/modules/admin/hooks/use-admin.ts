@@ -57,6 +57,39 @@ export const useSetUserStatus = () => {
   });
 };
 
+export const useGrantPremium = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, months }: { id: string; months: number }) => adminApi.grantPremium(id, months),
+    onSuccess: () => {
+      toast.success('Premium granted.');
+      return queryClient.invalidateQueries({ queryKey: adminKeys.all });
+    },
+  });
+};
+
+export const useCancelPremium = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => adminApi.cancelPremium(id),
+    onSuccess: () => {
+      toast.success('Premium cancelled.');
+      return queryClient.invalidateQueries({ queryKey: adminKeys.all });
+    },
+  });
+};
+
+export const useRevokePremium = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => adminApi.revokePremium(id),
+    onSuccess: () => {
+      toast.success('Premium revoked.');
+      return queryClient.invalidateQueries({ queryKey: adminKeys.all });
+    },
+  });
+};
+
 export const useDeleteUsers = () => {
   const queryClient = useQueryClient();
   return useMutation({

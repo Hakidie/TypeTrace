@@ -1,6 +1,7 @@
 import { Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
+import { Input } from '@/shared/components/ui/input';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -11,7 +12,7 @@ import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { UserForm } from '../components/UserForm';
 import { UserRow } from '../components/UserRow';
-import { useAdminUsers, useDeleteUsers, useSetUserStatus } from '../hooks/use-admin';
+import { useAdminUsers, useCancelPremium, useDeleteUsers, useGrantPremium, useRevokePremium, useSetUserStatus } from '../hooks/use-admin';
 import type { AdminUser, AdminUserListParams } from '../types/admin.types';
 
 // Four users a page.
@@ -25,6 +26,13 @@ const ROLE_OPTIONS = [
   { value: 'user', label: 'User' },
   { value: 'admin', label: 'Admin' },
 ];
+
+const PLAN_OPTIONS = [
+  { value: 'free', label: 'Free' },
+  { value: 'premium', label: 'Premium' },
+];
+
+const MAX_GRANT_MONTHS = 36;
 
 const SORT_OPTIONS = [
   { value: '-createdAt', label: 'Newest' },
@@ -52,11 +60,22 @@ export const AdminUsersPage = () => {
   // The filters start on Role "User" and Email "Verified". Choosing "All" puts `all` in the URL: an empty value would bring the default back.
   const role = filterValue(list.get('role'), 'user') as AdminUserListParams['role'];
   const verified = filterValue(list.get('verified'), 'true') as AdminUserListParams['verified'];
+  const plan = filterValue(list.get('plan'), '') as AdminUserListParams['plan'];
   const setFilter = (key: string) => (value: string) => list.set(key, value === '' ? ALL : value);
 
-  const users = useAdminUsers({ page: list.page, limit: PAGE_SIZE, q: list.q, role, verified, sort: list.sort });
+  const users = useAdminUsers({ page: list.page, limit: PAGE_SIZE, q: list.q, role, verified, plan, sort: list.sort });
   const deleteUsers = useDeleteUsers();
   const setStatus = useSetUserStatus();
+  const grantPremium = useGrantPremium();
+  const cancelPremium = useCancelPremium();
+  const revokePremium = useRevokePremium();
+  // The user Premium is being granted to (with the months typed) or taken away from, waiting for confirmation (US11.1).
+  const [granting, setGranting] = useState<AdminUser>();
+  const [months, setMonths] = useState('1');
+  const [cancelling, setCancelling] = useState<AdminUser>();
+  const [revoking, setRevoking] = useState<AdminUser>();
+  const monthsNumber = Number(months);
+  const monthsValid = Number.isInteger(monthsNumber) && monthsNumber >= 1 && monthsNumber <= MAX_GRANT_MONTHS;
 
   const [editing, setEditing] = useState<AdminUser>();
   const formPanelRef = useRef<HTMLDivElement>(null);
@@ -71,7 +90,7 @@ export const AdminUsersPage = () => {
   const confirmDelete = () =>
     deleteUsers.mutate([pendingDelete!], { onSuccess: () => setPendingDelete(undefined) });
 
-  const isFiltered = Boolean(list.q || role || verified);
+  const isFiltered = Boolean(list.q || role || verified || plan);
 
   const renderList = () => {
     if (users.isPending) return <LoadingState rows={3} />;
@@ -95,6 +114,15 @@ export const AdminUsersPage = () => {
               stats={user.stats}
               sessions={user.sessions}
               status={user.status}
+              plan={user.plan}
+              planExpiresAt={user.planExpiresAt}
+              planCancelled={user.planCancelled}
+              onGrantPremium={() => {
+                setMonths('1');
+                setGranting(user);
+              }}
+              onCancelPremium={() => setCancelling(user)}
+              onRevokePremium={() => setRevoking(user)}
               onEdit={() => setEditing(user)}
               // Admins cannot be disabled (the backend refuses), but a locked one can always be enabled again.
               onToggleStatus={
@@ -147,6 +175,7 @@ export const AdminUsersPage = () => {
             filters={[
               { label: 'Role', value: role ?? '', options: ROLE_OPTIONS, onChange: setFilter('role') },
               { label: 'Email', value: verified ?? '', options: VERIFIED_OPTIONS, onChange: setFilter('verified') },
+              { label: 'Plan', value: plan ?? '', options: PLAN_OPTIONS, onChange: setFilter('plan') },
             ]}
           />
           {renderList()}
@@ -162,6 +191,51 @@ export const AdminUsersPage = () => {
         destructive
         pending={deleteUsers.isPending}
         onConfirm={confirmDelete}
+      />
+
+      <ConfirmDialog
+        open={granting !== undefined}
+        onOpenChange={(open) => !open && setGranting(undefined)}
+        title="Grant Premium"
+        description={`The months become a new term that starts when the Premium of ${granting?.email ?? ''} ends (today if they have none).`}
+        confirmLabel="Grant"
+        pending={grantPremium.isPending}
+        confirmDisabled={!monthsValid}
+        onConfirm={() => grantPremium.mutate({ id: granting!._id, months: monthsNumber }, { onSuccess: () => setGranting(undefined) })}
+      >
+        <Input
+          type="number"
+          min={1}
+          max={MAX_GRANT_MONTHS}
+          step={1}
+          aria-label="Months"
+          value={months}
+          onChange={(event) => setMonths(event.target.value)}
+        />
+        {!monthsValid && <p role="alert" className="text-sm text-destructive">Enter a number of months from 1 to {MAX_GRANT_MONTHS}.</p>}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={cancelling !== undefined}
+        onOpenChange={(open) => !open && setCancelling(undefined)}
+        title="Cancel Premium?"
+        description={`${cancelling?.email ?? ''} keeps Premium until the paid time ends, then goes back to the Free plan.`}
+        confirmLabel="Cancel Premium"
+        cancelLabel="Keep"
+        destructive
+        pending={cancelPremium.isPending}
+        onConfirm={() => cancelPremium.mutate(cancelling!._id, { onSuccess: () => setCancelling(undefined) })}
+      />
+
+      <ConfirmDialog
+        open={revoking !== undefined}
+        onOpenChange={(open) => !open && setRevoking(undefined)}
+        title="Revoke Premium now?"
+        description={`${revoking?.email ?? ''} goes back to the Free plan now. Passages over the Free limit get locked; nothing is deleted.`}
+        confirmLabel="Revoke"
+        destructive
+        pending={revokePremium.isPending}
+        onConfirm={() => revokePremium.mutate(revoking!._id, { onSuccess: () => setRevoking(undefined) })}
       />
     </div>
   );
