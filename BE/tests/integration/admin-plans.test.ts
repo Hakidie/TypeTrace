@@ -147,4 +147,29 @@ describe('admin grants of premium', () => {
     expect((await as(auth).users('?plan=gold')).status).toBe(400);
     expect(String(free._id)).toBeTruthy();
   });
+
+  it('removes the subscription rows of a user the admin deletes', async () => {
+    const { auth } = await signInAdmin();
+    const user = await createUser({ email: 'user@example.com' });
+    await as(auth).grant(user._id, { months: 1 });
+    expect(await SubscriptionModel.countDocuments({ user: user._id })).toBeGreaterThan(0);
+
+    expect((await api().delete(`/api/admin/users/${user._id}`).set('Authorization', auth)).status).toBe(204);
+
+    expect(await SubscriptionModel.countDocuments({ user: user._id })).toBe(0);
+  });
+
+  it('previews with the smallest limit of the two plans, also when Premium is below Free', async () => {
+    const admin = as((await signInAdmin()).auth);
+    const owner = await createUser({ email: 'owner@example.com' });
+    await grantNow(owner);
+    for (let i = 0; i < 5; i += 1) {
+      await PassageModel.create({ title: `Bài ${i}`, content: 'chữ chữ', source: 'Tự viết', visibility: 'private', status: 'published', owner: owner._id });
+    }
+
+    expect((await admin.preview(plans({}, { maxPassages: 3 }))).body).toEqual({ lockedUsers: 1, lockedPassages: 2 });
+  });
 });
+
+const grantNow = (user: { _id: unknown }) =>
+  SubscriptionModel.create({ user: user._id, plan: 'premium', startsAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000 * 30), source: 'admin', changedBy: null });

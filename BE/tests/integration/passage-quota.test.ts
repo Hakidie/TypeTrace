@@ -3,6 +3,7 @@ import { PASSAGE_LIST } from '../../src/data/passages';
 import { AppSettingModel, DEFAULT_PLANS } from '../../src/models/app-setting.model';
 import { MIN_USER_PASSAGE_WORDS, PassageModel } from '../../src/models/passage.model';
 import { SubscriptionModel } from '../../src/models/subscription.model';
+import { UserModel } from '../../src/models/user.model';
 import { updateAppSettings } from '../../src/services/app-setting.service';
 import { countCountedPassages, getLockedPassageIds, getPassageAccess } from '../../src/services/passage-lock.service';
 import { seedPassages } from '../../src/services/passage-seed.service';
@@ -218,5 +219,32 @@ describe('passage access by plan', () => {
     const free = await createUser();
 
     expect((await startSession(bearerFor(free), { mode: 'placement' })).status).toBe(201);
+  });
+});
+
+describe('passages that are not the learner\'s to count', () => {
+  it('does not count or lock a ranked passage or an English one', async () => {
+    const me = await createUser();
+    await manyPassages(me, FREE_MAX);
+    await passageOf(me, 'Ranked', 0, { visibility: 'public', language: 'en', isRanked: true, ownerName: 'Chủ bài' });
+    await passageOf(me, 'English', 0, { language: 'en' });
+
+    expect(await countCountedPassages(String(me._id))).toBe(FREE_MAX);
+    expect(await getLockedPassageIds({ ownerId: String(me._id) })).toEqual([]);
+    expect(await getLockedPassageIds()).toEqual([]);
+  });
+
+  it('never locks the passages of an account that was deleted, and a free learner may still practice them', async () => {
+    const owner = await createUser({ email: 'owner@example.com' });
+    const made = await manyPassages(owner, FREE_MAX + 3);
+    await PassageModel.updateMany({ owner: owner._id }, { visibility: 'public', ownerName: 'Chủ bài' });
+    await UserModel.deleteOne({ _id: owner._id });
+    const free = await createUser({ email: 'free@example.com' });
+
+    expect(await getLockedPassageIds()).toEqual([]);
+    const list = (await listPassages(bearerFor(free), '?mine=false&limit=100')).body.items as { title: string; lockedByPlan?: boolean }[];
+    expect(list.filter((item) => item.title.startsWith('Bài '))).toHaveLength(FREE_MAX + 3);
+    expect(list.some((item) => item.lockedByPlan)).toBe(false);
+    expect((await startSession(bearerFor(free), { passageId: String(made[0]._id) })).status).toBe(201);
   });
 });

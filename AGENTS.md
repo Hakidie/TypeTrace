@@ -145,13 +145,12 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   plan gives (`priceVnd`, `maxPassages`, `canCreateErrorPractice`, `canUsePublicPassages`) is `AppSettings.plans`
   (`getPlanConfig`, defaults `DEFAULT_PLANS`: Free 9 passages, Premium 90): US3.2 must check `canCreateErrorPractice`.
   `MAX_USER_PASSAGES` is gone: `passage-lock.service.ts` counts every passage the learner made (draft, private, pending,
-  rejected, public; not archived, not placement, never an admin's) and locks, when they have more than their plan's
+  rejected, public; not archived, placement, ranked or English ones, never an admin's or a deleted account's) and locks, when they have more than their plan's
   `maxPassages`, all but the newest ones (`getLockedPassageIds`, worked out on every read, nothing stored: buying Premium,
   a new limit or deleting a passage opens the older ones again). A locked passage cannot be practiced or picked and other
-  learners never see it; its owner sees it dimmed (`locked: true`) and may delete it (also when public, unless ranked
-  duels play it). Free practices only system passages (no owner, or an admin's) and its own: another learner's public
+  learners never see it; its owner sees it dimmed (`locked: true`) and may delete it (also when public). Free practices only system passages (no owner, or an admin's) and its own: another learner's public
   passage is listed with `lockedByPlan: true` and starting a session with it answers 403 (`assertCanPractice`).
-  Placement and ranked ignore plans. `GET /api/plan` is the learner's own plan, `/api/admin/plans` (GET, PUT, POST
+  Placement and ranked ignore plans. The passages of an account that was deleted (the subscription rows go with it) are system passages. `GET /api/plan` is the learner's own plan, `/api/admin/plans` (GET, PUT, POST
   `/preview`: how many users and passages a change would newly lock) and `POST|DELETE /api/admin/users/:id/premium`
   (1 to 36 calendar months, Vietnam time) are the admin side. `npm run migrate:subscriptions` gives old accounts a row.
 - Word errors have one set per passage language, each a pure file with an identical frontend copy in `FE/src/shared/lib/`

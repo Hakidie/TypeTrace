@@ -11,7 +11,7 @@ import type { SessionMode } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
-import { countCountedPassages, getAdminIds, getLockedPassageIds, getPlanOf } from './passage-lock.service';
+import { countCountedPassages, getLearnerOwnerIds, getLockedByOwner, getLockedPassageIds, getPlanOf } from './passage-lock.service';
 import { titleSearchPattern } from '../utils/passage-text';
 import { CreatePassageInput, ListPassagesQuery, UpdatePassageInput } from '../validators/passage.validator';
 
@@ -87,7 +87,8 @@ const listFields = 'title source wordCount ownerName visibility status reviewNot
 /** What the list needs to know about the learner's plan (US11.1): their locked passages, the admins, and the plan's permission. */
 interface ListPlan {
   lockedIds: Set<string>;
-  adminIds: Set<string>;
+  /** The owners on the page that are learner accounts: the passages of an admin or of a deleted account are system passages. */
+  learnerOwnerIds: Set<string>;
   canUsePublicPassages: boolean;
 }
 
@@ -109,7 +110,7 @@ const toListItem = (userId: string, withContent = false, plan?: ListPlan) => (pa
     // Past the owner's limit (US11.1): the owner sees it dimmed; nobody else gets it at all.
     ...(plan?.lockedIds.has(String(passage._id)) ? { locked: true } : {}),
     // Another learner's public passage on a plan that may not practice it: shown, but locked.
-    ...(plan && !plan.canUsePublicPassages && !isOwn && passage.visibility === 'public' && passage.owner && !plan.adminIds.has(String(passage.owner))
+    ...(plan && !plan.canUsePublicPassages && !isOwn && passage.visibility === 'public' && passage.owner && plan.learnerOwnerIds.has(String(passage.owner))
       ? { lockedByPlan: true }
       : {}),
     isOwn,
@@ -132,16 +133,9 @@ const tooManyPassages = (limit: number) => badRequest(`You can have at most ${li
  */
 export const listPassages = async (userId: string, { mode, q, visibility, mine, ...pagination }: ListPassagesQuery) => {
   // A locked passage is hidden from everyone but its owner, who sees it dimmed (US11.1).
-  const [allLocked, ownLocked, adminIds, { config }] = await Promise.all([
-    getLockedPassageIds(),
-    getLockedPassageIds({ ownerId: userId }),
-    getAdminIds(),
-    getPlanOf(userId)
-  ]);
-  const ownLockedSet = new Set(ownLocked.map(String));
-  const hidden = allLocked.filter((id) => !ownLockedSet.has(String(id)));
-  const plan: ListPlan | undefined =
-    mode === 'placement' ? undefined : { lockedIds: ownLockedSet, adminIds: new Set(adminIds.map(String)), canUsePublicPassages: config.canUsePublicPassages };
+  const [lockedByOwner, { config }] = await Promise.all([getLockedByOwner(), getPlanOf(userId)]);
+  const ownLocked = lockedByOwner.get(userId) ?? [];
+  const hidden = [...lockedByOwner].filter(([owner]) => owner !== userId).flatMap(([, lockedIds]) => lockedIds);
   const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode, hidden)];
   if (visibility) conditions.push({ visibility });
   if (mine !== undefined) conditions.push(mine ? { owner: userId } : { owner: { $ne: userId } });
@@ -150,6 +144,14 @@ export const listPassages = async (userId: string, { mode, q, visibility, mine, 
   const withContent = mine === true;
   const select = withContent ? `${listFields} content` : listFields;
   const page = await paginate(PassageModel, { $and: conditions }, pagination, { select, collation: { locale: 'vi' } });
+  const plan: ListPlan | undefined =
+    mode === 'placement'
+      ? undefined
+      : {
+          lockedIds: new Set(ownLocked.map(String)),
+          learnerOwnerIds: await getLearnerOwnerIds(page.items.flatMap((item) => (item.owner ? [item.owner] : []))),
+          canUsePublicPassages: config.canUsePublicPassages
+        };
   return { ...page, items: page.items.map(toListItem(userId, withContent, plan)) };
 };
 

@@ -136,11 +136,15 @@ const pickedFields = { title: 1, content: 1 } as const;
 
 const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInput) => {
   // Passages past their owner's limit are never picked (US11.1); the placement test is not tied to plans.
-  const locked = mode === 'placement' ? [] : await getLockedPassageIds();
   if (passageId) {
-    const passage = await PassageModel.findOne({ $and: [{ _id: passageId }, learnerPassageFilter(userId, mode, locked)] });
+    const passage = await PassageModel.findOne({ $and: [{ _id: passageId }, learnerPassageFilter(userId, mode)] });
     if (!passage) throw badRequest('Unknown passage');
-    if (mode !== 'placement') await assertCanPractice(userId, passage);
+    if (mode !== 'placement') {
+      // Only the owner of this passage matters: no need to work out every owner's locks.
+      const locked = passage.owner ? await getLockedPassageIds({ ownerId: String(passage.owner) }) : [];
+      if (locked.some((lockedId) => String(lockedId) === String(passage._id))) throw badRequest('Unknown passage');
+      await assertCanPractice(userId, passage);
+    }
     return passage;
   }
   if (mode === 'placement') {
@@ -152,6 +156,7 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
   const onlySystem = (await getPlanOf(userId)).config.canUsePublicPassages
     ? {}
     : { $or: [{ owner: { $exists: false } }, { owner: { $in: await getAdminIds() } }] };
+  const locked = await getLockedPassageIds();
   const random = await samplePassage<PickedPassage>(
     { visibility: 'public', isPlacement: false, ...notEnglish, ...(locked.length ? { _id: { $nin: locked } } : {}), ...onlySystem },
     pickedFields

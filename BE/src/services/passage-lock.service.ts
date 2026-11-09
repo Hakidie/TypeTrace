@@ -3,7 +3,7 @@
 // limit from an admin or deleting a passage opens the older ones with no job to run.
 import type { Types } from 'mongoose';
 import { AppSettings } from '../models/app-setting.model';
-import { PassageModel } from '../models/passage.model';
+import { notEnglish, PassageModel } from '../models/passage.model';
 import type { PlanId } from '../models/subscription.model';
 import { UserModel } from '../models/user.model';
 import { forbidden } from '../utils/app-error';
@@ -12,20 +12,22 @@ import { getCurrentSubscription } from './subscription.service';
 
 /**
  * The passages a learner made that count against their limit: draft, private, waiting for review, turned down or public.
- * Archived ones and placement passages do not.
+ * Archived ones, placement passages, ranked ones (the duels' own) and English ones (never in a learner's list) do not.
  */
-const countedFilter = (ownerId: string) => ({ owner: ownerId, status: { $ne: 'archived' as const }, isPlacement: false });
+const countedBase = { status: { $ne: 'archived' as const }, isPlacement: false, isRanked: { $ne: true }, ...notEnglish };
+const countedFilter = (ownerId: string) => ({ owner: ownerId, ...countedBase });
 
-const isAdmin = async (userId: unknown) => (await UserModel.exists({ _id: userId as Types.ObjectId, role: 'admin' })) !== null;
+/** A learner account that still exists: an admin's passages are system passages, and so are those of an account that is gone. */
+const isLearner = async (userId: unknown) => (await UserModel.exists({ _id: userId as Types.ObjectId, role: { $ne: 'admin' } })) !== null;
 
 /** The ids of the admin accounts: their passages are system passages (never counted, never locked). */
 export const getAdminIds = async () => (await UserModel.find({ role: 'admin' }).select('_id').lean()).map((user) => user._id);
 
-/** A system passage has no owner or an admin's: free for every plan, never locked. */
-export const isSystemPassage = async ({ owner }: { owner?: unknown }) => !owner || isAdmin(owner);
+/** A system passage has no owner, or an owner that is an admin or no longer exists: free for every plan, never locked. */
+export const isSystemPassage = async ({ owner }: { owner?: unknown }) => !owner || !(await isLearner(owner));
 
 /** How many passages of the learner count against their limit (always 0 for an admin). */
-export const countCountedPassages = async (ownerId: string) => ((await isAdmin(ownerId)) ? 0 : PassageModel.countDocuments(countedFilter(ownerId)));
+export const countCountedPassages = async (ownerId: string) => ((await isLearner(ownerId)) ? PassageModel.countDocuments(countedFilter(ownerId)) : 0);
 
 /** The plan the learner is on and what it gives. */
 export const getPlanOf = async (userId: string) => {
@@ -35,7 +37,7 @@ export const getPlanOf = async (userId: string) => {
 
 /** The passages of one owner past their limit: the newest `maxPassages` stay open, the older ones are locked. */
 const lockedOf = async (ownerId: string, plans: AppSettings['plans']) => {
-  if (await isAdmin(ownerId)) return [];
+  if (!(await isLearner(ownerId))) return [];
   const { plan } = await getCurrentSubscription(ownerId);
   const rows = await PassageModel.find(countedFilter(ownerId))
     .sort({ createdAt: -1, _id: -1 })
@@ -51,20 +53,33 @@ const smallestLimit = (plans: AppSettings['plans']) => Math.min(...(Object.keys(
 const ownersOver = async (limit: number) =>
   (
     await PassageModel.aggregate<{ _id: Types.ObjectId }>([
-      { $match: { owner: { $exists: true }, status: { $ne: 'archived' }, isPlacement: false } },
+      { $match: { owner: { $exists: true }, ...countedBase } },
       { $group: { _id: '$owner', total: { $sum: 1 } } },
       { $match: { total: { $gt: limit } } }
     ])
   ).map((owner) => owner._id);
 
+/** The locked passages of every owner that has any, by owner id. */
+export const getLockedByOwner = async (): Promise<Map<string, Types.ObjectId[]>> => {
+  const { plans } = await getAppSettings();
+  const owners = await ownersOver(smallestLimit(plans));
+  const locked = new Map<string, Types.ObjectId[]>();
+  for (const owner of owners) {
+    const ids = await lockedOf(String(owner), plans);
+    if (ids.length) locked.set(String(owner), ids);
+  }
+  return locked;
+};
+
 /** The ids of the locked passages of `ownerId`, or of every owner. Use them as `_id: { $nin: ids }`. */
 export const getLockedPassageIds = async ({ ownerId }: { ownerId?: string } = {}): Promise<Types.ObjectId[]> => {
-  const { plans } = await getAppSettings();
-  if (ownerId) return lockedOf(ownerId, plans);
-
-  const owners = await ownersOver(smallestLimit(plans));
-  return (await Promise.all(owners.map((owner) => lockedOf(String(owner), plans)))).flat();
+  if (ownerId) return lockedOf(ownerId, (await getAppSettings()).plans);
+  return [...(await getLockedByOwner()).values()].flat();
 };
+
+/** Which of `ownerIds` are learner accounts that still exist (as strings). */
+export const getLearnerOwnerIds = async (ownerIds: unknown[]) =>
+  new Set((await UserModel.find({ _id: { $in: ownerIds as Types.ObjectId[] }, role: { $ne: 'admin' } }).select('_id').lean()).map((user) => String(user._id)));
 
 /** What would newly be locked if the plans were these: the owners that lose a passage and how many passages they lose. */
 export const previewLockChange = async (next: AppSettings['plans']) => {

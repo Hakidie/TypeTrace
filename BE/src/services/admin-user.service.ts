@@ -1,6 +1,7 @@
 import type { QueryFilter } from 'mongoose';
 import { DailyProgressModel } from '../models/daily-progress.model';
 import { NoteModel } from '../models/note.model';
+import { SubscriptionModel } from '../models/subscription.model';
 import { SessionReplayModel } from '../models/session-replay.model';
 import { TypingSessionModel } from '../models/typing-session.model';
 import { UserDailyTasksModel } from '../models/user-daily-tasks.model';
@@ -98,6 +99,8 @@ export const deleteUsers = async (actorId: string, ids: string[]) => {
   await SessionReplayModel.deleteMany({ owner: { $in: ids } });
   await DailyProgressModel.deleteMany({ owner: { $in: ids } });
   await UserDailyTasksModel.deleteMany({ owner: { $in: ids } });
+  // Their plan history goes with them; their passages stay (shown as anonymous) and count as system passages.
+  await SubscriptionModel.deleteMany({ user: { $in: ids } });
   // Best effort: a failed image cleanup must not undo the delete.
   await Promise.all(withAvatar.map((user) => deleteImage(user.avatarPublicId!).catch(() => undefined)));
   return deletedCount;
