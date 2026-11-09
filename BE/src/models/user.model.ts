@@ -10,7 +10,7 @@ export const ANONYMOUS_PLAYER_NAME = 'Anonymous player';
 export type UserStatus = (typeof USER_STATUSES)[number];
 
 /** The modes Ping guides through, in the order of the tour after sign-up (Ping tutorial design). */
-export const TUTORIAL_MODES = ['practice', 'placement', 'rain', 'daily', 'rank'] as const;
+export const TUTORIAL_MODES = ['practice', 'placement', 'rain', 'rank'] as const;
 export type TutorialMode = (typeof TUTORIAL_MODES)[number];
 export type TutorialStatus = 'done' | 'skipped';
 export const TUTORIAL_TOURS = ['active', 'done', 'skipped'] as const;

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  claimStreakReward,
   getDailyTasks,
   getErrorProfile,
   getMonthlyProgress,
@@ -30,6 +31,8 @@ profileRouter.post('/avatar', authGuard, imageUpload.single('avatar'), uploadAva
 profileRouter.patch('/avatar-source', authGuard, validateBody(updateAvatarSourceSchema), updateAvatarSource);
 /** The learner's own streak and today's daily mission (SCRUM-31). */
 profileRouter.get('/streak', authGuard, getStreak);
+/** Claims today's streak reward (coins, once a day, after the day's first counted session). */
+profileRouter.post('/streak/reward', authGuard, claimStreakReward);
 /** The learner's own daily tasks of today, with their progress (SCRUM-112). */
 profileRouter.get('/daily-tasks', authGuard, getDailyTasks);
 /** The learner's own error profile: rate, level and trend of each error type in their last counted sessions (SCRUM-27). */

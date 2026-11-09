@@ -4,7 +4,7 @@ import type { Types } from 'mongoose';
 import { DailyProgressModel } from '../models/daily-progress.model';
 import { TypingSessionModel } from '../models/typing-session.model';
 import { DEFAULT_TIMEZONE, UserModel } from '../models/user.model';
-import { notFound } from '../utils/app-error';
+import { badRequest, conflict, notFound } from '../utils/app-error';
 import { addDays, isValidTimeZone, localDateKey } from '../utils/local-date';
 
 /**
@@ -15,6 +15,9 @@ import { addDays, isValidTimeZone, localDateKey } from '../utils/local-date';
 export const DAILY_MISSION_SESSIONS = 1;
 
 type OwnerId = string | Types.ObjectId;
+
+/** The streak reward of a day: 20 coins, and 5 more for each day of the streak before today, at most 50. */
+export const streakRewardCoins = (streak: number) => Math.min(50, 20 + 5 * (Math.max(1, streak) - 1));
 
 /**
  * A stored zone this server does not know (edited by hand, or newer than its `Intl`) counts as the default one. Also
@@ -81,18 +84,42 @@ export const getStreak = async (userId: string) => {
   if (!user) throw notFound('User not found');
   const today = localDateKey(new Date(), usableTimeZone(user.settings?.timezone));
   const days = await DailyProgressModel.find({ owner: userId, sessions: { $gt: 0 } })
-    .select('date sessions missionCompletedAt')
+    .select('date sessions missionCompletedAt rewardCoins rewardClaimedAt')
     .lean();
   const todayRow = days.find((day) => day.date === today);
+  const streak = computeStreak(days.map((day) => day.date), today);
   return {
-    ...computeStreak(days.map((day) => day.date), today),
+    ...streak,
     today: {
       date: today,
       sessions: todayRow?.sessions ?? 0,
       missionGoal: DAILY_MISSION_SESSIONS,
-      missionCompleted: Boolean(todayRow?.missionCompletedAt)
+      missionCompleted: Boolean(todayRow?.missionCompletedAt),
+      // What the claim gives (or gave). It can be claimed once today has a counted session, which adds today to the streak.
+      reward: {
+        coins: todayRow?.rewardCoins ?? streakRewardCoins(todayRow ? streak.current : streak.current + 1),
+        claimed: Boolean(todayRow?.rewardClaimedAt)
+      }
     }
   };
+};
+
+/**
+ * `POST /api/profile/streak/reward`: the coins of today's streak reward, once a day, after the day's first counted
+ * session. One conditional update sets `rewardClaimedAt`, so of two claims at once only one matches, and only that
+ * request adds the coins.
+ */
+export const claimStreakReward = async (userId: string) => {
+  const { current, today } = await getStreak(userId);
+  if (today.sessions === 0) throw badRequest('Finish a counted session today first');
+  const coins = streakRewardCoins(current);
+  const claimed = await DailyProgressModel.updateOne(
+    { owner: userId, date: today.date, rewardClaimedAt: { $exists: false } },
+    { $set: { rewardClaimedAt: new Date(), rewardCoins: coins } }
+  );
+  if (claimed.modifiedCount === 0) throw conflict("Today's reward is already claimed");
+  const user = await UserModel.findByIdAndUpdate(userId, { $inc: { coins } }, { returnDocument: 'after' }).select('coins').lean();
+  return { coins, totalCoins: user?.coins ?? coins };
 };
 
 /**

@@ -54,6 +54,11 @@ export const getStreak = async (req: Request, res: Response) => {
   res.json(await dailyProgressService.getStreak(req.user!.sub));
 };
 
+/** Claims today's streak reward: `{ coins, totalCoins }`; 400 without a counted session today, 409 once claimed. */
+export const claimStreakReward = async (req: Request, res: Response) => {
+  res.json(await dailyProgressService.claimStreakReward(req.user!.sub));
+};
+
 /** The learner's daily tasks of today, each with its progress (SCRUM-112). */
 export const getDailyTasks = async (req: Request, res: Response) => {
   res.json(await userDailyTasksService.getTodayDailyTasks(req.user!.sub));

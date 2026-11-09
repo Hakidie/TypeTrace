@@ -10,6 +10,9 @@ export interface DailyProgressDocument extends mongoose.Document {
   sessions: number;
   /** When `sessions` reached `DAILY_MISSION_SESSIONS`: the daily mission was done. Absent until then. */
   missionCompletedAt?: Date;
+  /** The day's streak reward (`claimStreakReward`): the coins it gave and when. Absent until it is claimed. */
+  rewardCoins?: number;
+  rewardClaimedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,7 +22,9 @@ const dailyProgressSchema = new Schema<DailyProgressDocument>(
     owner: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
     sessions: { type: Number, default: 0, min: 0 },
-    missionCompletedAt: Date
+    missionCompletedAt: Date,
+    rewardCoins: Number,
+    rewardClaimedAt: Date
   },
   {
     timestamps: true,

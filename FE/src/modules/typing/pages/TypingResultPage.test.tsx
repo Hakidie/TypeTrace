@@ -13,6 +13,10 @@ vi.mock('@/modules/ranked/api/ranked.api', () => ({
   rankedApi: { placementSettings: () => placementSettings() },
 }));
 
+vi.mock('@/modules/profile/api/profile.api', () => ({
+  profileApi: { getStreak: () => new Promise(() => {}) },
+}));
+
 vi.mock('../api/typing.api', () => ({
   typingApi: { get: (id: string) => get(id), stats: (id: string) => stats(id), replay: (id: string) => replay(id) },
 }));

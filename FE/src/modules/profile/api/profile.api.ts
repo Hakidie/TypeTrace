@@ -9,6 +9,7 @@ import type {
   SessionListParams,
   SessionSummary,
   Streak,
+  StreakRewardClaim,
   TypingActivity,
 } from '../types/profile.types';
 
@@ -36,6 +37,8 @@ export const profileApi = {
     http.get<Paginated<SessionSummary>>('/sessions', { params }).then((r) => r.data),
   // The learner's streak and today's daily mission (SCRUM-31).
   getStreak: () => http.get<Streak>('/profile/streak').then((r) => r.data),
+  // Claims today's streak reward (once a day, after the day's first counted session).
+  claimStreakReward: () => http.post<StreakRewardClaim>('/profile/streak/reward').then((r) => r.data),
   // The learner's tasks of today, with how far they are (SCRUM-112).
   getDailyTasks: () => http.get<DailyTasks>('/profile/daily-tasks').then((r) => r.data),
   // The learner's error profile: rate, level and trend of each error type in their last counted sessions (SCRUM-27).

@@ -33,27 +33,6 @@ vi.mock('@/modules/rain/api/rain.api', () => ({
   rainApi: { words: () => Promise.resolve({ words: ['nhà', 'cửa'], focus: [] }) },
 }));
 
-vi.mock('@/modules/daily/api/daily.api', () => ({
-  dailyApi: {
-    today: () =>
-      Promise.resolve({
-        date: '2026-10-29',
-        passageTitle: 'Hà Nội vào thu',
-        preview: 'Hà Nội vào thu',
-        seconds: 60,
-        triesLeft: 3,
-        best: null,
-        rank: null,
-        streak: 0,
-        coins: 0,
-        lastTry: null,
-        endsAt: new Date(Date.now() + 3_600_000).toISOString(),
-        yesterdayWinner: null,
-      }),
-    leaderboard: () => Promise.resolve({ date: '2026-10-29', players: 0, items: [], me: null }),
-    history: () => Promise.resolve([]),
-  },
-}));
 const startTutorial = vi.fn();
 vi.mock('@/modules/tutorial/api/tutorial.api', () => ({
   tutorialApi: { start: () => startTutorial(), update: vi.fn(), reset: vi.fn(), coach: vi.fn() },
@@ -295,7 +274,7 @@ describe('TypingPage', () => {
       { route },
     );
 
-  it('shows a card for Rain and for Daily in the Minigames tab, without a passage to choose or a typing session', async () => {
+  it('shows the Rain card, and no Daily card, in the Minigames tab, without a passage to choose or a typing session', async () => {
     const user = userEvent.setup();
     renderWithUrl('/typing');
     await screen.findByRole('textbox', { name: 'Typing area' });
@@ -303,7 +282,7 @@ describe('TypingPage', () => {
     await user.click(screen.getByRole('radio', { name: 'Minigames' }));
 
     expect(await screen.findByRole('button', { name: /^Rain/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Daily/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Daily/ })).not.toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames');
     expect(screen.getByRole('radio', { name: 'Minigames' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.queryByRole('button', { name: 'Choose passage' })).not.toBeInTheDocument();
@@ -346,33 +325,26 @@ describe('TypingPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'All minigames' }));
 
-    expect(await screen.findByRole('button', { name: /^Daily/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^Rain/ })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames');
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('game=');
     expect(start).not.toHaveBeenCalled();
   });
 
-  it('opens the daily challenge from its card, without a practice session', async () => {
-    const user = userEvent.setup();
-    renderWithUrl('/typing?mode=minigames');
+  it('opens the game of an old ?mode=rain link and rewrites it to the Minigames URL', async () => {
+    renderWithUrl('/typing?mode=rain');
 
-    await user.click(await screen.findByRole('button', { name: /^Daily/ }));
-
-    expect(await screen.findByRole('button', { name: 'Start try 1' })).toBeInTheDocument();
-    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames&game=daily');
+    expect(await screen.findByRole('button', { name: 'Start' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames&game=rain'));
+    expect(screen.getByRole('radio', { name: 'Minigames' })).toHaveAttribute('aria-checked', 'true');
     expect(start).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ['rain', 'Start'],
-    ['daily', 'Start try 1'],
-  ])('opens the game of an old ?mode=%s link and rewrites it to the Minigames URL', async (name, button) => {
-    renderWithUrl(`/typing?mode=${name}`);
+  it('opens Practice from an old ?mode=daily link (the daily challenge is now the streak reward of Practice)', async () => {
+    renderWithUrl('/typing?mode=daily');
 
-    expect(await screen.findByRole('button', { name: button })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('URL search')).toHaveTextContent(`?mode=minigames&game=${name}`));
-    expect(screen.getByRole('radio', { name: 'Minigames' })).toHaveAttribute('aria-checked', 'true');
-    expect(start).not.toHaveBeenCalled();
+    expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('stays in the room when the active Rank tab is clicked again (ranked duel, phase 4)', async () => {

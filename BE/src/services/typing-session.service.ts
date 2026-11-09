@@ -7,7 +7,6 @@ import { paginate } from '../utils/pagination';
 import { titleSearchPattern } from '../utils/passage-text';
 import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
-import { recordTry } from './daily.service';
 import { getAppSettings } from './app-setting.service';
 import { placementBoardChanged } from './placement-board-cache';
 import { recentProgressOf, recordCountedSession } from './daily-progress.service';
@@ -298,8 +297,6 @@ export const completeSession = async (
       console.error('Daily tasks not updated, the next counted session of the day adds this one:', error)
     );
   }
-  // A try of the daily challenge also updates the learner's day: best score, streak and coins.
-  if (completed.mode === 'daily') await recordTry(completed);
   return completed;
 };
 

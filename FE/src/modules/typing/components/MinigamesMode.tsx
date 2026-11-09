@@ -1,6 +1,5 @@
-import { ArrowLeft, ArrowRight, CalendarDays, CloudRain, Link2, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CloudRain, Link2, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { DailyMode } from '@/modules/daily/components/DailyMode';
 import { RainMode } from '@/modules/rain/components/RainMode';
 import { hoverFrame, titleClass } from '@/modules/ranked/components/RankLobby';
 import { BotDuelMode } from '@/modules/tutorial/components/BotDuelMode';
@@ -9,13 +8,12 @@ import { WordChainMode } from '@/modules/word-chain/components/WordChainMode';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 
-export type MinigameId = 'rain' | 'daily' | 'bot' | 'chain';
+export type MinigameId = 'rain' | 'bot' | 'chain';
 
 const BigIcon = ({ icon: Icon }: { icon: LucideIcon }) => <Icon className="size-28 text-primary" strokeWidth={1.25} aria-hidden="true" />;
 
 const minigames: { id: MinigameId; title: string; description: string; facts: string[]; art: ReactNode }[] = [
   { id: 'rain', title: 'Rain', description: 'Type the falling words before they land.', facts: ['1 minute', 'Solo', 'Beat your best'], art: <BigIcon icon={CloudRain} /> },
-  { id: 'daily', title: 'Daily', description: 'One passage for everyone each day. Beat your last try and climb the board.', facts: ['New every day', 'Leaderboard', 'Coins'], art: <BigIcon icon={CalendarDays} /> },
   {
     id: 'bot',
     title: 'Bot duel',
@@ -38,11 +36,11 @@ const minigames: { id: MinigameId; title: string; description: string; facts: st
     art: <BigIcon icon={Link2} />,
   },
 ];
-const GAMES: Record<MinigameId, () => React.JSX.Element> = { rain: RainMode, daily: DailyMode, bot: BotDuelMode, chain: WordChainMode };
+const GAMES: Record<MinigameId, () => React.JSX.Element> = { rain: RainMode, bot: BotDuelMode, chain: WordChainMode };
 
 /**
  * The Minigames tab of the Typing page (`?mode=minigames`): a card for each minigame. The picked one lives in the URL
- * (`&game=rain|daily|bot|chain`) and opens in place of the cards, with a button under it, in the center, back to them.
+ * (`&game=rain|bot|chain`) and opens in place of the cards, with a button under it, in the center, back to them.
  */
 export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; onSelect: (id: MinigameId) => void; onBack: () => void }) => {
   if (game) {

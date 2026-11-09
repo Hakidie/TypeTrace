@@ -35,7 +35,7 @@ const streakQuery = (data?: Streak) => ({ data }) as UseQueryResult<Streak>;
 const streakOf = (current: number, longest: number): Streak => ({
   current,
   longest,
-  today: { date: '2026-10-27', sessions: 0, missionGoal: 1, missionCompleted: false },
+  today: { date: '2026-10-27', sessions: 0, missionGoal: 1, missionCompleted: false, reward: { coins: 20, claimed: false } },
 });
 
 const renderHeader = (account: CurrentUser = user, data?: TypingActivity, streak = streakQuery(streakOf(5, 12))) =>

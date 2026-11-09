@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MODE_SEARCH, MODE_STEPS, nextTourMode, openModeOf, pendingGuide, TOUR_ORDER } from './steps';
 
 describe('tutorial steps', () => {
-  it('finds Rain and Daily as games of the Minigames tab, and the old links too', () => {
+  it('finds Rain as a game of the Minigames tab, and the old link too', () => {
     const open = (search: string) => openModeOf(new URLSearchParams(search));
     for (const mode of TOUR_ORDER) expect(open(MODE_SEARCH[mode])).toBe(mode);
     expect(open('mode=rain')).toBe('rain');
@@ -24,7 +24,7 @@ describe('tutorial steps', () => {
   });
 
   it('walks the tour in order while it is active', () => {
-    expect(TOUR_ORDER).toEqual(['practice', 'placement', 'rain', 'daily', 'rank']);
+    expect(TOUR_ORDER).toEqual(['practice', 'placement', 'rain', 'rank']);
     expect(nextTourMode({ tour: 'active', modes: {} })).toBe('practice');
     expect(nextTourMode({ tour: 'active', modes: { practice: 'done', placement: 'skipped' } })).toBe('rain');
     expect(nextTourMode({ tour: 'skipped', modes: {} })).toBeUndefined();
