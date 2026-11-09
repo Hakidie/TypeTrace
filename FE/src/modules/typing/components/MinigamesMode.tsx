@@ -1,10 +1,10 @@
-import { ArrowLeft, ArrowRight, CloudRain } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CloudRain, Timer, Trophy, Zap, type LucideIcon } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 import { RainMode } from '@/modules/rain/components/RainMode';
 import { BotDuelMode } from '@/modules/tutorial/components/BotDuelMode';
 import { BotSprite } from '@/modules/tutorial/components/BotSprite';
 import { WordChainMode } from '@/modules/word-chain/components/WordChainMode';
-import { useWordChainBoard } from '@/modules/word-chain/hooks/use-word-chain';
+import { WordChainPreview, WordChainWeekBadge } from '@/modules/word-chain/components/WordChainPreview';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 
@@ -31,24 +31,12 @@ const Play = ({ label = 'Play' }: { label?: string }) => (
   </span>
 );
 
-/** The three words of the chain on the Nối từ tile, drawn like the words of the game (decorative). */
-const CHAIN_PREVIEW = [
-  ['học', 'sinh'],
-  ['sinh', 'viên'],
-  ['viên', 'chức'],
+/** The rules of Nối từ in three numbers, under its preview. */
+const CHAIN_FACTS: { icon: LucideIcon; value: string; label: string }[] = [
+  { icon: Timer, value: '60s', label: 'to start' },
+  { icon: Zap, value: '+2 to +5s', label: 'per word, by speed' },
+  { icon: Trophy, value: 'Weekly', label: 'leaderboard' },
 ];
-
-/** The player's place on this week's Nối từ board, when they have one. */
-const WeekPlace = () => {
-  const board = useWordChainBoard('week');
-  const me = board.data?.me;
-  if (!me) return null;
-  return (
-    <span className="text-sm text-muted-foreground">
-      Tuần này bạn đứng thứ <span className="font-semibold text-foreground">{me.rank}</span>, {me.score} điểm
-    </span>
-  );
-};
 
 /** A tile appears a little after the one before it (`duel-rise`, still for reduced motion). */
 const rise = (index: number): CSSProperties => ({ animationDelay: `${index * 70}ms` });
@@ -105,30 +93,38 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
         style={rise(0)}
         className={cn(tile, 'duel-rise flex-col gap-6 p-7 lg:row-span-2 lg:p-9')}
       >
-        <span className="flex flex-col gap-3">
-          <span className="text-3xl font-bold text-primary lg:text-4xl">Nối từ</span>
-          <span className="max-w-[40ch] text-base text-muted-foreground">
-            Chain Vietnamese words with a friendly bot. The faster you type, the more time you get.
+        <span className="flex flex-wrap items-start justify-between gap-3">
+          <span className="flex flex-col gap-2">
+            <span className="text-3xl font-bold text-primary lg:text-4xl">Nối từ</span>
+            <span className="max-w-[40ch] text-base text-muted-foreground">
+              Chain Vietnamese words with a friendly bot. The faster you type, the more time you get.
+            </span>
+          </span>
+          <WordChainWeekBadge />
+        </span>
+        {/* how a game goes, drawn with the pieces of the game */}
+        <span className="flex flex-1 items-center justify-center py-2">
+          <span className="w-full max-w-md">
+            <WordChainPreview />
           </span>
         </span>
-        {/* a real chain in the look of the game: the bot's word, yours, the bot's answer */}
-        <span aria-hidden="true" className="flex flex-1 flex-col justify-center gap-2.5 py-2">
-          {CHAIN_PREVIEW.map(([first, second], i) => (
-            <span
-              key={second}
-              className={cn(
-                'w-fit border px-4 py-2 text-2xl transition-transform duration-300',
-                i % 2 ? 'self-end border-primary/40 bg-primary/10 group-hover:-translate-x-1' : 'border-border bg-background/40 group-hover:translate-x-1',
-              )}
-            >
-              {first} <span className="font-semibold text-primary">{second}</span>
+        <span className="flex flex-col gap-5">
+          <span className="grid grid-cols-3 border-y border-primary/15 py-3 text-center">
+            {CHAIN_FACTS.map(({ icon: Icon, value, label }, i) => (
+              <span key={label} className={cn('flex flex-col items-center gap-1', i > 0 && 'border-l border-primary/15')}>
+                <span className="flex items-center gap-1.5 text-lg font-bold text-foreground">
+                  <Icon className="size-4 text-primary" aria-hidden="true" /> {value}
+                </span>
+                <span className="text-xs text-muted-foreground">{label}</span>
+              </span>
+            ))}
+          </span>
+          <span className="flex items-center justify-between gap-3">
+            <span className="text-sm text-muted-foreground">Skip −5s, hint −3s, a wrong word −3s</span>
+            <span className="flex items-center gap-2 bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-transform duration-200 group-hover:-translate-y-0.5">
+              Play <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
             </span>
-          ))}
-        </span>
-        <span className="flex flex-col gap-3">
-          <Facts items={['60 seconds', 'Speed adds time', 'Weekly leaderboard']} />
-          <WeekPlace />
-          <Play label="Play Nối từ" />
+          </span>
         </span>
       </button>
 
