@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PLAN_IDS, SUBSCRIPTION_STATUSES } from '../models/subscription.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
+import { CHART_RANGES } from '../services/monthly-progress.service';
 
 const planConfigSchema = z.object({
   priceVnd: z.number().int('Use a whole number').min(0, 'At least 0'),
@@ -42,3 +43,15 @@ export const listSubscriptionsQuerySchema = paginationQuerySchema.extend({
 });
 
 export type ListSubscriptionsQuery = z.infer<typeof listSubscriptionsQuerySchema>;
+
+/** `GET /api/admin/plans/users-over-time`: the ranges of the Progress chart; `date` (a day) picks the year, month or week that holds it. */
+export const planUsersQuerySchema = z.object({
+  range: z.enum(CHART_RANGES).default('year'),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((value) => new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value, 'Not a real day')
+    .optional()
+});
+
+export type PlanUsersQuery = z.infer<typeof planUsersQuerySchema>;

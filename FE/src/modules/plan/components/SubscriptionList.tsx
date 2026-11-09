@@ -12,8 +12,8 @@ import { useSubscriptions } from '../hooks/use-admin-plans';
 import type { PlanId, SubscriptionStatus } from '../types/plan.types';
 import { SubscriptionCard } from './SubscriptionCard';
 
-// Three rows like the sessions of the profile.
-const PAGE_SIZE = 3;
+// Nine rows a page.
+const PAGE_SIZE = 9;
 
 const SORT_OPTIONS = [
   { value: '-createdAt', label: 'Newest' },
@@ -67,10 +67,10 @@ export const SubscriptionList = () => {
   }, [lastPage, page, setPage]);
 
   const renderList = () => {
-    if (rows.isPending) return <LoadingState rows={3} />;
+    if (rows.isPending) return <LoadingState rows={9} />;
     if (rows.isError) return <ErrorState error={rows.error} onRetry={() => void rows.refetch()} />;
     if (rows.data.items.length === 0) {
-      if (rows.data.totalPages > 0 && rows.data.page > rows.data.totalPages) return <LoadingState rows={3} />;
+      if (rows.data.totalPages > 0 && rows.data.page > rows.data.totalPages) return <LoadingState rows={9} />;
       return list.q || plan || method || by || status ? (
         <EmptyState icon={History} title="No matching plan changes" description="Try another search or filter." />
       ) : (

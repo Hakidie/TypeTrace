@@ -21,7 +21,7 @@ import {
   updateDailyTaskSettings
 } from '../controllers/admin-daily-task.controller';
 import { createTheme, deleteTheme, listThemes, updateTheme } from '../controllers/admin-theme.controller';
-import { cancelPremium, getPlans, grantPremium, listSubscriptions, previewPlans, revokePremium, savePlans } from '../controllers/admin-plan.controller';
+import { cancelPremium, getPlans, getPlanUsers, grantPremium, listSubscriptions, previewPlans, revokePremium, savePlans } from '../controllers/admin-plan.controller';
 import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, setUserStatus, updateUser } from '../controllers/admin.controller';
 import { getPlacementSettings, updatePlacementSettings } from '../controllers/placement.controller';
 import { closeSeason, listSeasons } from '../controllers/ranked.controller';
@@ -45,7 +45,7 @@ import {
 import { createAdminThemeSchema, listAdminThemesQuerySchema, updateAdminThemeSchema } from '../validators/admin-theme.validator';
 import { adminUpdateUserSchema, listUsersQuerySchema, setUserStatusSchema } from '../validators/admin-user.validator';
 import { bulkIdsSchema, idParamsSchema } from '../validators/common.validator';
-import { grantPremiumSchema, listSubscriptionsQuerySchema, updatePlansSchema } from '../validators/plan.validator';
+import { grantPremiumSchema, listSubscriptionsQuerySchema, planUsersQuerySchema, updatePlansSchema } from '../validators/plan.validator';
 import { placementSettingsSchema } from '../validators/placement.validator';
 import { listSeasonsQuerySchema } from '../validators/ranked.validator';
 
@@ -68,6 +68,7 @@ adminRouter.delete('/users/:id/premium', validate({ params: idParamsSchema }), r
 
 // The Free and Premium plans (US11.1): read, preview what a change would lock, save.
 adminRouter.get('/plans', getPlans);
+adminRouter.get('/plans/users-over-time', validate({ query: planUsersQuerySchema }), getPlanUsers);
 adminRouter.post('/plans/preview', validate({ body: updatePlansSchema }), previewPlans);
 adminRouter.put('/plans', validate({ body: updatePlansSchema }), savePlans);
 // Every plan change of every user (who, which plan, from where, who made it).

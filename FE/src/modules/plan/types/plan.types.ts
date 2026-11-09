@@ -1,3 +1,4 @@
+import type { ChartRange } from '@/modules/profile/types/profile.types';
 import type { AvatarLook } from '@/modules/avatar/types/avatar.types';
 
 export type PlanId = 'free' | 'premium';
@@ -78,4 +79,16 @@ export interface SubscriptionPage {
   limit: number;
   total: number;
   totalPages: number;
+}
+
+/** How many users are on each plan at the end of a period (`GET /api/admin/plans/users-over-time`). `key` is 'YYYY-MM' (year), the first day of a block of 7 days (month) or a day (week), as in the Progress chart. */
+export interface PlanUsersPoint {
+  key: string;
+  free: number;
+  premium: number;
+}
+
+export interface PlanUsersChartData {
+  range: ChartRange;
+  points: PlanUsersPoint[];
 }

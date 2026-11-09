@@ -10,6 +10,7 @@ const get = vi.fn();
 const preview = vi.fn();
 const save = vi.fn();
 const listSubscriptions = vi.fn();
+const usersOverTime = vi.fn();
 
 vi.mock('../api/admin-plan.api', () => ({
   adminPlanApi: {
@@ -17,6 +18,7 @@ vi.mock('../api/admin-plan.api', () => ({
     preview: (plans: unknown) => preview(plans),
     save: (plans: unknown) => save(plans),
     listSubscriptions: (params: unknown) => listSubscriptions(params),
+    usersOverTime: (range: string, date: string) => usersOverTime(range, date),
   },
 }));
 
@@ -49,10 +51,11 @@ const row = (over: object = {}) => ({
   createdAt: '2026-01-15T00:00:00.000Z',
   ...over,
 });
-const subscriptionPage = (items: object[], over: object = {}) => ({ items, page: 1, limit: 3, total: items.length, totalPages: items.length ? 1 : 0, ...over });
+const subscriptionPage = (items: object[], over: object = {}) => ({ items, page: 1, limit: 9, total: items.length, totalPages: items.length ? 1 : 0, ...over });
 
 beforeEach(() => {
   listSubscriptions.mockReset().mockResolvedValue(subscriptionPage([row()]));
+  usersOverTime.mockReset().mockResolvedValue({ range: 'year', points: [{ key: '2026-01', free: 3, premium: 1 }] });
   get.mockReset().mockResolvedValue(plans);
   preview.mockReset().mockResolvedValue({ lockedUsers: 0, lockedPassages: 0 });
   save.mockReset().mockImplementation(async (value: unknown) => value);
@@ -138,14 +141,78 @@ describe('AdminPlansPage', () => {
     expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
   });
 
-  it('has two panels: the plan cards without a title, then the subscription list under its title', async () => {
+  it('has three panels, each under its title: the users chart, the plan cards and the subscription list', async () => {
     renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
 
     await screen.findByRole('group', { name: 'Free plan' });
-    // Only the list has a title.
-    expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual(['Subscriptions']);
+    expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual(['Users', 'Plans', 'Subscriptions']);
+    // Save is on the row of the title Plans, and it still saves the form.
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('form', 'plans-form');
     const cards = within(await screen.findByRole('region', { name: 'Subscriptions' }));
     expect(await cards.findByText('An')).toBeInTheDocument();
+  });
+
+  it('draws the users on each plan for the year, and asks again when a range is picked', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+
+    expect(await screen.findByRole('img', { name: 'Users on each plan by month' })).toBeInTheDocument();
+    expect(usersOverTime).toHaveBeenCalledWith('year', expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
+
+    const chart = within(screen.getByRole('region', { name: 'Users by plan' }));
+    await user.click(chart.getByRole('button', { name: /^Month/ }));
+    await user.click((await screen.findAllByRole('menuitemradio'))[0]);
+    await waitFor(() => expect(usersOverTime).toHaveBeenLastCalledWith('month', expect.any(String)));
+  });
+
+  it('picks which lines the users chart draws', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    await screen.findByRole('img', { name: 'Users on each plan by month' });
+
+    const chart = within(screen.getByRole('region', { name: 'Users by plan' }));
+    expect(chart.getByRole('button', { name: /^Lines/ })).toHaveTextContent('All');
+    await user.click(chart.getByRole('button', { name: /^Lines/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Premium' }));
+    expect(chart.getByRole('button', { name: /^Lines/ })).toHaveTextContent('Premium');
+    await user.click(chart.getByRole('button', { name: /^Lines/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Free' }));
+    expect(chart.getByRole('button', { name: /^Lines/ })).toHaveTextContent('Free');
+  });
+
+  it('shows only the line of a plan after a click on its card, and both again after a second click', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    await screen.findByRole('img', { name: 'Users on each plan by month' });
+    const lines = () => within(screen.getByRole('region', { name: 'Users by plan' })).getByRole('button', { name: /^Lines/ });
+
+    await user.click(await screen.findByRole('group', { name: 'Premium plan' }));
+    expect(lines()).toHaveTextContent('Premium');
+    expect(screen.getByRole('group', { name: 'Premium plan' })).toHaveClass('border-primary');
+    await user.click(screen.getByRole('group', { name: 'Free plan' }));
+    expect(lines()).toHaveTextContent('Free');
+    await user.click(screen.getByRole('group', { name: 'Free plan' }));
+    expect(lines()).toHaveTextContent('All');
+  });
+
+  it('does not change the chart when a field or a switch of a card is used', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    await screen.findByRole('img', { name: 'Users on each plan by month' });
+
+    await user.click(await screen.findByLabelText('Passage limit (Premium)'));
+    await user.click(screen.getByRole('switch', { name: 'Allow premium passage (Premium)' }));
+    expect(within(screen.getByRole('region', { name: 'Users by plan' })).getByRole('button', { name: /^Lines/ })).toHaveTextContent('All');
+  });
+
+  it('shows an error with a retry button when the users chart cannot be loaded', async () => {
+    usersOverTime.mockRejectedValueOnce({ response: { status: 500, data: { message: 'Chart offline' } } });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+
+    expect(await screen.findByText('Chart offline')).toBeInTheDocument();
+    const chart = within(screen.getByRole('region', { name: 'Users by plan' }));
+    await userEvent.click(chart.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('img', { name: 'Users on each plan by month' })).toBeInTheDocument();
   });
 
   it('shows who changed whose plan, to what, from where and when it ends', async () => {
@@ -220,7 +287,7 @@ describe('AdminPlansPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
     await screen.findByText('An');
-    expect(listSubscriptions).toHaveBeenCalledWith({ page: 1, limit: 3, sort: '-createdAt' });
+    expect(listSubscriptions).toHaveBeenCalledWith({ page: 1, limit: 9, sort: '-createdAt' });
 
     await user.click(screen.getByRole('button', { name: /filter/i }));
     await user.click(await screen.findByRole('menuitemradio', { name: 'Premium' }));
