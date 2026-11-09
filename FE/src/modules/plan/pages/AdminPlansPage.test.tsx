@@ -61,11 +61,11 @@ describe('AdminPlansPage', () => {
 
     expect(await within(await screen.findByRole('group', { name: 'Free plan' })).findByLabelText('Passage limit (Free)')).toHaveValue(9);
     expect(within(card('Premium')).getByLabelText('Monthly price (Premium)')).toHaveValue(99000);
-    expect(within(card('Premium')).getByRole('switch', { name: 'Create error practice (Premium)' })).toBeChecked();
-    expect(within(card('Free')).getByRole('switch', { name: 'Create error practice (Free)' })).not.toBeChecked();
+    expect(within(card('Premium')).getByRole('switch', { name: 'Generate practice passage (Premium)' })).toBeChecked();
+    expect(within(card('Free')).getByRole('switch', { name: 'Generate practice passage (Free)' })).not.toBeChecked();
 
     await setNumber(user, 'Passage limit (Premium)', '100');
-    await user.click(screen.getByRole('switch', { name: 'Practice public passages of other learners (Free)' }));
+    await user.click(screen.getByRole('switch', { name: 'Allow premium passage (Free)' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     const expected = {
