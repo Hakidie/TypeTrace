@@ -114,7 +114,7 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
         type="button"
         onClick={() => onSelect('chain')}
         style={rise(0)}
-        className={cn(tile, 'duel-rise flex-col gap-6 p-7 lg:row-span-2 lg:p-9')}
+        className={cn(tile, 'duel-rise flex-col gap-6 p-5 lg:row-span-2')}
       >
         <span className="flex flex-wrap items-start justify-between gap-3">
           <span className="flex flex-col gap-2">
@@ -134,7 +134,7 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
           </span>
         </span>
         {/* the facts spread over one row, the same space between them and at both ends, as wide as the Play button under them */}
-        <span className="flex flex-col gap-3 text-muted-foreground">
+        <span className="flex flex-col gap-6 text-muted-foreground">
           <span className="flex flex-wrap justify-evenly gap-x-4 gap-y-2">
             {CHAIN_FACTS.map((fact) => (
               <Fact key={fact.label} {...fact} />
