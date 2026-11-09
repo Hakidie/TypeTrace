@@ -19,7 +19,7 @@ import type { AppModule } from './module.types';
  * entry here; its routes, nav links, admin pages and widgets are picked up automatically.
  * Order decides the order of the navigation links.
  */
-export const appModules: AppModule[] = [homeModule, notesModule, typingModule, rankedModule, profileModule, progressModule, adminModule, passagesModule, dailyTasksModule, seasonsAdminModule, chatModule, settingsModule, avatarModule, tutorialModule, planModule];
+export const appModules: AppModule[] = [homeModule, notesModule, typingModule, rankedModule, profileModule, progressModule, adminModule, passagesModule, dailyTasksModule, seasonsAdminModule, planModule, chatModule, settingsModule, avatarModule, tutorialModule];
 
 export const protectedRoutes = appModules.flatMap((module) => module.routes);
 export const publicRoutes = appModules.flatMap((module) => module.publicRoutes ?? []);

@@ -55,7 +55,7 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Same height as the sidebar header (61px). */}
-        <header className="flex h-[61px] shrink-0 items-center gap-2 border-b px-4">
+        <header className="sticky top-0 z-40 flex h-[61px] shrink-0 items-center gap-2 border-b bg-background/75 px-4 backdrop-blur-xs">
           <Button variant="ghost" size="sm" className="lg:hidden" aria-label="Open menu" onClick={() => setMenuOpen(true)}>
             <Menu className="size-5" />
           </Button>

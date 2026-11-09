@@ -1,22 +1,25 @@
 import { Users } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { Input } from '@/shared/components/ui/input';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
-import { ListToolbar } from '@/shared/components/list-toolbar';
+import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
+import { Dialog, DialogContent, DialogTitle } from '@/shared/components/ui/dialog';
 import { UserForm } from '../components/UserForm';
+import { UsersChart } from '../components/UsersChart';
 import { UserRow } from '../components/UserRow';
 import { useAdminUsers, useCancelPremium, useDeleteUsers, useGrantPremium, useRevokePremium, useSetUserStatus } from '../hooks/use-admin';
 import type { AdminUser, AdminUserListParams } from '../types/admin.types';
 
-// Four users a page.
-const PAGE_SIZE = 4;
+// Three users a page: with the chart above, the page fits one screen.
+const PAGE_SIZE = 3;
 
 // In the URL, `all` means no filter at all (an empty value means the filter was not touched: its default applies).
 const ALL = 'all';
@@ -78,12 +81,6 @@ export const AdminUsersPage = () => {
   const monthsValid = Number.isInteger(monthsNumber) && monthsNumber >= 1 && monthsNumber <= MAX_GRANT_MONTHS;
 
   const [editing, setEditing] = useState<AdminUser>();
-  const formPanelRef = useRef<HTMLDivElement>(null);
-  // The form is at the top of the page: bring it into view when a row asks to be edited.
-  const editingId = editing?._id;
-  useEffect(() => {
-    if (editingId) formPanelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-  }, [editingId]);
   // Id of the user waiting for delete confirmation.
   const [pendingDelete, setPendingDelete] = useState<string>();
 
@@ -135,35 +132,26 @@ export const AdminUsersPage = () => {
             />
           ))}
         </div>
-        <Pagination page={users.data.page} totalPages={users.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
+        <Pagination page={users.data.page} totalPages={users.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
       </>
     );
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* PANEL User info: always there, but only for editing (there is no "new user"): empty and disabled until Edit picks a user. No visible title, screen readers still get one. */}
-      <div ref={formPanelRef} className="scroll-mt-4">
-        <Panel bare>
-          <h2 className="sr-only">User info</h2>
-          <UserForm
-            key={editing?._id ?? 'none'}
-            user={editing}
-            stats={editing?.stats}
-            sessions={editing?.sessions}
-            status={editing?.status}
-            isSelf={editing?._id === currentUser?._id}
-            onDone={() => setEditing(undefined)}
-          />
-        </Panel>
-      </div>
+    // As tall as the screen leaves it (the screen minus the 61px header and the 2rem padding of the page above and below): the chart takes the height the list leaves.
+    <div className="flex min-h-[calc(100svh-61px-4rem)] flex-col gap-8">
+      {/* PANEL Total users: the number of users over time. */}
+      <UsersChart />
 
       {/* PANEL Users */}
-      <Panel bare>
-        <h2 className="sr-only">Users</h2>
-        <div className="flex flex-col gap-3">
-          <ListToolbar
-            title="Users"
+      <Panel
+        title="User list"
+        bare
+        titleClassName={sectionTitleClass}
+        className="flex flex-col gap-3"
+        actions={
+          <CompactToolbar
+            showWords
             search={{
               label: 'Search users',
               placeholder: 'Search email or name…',
@@ -171,16 +159,35 @@ export const AdminUsersPage = () => {
               onSearch: (value) => list.set('q', value),
             }}
             sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-            summary={users.data ? `${users.data.total} accounts in total` : 'Loading accounts…'}
             filters={[
               { label: 'Role', value: role ?? '', options: ROLE_OPTIONS, onChange: setFilter('role') },
               { label: 'Email', value: verified ?? '', options: VERIFIED_OPTIONS, onChange: setFilter('verified') },
               { label: 'Plan', value: plan ?? '', options: PLAN_OPTIONS, onChange: setFilter('plan') },
             ]}
+            count={{ icon: Users, value: users.data?.total ?? '…', label: 'Users' }}
           />
-          {renderList()}
-        </div>
+        }
+      >
+        {renderList()}
       </Panel>
+
+      {/* The edit form (there is no "new user"): a modal in the look of the menus, opened by Edit. */}
+      <Dialog open={editing !== undefined} onOpenChange={(open) => !open && setEditing(undefined)}>
+        <DialogContent overlay={false} className="border-border bg-background/75 pt-12 shadow-md backdrop-blur-xs sm:max-w-6xl" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">User info</DialogTitle>
+          {editing && (
+            <UserForm
+              key={editing._id}
+              user={editing}
+              stats={editing.stats}
+              sessions={editing.sessions}
+              status={editing.status}
+              isSelf={editing._id === currentUser?._id}
+              onDone={() => setEditing(undefined)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={pendingDelete !== undefined}

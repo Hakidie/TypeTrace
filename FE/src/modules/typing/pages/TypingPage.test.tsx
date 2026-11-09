@@ -2,6 +2,7 @@ import userEvent from '@testing-library/user-event';
 import { screen, waitFor, within } from '@testing-library/react';
 import { Link, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetMinigameLang } from '@/shared/hooks/use-minigame-lang';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { decodeReplay, replayTextAt } from '../utils/session-replay';
 import { TypingPage } from './TypingPage';
@@ -305,18 +306,27 @@ describe('TypingPage', () => {
 
     await user.click(await screen.findByRole('button', { name: /^Bot duel/ }));
 
-    expect(await screen.findByRole('button', { name: /^Dạ · Khó/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^Dạ · Hard/ })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames&game=bot');
     expect(start).not.toHaveBeenCalled();
   });
 
-  it('opens Nối từ from its card', async () => {
+  it('writes the minigame tiles in Vietnamese when the player chose it in a game', async () => {
+    resetMinigameLang('vi');
+    renderWithUrl('/typing?mode=minigames');
+
+    expect(await screen.findByRole('button', { name: /^Nối từ/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Đấu bot/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'English' })).not.toBeInTheDocument();
+  });
+
+  it('opens Word chain from its card', async () => {
     const user = userEvent.setup();
     renderWithUrl('/typing?mode=minigames');
 
-    await user.click(await screen.findByRole('button', { name: /^Nối từ/ }));
+    await user.click(await screen.findByRole('button', { name: /^Word chain/ }));
 
-    expect(await screen.findByRole('button', { name: 'Bắt đầu' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Start' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=minigames&game=chain');
     expect(start).not.toHaveBeenCalled();
   });

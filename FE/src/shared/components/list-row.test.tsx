@@ -5,12 +5,15 @@ import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
 import { ListRow, ListRowMenu } from './list-row';
 
 describe('ListRow', () => {
-  it('leaves a gap between extra and action only when there is an action', () => {
-    const { rerender } = render(<ListRow identity="Lan" extra={<p>Stats</p>} />);
-    expect(screen.getByText('Stats').parentElement).not.toHaveClass('xl:mr-4');
-
-    rerender(<ListRow identity="Lan" extra={<p>Stats</p>} action={<button type="button">Menu</button>} />);
-    expect(screen.getByText('Stats').parentElement).toHaveClass('xl:mr-4');
+  it('gives the kebab button no room until the row is hovered, so the columns before it take its place', () => {
+    render(
+      <ListRowMenu label="Actions for Lan">
+        <DropdownMenuItem>Edit</DropdownMenuItem>
+      </ListRowMenu>,
+    );
+    // a mouse: no width and no gap until hover (the gap is the button's own left margin); a touch screen: always there
+    const kebab = screen.getByRole('button', { name: 'Actions for Lan' });
+    expect(kebab).toHaveClass('ml-4', 'pointer-fine:w-0', 'pointer-fine:ml-0', 'pointer-fine:group-hover:w-8');
   });
 
   it('shows every slot', () => {

@@ -18,6 +18,8 @@ export interface CompactToolbarMenu {
   /** The `value` of the option that is on. */
   value: string;
   onChange: (value: string) => void;
+  /** The items of the menu when it is not a plain list of options (a hint, a setting saved as it is picked); they replace `options`. */
+  children?: ReactNode;
 }
 
 /** A "+" button that opens a menu of groups (Year, Month, Week); a group opens a second menu beside it with its options to add, e.g. the years to put on a chart. The ones added show as `tags`. */
@@ -70,6 +72,10 @@ interface CompactToolbarProps {
   filters?: ListToolbarFilter[];
   /** Extra classes for the row, e.g. `sm:justify-start [&>:first-child]:pl-0` to put the parts at the left edge instead of the right one. */
   className?: string;
+  /** Buttons filled with a color before the other parts: the decisions on the chosen items (`Approve 2`, `Reject 2`). `destructive` is red, the others the theme red-orange. */
+  decisions?: { label: string; onClick: () => void; destructive?: boolean }[];
+  /** Every part shows its word next to its icon all the time (Search, Sort, Filter, the count), as on the admin pages, not only while hovered. */
+  showWords?: boolean;
   /** A total at the end of the toolbar: an icon and a number, and the word (e.g. `Sessions`) next to them while hovered. */
   count?: { icon: LucideIcon; value: ReactNode; label: string };
 }
@@ -77,9 +83,16 @@ interface CompactToolbarProps {
 // Every part is an icon in the red of the theme, with no background color (also not while hovered or active).
 const partClass = 'group inline-flex h-10 items-center whitespace-nowrap bg-transparent px-4 text-base font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
-/** The word of a part: it grows from nothing next to the icon while the part (a `group`) is hovered or focused. */
-const Word = ({ children }: { children: ReactNode }) => (
-  <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-20 group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-20 group-focus-visible:opacity-100">
+/** The word of a part: it grows from nothing next to the icon while the part (a `group`) is hovered or focused, or is always there (`always`). */
+const Word = ({ children, always }: { children: ReactNode; always?: boolean }) => (
+  <span
+    className={cn(
+      'whitespace-nowrap',
+      always
+        ? 'ml-2'
+        : 'max-w-0 overflow-hidden opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-20 group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-20 group-focus-visible:opacity-100',
+    )}
+  >
     {children}
   </span>
 );
@@ -91,11 +104,12 @@ const MenuPart = ({ menu }: { menu: CompactToolbarMenu }) => (
       <span className="ml-2">{menu.valueLabel}</span>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" role="menu" aria-label={`${menu.label} options`} className="min-w-44">
-      {menu.options.map((option) => (
-        <MenuOption key={option.value} selected={option.value === menu.value} onSelect={() => menu.onChange(option.value)}>
-          {option.label}
-        </MenuOption>
-      ))}
+      {menu.children ??
+        menu.options.map((option) => (
+          <MenuOption key={option.value} selected={option.value === menu.value} onSelect={() => menu.onChange(option.value)}>
+            {option.label}
+          </MenuOption>
+        ))}
     </DropdownMenuContent>
   </DropdownMenu>
 );
@@ -170,7 +184,7 @@ const AdderPart = ({ adder }: { adder: CompactToolbarAdder }) => {
  *     count={{ icon: History, value: total, label: 'Sessions' }}
  *   />
  */
-export const CompactToolbar = ({ menus = [], adder, tags = [], search, sort, filters = [], count, className }: CompactToolbarProps) => {
+export const CompactToolbar = ({ menus = [], adder, tags = [], search, sort, filters = [], count, decisions = [], showWords, className }: CompactToolbarProps) => {
   const activeFilters = filters.filter((filter) => filter.value !== '').length;
   const CountIcon = count?.icon;
 
@@ -190,6 +204,19 @@ export const CompactToolbar = ({ menus = [], adder, tags = [], search, sort, fil
           </button>
         </span>
       ))}
+      {decisions.map((decision) => (
+        <button
+          key={decision.label}
+          type="button"
+          onClick={decision.onClick}
+          className={cn(
+            'mr-2 inline-flex h-8 items-center whitespace-nowrap px-3 text-base font-medium hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            decision.destructive ? 'bg-destructive text-white' : 'bg-primary text-primary-foreground',
+          )}
+        >
+          {decision.label}
+        </button>
+      ))}
       {adder && <AdderPart adder={adder} />}
       {menus.map((menu) => (
         <MenuPart key={menu.label} menu={menu} />
@@ -200,6 +227,7 @@ export const CompactToolbar = ({ menus = [], adder, tags = [], search, sort, fil
           searchOn="enter"
           collapsible
           hoverLabel="Search"
+          alwaysShowLabel={showWords}
           className="[&_button]:text-primary [&_input]:border-transparent [&_input]:bg-transparent [&_input]:text-primary [&_input]:placeholder:text-primary/70 [&_input]:focus-visible:ring-0 [&_svg]:text-primary [&>button]:hover:text-primary"
         />
       )}
@@ -207,7 +235,7 @@ export const CompactToolbar = ({ menus = [], adder, tags = [], search, sort, fil
         <DropdownMenu>
           <DropdownMenuTrigger className={partClass} aria-label="Sort">
             <ArrowUpDown className="size-4" />
-            <Word>Sort</Word>
+            <Word always={showWords}>Sort</Word>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" role="menu" aria-label="Sort options" className="min-w-44">
             {sort.options.map((option) => (
@@ -222,7 +250,7 @@ export const CompactToolbar = ({ menus = [], adder, tags = [], search, sort, fil
         <DropdownMenu>
           <DropdownMenuTrigger className={partClass} aria-label="Filter">
             <ListFilter className="size-4" />
-            <Word>Filter</Word>
+            <Word always={showWords}>Filter</Word>
             {activeFilters > 0 && (
               <span aria-label={`${activeFilters} active`} className="ml-1.5 text-sm">
                 {activeFilters}
@@ -250,7 +278,7 @@ export const CompactToolbar = ({ menus = [], adder, tags = [], search, sort, fil
         <p className={partClass}>
           <CountIcon className="mr-2 size-4" aria-hidden />
           {count.value}
-          <Word>{count.label}</Word>
+          <Word always={showWords}>{count.label}</Word>
         </p>
       )}
     </div>

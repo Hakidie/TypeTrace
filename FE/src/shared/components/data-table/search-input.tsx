@@ -19,6 +19,8 @@ interface SearchInputProps {
   collapsible?: boolean;
   /** A collapsible box only: a word (e.g. `Search`) shown next to the magnifier while the button is hovered or focused. */
   hoverLabel?: string;
+  /** With `hoverLabel`: the word is always there next to the magnifier, not only while hovered. */
+  alwaysShowLabel?: boolean;
   /** Extra classes for the wrapper, e.g. `sm:max-w-none` to let it fill its row. */
   className?: string;
 }
@@ -34,6 +36,7 @@ export const SearchInput = ({
   icon = true,
   collapsible = false,
   hoverLabel,
+  alwaysShowLabel = false,
   className,
 }: SearchInputProps) => {
   const [text, setText] = useState(defaultValue);
@@ -71,7 +74,14 @@ export const SearchInput = ({
         >
           <Search className="size-4 shrink-0" />
           {hoverLabel && (
-            <span className="max-w-0 overflow-hidden text-base font-medium whitespace-nowrap opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-20 group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-20 group-focus-visible:opacity-100">
+            <span
+              className={cn(
+                'overflow-hidden text-base font-medium whitespace-nowrap',
+                alwaysShowLabel
+                  ? 'ml-2'
+                  : 'max-w-0 opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-20 group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-20 group-focus-visible:opacity-100',
+              )}
+            >
               {hoverLabel}
             </span>
           )}

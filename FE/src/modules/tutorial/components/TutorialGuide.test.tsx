@@ -103,7 +103,7 @@ describe('TutorialGuide', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Đấu tập với Ping' }));
 
     const duel = await screen.findByRole('dialog', { name: 'Đấu tập với Ping' });
-    expect(await within(duel).findByText('Đấu tập · không tính điểm')).toBeInTheDocument();
+    expect(await within(duel).findByText('Bronze')).toBeInTheDocument();
     expect(update).not.toHaveBeenCalled();
   });
 

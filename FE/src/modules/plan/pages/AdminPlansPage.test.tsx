@@ -145,7 +145,7 @@ describe('AdminPlansPage', () => {
     renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
 
     await screen.findByRole('group', { name: 'Free plan' });
-    expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual(['Users', 'Plans', 'Subscriptions']);
+    expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual(['Subscriptions', 'Plans', 'Subscription list']);
     // Save is on the row of the title Plans, and it still saves the form.
     expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('form', 'plans-form');
     const cards = within(await screen.findByRole('region', { name: 'Subscriptions' }));

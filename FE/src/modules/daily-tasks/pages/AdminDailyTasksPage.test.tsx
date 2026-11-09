@@ -84,10 +84,10 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// Opens the kebab menu of a task card and picks one of its entries.
+// Right-clicks a task card to open its menu and picks one of its entries.
 const pickAction = async (title: string, action: 'Edit' | 'Activate' | 'Deactivate' | 'Delete') => {
   const cards = await screen.findByLabelText('Daily task cards');
-  fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${title}` }));
+  fireEvent.contextMenu(within(cards).getByRole('group', { name: `Actions for ${title}` }));
   fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
 };
 
@@ -102,8 +102,9 @@ const formOf = (name: 'New task' | 'Edit task' = 'New task') => within(screen.ge
 
 /** Opens the Tasks per day menu of the toolbar once it shows `label`, and answers the menu. */
 const openTasksPerDay = async (label: string) => {
-  fireEvent.click(await screen.findByRole('button', { name: `Tasks per day: ${label}` }));
-  return within(screen.getByRole('menu', { name: 'Tasks per day' }));
+  await screen.findByText(label);
+  fireEvent.click(screen.getByRole('button', { name: 'Tasks per day' }));
+  return within(screen.getByRole('menu', { name: 'Tasks per day options' }));
 };
 
 describe('AdminDailyTasksPage', () => {
@@ -122,7 +123,7 @@ describe('AdminDailyTasksPage', () => {
     expect(within(cards).getByText('Speed')).toBeInTheDocument();
     expect(within(cards).getAllByText('Active')).toHaveLength(3);
     expect(within(cards).getAllByText('Inactive')).toHaveLength(1);
-    expect(screen.getByText('4 tasks')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search tasks').closest('div.flex')).toHaveTextContent('4Tasks');
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 4, sort: '-createdAt' }));
   });
 
@@ -236,7 +237,7 @@ describe('AdminDailyTasksPage', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it('edits a task in the top panel from the kebab menu of its card, then goes back to a new task', async () => {
+  it('edits a task in the top panel from the menu of its card, then goes back to a new task', async () => {
     update.mockResolvedValue({ ...speed, target: 45 });
     renderPage();
 
@@ -454,7 +455,7 @@ describe('AdminDailyTasksPage', () => {
     expect(await screen.findByRole('form', { name: 'New task' })).toBeInTheDocument();
   });
 
-  it('deactivates an active task and activates an inactive one from the kebab menu', async () => {
+  it('deactivates an active task and activates an inactive one from the menu of its row', async () => {
     update.mockResolvedValue(warmUp);
     renderPage();
 
@@ -523,6 +524,6 @@ describe('AdminDailyTasksPage', () => {
     getSettings.mockResolvedValue({ dailyTaskCount: 4 });
     fireEvent.click(menu.getByRole('menuitem', { name: 'Try again' }));
 
-    expect(await screen.findByRole('button', { name: 'Tasks per day: 4 a day' })).toBeInTheDocument();
+    expect(await screen.findByText('4 a day')).toBeInTheDocument();
   });
 });

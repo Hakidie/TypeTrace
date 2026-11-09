@@ -17,6 +17,8 @@ interface ListRowProps {
   meta?: ReactNode;
   /** No background and no frame until the row is hovered, when the red tint shows (a list on a page, like the sessions of the profile). */
   plain?: boolean;
+  /** No lines between the tiers and before `meta`: the tags and the date sit under the top tier without separators. */
+  flat?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ interface ListRowProps {
  * Top: identity | center | extra | action. Bottom (when given): tags | meta.
  * Below `xl` the top tier stacks (identity and action, then extra) and `center` is hidden.
  */
-export const ListRow = ({ identity, center, extra, action, tags, meta, plain }: ListRowProps) => (
+export const ListRow = ({ identity, center, extra, action, tags, meta, plain, flat }: ListRowProps) => (
   <article
     className={cn(
       'group border-0 text-primary',
@@ -36,16 +38,16 @@ export const ListRow = ({ identity, center, extra, action, tags, meta, plain }: 
       <span className="hidden xl:block" aria-hidden />
       <div className="hidden xl:block">{center}</div>
       <span className="hidden xl:block" aria-hidden />
-      {/* The gap to the action column only when there is an action: without one, `extra` ends at the right padding. */}
-      <div className={cn('col-span-2 xl:col-span-1', action && 'xl:mr-4')}>{extra}</div>
+      <div className="col-span-2 xl:col-span-1">{extra}</div>
       <div className="col-start-2 row-start-1 self-start xl:col-start-auto xl:row-start-auto">{action}</div>
     </div>
 
     {(tags || meta) && (
-      <div className="flex items-stretch justify-between gap-2 border-t border-background transition-colors group-hover:border-primary/60">
-        <div className="flex flex-wrap items-center gap-1.5 px-4 py-1.5">{tags}</div>
+      <div className={cn('flex items-stretch justify-between gap-2', !flat && 'border-t border-background transition-colors group-hover:border-primary/60')}>
+        {/* flat: the tags sit right under the top tier and end as far from the bottom as the top tier does from the top (12px) */}
+        <div className={cn('flex flex-wrap items-center gap-1.5 px-4', flat ? 'pb-3' : 'py-1.5')}>{tags}</div>
         {meta && (
-          <p className="flex items-center border-l border-background px-4 py-1.5 text-sm text-primary/70 transition-colors group-hover:border-primary/60">
+          <p className={cn('flex items-center px-4 text-sm text-primary/70', flat ? 'pb-3' : 'py-1.5', !flat && 'border-l border-background transition-colors group-hover:border-primary/60')}>
             {meta}
           </p>
         )}
@@ -62,9 +64,10 @@ export const ListRowStat = ({ label, value, className }: { label: string; value:
   </div>
 );
 
-// With a mouse the button shows only while the row is hovered, focused or its menu is open; touch screens always show it.
+// With a mouse the button takes no room until the row is hovered, focused or its menu is open: then it opens (with its 16px gap
+// to the columns before it) and they move left; without it they sit at the right edge. Touch screens always show it.
 const kebabClass =
-  'flex size-8 shrink-0 flex-col items-center justify-center gap-[3px] transition-[background-color,opacity] hover:bg-primary/30 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:opacity-100 pointer-fine:data-[state=open]:opacity-100';
+  'ml-4 flex size-8 shrink-0 flex-col items-center justify-center gap-[3px] overflow-hidden transition-[background-color,opacity,width,margin] duration-200 hover:bg-primary/30 pointer-fine:ml-0 pointer-fine:w-0 pointer-fine:opacity-0 pointer-fine:group-hover:ml-4 pointer-fine:group-hover:w-8 pointer-fine:group-hover:opacity-100 pointer-fine:group-focus-within:ml-4 pointer-fine:group-focus-within:w-8 pointer-fine:group-focus-within:opacity-100 pointer-fine:aria-expanded:ml-4 pointer-fine:aria-expanded:w-8 pointer-fine:aria-expanded:opacity-100';
 const kebabDots = [0, 1, 2].map((dot) => <span key={dot} className="size-1 bg-primary" />);
 
 /** The three-square kebab button of a `ListRow`. With `children` (`DropdownMenuItem`s) it opens a menu; without, it is only decoration. */

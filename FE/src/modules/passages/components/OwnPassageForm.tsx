@@ -41,8 +41,8 @@ const emptyValues: FormValues = { title: '', source: '', content: '' };
 
 // The same as the admin passage form (`PassageForm`): no borders, Title and Source in the red tint of the typing status
 // bar, as wide as their text (`field-sizing-content`), Title on the left and Source on the right.
-const fieldClass = 'border-0 text-[1.125rem] focus-visible:ring-0';
-const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
+const fieldClass = 'border-0 px-0 text-[1.125rem] focus-visible:ring-0';
+const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-0 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
 
 /** No visible labels: the placeholders say what each field is, `aria-label` serves screen readers. */
 const FieldError = ({ message }: { message?: string }) =>
@@ -95,7 +95,8 @@ export const OwnPassageForm = ({ ownCount, maxCount, passage, onDone }: OwnPassa
         </div>
         {/* `ml-auto` keeps Source on the right, also when the two fields are stacked on a phone. */}
         <div className="ml-auto min-w-0 max-w-full space-y-2 md:max-w-[calc(50%-0.5rem)]">
-          <Input className={cn(fieldClass, metaFieldClass)} aria-label="Source" placeholder="Source" {...register('source')} />
+          {/* `text-right`: the field is at least 6rem wide, so a short text would stop short of the right edge */}
+          <Input className={cn(fieldClass, metaFieldClass, 'text-right')} aria-label="Source" placeholder="Source" {...register('source')} />
           <FieldError message={errors.source?.message} />
         </div>
       </div>
@@ -118,7 +119,7 @@ export const OwnPassageForm = ({ ownCount, maxCount, passage, onDone }: OwnPassa
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Bottom left: the same look as the status bar of the typing page. */}
-        <p className="w-fit bg-transparent px-3 py-1.5 text-[1.125rem] text-primary">
+        <p className="w-fit bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
           {countWords(content)}/{MAX_PASSAGE_WORDS} words
         </p>
 

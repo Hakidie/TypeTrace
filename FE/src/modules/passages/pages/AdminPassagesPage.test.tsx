@@ -70,7 +70,7 @@ describe('AdminPassagesPage', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Passages' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Passage list/ })).toBeInTheDocument();
     expect(await screen.findByText('Mùa thu Hà Nội')).toBeInTheDocument();
     expect(screen.getByText('draft')).toBeInTheDocument();
     expect(screen.getByText('6 words')).toBeInTheDocument();
@@ -416,7 +416,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
       visibility: 'public',
     });
     expect(screen.getByLabelText('Search passages')).toHaveValue('biển');
-    expect(within(bankToolbar()).getByText('27 passages')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search passages').closest('div.flex')!).toHaveTextContent('27Passages');
     expect(within(bankToolbar()).getByLabelText('2 active')).toBeInTheDocument();
     await user.click(within(bankToolbar()).getByRole('button', { name: 'Sort' }));
     expect(await screen.findByRole('menuitemradio', { name: 'Title A–Z' })).toHaveAttribute('aria-checked', 'true');
@@ -446,7 +446,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
     const user = userEvent.setup();
     renderPage();
     await screen.findByText('Mùa thu Hà Nội');
-    expect(within(bankToolbar()).getByText('1 passage')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search passages').closest('div.flex')!).toHaveTextContent('1Passages');
 
     const dialog = await deleteFromForm(user);
     expect(
@@ -743,7 +743,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     renderPending();
 
     // One list panel at a time: the queue replaces the bank, and no panel has a visible title.
-    expect(screen.getByRole('button', { name: 'Pending review. Switch to Passages' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pending review. Switch to Passage list' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Search passages')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
 
@@ -753,7 +753,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     expect(within(queue).getByText('Dòng sông quê hương hiền hòa chảy qua làng.')).toBeInTheDocument();
     expect(within(queue).getAllByText('21 words')).toHaveLength(2);
     expect(list).toHaveBeenCalledWith({ status: 'pending', page: 1, limit: 9, sort: 'updatedAt', q: undefined });
-    expect(screen.getByText('2 waiting')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search requests').closest('div.flex')).toHaveTextContent('2Waiting');
     // The passage bank holds only public passages: a learner's request is not part of it.
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ visibility: 'public' }));
   });
@@ -771,12 +771,12 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     );
     await screen.findByText('Mùa thu Hà Nội');
 
-    await user.click(screen.getByRole('button', { name: 'Passages. Switch to Pending review' }));
+    await user.click(screen.getByRole('button', { name: 'Passage list. Switch to Pending review' }));
     expect(await screen.findByLabelText('Search requests')).toBeInTheDocument();
     expect(screen.queryByLabelText('Search passages')).not.toBeInTheDocument();
     expect(new URLSearchParams(screen.getByLabelText('URL').textContent ?? '').get('view')).toBe('pending');
 
-    await user.click(screen.getByRole('button', { name: 'Pending review. Switch to Passages' }));
+    await user.click(screen.getByRole('button', { name: 'Pending review. Switch to Passage list' }));
     expect(await screen.findByLabelText('Search passages')).toBeInTheDocument();
     expect(new URLSearchParams(screen.getByLabelText('URL').textContent ?? '').get('view')).toBeNull();
   });
@@ -815,7 +815,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     renderPending();
 
     expect(await screen.findByText('Nothing to review')).toBeInTheDocument();
-    expect(screen.getByText('0 waiting')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search requests').closest('div.flex')).toHaveTextContent('0Waiting');
   });
 
   it('lists an edit of a public passage in the queue with its proposed text, and approves it', async () => {
@@ -916,7 +916,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     await user.click(within(queue).getByText('Biển xanh'));
     expect(within(queue).getAllByText('Selected')).toHaveLength(2);
     // The buttons are parts of the toolbar of their own, like Sort and Filter, not inside the count.
-    expect(screen.getByText('2 waiting')).not.toContainElement(screen.getByRole('button', { name: 'Approve 2' }));
+    expect(screen.getByText('Waiting').parentElement).not.toContainElement(screen.getByRole('button', { name: 'Approve 2' }));
     await user.click(screen.getByRole('button', { name: 'Approve 2' }));
     await user.click(within(await screen.findByRole('dialog', { name: 'Approve 2 passages?' })).getByRole('button', { name: 'Approve' }));
     await waitFor(() => expect(bulkApprove).toHaveBeenCalledWith(['pA', 'pB']));
@@ -958,7 +958,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
       await user.click(within(await screen.findByRole('dialog', { name: 'Approve "Sông quê"?' })).getByRole('button', { name: 'Approve' }));
 
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-      expect(await screen.findByText('1 waiting')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByLabelText('Search requests').closest('div.flex')).toHaveTextContent('1Waiting'));
       expect(screen.queryByText('Sông quê')).not.toBeInTheDocument();
       cleanup();
     }
@@ -981,12 +981,12 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     try {
       answerQueue([waitingA]);
       renderPending();
-      expect(await screen.findByText('1 waiting')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByLabelText('Search requests').closest('div.flex')).toHaveTextContent('1Waiting'));
 
       answerQueue();
       await vi.advanceTimersByTimeAsync(REVIEW_QUEUE_REFRESH_MS);
 
-      expect(await screen.findByText('2 waiting')).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByLabelText('Search requests').closest('div.flex')).toHaveTextContent('2Waiting'));
     } finally {
       vi.useRealTimers();
     }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ClipboardCheck, CloudRain, Gamepad2, Swords, Trophy } from 'lucide-react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
-import { WordChainBoard } from '@/modules/word-chain/components/WordChainBoard';
+import { WordChainPageBoard } from '@/modules/word-chain/components/WordChainPageBoard';
 import { usePassageOptions } from '@/modules/typing/hooks/use-typing';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -104,10 +104,18 @@ export const LeaderboardPage = () => {
       <div className="flex flex-col items-center gap-2 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-x-2">
         <div className="flex min-w-0 max-w-full md:justify-self-end">
           {tab === 'placement' && <PlacementPassageMenu passages={passageList} selectedId={passage?._id} onSelect={(id) => list.set('passage', id)} />}
+          {/* ponytail: a fixed label while Nối từ is the only minigame with a board; make it a game menu like the passage one when another gets its own. */}
+          {tab === 'minigames' && (
+            <div className="flex min-w-0 max-w-full outline outline-1 -outline-offset-1 outline-border">
+              <span aria-label="Minigame" className="block max-w-64 min-w-0 truncate px-3 py-1.5 text-[1.125rem] text-primary">
+                Word chain
+              </span>
+            </div>
+          )}
         </div>
         <TabGroup label="Leaderboard" tabs={tabs} value={tab} onChange={(value) => setTab(value as LeaderboardTab)} />
         <div className="md:justify-self-start">
-          {tab === 'placement' && (
+          {(tab === 'placement' || tab === 'minigames') && (
             <TabGroup label="Time range" tabs={RANGE_TABS} value={range} onChange={(value) => list.set('range', value === 'all' ? 'all' : '')} />
           )}
         </div>
@@ -115,7 +123,7 @@ export const LeaderboardPage = () => {
       <div role="tabpanel" aria-label={tab === 'rank' ? 'Rank' : tab === 'minigames' ? 'Minigames' : 'Placement'}>
         {tab === 'minigames' ? (
           // ponytail: Nối từ is the only minigame with a board; add a game picker here when another one gets its own.
-          <WordChainBoard title="Nối từ" />
+          <WordChainPageBoard range={range} />
         ) : tab === 'rank' ? (
           <div className="space-y-4">
             <div className="flex justify-center">

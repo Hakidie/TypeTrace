@@ -29,7 +29,7 @@ const clock = (ms: number) => {
 /** A glass card over the stage, for the start, pause and result screens. */
 const Overlay = ({ children }: { children: ReactNode }) => (
   <div className="absolute inset-0 z-20 grid place-items-center bg-background/30 p-4">
-    <div className="duel-pop flex w-full max-w-sm flex-col items-center gap-4 border border-primary/30 bg-card/85 p-6 text-center backdrop-blur-md">
+    <div className="duel-pop flex w-full max-w-sm flex-col items-center gap-4 border border-border bg-background/75 p-6 text-center backdrop-blur-xs transition-colors hover:border-destructive/40">
       {children}
     </div>
   </div>

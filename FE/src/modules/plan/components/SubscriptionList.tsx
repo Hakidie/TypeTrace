@@ -79,7 +79,7 @@ export const SubscriptionList = () => {
     }
     return (
       <>
-        <div className="space-y-3" aria-label="Subscription cards">
+        <div className="-mx-4 space-y-3" aria-label="Subscription cards">
           {rows.data.items.map((row) => (
             <SubscriptionCard key={row._id} row={row} />
           ))}
@@ -92,12 +92,13 @@ export const SubscriptionList = () => {
   return (
     <section aria-label="Subscriptions">
       <Panel
-        title="Subscriptions"
+        title="Subscription list"
         bare
         titleClassName={sectionTitleClass}
         className="space-y-3"
         actions={
           <CompactToolbar
+            showWords
             search={{ label: 'Search users', placeholder: 'User name', defaultValue: list.q, onSearch: (value) => list.set('q', value) }}
             sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
             filters={[

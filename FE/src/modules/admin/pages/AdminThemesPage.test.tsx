@@ -59,7 +59,7 @@ describe('AdminThemesPage', () => {
     const grid = await screen.findByLabelText('Themes', { selector: 'ul' });
     expect(within(grid).getByText('Midnight')).toBeInTheDocument();
     expect(within(grid).getByText('Paper')).toBeInTheDocument();
-    expect(screen.getByText('2 themes in total')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search themes').closest('div.flex')).toHaveTextContent('2Themes');
     expect(listThemes).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 15, sort: '-createdAt' }));
   });
 
@@ -163,7 +163,7 @@ describe('AdminThemesPage', () => {
     listThemes.mockResolvedValue({ items: [midnight, paper], page: 1, limit: 15, total: 31, totalPages: 3 });
     renderPage();
     await screen.findByLabelText('Themes', { selector: 'ul' });
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+    expect(screen.getByText('1 of 3')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
