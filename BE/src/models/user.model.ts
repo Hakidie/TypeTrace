@@ -166,7 +166,7 @@ userSchema.pre('save', function () {
 userSchema.post('save', async function () {
   if (!this.$locals.wasNew) return;
   this.$locals.wasNew = false;
-  await SubscriptionModel.create({ user: this._id, plan: 'free', startsAt: this.createdAt, source: 'signup', changedBy: null });
+  await SubscriptionModel.create({ user: this._id, plan: 'free', startsAt: this.get('createdAt') as Date, source: 'signup', changedBy: null });
 });
 
 export const UserModel = mongoose.model<UserDocument>('User', userSchema);
