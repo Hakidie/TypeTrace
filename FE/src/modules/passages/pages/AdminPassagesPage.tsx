@@ -4,10 +4,11 @@ import { useSearchParams } from 'react-router-dom';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
-import { ListToolbar } from '@/shared/components/list-toolbar';
+import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { ListViewSwitch } from '../components/ListViewSwitch';
 import { PassageCard } from '../components/PassageCard';
@@ -107,7 +108,8 @@ const PassageBank = ({ view, onSwitchView }: { view: View; onSwitchView: () => v
     }
     return (
       <div className="space-y-3">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar above and the pages below */}
+        <div className="-mx-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {passages.data.items.map((passage) => (
             <PassageCard
               key={passage._id}
@@ -117,7 +119,7 @@ const PassageBank = ({ view, onSwitchView }: { view: View; onSwitchView: () => v
             />
           ))}
         </div>
-        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
+        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
       </div>
     );
   };
@@ -142,11 +144,14 @@ const PassageBank = ({ view, onSwitchView }: { view: View; onSwitchView: () => v
         <PendingPassagesPanel onSwitchView={onSwitchView} />
       ) : (
         // PANEL Passages
-        <Panel bare>
-          <h2 className="sr-only">Passages</h2>
-          <div className="space-y-3">
-            <ListToolbar
-              title={<ListViewSwitch current="Passages" other="Pending review" onSwitch={onSwitchView} />}
+        <Panel
+          title={<ListViewSwitch current="Passage list" other="Pending review" onSwitch={onSwitchView} />}
+          bare
+          titleClassName={sectionTitleClass}
+          className="space-y-3"
+          actions={
+            <CompactToolbar
+            showWords
               search={{
                 label: 'Search passages',
                 placeholder: 'Search title or source…',
@@ -159,10 +164,11 @@ const PassageBank = ({ view, onSwitchView }: { view: View; onSwitchView: () => v
                 { label: 'Type', value: type, options: TYPE_OPTIONS, onChange: (value) => list.set('type', value) },
                 { label: 'Language', value: language, options: LANGUAGE_OPTIONS, onChange: (value) => list.set('language', value) },
               ]}
-              summary={passages.data ? `${passages.data.total} ${passages.data.total === 1 ? 'passage' : 'passages'}` : 'Loading passages…'}
+              count={{ icon: FileText, value: passages.data?.total ?? '…', label: 'Passages' }}
             />
-            {renderList()}
-          </div>
+          }
+        >
+          {renderList()}
         </Panel>
       )}
       {/* One confirmation for both ways to delete for good: the card's Delete icon and Delete passage in the edit form. */}

@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 
 interface PanelProps {
   /** Heading of the panel. Without a title (and actions) there is no header row. */
-  title?: string;
+  title?: ReactNode;
   description?: string;
   /** Buttons shown on the right of the header, e.g. a "New" button. */
   actions?: ReactNode;

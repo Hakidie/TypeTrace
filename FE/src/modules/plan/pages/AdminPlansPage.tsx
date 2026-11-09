@@ -10,11 +10,12 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
+import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { HelpLabel } from '../components/HelpLabel';
 import { PlanUsersChart } from '../components/PlanUsersChart';
 import { SubscriptionList } from '../components/SubscriptionList';
 import { useAdminPlans, usePreviewPlans, useSavePlans } from '../hooks/use-admin-plans';
-import { PASSAGE_LIMIT_HELP, PERMISSIONS, PLAN_CARDS, type PlanLines } from '../plan.config';
+import { PASSAGE_LIMIT_HELP, PERMISSIONS, PLAN_AVATARS, PLAN_CARDS, type PlanLines } from '../plan.config';
 import type { LockPreview, PlansConfig } from '../types/plan.types';
 
 const whole = (message: string) => z.number({ error: message }).int('Use a whole number').min(0, 'At least 0');
@@ -78,11 +79,18 @@ const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: Pl
             aria-label={`${name} plan`}
             // A click on the card (not on a field, a switch or a "?") shows only its line on the chart; a click again shows both.
             onClick={(event) => !(event.target as HTMLElement).closest('input, button, label, [role="switch"]') && onPickLine(key)}
-            className={`group cursor-pointer space-y-8 border p-4 ${lines === key ? 'border-primary' : 'border-border'}`}
+            className={`group cursor-pointer border p-4 ${lines === key ? 'border-primary' : 'border-border'}`}
           >
-              <div className="flex items-start justify-between gap-4">
-                <span className="text-[2rem] font-bold leading-none text-primary/70">{name}</span>
-                <div className="text-right">
+              <div className="flex flex-col gap-4">
+              <span className="block text-[2rem] font-bold leading-none text-primary/70">{name}</span>
+              <div className="grid grid-cols-[auto_1fr] gap-8">
+              {/* Left column: the avatar that illustrates the plan, filling the column (as on the plan dialog). */}
+              <div className="flex items-center justify-center">
+                <AvatarSprite look={PLAN_AVATARS[key]} scale={3} label={`Avatar of the ${name} plan`} />
+              </div>
+              {/* Right column: the price level with the top of the avatar, then the passage limit and the two permissions. */}
+              <div className="flex flex-col justify-between gap-6">
+                <div className="flex flex-col items-end text-right">
                   <Input
                     id={`${key}-price`}
                     aria-label={`Monthly price (${name})`}
@@ -95,15 +103,14 @@ const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: Pl
                   <span className="block text-sm text-muted-foreground">VND/month</span>
                   {errors[key]?.priceVnd && <p className="text-sm text-destructive">{errors[key]?.priceVnd?.message}</p>}
                 </div>
-              </div>
-              <div className="space-y-3">
+                <div className="space-y-3">
                 <div className="flex min-h-9 items-center justify-between gap-4">
                   <HelpLabel
                     htmlFor={`${key}-max`}
                     text="Passage limit"
                     help={PASSAGE_LIMIT_HELP}
                   />
-                  <div className="text-right">
+                  <div className="flex flex-col items-end text-right">
                     <Input
                       id={`${key}-max`}
                       aria-label={`Passage limit (${name})`}
@@ -128,6 +135,9 @@ const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: Pl
                     />
                   </div>
                 ))}
+                </div>
+              </div>
+              </div>
               </div>
             </fieldset>
           ))}

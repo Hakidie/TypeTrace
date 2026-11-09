@@ -11,6 +11,25 @@ const sortOptions = [
 const modeOptions = [{ value: 'practice', label: 'Practice' }];
 
 describe('CompactToolbar', () => {
+  it('with showWords every part has its word all the time (the admin pages)', () => {
+    render(
+      <CompactToolbar
+        showWords
+        search={{ label: 'Search sessions', onSearch: vi.fn() }}
+        sort={{ value: '-createdAt', options: sortOptions, onChange: vi.fn() }}
+        filters={[{ label: 'Mode', value: '', options: modeOptions, onChange: vi.fn() }]}
+        count={{ icon: History, value: 8, label: 'Sessions' }}
+      />,
+    );
+
+    for (const name of ['Sort', 'Filter']) {
+      expect(within(screen.getByRole('button', { name })).getByText(name)).not.toHaveClass('max-w-0', 'opacity-0');
+    }
+    expect(within(screen.getByRole('button', { name: 'Search sessions' })).getByText('Search')).not.toHaveClass('max-w-0', 'opacity-0');
+    expect(screen.getByText('Sessions')).toHaveClass('ml-2');
+    expect(screen.getByText('Sessions')).not.toHaveClass('max-w-0');
+  });
+
   it('shows Search, Sort, Filter and the total as icons whose word grows next to them while hovered', () => {
     render(
       <CompactToolbar

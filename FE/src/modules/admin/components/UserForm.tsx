@@ -30,7 +30,7 @@ const statColumn = ['lg:col-start-3', 'lg:col-start-4', 'lg:col-start-5'];
 const statLabelClass = 'self-baseline pr-3 text-right text-[1.5rem] leading-none text-primary/70 lg:row-start-1 lg:pl-14';
 const statValueClass = 'self-start pr-3 text-right text-[2rem] leading-none text-primary lg:row-start-2 lg:pl-14';
 // The small labels over the name and the email (the role is the label of the name).
-const fieldLabelClass = 'self-baseline px-3 text-[1.5rem] leading-normal text-primary/70';
+const fieldLabelClass = 'self-baseline px-0 text-[1.5rem] leading-normal text-primary/70';
 
 // A switch button: highlighted when on, muted when off (as "Placement passage" in the passage form).
 const switchClass = (on: boolean) =>
@@ -128,7 +128,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
           {/* `pb`: the gap under the name and the email is the one of the passage form (its 1rem gap + 0.375rem under the title). */}
           <div className="col-span-3 min-w-0 lg:col-span-1 lg:col-start-1 lg:row-start-2 lg:pb-[1.375rem]">
             <Input
-              className="h-auto w-full min-w-0 border-0 bg-transparent px-3 py-0 text-[2rem] leading-snug text-primary placeholder:text-primary focus-visible:ring-0 lg:field-sizing-content lg:w-auto lg:max-w-full"
+              className="h-auto w-full min-w-0 border-0 bg-transparent px-0 py-0 text-[2rem] leading-snug text-primary placeholder:text-primary focus-visible:ring-0 lg:field-sizing-content lg:w-auto lg:max-w-full"
               aria-label="Display name"
               placeholder="Display name"
               disabled={!user}
@@ -143,7 +143,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
 
           {/* The email is read only (the backend does not let an admin change it), in the look of the name. */}
           <p
-            className="col-span-3 min-w-0 truncate self-start px-3 pb-[1.375rem] text-[2rem] leading-snug text-primary lg:col-span-1 lg:col-start-2 lg:row-start-2 lg:ml-12"
+            className="col-span-3 min-w-0 truncate self-start px-0 pb-[1.375rem] text-[2rem] leading-snug text-primary lg:col-span-1 lg:col-start-2 lg:row-start-2 lg:ml-12"
             aria-label="Email address"
           >
             {user?.email ?? 'name@example.com'}
@@ -154,7 +154,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
             <Textarea
               rows={1}
               className={cn(
-                'resize-none border-0 bg-transparent px-3 text-[1.5rem] leading-snug text-muted-foreground placeholder:text-muted-foreground/70 focus-visible:ring-0',
+                'resize-none border-0 bg-transparent px-0 text-[1.5rem] leading-snug text-muted-foreground placeholder:text-muted-foreground/70 focus-visible:ring-0',
                 // 3.0625rem = one line of 1.5rem text (leading-snug) and the padding.
                 'min-h-0 h-[3.0625rem] overflow-hidden focus:h-auto focus:max-h-[60vh] focus:overflow-auto focus:[field-sizing:content]',
               )}
@@ -165,7 +165,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
               {...register('bio')}
             />
             {errors.bio && (
-              <p role="alert" className="px-3 text-base text-destructive">
+              <p role="alert" className="px-0 text-base text-destructive">
                 {errors.bio.message}
               </p>
             )}
@@ -185,7 +185,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
 
         {/* As in the passage form: the date on the left, the switches and the buttons on the right (on a second line when the row is too narrow). */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-3 py-1.5 text-[1.125rem] text-primary">
+          <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
             Joined {user ? new Date(user.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '00 Mon 0000'}
           </p>
 

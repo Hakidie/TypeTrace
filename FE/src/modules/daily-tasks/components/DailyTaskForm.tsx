@@ -44,8 +44,8 @@ const TARGET_DIGITS = 2;
 
 // The look of the passage forms (`OwnPassageForm`): no borders, the title big in the theme red on the left, as wide as
 // its text, and the description in large text under it.
-const fieldClass = 'border-0 text-[1.125rem] focus-visible:ring-0';
-const titleClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
+const fieldClass = 'border-0 px-0 text-[1.125rem] focus-visible:ring-0';
+const titleClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent px-0 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
 // The Type menu button, sized like the title field (same height, padding, text size and red).
 const typeClass = 'h-12 gap-2 px-0 py-1.5 text-[1.5rem] font-normal';
 // One part of the strip of the goal, like a part of a `ListToolbar`: a 2px line in the page color before each but the
@@ -255,17 +255,17 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="flex w-fit flex-wrap">
-              {/* Only an accuracy task can focus on one error type. */}
-              {type === 'accuracy' && (
+            {/* Only an accuracy task can focus on one error type (without it no empty box is left, whose gap would push the goal to the right). */}
+            {type === 'accuracy' && (
+              <div className="flex w-fit flex-wrap">
                 <div className={cn(partClass, 'px-3 text-[1.125rem]')}>
                   <span className="text-primary">Focus</span>
                   <Controller control={control} name="errorType" render={({ field }) => <StripMenu label="Focus" value={field.value} options={FOCUS_OPTIONS} onChange={field.onChange} />} />
                 </div>
-              )}
-            </div>
+              </div>
+            )}
             {/* The goal in words, in the look of the word count of a passage. */}
-            <p className="w-fit bg-transparent px-3 py-1.5 text-[1.125rem] text-primary">{goal}</p>
+            <p className="w-fit bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">{goal}</p>
           </div>
           <FieldError message={errors.target?.message} />
         </div>

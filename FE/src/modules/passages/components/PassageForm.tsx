@@ -31,11 +31,11 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 // No border (the focus ring stays) and 1.125rem text, placeholders included.
-const fieldClass = 'border-0 text-[1.125rem]';
+const fieldClass = 'border-0 px-0 text-[1.125rem]';
 
 // Title and Source look like the learner's passage form (`OwnPassageForm`): no background, red text, as wide as their text.
 // `field-sizing-content`: the field is as wide as its text (the placeholder while empty); the wrapper caps it at half the row.
-const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
+const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-0 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
 
 const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false, isRanked: false, language: 'vi' };
 
@@ -118,7 +118,8 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
         {/* `ml-auto` keeps Source on the right, also when the two fields are stacked on a phone. */}
         <div className="ml-auto min-w-0 max-w-full space-y-2 md:max-w-[calc(50%-0.5rem)]">
           <Input
-            className={cn(fieldClass, metaFieldClass)}
+            // `text-right`: the field is at least 6rem wide, so a short text would stop short of the right edge
+            className={cn(fieldClass, metaFieldClass, 'text-right')}
             aria-label="Source"
             placeholder="Source"
             {...register('source')}
@@ -140,7 +141,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Bottom left: the same look as the learner's passage form. */}
-        <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-3 py-1.5 text-[1.125rem] text-primary">
+        <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
           {countWords(content)}/{MAX_PASSAGE_WORDS} words
         </p>
 

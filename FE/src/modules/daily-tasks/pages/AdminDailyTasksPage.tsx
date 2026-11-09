@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
-import { ListToolbar } from '@/shared/components/list-toolbar';
+import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { DailyTaskForm } from '../components/DailyTaskForm';
 import { DailyTaskRow } from '../components/DailyTaskRow';
 import { TasksPerDayItems } from '../components/TasksPerDayItems';
@@ -107,7 +108,7 @@ export const AdminDailyTasksPage = () => {
             />
           ))}
         </div>
-        <Pagination page={tasks.data.page} totalPages={tasks.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
+        <Pagination page={tasks.data.page} totalPages={tasks.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
       </>
     );
   };
@@ -125,24 +126,29 @@ export const AdminDailyTasksPage = () => {
       </div>
 
       {/* PANEL Tasks */}
-      <Panel bare>
-        <h2 className="sr-only">Tasks</h2>
-        <div className="flex flex-col gap-3">
-          <ListToolbar
-            title="Tasks"
+      <Panel
+        title="Task list"
+        bare
+        titleClassName={sectionTitleClass}
+        className="flex flex-col gap-3"
+        actions={
+          <CompactToolbar
+            showWords
             search={{
               label: 'Search tasks',
               placeholder: 'Search title or description…',
               defaultValue: list.q,
               onSearch: (value) => list.set('q', value),
             }}
-            summary={tasks.data ? `${tasks.data.total} ${tasks.data.total === 1 ? 'task' : 'tasks'}` : 'Loading tasks…'}
             // How many of the active tasks a learner gets a day: an app setting, saved as soon as it is picked.
             menus={[
               {
-                name: 'Tasks per day',
-                label: perDay === undefined ? '— a day' : `${perDay} a day`,
+                label: 'Tasks per day',
                 icon: CalendarClock,
+                valueLabel: perDay === undefined ? '— a day' : `${perDay} a day`,
+                options: [],
+                value: '',
+                onChange: () => {},
                 children: <TasksPerDayItems />,
               },
             ]}
@@ -151,9 +157,11 @@ export const AdminDailyTasksPage = () => {
               { label: 'Type', value: type ?? '', options: TYPE_OPTIONS, onChange: (value) => list.set('type', value) },
               { label: 'Status', value: isActive ?? '', options: STATUS_OPTIONS, onChange: (value) => list.set('isActive', value) },
             ]}
+            count={{ icon: CalendarCheck, value: tasks.data?.total ?? '…', label: 'Tasks' }}
           />
-          {renderList()}
-        </div>
+        }
+      >
+        {renderList()}
       </Panel>
 
       <ConfirmDialog

@@ -2,11 +2,12 @@ import { ClipboardCheck } from 'lucide-react';
 import { useState } from 'react';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
-import { ListToolbar } from '@/shared/components/list-toolbar';
+import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { ListViewSwitch } from './ListViewSwitch';
 import { usePendingPassages } from '../hooks/use-passages';
 import type { Passage, ReviewDecision } from '../types/passage.types';
@@ -74,7 +75,8 @@ export const PendingPassagesPanel = ({ onSwitchView }: { onSwitchView: () => voi
     }
     return (
       <div className="space-y-3">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Passages waiting for review">
+        {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar above and the pages below */}
+        <div className="-mx-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Passages waiting for review">
           {cards.map((passage) => (
             <PassageCard
               key={passage._id}
@@ -88,28 +90,22 @@ export const PendingPassagesPanel = ({ onSwitchView }: { onSwitchView: () => voi
             />
           ))}
         </div>
-        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
+        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
       </div>
     );
   };
 
   return (
     // PANEL Pending review
-    <Panel bare>
-      <h2 className="sr-only">Pending review</h2>
-      <div className="space-y-3">
-        <ListToolbar
-          title={<ListViewSwitch current="Pending review" other="Passages" onSwitch={onSwitchView} />}
-          search={{
-            label: 'Search requests',
-            placeholder: 'Search title or source…',
-            defaultValue: list.q,
-            onSearch: (value) => list.set('q', value),
-          }}
-          sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-          filters={[{ label: 'Type', value: kind, options: KIND_OPTIONS, onChange: (value) => list.set('kind', value) }]}
-          summary={passages.data ? `${passages.data.total} waiting` : 'Loading requests…'}
-          // The decision on the chosen cards: parts of the toolbar of their own, like Sort and Filter.
+    <Panel
+      title={<ListViewSwitch current="Pending review" other="Passage list" onSwitch={onSwitchView} />}
+      bare
+      titleClassName={sectionTitleClass}
+      className="space-y-3"
+      actions={
+        <CompactToolbar
+            showWords
+          // The decision on the chosen cards: filled buttons before the other parts.
           decisions={
             selected.length > 0
               ? [
@@ -118,9 +114,19 @@ export const PendingPassagesPanel = ({ onSwitchView }: { onSwitchView: () => voi
                 ]
               : []
           }
+          search={{
+            label: 'Search requests',
+            placeholder: 'Search title or source…',
+            defaultValue: list.q,
+            onSearch: (value) => list.set('q', value),
+          }}
+          sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
+          filters={[{ label: 'Type', value: kind, options: KIND_OPTIONS, onChange: (value) => list.set('kind', value) }]}
+          count={{ icon: ClipboardCheck, value: passages.data?.total ?? '…', label: 'Waiting' }}
         />
-        {renderList()}
-      </div>
+      }
+    >
+      {renderList()}
 
       <PassageViewDialog passage={viewing} onClose={() => setViewing(undefined)} onReview={(passage, decision) => startReview(decision, [passage])} />
       {review && (

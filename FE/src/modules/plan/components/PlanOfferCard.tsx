@@ -28,32 +28,36 @@ const LABEL_CLASS = 'text-xl font-semibold leading-none tracking-wide text-prima
  */
 export const PlanOfferCard = ({ id, planKey, name, config, current = false, used, action }: PlanOfferCardProps) => (
   <div role="group" aria-label={`${name} plan`} className={`group flex flex-col gap-8 border p-4 transition-colors hover:border-primary ${current ? 'border-primary' : 'border-border'}`}>
-    {/* mb-8 on top of the card's gap: 64px between the price and the passage limit. */}
-    <div className="mb-8 space-y-2">
+    <div className="flex flex-1 flex-col gap-4">
       <span className="block text-[2rem] font-bold leading-none text-primary/70">{name}</span>
-      {/* The avatar that illustrates the plan under its name, and the price on the same row. */}
-      <div className="flex items-end justify-between gap-4">
-        <AvatarSprite look={PLAN_AVATARS[planKey]} scale={2} label={`Avatar of the ${name} plan`} />
-        <div className="text-right">
-          <p className="text-[3rem] font-black leading-none text-primary">{config.priceVnd.toLocaleString('en-US')}</p>
-          <span className="block text-sm text-muted-foreground">VND/month</span>
+      <div className="grid flex-1 grid-cols-[auto_1fr] gap-8">
+        {/* Left column: the avatar that illustrates the plan, filling the column. */}
+        <div className="flex items-center justify-center">
+          <AvatarSprite look={PLAN_AVATARS[planKey]} scale={3} label={`Avatar of the ${name} plan`} />
+        </div>
+        {/* Right column: the price level with the top of the avatar, then the passage limit and the two permissions. */}
+        <div className="flex flex-col justify-between gap-6">
+          <div className="flex flex-col items-end text-right">
+            <p className="text-[3rem] font-black leading-none text-primary">{config.priceVnd.toLocaleString('en-US')}</p>
+            <span className="block text-sm text-muted-foreground">VND/month</span>
+          </div>
+          <div className="space-y-6">
+        <div className="flex min-h-9 items-center justify-between gap-4">
+          <HelpLabel htmlFor={`${id}-max`} text="Passage limit" help={PASSAGE_LIMIT_HELP} className={LABEL_CLASS} />
+          <p id={`${id}-max`} className="h-9 text-3xl font-black leading-none text-primary">
+            {current && used !== undefined ? `${used}/${config.maxPassages}` : config.maxPassages}
+          </p>
+        </div>
+        {PERMISSIONS.map(({ field, label, help }) => (
+          <div key={field} className="flex min-h-9 items-center justify-between gap-4">
+            <HelpLabel htmlFor={`${id}-${field}`} text={label} help={help} className={LABEL_CLASS} />
+            <Switch id={`${id}-${field}`} aria-label={`${label} (${name})`} checked={config[field]} disabled className="disabled:cursor-default disabled:opacity-100" />
+          </div>
+        ))}
+          </div>
         </div>
       </div>
     </div>
-    <div className="space-y-6">
-      <div className="flex min-h-9 items-center justify-between gap-4">
-        <HelpLabel htmlFor={`${id}-max`} text="Passage limit" help={PASSAGE_LIMIT_HELP} className={LABEL_CLASS} />
-        <p id={`${id}-max`} className="h-9 text-3xl font-black leading-none text-primary">
-          {current && used !== undefined ? `${used}/${config.maxPassages}` : config.maxPassages}
-        </p>
-      </div>
-      {PERMISSIONS.map(({ field, label, help }) => (
-        <div key={field} className="flex min-h-9 items-center justify-between gap-4">
-          <HelpLabel htmlFor={`${id}-${field}`} text={label} help={help} className={LABEL_CLASS} />
-          <Switch id={`${id}-${field}`} aria-label={`${label} (${name})`} checked={config[field]} disabled className="disabled:cursor-default disabled:opacity-100" />
-        </div>
-      ))}
-    </div>
-    {action && <div className="mt-auto">{action}</div>}
+    {action && <div>{action}</div>}
   </div>
 );

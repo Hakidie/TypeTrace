@@ -1,6 +1,6 @@
 import { Calendar, CalendarDays, CalendarRange, ChartLine, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { anchorFor, periodLabel, periodOptions, periodValue } from '@/modules/profile/lib/chart-period';
 import { axisLabel, rangeUnit, tooltipTitle } from '@/modules/profile/lib/month-label';
 import type { ChartRange } from '@/modules/profile/types/profile.types';
@@ -22,17 +22,12 @@ const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
 ];
 const ICONS: Record<ChartRange, LucideIcon> = { year: Calendar, month: CalendarRange, week: CalendarDays };
 
-// Theme tokens only, as the chart of the Progress page: Premium is the main red line, Free the muted text color, dashed.
+// Theme tokens only, as the chart of the Progress page: Premium is the main red bar, Free the muted text color.
 const PREMIUM_COLOR = 'var(--primary)';
 const FREE_COLOR = 'var(--muted-foreground)';
-const LINE_PADDING = { top: 4, bottom: 4 };
 const TICK_SIZE = 16;
 
-const LineSample = ({ color, dashed = false }: { color: string; dashed?: boolean }) => (
-  <svg width="24" height="4" aria-hidden className="shrink-0">
-    <line x1="0" x2="24" y1="2" y2="2" stroke={color} strokeWidth="2" strokeDasharray={dashed ? '4 3' : undefined} />
-  </svg>
-);
+const BarSample = ({ color }: { color: string }) => <span aria-hidden className="inline-block size-3 shrink-0" style={{ backgroundColor: color }} />;
 
 /** The tooltip of a point: the period and how many users are on each plan at its end. */
 const PointTooltip = ({ point, range, lines }: { point: PlanUsersPoint; range: ChartRange; lines: PlanLines }) => (
@@ -40,7 +35,7 @@ const PointTooltip = ({ point, range, lines }: { point: PlanUsersPoint; range: C
     <p className="font-semibold">{tooltipTitle(range, point.key)}</p>
     {lines !== 'free' && (
       <p className="flex items-center gap-2">
-        <LineSample color={PREMIUM_COLOR} />
+        <BarSample color={PREMIUM_COLOR} />
         <span>
           <span className="text-primary">Premium:</span> {point.premium}
         </span>
@@ -48,7 +43,7 @@ const PointTooltip = ({ point, range, lines }: { point: PlanUsersPoint; range: C
     )}
     {lines !== 'premium' && (
       <p className="flex items-center gap-2">
-        <LineSample color={FREE_COLOR} dashed />
+        <BarSample color={FREE_COLOR} />
         <span>
           <span className="text-muted-foreground">Free:</span> {point.free}
         </span>
@@ -59,8 +54,8 @@ const PointTooltip = ({ point, range, lines }: { point: PlanUsersPoint; range: C
 
 /**
  * How many users are on each plan over time (US11.1), built like the chart of the Progress page: a title and, in the look of the compact toolbar, Week,
- * Month and Year buttons, each with a menu of its own periods, and a Lines button next to them (All, Premium, Free); under them a line chart with the axes' numbers (the same Y axis for both lines: they are counts of
- * users, so they can be compared), Premium solid and Free dashed. Each point is the count at the end of its period; the periods to come are not drawn. No frame or background.
+ * Month and Year buttons, each with a menu of its own periods, and a Lines button next to them (All, Premium, Free); under them a double bar chart with the axes' numbers (two bars for each period, Premium and Free, on the same Y axis: they are counts of
+ * users, so they can be compared). Each point is the count at the end of its period; the periods to come are not drawn. No frame or background.
  */
 export const PlanUsersChart = ({ lines, onLinesChange }: { lines: PlanLines; onLinesChange: (lines: PlanLines) => void }) => {
   const today = dateKeyIn(new Date(), PLAN_ZONE);
@@ -83,16 +78,16 @@ export const PlanUsersChart = ({ lines, onLinesChange }: { lines: PlanLines; onL
       <div role="img" aria-label={`Users on each plan by ${rangeUnit(shown)}`} className="relative min-h-80 flex-1">
         <div className="absolute inset-0">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 28, bottom: 0, left: 28 }}>
+            <BarChart data={data} barGap={4} barCategoryGap="25%" margin={{ top: 8, right: 28, bottom: 0, left: 28 }}>
               <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: 'var(--border)' }} height={32} tickSize={0} tickMargin={12} tick={{ fontSize: TICK_SIZE, fill: 'var(--muted-foreground)' }} />
-              <YAxis padding={LINE_PADDING} width={60} tickMargin={12} domain={[0, top]} ticks={marks} allowDecimals={false} tickLine={false} stroke="var(--border)" tick={{ fontSize: TICK_SIZE, fill: 'var(--muted-foreground)' }} />
+              <YAxis width={60} tickMargin={12} domain={[0, top]} ticks={marks} allowDecimals={false} tickLine={false} stroke="var(--border)" tick={{ fontSize: TICK_SIZE, fill: 'var(--muted-foreground)' }} />
               <Tooltip
-                cursor={{ stroke: 'var(--border)' }}
+                cursor={{ fill: 'var(--primary)', fillOpacity: 0.1 }}
                 content={({ payload }) => (payload?.length ? <PointTooltip point={payload[0].payload as PlanUsersPoint} range={shown} lines={lines} /> : null)}
               />
-              <Line dataKey="premium" hide={lines === 'free'} name="Premium" stroke={PREMIUM_COLOR} strokeWidth={2} type="monotone" dot={false} activeDot={{ r: 4, fill: PREMIUM_COLOR, stroke: PREMIUM_COLOR }} isAnimationActive={false} />
-              <Line dataKey="free" hide={lines === 'premium'} name="Free" stroke={FREE_COLOR} strokeWidth={2} strokeDasharray="6 4" type="monotone" dot={false} activeDot={{ r: 4, fill: FREE_COLOR, stroke: FREE_COLOR }} isAnimationActive={false} />
-            </LineChart>
+              <Bar dataKey="premium" hide={lines === 'free'} name="Premium" fill={PREMIUM_COLOR} isAnimationActive={false} />
+              <Bar dataKey="free" hide={lines === 'premium'} name="Free" fill={FREE_COLOR} isAnimationActive={false} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -102,7 +97,7 @@ export const PlanUsersChart = ({ lines, onLinesChange }: { lines: PlanLines; onL
   return (
     <section aria-label="Users by plan" className="flex min-h-0 flex-1 flex-col">
       <Panel
-        title="Users"
+        title="Subscriptions"
         bare
         fill
         titleClassName={sectionTitleClass}

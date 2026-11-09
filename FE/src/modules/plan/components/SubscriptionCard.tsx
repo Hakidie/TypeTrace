@@ -15,6 +15,7 @@ export const SubscriptionCard = ({ row }: { row: SubscriptionRow }) => {
   return (
     <ListRow
       plain
+      flat
       identity={
         <div className="flex min-w-0 items-center gap-3">
           {/* 61px = the height of the card. The uploaded picture, else the face of the pixel avatar. */}

@@ -61,10 +61,10 @@ beforeEach(() => {
   revokePremium.mockReset();
 });
 
-// Opens the kebab menu of a user card and picks one of its entries.
+// Right-clicks a user card to open its menu and picks one of its entries.
 const pickAction = async (email: string, action: 'Edit' | 'Disable' | 'Enable' | 'Delete' | 'Grant Premium' | 'Cancel Premium' | 'Revoke Premium now') => {
   const cards = await screen.findByLabelText('User cards');
-  fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${email}` }));
+  fireEvent.contextMenu(within(cards).getByRole('group', { name: `Actions for ${email}` }));
   fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
 };
 
@@ -76,7 +76,7 @@ describe('AdminUsersPage', () => {
     expect(within(cards).getByText('Unverified')).toBeInTheDocument();
     expect(within(cards).getAllByText('Verified')).toHaveLength(2);
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
-    expect(screen.getByText('3 accounts in total')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search users').closest('div.flex')).toHaveTextContent('3Users');
     expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 4, sort: '-createdAt' }));
   });
 
@@ -93,11 +93,11 @@ describe('AdminUsersPage', () => {
     expect(within(cards).getAllByText('—')).toHaveLength(1);
   });
 
-  it('edits a user from the kebab menu of the card', async () => {
+  it('edits a user from the menu of the card', async () => {
     renderPage();
 
     const cards = await screen.findByLabelText('User cards');
-    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
+    fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Actions for minh@example.com' }));
     fireEvent.click(within(cards).getByRole('menuitem', { name: 'Edit' }));
 
     expect(await screen.findByDisplayValue('minh')).toBeInTheDocument();
@@ -132,15 +132,15 @@ describe('AdminUsersPage', () => {
     expect(within(cards).getByText('sam')).toBeInTheDocument();
   });
 
-  it('deletes a user from the kebab menu after confirmation, but not the signed-in admin', async () => {
+  it('deletes a user from the menu of its row after confirmation, but not the signed-in admin', async () => {
     deleteUser.mockResolvedValue(undefined);
     renderPage();
 
     const cards = await screen.findByLabelText('User cards');
-    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for admin@example.com' }));
+    fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Actions for admin@example.com' }));
     expect(within(cards).queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
 
-    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
+    fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Actions for minh@example.com' }));
     fireEvent.click(within(cards).getByRole('menuitem', { name: 'Delete' }));
     const dialog = await screen.findByRole('dialog');
     expect(deleteUser).not.toHaveBeenCalled();
@@ -159,7 +159,7 @@ describe('AdminUsersPage', () => {
     expect(within(cards).getAllByText('Locked')).toHaveLength(1);
   });
 
-  it('disables a user from the kebab menu and enables a locked one again', async () => {
+  it('disables a user from the menu of its row and enables a locked one again', async () => {
     setUserStatus.mockResolvedValue(minh);
     listUsers.mockResolvedValue(page([admin, minh, user('u3', 'tran@example.com', { status: 'locked' })]));
     renderPage();
@@ -177,7 +177,7 @@ describe('AdminUsersPage', () => {
 
     const cards = await screen.findByLabelText('User cards');
     for (const email of ['admin@example.com', 'boss@example.com']) {
-      fireEvent.click(within(cards).getByRole('button', { name: `Actions for ${email}` }));
+      fireEvent.contextMenu(within(cards).getByRole('group', { name: `Actions for ${email}` }));
       expect(within(cards).queryByRole('menuitem', { name: 'Disable' })).not.toBeInTheDocument();
     }
   });
@@ -203,7 +203,7 @@ describe('AdminUsersPage', () => {
     listUsers.mockResolvedValue({ items: [admin, lan, minh], page: 1, limit: 4, total: 25, totalPages: 7 });
     renderPage();
     await screen.findAllByText('lan@example.com');
-    expect(screen.getByText('Page 1 of 7')).toBeInTheDocument();
+    expect(screen.getByText('1 of 7')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
@@ -324,7 +324,7 @@ describe('AdminUsersPage', () => {
     renderPage();
 
     const cards = await screen.findByLabelText('User cards');
-    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
+    fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Actions for minh@example.com' }));
     expect(within(cards).queryByRole('menuitem', { name: 'Revoke Premium now' })).not.toBeInTheDocument();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
 
@@ -346,7 +346,7 @@ describe('AdminUsersPage', () => {
 
     const cards = await screen.findByLabelText('User cards');
     expect(await within(cards).findByText(/^Cancelled · /)).toBeInTheDocument();
-    fireEvent.click(within(cards).getByRole('button', { name: 'Actions for minh@example.com' }));
+    fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Actions for minh@example.com' }));
     expect(within(cards).queryByRole('menuitem', { name: 'Cancel Premium' })).not.toBeInTheDocument();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
 

@@ -5,11 +5,12 @@ import { Input } from '@/shared/components/ui/input';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
-import { ListToolbar } from '@/shared/components/list-toolbar';
+import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { UserForm } from '../components/UserForm';
 import { UserRow } from '../components/UserRow';
 import { useAdminUsers, useCancelPremium, useDeleteUsers, useGrantPremium, useRevokePremium, useSetUserStatus } from '../hooks/use-admin';
@@ -135,7 +136,7 @@ export const AdminUsersPage = () => {
             />
           ))}
         </div>
-        <Pagination page={users.data.page} totalPages={users.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
+        <Pagination page={users.data.page} totalPages={users.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
       </>
     );
   };
@@ -159,11 +160,14 @@ export const AdminUsersPage = () => {
       </div>
 
       {/* PANEL Users */}
-      <Panel bare>
-        <h2 className="sr-only">Users</h2>
-        <div className="flex flex-col gap-3">
-          <ListToolbar
-            title="Users"
+      <Panel
+        title="User list"
+        bare
+        titleClassName={sectionTitleClass}
+        className="flex flex-col gap-3"
+        actions={
+          <CompactToolbar
+            showWords
             search={{
               label: 'Search users',
               placeholder: 'Search email or name…',
@@ -171,15 +175,16 @@ export const AdminUsersPage = () => {
               onSearch: (value) => list.set('q', value),
             }}
             sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-            summary={users.data ? `${users.data.total} accounts in total` : 'Loading accounts…'}
             filters={[
               { label: 'Role', value: role ?? '', options: ROLE_OPTIONS, onChange: setFilter('role') },
               { label: 'Email', value: verified ?? '', options: VERIFIED_OPTIONS, onChange: setFilter('verified') },
               { label: 'Plan', value: plan ?? '', options: PLAN_OPTIONS, onChange: setFilter('plan') },
             ]}
+            count={{ icon: Users, value: users.data?.total ?? '…', label: 'Users' }}
           />
-          {renderList()}
-        </div>
+        }
+      >
+        {renderList()}
       </Panel>
 
       <ConfirmDialog
