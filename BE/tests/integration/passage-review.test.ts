@@ -1,14 +1,15 @@
 // SCRUM-176: a learner asks for one of their passages to become public, an admin approves it or turns it down.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { PASSAGE_LIST } from '../../src/data/passages';
+import { DEFAULT_PLANS } from '../../src/models/app-setting.model';
 import {
   ANONYMOUS_OWNER_NAME,
-  MAX_USER_PASSAGES,
   MIN_USER_PASSAGE_WORDS,
   PassageModel,
   REVIEW_NOTE_MAX,
   SYSTEM_OWNER_NAME
 } from '../../src/models/passage.model';
+import { SubscriptionModel } from '../../src/models/subscription.model';
 import { UserModel } from '../../src/models/user.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { api } from '../helpers/api';
@@ -222,6 +223,9 @@ describe('PATCH /api/admin/passages/:id/approve', () => {
     expect(response.body).not.toHaveProperty('reviewNote');
     const seen = itemsOf(await listPassages(other.auth, '?visibility=public')).find((item) => item._id === _id);
     expect(seen).toMatchObject({ ownerName: 'Lan', visibility: 'public', isOwn: false });
+    // A learner on the Free plan sees it but may not practice it; Premium may (US11.1).
+    expect((await startSession(other.auth, { passageId: _id })).status).toBe(403);
+    await SubscriptionModel.create({ user: other.user._id, plan: 'premium', startsAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000), source: 'admin', changedBy: null });
     expect((await startSession(other.auth, { passageId: _id })).status).toBe(201);
     expect(itemsOf(await listPassages(lan.auth)).find((item) => item._id === _id)).toMatchObject({ isOwn: true, visibility: 'public' });
 
@@ -341,8 +345,11 @@ describe('POST /api/admin/passages/bulk-approve and bulk-reject', () => {
   });
 });
 
+// The limit of a learner on the Free plan (US11.1).
+const MAX_USER_PASSAGES = DEFAULT_PLANS.free.maxPassages;
+
 describe('own passages waiting for review', () => {
-  it('count in the limit, while the approved ones do not', async () => {
+  it('count in the limit, and so do the approved ones', async () => {
     const lan = await signIn('lan@example.com');
     const base = { content: longEnough, source: 'Tự viết', owner: lan.user._id, visibility: 'private' };
     for (let i = 1; i < MAX_USER_PASSAGES; i += 1) await PassageModel.create({ ...base, title: `Bài ${i}`, status: 'published' });
@@ -354,7 +361,7 @@ describe('own passages waiting for review', () => {
     expect(full.body.message).toBe(`You can have at most ${MAX_USER_PASSAGES} passages`);
 
     await PassageModel.updateOne({ _id: waiting._id }, { status: 'published', visibility: 'public' });
-    expect((await add()).status).toBe(201);
+    expect((await add()).status).toBe(400);
   });
 
   it('can still be deleted by their owner', async () => {
