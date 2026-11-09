@@ -7,6 +7,7 @@ import { BotDuelPreview } from '@/modules/tutorial/components/BotDuelPreview';
 import { WordChainMode } from '@/modules/word-chain/components/WordChainMode';
 import { WordChainPreview, WordChainWeekBadge } from '@/modules/word-chain/components/WordChainPreview';
 import { Button } from '@/shared/components/ui/button';
+import { useMinigameLang, type MinigameLang } from '@/shared/hooks/use-minigame-lang';
 import { cn } from '@/shared/lib/utils';
 
 export type MinigameId = 'rain' | 'bot' | 'chain';
@@ -35,7 +36,7 @@ const Fact = ({ icon: Icon, value, label }: FactItem) => (
 );
 
 /** The filled "Play" button of a tile (the tile is the real button; this only looks like one). */
-const Play = ({ label = 'Play', className }: { label?: string; className?: string }) => (
+const Play = ({ label, className }: { label: string; className?: string }) => (
   <span
     className={cn(
       'flex h-9 shrink-0 items-center gap-2 bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform duration-200 group-hover:-translate-y-0.5',
@@ -46,12 +47,81 @@ const Play = ({ label = 'Play', className }: { label?: string; className?: strin
   </span>
 );
 
-/** The rules of Nối từ in three short facts, on one line under its preview. */
-const CHAIN_FACTS: FactItem[] = [
-  { icon: Timer, value: '60s', label: 'on the clock' },
-  { icon: Zap, value: '+2 to +5s', label: 'per word' },
-  { icon: Trophy, value: 'Weekly', label: 'ranking' },
-];
+/** The texts of the tiles, in each language (English until the player switches them with the button in a game). */
+const TEXT: Record<
+  MinigameLang,
+  {
+    play: string;
+    back: string;
+    chain: { title: string; about: string; facts: [string, string][] };
+    rain: { title: string; about: string; facts: [string, string][] };
+    bot: { title: string; about: string; facts: [string, string][] };
+  }
+> = {
+  en: {
+    play: 'Play',
+    back: 'All minigames',
+    chain: {
+      title: 'Word chain',
+      about: 'Chain Vietnamese words with a friendly bot. The faster you type, the more time you get.',
+      facts: [
+        ['60s', 'on the clock'],
+        ['+2 to +5s', 'per word'],
+        ['Weekly', 'ranking'],
+      ],
+    },
+    rain: {
+      title: 'Rain',
+      about: 'Type the falling words before they land.',
+      facts: [
+        ['1 minute', 'per round'],
+        ['Solo', 'play alone'],
+      ],
+    },
+    bot: {
+      title: 'Bot duel',
+      about: 'Duel a bot in word rain. Throw words at it, keep your lives.',
+      facts: [
+        ['2 minutes', 'per duel'],
+        ['PvE', 'unrated'],
+        ['3 levels', 'Bông to Dạ'],
+      ],
+    },
+  },
+  vi: {
+    play: 'Chơi',
+    back: 'Tất cả minigame',
+    chain: {
+      title: 'Nối từ',
+      about: 'Nối từ tiếng Việt với một bot thân thiện. Gõ càng nhanh, bạn càng được thêm nhiều giờ.',
+      facts: [
+        ['60 giây', 'mỗi ván'],
+        ['+2 đến +5 giây', 'mỗi từ'],
+        ['Hằng tuần', 'xếp hạng'],
+      ],
+    },
+    rain: {
+      title: 'Mưa chữ',
+      about: 'Gõ những chữ đang rơi trước khi chúng chạm đất.',
+      facts: [
+        ['1 phút', 'mỗi lượt'],
+        ['Một mình', 'chơi đơn'],
+      ],
+    },
+    bot: {
+      title: 'Đấu bot',
+      about: 'Đấu mưa chữ với bot. Ném chữ sang bot, giữ cho mình còn mạng.',
+      facts: [
+        ['2 phút', 'mỗi trận'],
+        ['PvE', 'không xếp hạng'],
+        ['3 cấp độ', 'từ Bông đến Dạ'],
+      ],
+    },
+  },
+};
+
+/** Facts from a text's `[value, label]` pairs, each with its own icon. */
+const factsOf = (pairs: [string, string][], icons: LucideIcon[]): FactItem[] => pairs.map(([value, label], i) => ({ icon: icons[i], value, label }));
 
 /** A tile appears a little after the one before it (`duel-rise`, still for reduced motion). */
 const rise = (index: number): CSSProperties => ({ animationDelay: `${index * 70}ms` });
@@ -63,6 +133,8 @@ const rise = (index: number): CSSProperties => ({ animationDelay: `${index * 70}
  * under it, in the center, back to them.
  */
 export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; onSelect: (id: MinigameId) => void; onBack: () => void }) => {
+  const { lang } = useMinigameLang();
+  const t = TEXT[lang];
   if (game) {
     const Game = GAMES[game];
     return (
@@ -73,7 +145,7 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
         </div>
         <div className="mt-auto flex justify-center pb-4">
           <Button variant="ghost" className="h-auto gap-2 px-3 py-1.5 text-base text-muted-foreground" onClick={onBack}>
-            <ArrowLeft className="size-4" /> All minigames
+            <ArrowLeft className="size-4" /> {t.back}
           </Button>
         </div>
       </div>
@@ -96,7 +168,7 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
             ))}
           </span>
           <span className="flex">
-            <Play />
+            <Play label={t.play} />
           </span>
         </span>
       </span>
@@ -119,10 +191,10 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
         <span className="flex flex-wrap items-start justify-between gap-3">
           <span className="flex flex-col gap-2">
             <span className="flex items-center gap-3 text-3xl font-bold text-primary lg:text-4xl">
-              <Link2 className="size-7 lg:size-8" aria-hidden="true" /> Word chain
+              <Link2 className="size-7 lg:size-8" aria-hidden="true" /> {t.chain.title}
             </span>
             <span className="max-w-[40ch] text-base text-muted-foreground">
-              Chain Vietnamese words with a friendly bot. The faster you type, the more time you get.
+              {t.chain.about}
             </span>
           </span>
           <WordChainWeekBadge />
@@ -136,11 +208,11 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
         {/* the facts spread over one row, the same space between them and at both ends, as wide as the Play button under them */}
         <span className="flex flex-col gap-6 text-muted-foreground">
           <span className="flex flex-wrap justify-evenly gap-x-4 gap-y-2">
-            {CHAIN_FACTS.map((fact) => (
+            {factsOf(t.chain.facts, [Timer, Zap, Trophy]).map((fact) => (
               <Fact key={fact.label} {...fact} />
             ))}
           </span>
-          <Play className="w-full justify-center" />
+          <Play label={t.play} className="w-full justify-center" />
         </span>
       </button>
 
@@ -148,12 +220,9 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
         'rain',
         1,
         CloudRain,
-        'Rain',
-        'Type the falling words before they land.',
-        [
-          { icon: Timer, value: '1 minute', label: 'per round' },
-          { icon: User, value: 'Solo', label: 'play alone' },
-        ],
+        t.rain.title,
+        t.rain.about,
+        factsOf(t.rain.facts, [Timer, User]),
         <RainPreview />,
         // the preview stands on the bottom of the column, level with the bottom of the Play button
         'sm:w-56 sm:self-stretch sm:items-end',
@@ -162,13 +231,9 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
         'bot',
         2,
         Bot,
-        'Bot duel',
-        'Duel a bot in word rain. Throw words at it, keep your lives.',
-        [
-          { icon: Timer, value: '2 minutes', label: 'per duel' },
-          { icon: Swords, value: 'PvE', label: 'unrated' },
-          { icon: Signal, value: '3 levels', label: 'Bông to Dạ' },
-        ],
+        t.bot.title,
+        t.bot.about,
+        factsOf(t.bot.facts, [Timer, Swords, Signal]),
         <BotDuelPreview />,
         'sm:w-64 sm:self-stretch sm:items-end',
       )}

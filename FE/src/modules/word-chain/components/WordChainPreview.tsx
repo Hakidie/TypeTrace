@@ -3,6 +3,7 @@ import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { BotSprite } from '@/modules/tutorial/components/BotSprite';
+import { useMinigameLang } from '@/shared/hooks/use-minigame-lang';
 import { cn } from '@/shared/lib/utils';
 import { useWordChainBoard } from '../hooks/use-word-chain';
 
@@ -14,10 +15,13 @@ const SAMPLE = [
   { by: 'bot', first: 'học', second: 'sinh' },
   { by: 'me', first: 'sinh', second: 'viên', bonus: '+5s' },
   { by: 'bot', first: 'viên', second: 'chức' },
-  { by: 'me', first: 'chức', second: 'vụ', penalty: 'Hint −3s' },
+  { by: 'me', first: 'chức', second: 'vụ', penalty: 'hint' },
   { by: 'bot', first: 'vụ', second: 'án' },
-  { by: 'me', first: 'án', second: 'xa', penalty: 'Wrong −3s', refused: true },
+  { by: 'me', first: 'án', second: 'xa', penalty: 'wrong', refused: true },
 ] as const;
+
+/** The penalty badges of the sample, in each language. */
+const PENALTY = { en: { hint: 'Hint −3s', wrong: 'Wrong −3s' }, vi: { hint: 'Gợi ý −3 giây', wrong: 'Sai −3 giây' } } as const;
 
 /**
  * How Nối từ is played, drawn with the pieces of the game (decorative, for the Minigames tile): the bot Nhịp on the left, the
@@ -26,6 +30,7 @@ const SAMPLE = [
  */
 export const WordChainPreview = () => {
   const { data: me } = useCurrentUser();
+  const { lang } = useMinigameLang();
   return (
     <span aria-hidden="true" className="relative grid gap-1">
       {SAMPLE.map((word, i) => {
@@ -54,7 +59,7 @@ export const WordChainPreview = () => {
                 <span className={cn(i > 0 && 'underline decoration-primary/50 decoration-dashed underline-offset-4')}>{word.first}</span>{' '}
                 <span className={cn('font-semibold text-primary', 'refused' in word && 'text-destructive line-through decoration-2')}>{word.second}</span>
                 {'penalty' in word && (
-                  <span className="absolute -top-3 -left-3 border border-destructive/50 bg-background px-1.5 text-xs font-bold text-destructive">{word.penalty}</span>
+                  <span className="absolute -top-3 -left-3 border border-destructive/50 bg-background px-1.5 text-xs font-bold text-destructive">{PENALTY[lang][word.penalty]}</span>
                 )}
                 {'bonus' in word && (
                   <span className="absolute -top-3 -left-3 border border-primary/40 bg-background px-1.5 text-xs font-bold text-primary">{word.bonus}</span>
@@ -71,13 +76,14 @@ export const WordChainPreview = () => {
 /** The player's place on this week's board, as a small badge (nothing before their first game of the week). */
 export const WordChainWeekBadge = () => {
   const board = useWordChainBoard('week');
+  const { lang } = useMinigameLang();
   const me = board.data?.me;
   if (!me) return null;
   return (
     <span className="flex shrink-0 items-center gap-2 border border-primary/30 bg-primary/10 px-3 py-1.5">
       <Trophy className="size-4 text-primary" aria-hidden="true" />
       <span className="text-sm">
-        <span className="font-bold text-primary">#{me.rank}</span> <span className="text-muted-foreground">this week, {me.score} pts</span>
+        <span className="font-bold text-primary">#{me.rank}</span> <span className="text-muted-foreground">{lang === 'vi' ? `tuần này, ${me.score} điểm` : `this week, ${me.score} pts`}</span>
       </span>
     </span>
   );

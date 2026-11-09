@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
+import { resetMinigameLang } from '@/shared/hooks/use-minigame-lang';
 
 /**
  * Shared jsdom setup: unmounts React trees, clears browser storage and provides
@@ -18,6 +19,7 @@ if (!('ResizeObserver' in globalThis)) {
 
 beforeEach(() => {
   window.localStorage.clear();
+  resetMinigameLang();
 
   if (!window.matchMedia) {
     Object.defineProperty(window, 'matchMedia', {
@@ -39,4 +41,5 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  resetMinigameLang();
 });
