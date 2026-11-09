@@ -19,7 +19,7 @@ export const openModeOf = (params: URLSearchParams): TutorialMode | undefined =>
   const tab = params.get('mode');
   const query = tab === 'minigames' ? params.get('game') : tab;
   // No mode on the cards, nor in the Bot duel (not a mode of the tour).
-  if (tab === 'minigames' && (!query || query === 'bot')) return undefined;
+  if (tab === 'minigames' && (!query || query === 'bot' || query === 'chain')) return undefined;
   return TOUR_ORDER.find((mode) => mode === query) ?? 'practice';
 };
 

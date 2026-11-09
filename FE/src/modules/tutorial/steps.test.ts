@@ -10,6 +10,7 @@ describe('tutorial steps', () => {
     expect(open('mode=minigames')).toBeUndefined();
     // The Bot duel is not a mode of the tour: Ping waits there as on the cards.
     expect(open('mode=minigames&game=bot')).toBeUndefined();
+    expect(open('mode=minigames&game=chain')).toBeUndefined();
   });
 
   it('never guides an account from before the tutorial', () => {
