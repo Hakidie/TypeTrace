@@ -88,6 +88,7 @@ export const TypingResultPage = () => {
       </Panel>
 
       <ResultActions
+        mode={session.mode}
         detailOpen={detailOpen}
         onToggleDetail={() => setDetailOpen((open) => !open)}
         replayOpen={replayOpen}

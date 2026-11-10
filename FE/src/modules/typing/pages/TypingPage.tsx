@@ -5,6 +5,8 @@ import type { AfterLoginState } from '@/modules/auth/utils/home-path';
 import { useStartTutorial } from '@/modules/tutorial/hooks/use-tutorial';
 import { RankMode } from '@/modules/ranked/components/RankMode';
 import { PlanDialog } from '@/modules/plan/components/PlanDialog';
+import { usePlan } from '@/modules/plan/hooks/use-plan';
+import { useErrorProfile } from '@/modules/profile/hooks/use-profile';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -13,33 +15,40 @@ import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 import { redGlassTheme } from '@/shared/lib/red-glass-theme';
+import { WordError, type WordErrorType } from '@/shared/lib/vietnamese-errors';
 import { MinigamesMode, type MinigameId } from '../components/MinigamesMode';
 import { TypingArea, TypingStatus } from '../components/TypingArea';
 import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession } from '../hooks/use-typing';
 import type { ReplayEvent, SessionMode, StartSessionInput } from '../types/typing.types';
-import { modeIcons, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
+import { errorLabels, modeIcons, modeLabels, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
 
 // Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain, `&game=bot` the unrated duel against a bot, `&game=chain` Nối từ), instead of a passage to practise.
+// `?mode=targeted` is Weak spots (US3.2): a lesson of words the server picks for the learner's weakest error types.
 const modeTabs = [
   { value: 'practice', label: 'Practice', icon: modeIcons.practice },
   { value: 'placement', label: 'Placement', icon: modeIcons.placement },
+  { value: 'targeted', label: modeLabels.targeted, icon: modeIcons.targeted },
   { value: 'rank', label: 'Rank', icon: Trophy },
   { value: 'minigames', label: 'Minigames', icon: Gamepad2 },
 ];
 
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
-// second choice (20 seconds) is the one selected at first in Practice, 1 minute in the placement test (`defaultTimeOf`);
-// the longest, 3 minutes, is the most the server accepts.
+// second choice (20 seconds) is the one selected at first in Practice, 1 minute in the placement test and Weak spots
+// (`defaultTimeOf`); the longest, 3 minutes, is the most the server accepts.
 type TimeUnit = 'sec' | 'min';
 const timeChoices: Record<TimeUnit, number[]> = { sec: [10, 20, 30], min: [1, 2, 3] };
 const unitLabels: Record<TimeUnit, string> = { sec: 'Sec', min: 'Min' };
 
-/** The time selected when a mode opens: 20 seconds in Practice, 1 minute in the placement test. The learner can change it afterwards. */
+/**
+ * The time selected when a mode opens: 20 seconds in Practice; 1 minute in the placement test and in Weak spots, whose lesson
+ * (30 to 50 words) needs it: under 20 words a session is not counted in the error profile it aims to improve. The learner can
+ * change it afterwards.
+ */
 const defaultTimeOf = (mode: SessionMode): { unit: TimeUnit; index: number } =>
-  mode === 'placement' ? { unit: 'min', index: 0 } : { unit: 'sec', index: 1 };
+  mode === 'placement' || mode === 'targeted' ? { unit: 'min', index: 0 } : { unit: 'sec', index: 1 };
 
 /** The passages to choose from for `mode`; the picked one is red. It is only mounted while the menu is open, so the list is fetched when the learner opens it. */
 const PassageMenu = ({
@@ -88,11 +97,54 @@ const PassageMenu = ({
   );
 };
 
-/** The placement leaderboard ranks only the time the session was started with (US10.1), so a placement session carries it. */
-const startInputOf = (mode: SessionMode, passageId: string | undefined, seconds: number): StartSessionInput => ({
+/**
+ * The error types a Weak spots lesson can aim at, the learner's weak ones marked (from their error profile, read when the menu
+ * opens: it is only mounted while open, like the passages). Auto, next to the menu, goes back to the weakest types.
+ */
+const ErrorTypeMenu = ({ selected, onSelect }: { selected?: WordErrorType; onSelect: (type: WordErrorType) => void }) => {
+  const weakTypes = useErrorProfile().data?.weakTypes ?? [];
+  return (
+    <>
+      {Object.values(WordError).map((type) => (
+        <DropdownMenuItem
+          key={type}
+          role="menuitemradio"
+          aria-checked={type === selected}
+          className={cn('gap-2', type === selected && 'text-primary')}
+          onClick={() => onSelect(type)}
+        >
+          <span className="truncate">{errorLabels[type]}</span>
+          {weakTypes.includes(type) && <span className="ml-auto shrink-0 pl-4 text-sm text-muted-foreground">Weak</span>}
+        </DropdownMenuItem>
+      ))}
+    </>
+  );
+};
+
+/** What Weak spots says above the lesson: the error types it trains, or why a random passage came instead (US3.2). */
+const FocusNote = ({ focus, chosen }: { focus: WordErrorType[]; chosen?: WordErrorType }) => (
+  <p role="status" className="text-center text-muted-foreground">
+    {focus.length ? (
+      <>
+        Training: <span className="text-primary">{focus.map((type) => errorLabels[type]).join(' · ')}</span>
+      </>
+    ) : chosen ? (
+      `There are no words for ${errorLabels[chosen]} yet, so here is a random passage.`
+    ) : (
+      'You have no weak error type yet, so here is a random passage. Weak spots aims at your errors once your sessions show some.'
+    )}
+  </p>
+);
+
+/**
+ * The placement leaderboard ranks only the time the session was started with (US10.1), so a placement session carries it. A
+ * Weak spots lesson carries the error type the learner chose, if any.
+ */
+const startInputOf = (mode: SessionMode, passageId: string | undefined, seconds: number, errorType?: WordErrorType): StartSessionInput => ({
   mode,
   ...(passageId && { passageId }),
   ...(mode === 'placement' && { timeLimitSeconds: seconds }),
+  ...(errorType && { errorType }),
 });
 
 // Same look as the login and register pages (shared/lib/red-glass-theme.ts). The passage shows as soon as the page
@@ -101,11 +153,12 @@ export const TypingPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  // `/typing?mode=placement` types the placement test passage (Start on the placement intro page opens it).
-  const mode: SessionMode = searchParams.get('mode') === 'placement' ? 'placement' : 'practice';
-  const ranked = searchParams.get('mode') === 'rank';
-  // `?mode=rain` is the old link of word rain: it opens the same game and is rewritten below. The old `?mode=daily` opens Practice, where the daily reward now is.
   const modeParam = searchParams.get('mode');
+  // `/typing?mode=placement` types the placement test passage (Start on the placement intro page opens it), `?mode=targeted` a Weak spots lesson.
+  const mode: SessionMode = modeParam === 'placement' || modeParam === 'targeted' ? modeParam : 'practice';
+  const targeted = mode === 'targeted';
+  const ranked = modeParam === 'rank';
+  // `?mode=rain` is the old link of word rain: it opens the same game and is rewritten below. The old `?mode=daily` opens Practice, where the daily reward now is.
   const legacyGame: MinigameId | undefined = modeParam === 'rain' ? modeParam : undefined;
   const minigames = modeParam === 'minigames' || legacyGame !== undefined;
   const gameParam = searchParams.get('game');
@@ -115,8 +168,13 @@ export const TypingPage = () => {
   const pageRef = useRef<HTMLDivElement>(null);
   // Asks before the placement test when the learner picks the Placement tab. Cancel (or closing it) stays in practice.
   const [placementPrompt, setPlacementPrompt] = useState({ open: false });
-  // The plan (US11.1), opened by a passage the plan does not allow.
+  // The plan (US11.1), opened by a passage the plan does not allow, or by Weak spots on a plan without it (US3.2).
   const [planOpen, setPlanOpen] = useState(false);
+  // Weak spots needs `canCreateErrorPractice` (Premium). Its lesson waits for the plan, so a plan without it shows the plan
+  // instead of a 403 and its toast; if the plan cannot be read, the server decides.
+  const plan = usePlan();
+  const weakSpotsLocked = plan.data !== undefined && !plan.data.canCreateErrorPractice;
+  const planPending = plan.isPending;
   // A learner who has just created their account starts Ping's tour (it brings the placement test in its turn), once:
   // the state leaves the history entry at once, so a reload or Back does not start it again.
   const { mutate: startTutorial } = useStartTutorial();
@@ -143,18 +201,22 @@ export const TypingPage = () => {
     const id = searchParams.get('passage');
     return id ? { mode: 'practice', id } : undefined;
   });
-  // The pick is dropped when the mode changes, so it stays Random on the way back to the mode it was made in; the time goes back to the default of the mode too.
+  // The error type picked in the Weak spots menu; none = Auto, the learner's weakest types (US3.2).
+  const [focusChoice, setFocusChoice] = useState<WordErrorType>();
+  // The pick is dropped when the mode changes, so it stays Random (or Auto) on the way back to the mode it was made in; the time goes back to the default of the mode too.
   const [modeOfChoice, setModeOfChoice] = useState(mode);
   if (modeOfChoice !== mode) {
     setModeOfChoice(mode);
     setChosen(undefined);
-    // Each mode opens with its own time: 1 minute for the placement test, 20 seconds for Practice.
+    setFocusChoice(undefined);
+    // Each mode opens with its own time: 1 minute for the placement test and Weak spots, 20 seconds for Practice.
     setTimeUnit(defaultTimeOf(mode).unit);
     setTimeIndex(defaultTimeOf(mode).index);
     setShownUnit(undefined);
   }
   const passageId = chosen?.mode === mode ? chosen.id : undefined;
-  const randomPassage = passageId === undefined;
+  // Random (or Auto in Weak spots) lights up when nothing is picked.
+  const autoPick = targeted ? focusChoice === undefined : passageId === undefined;
 
   useEffect(() => {
     if (legacyGame) setSearchParams({ mode: 'minigames', game: legacyGame }, { replace: true });
@@ -178,22 +240,29 @@ export const TypingPage = () => {
   if (session && session.passageTitle !== passageTitle) setPassageTitle(session.passageTitle);
 
   // A new session when the page opens or the mode changes (once per mode, even when React runs effects twice in development).
-  // The first one types the passage from the URL, if any; switching the mode starts a random one.
-  const startInput = (id: string | undefined, seconds: number) => startInputOf(mode, id, seconds);
+  // The first one types the passage from the URL, if any; switching the mode starts a random one (in Weak spots, an Auto lesson).
+  const startInput = (id: string | undefined, seconds: number) => startInputOf(mode, id, seconds, focusChoice);
   const openedFor = useRef<SessionMode | null>(null);
   useEffect(() => {
     // Rank and the minigames have no typing session of their own (a duel is a match on the server, a rain round stays in the browser).
-    if (game || openedFor.current === mode) return;
+    // Weak spots waits for the plan, and on a plan without it shows the plan instead.
+    if (game || openedFor.current === mode || (mode === 'targeted' && (planPending || weakSpotsLocked))) return;
     const firstOpen = openedFor.current === null;
     openedFor.current = mode;
     start.mutate(startInputOf(mode, firstOpen ? passageId : undefined, timeSeconds));
-  }, [mode, game, start, passageId, timeSeconds]);
+  }, [mode, game, start, passageId, timeSeconds, planPending, weakSpotsLocked]);
 
-  // A new session on the picked passage (a random one when none is picked): used by Restart and when the time is up.
+  // A new session on the picked passage (a random one when none is picked; a new lesson in Weak spots): used by Restart and when the time is up.
   const restart = () => start.mutate(startInput(passageId, timeSeconds));
   const pick = (id: string | undefined) => {
     setChosen(id ? { mode, id } : undefined);
     start.mutate(startInput(id, timeSeconds));
+  };
+  // A new Weak spots lesson of the error type picked, or of the weakest types with Auto (undefined).
+  const pickFocus = (type: WordErrorType | undefined) => {
+    if (weakSpotsLocked) return setPlanOpen(true);
+    setFocusChoice(type);
+    start.mutate(startInputOf(mode, undefined, timeSeconds, type));
   };
 
   // The time limit changes for the passage on screen: no new random passage. In Placement the time belongs to the session (US10.1),
@@ -219,35 +288,43 @@ export const TypingPage = () => {
       {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right. */}
       <div data-tutorial="mode-tabs" className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 max-w-full md:justify-self-end">
-          {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Minigames. */}
+          {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Minigames.
+              In Weak spots the menu picks an error type and Auto goes back to the learner's weakest types. */}
           {!game && (
           <DropdownMenu>
             <div className="flex outline outline-1 -outline-offset-1 outline-border">
-              <DropdownMenuTrigger disabled={complete.isPending} title={passageTitle} aria-label="Choose passage" className={cn(chipClass, randomPassage ? 'text-muted-foreground' : 'text-primary')}>
+              <DropdownMenuTrigger disabled={complete.isPending} title={passageTitle} aria-label={targeted ? 'Choose error type' : 'Choose passage'} className={cn(chipClass, autoPick ? 'text-muted-foreground' : 'text-primary')}>
                 <span className="truncate">{passageTitle ?? '—'}</span>
               </DropdownMenuTrigger>
               <button
                 type="button"
-                onClick={() => pick(undefined)}
+                onClick={() => (targeted ? pickFocus(undefined) : pick(undefined))}
                 disabled={start.isPending || complete.isPending}
                 className={cn(
                   'inline-flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-                  randomPassage ? 'text-primary' : 'text-muted-foreground enabled:hover:bg-muted enabled:hover:text-foreground',
+                  autoPick ? 'text-primary' : 'text-muted-foreground enabled:hover:bg-muted enabled:hover:text-foreground',
                 )}
               >
-                Random
+                {targeted ? 'Auto' : 'Random'}
               </button>
             </div>
             {/* The page theme tints --color-background; the menu keeps the normal one, like the Sort and Filter menus. */}
-            <DropdownMenuContent role="menu" aria-label="Passages" className="max-h-72 w-full min-w-0 overflow-y-auto [--color-background:var(--background)]">
-              <PassageMenu mode={mode} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
+            <DropdownMenuContent role="menu" aria-label={targeted ? 'Error types' : 'Passages'} className="max-h-72 w-full min-w-0 overflow-y-auto [--color-background:var(--background)]">
+              {targeted ? (
+                <ErrorTypeMenu selected={focusChoice} onSelect={pickFocus} />
+              ) : (
+                <PassageMenu mode={mode} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           )}
         </div>
         <TabGroup
           label="Mode"
-          tabs={modeTabs}
+          // Five modes do not fit a phone with their names: there only the open one keeps its name.
+          iconsOnPhones
+          // Weak spots shows a lock on a plan without it (US3.2): its tab opens the plan.
+          tabs={weakSpotsLocked ? modeTabs.map((tab) => (tab.value === 'targeted' ? { ...tab, icon: Lock } : tab)) : modeTabs}
           value={ranked ? 'rank' : minigames ? 'minigames' : mode}
           onChange={(value) => {
             if (value === 'practice') setSearchParams({});
@@ -256,6 +333,10 @@ export const TypingPage = () => {
             }
             else if (value === 'minigames') {
               if (!minigames) setSearchParams({ mode: 'minigames' });
+            }
+            else if (value === 'targeted') {
+              if (weakSpotsLocked) setPlanOpen(true);
+              else if (!targeted || game) setSearchParams({ mode: 'targeted' });
             }
             else if (value !== mode || game) setPlacementPrompt({ open: true });
           }}
@@ -290,6 +371,8 @@ export const TypingPage = () => {
           Only 3-minute placement sessions go on the leaderboard.
         </p>
       )}
+      {/* Weak spots says what the lesson trains, or why a random passage came instead (US3.2). */}
+      {targeted && !game && !weakSpotsLocked && session?.mode === 'targeted' && <FocusNote focus={session.focusErrorTypes ?? []} chosen={focusChoice} />}
       <ConfirmDialog
         open={placementPrompt.open}
         onOpenChange={(open) => setPlacementPrompt({ open })}
@@ -316,6 +399,14 @@ export const TypingPage = () => {
         />
       ) : ranked ? (
         <RankMode />
+      ) : targeted && weakSpotsLocked ? (
+        <div className="mx-auto my-auto flex max-w-md flex-col items-center gap-4 text-center">
+          <Lock className="size-8 text-muted-foreground" aria-hidden />
+          <p className="text-muted-foreground">
+            Weak spots builds lessons from the words of the error types you get wrong most. Your plan does not include it.
+          </p>
+          <Button onClick={() => setPlanOpen(true)}>See plans</Button>
+        </div>
       ) : session ? (
         <TypingArea
           key={session._id}

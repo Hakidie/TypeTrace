@@ -1,7 +1,10 @@
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 
-/** `daily` sessions are old tries of the removed daily challenge: they still show in the history. */
-export type SessionMode = 'practice' | 'placement' | 'daily';
+/**
+ * `daily` sessions are old tries of the removed daily challenge: they still show in the history. `targeted` is Weak spots
+ * (SCRUM-28, US3.2): a lesson of words picked by the server for the learner's errors.
+ */
+export type SessionMode = 'practice' | 'placement' | 'daily' | 'targeted';
 export type SessionStatus = 'in_progress' | 'completed' | 'abandoned';
 
 /** How many times each error type happened (or could have happened). */
@@ -23,10 +26,16 @@ export interface TypingSession {
   _id: string;
   owner: string;
   mode: SessionMode;
-  passageId: string;
-  /** Title of the passage; missing on sessions from before it was stored. */
+  /** Missing on a Weak spots lesson, which types words of the word bank, not a passage. */
+  passageId?: string;
+  /** Title of the passage (or of the Weak spots lesson); missing on sessions from before it was stored. */
   passageTitle?: string;
   targetWords: string[];
+  /**
+   * Weak spots only: the error types the lesson trains, the weakest first. Empty when there was nothing to aim at (no weak
+   * type yet, or no word for the type chosen) and the session types a random passage instead.
+   */
+  focusErrorTypes?: WordErrorType[];
   status: SessionStatus;
   words: SessionWord[];
   startedAt: string;
@@ -91,6 +100,8 @@ export interface StartSessionInput {
   passageId?: string;
   /** The time the learner chose; a placement session needs it to be ranked (US10.1). */
   timeLimitSeconds?: number;
+  /** Weak spots only: the one error type to practice. Missing = the learner's weakest types. */
+  errorType?: WordErrorType;
 }
 
 /** One entry of the passage dropdown (`GET /api/passages`): no text. */

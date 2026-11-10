@@ -125,6 +125,15 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   windows). Nothing is written in `completeSession`, there is nothing to rebuild or to delete with the user. The thresholds
   are sent with `GET /api/profile/error-profile`: never write them in the frontend. A feature that needs the learner's weak
   error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way).
+- Weak spots (SCRUM-28, US3.2) is the session mode `targeted` (the Weak spots tab of the Typing page): `POST /api/sessions
+  { mode: 'targeted', errorType? }` types a lesson of the word bank instead of a passage, built by `lessonFor` and the pure
+  `buildLesson` (`services/targeted-practice.service.ts`): 30 to 50 words, 60 to 70 % of them training the focus (the type
+  chosen, else the 2 weakest of `getWeakErrorTypes`, taking turns), only active words (`isActive`), none of the learner's
+  last 3 lessons while the bank has others, repeats once it runs short. `TONE_WRONG` and `BASE_LETTER` are on every word
+  (`tagWord` counts chances), so `trainsErrorType` takes a word with a tone mark for the tone and any word for the letters.
+  The session has no `passageId` and keeps `focusErrorTypes`; with nothing to aim at (no weak type, or no word for it) it
+  types a random practice passage with `focusErrorTypes: []`, which the page explains. The passage menu and
+  `GET /api/passages` take `passageModes` (practice, placement), never `targeted`.
 - A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
   which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen
   (`createReplayRecorder`, `FE/src/modules/typing/utils/session-replay.ts`), the page sends them as `replay` with
@@ -146,7 +155,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   (never from the OTP functions). A row says who made it: `signup`, `payment` (`recordPaidMonth`, for US11.2 and US11.3),
   `admin` (`grantPremium` queues the months as a new term that starts when the last one ends, so every term keeps its own dates; `cancelPremium` lets the paid time run out, `revokePremium` stops it at once; `changedBy` is the admin), `auto`, `migration`. What a
   plan gives (`priceVnd`, `maxPassages`, `canCreateErrorPractice`, `canUsePublicPassages`) is `AppSettings.plans`
-  (`getPlanConfig`, defaults `DEFAULT_PLANS`: Free 9 passages, Premium 90): US3.2 must check `canCreateErrorPractice`.
+  (`getPlanConfig`, defaults `DEFAULT_PLANS`: Free 9 passages, Premium 90): Weak spots (US3.2) checks `canCreateErrorPractice`
+  (`assertCanPracticeWeakSpots`, 403; the Typing page shows its tab locked and opens `PlanDialog`).
   `MAX_USER_PASSAGES` is gone: `passage-lock.service.ts` counts every passage the learner made (draft, private, pending,
   rejected, public; not archived, placement, ranked or English ones, never an admin's or a deleted account's) and locks, when they have more than their plan's
   `maxPassages`, all but the newest ones (`getLockedPassageIds`, worked out on every read, nothing stored: buying Premium,
@@ -186,7 +196,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog` (`children` for an extra field such as a reason, `confirmDisabled` until it is filled, `cancelLabel` to rename Cancel), `Pagination`,
-  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; its tags are `LabeledTag`s and badges, as on the passage cards; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap` (always one tooltip for the hovered day; a learner's own days: `timeZone`, `unit`, `legend`, see `ProfileHeatmap`), `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons, `menus` of its own in their look for a setting of the list such as `3 a day`, + actions above a list) (`shared/components/`), `CompactToolbar` (Search, Sort, Filter and a total as icons whose word shows on hover, no background: for a list under a title, see `ProfileSessions`; `menus` add pickers of their own that always show their choice, an `adder` (a "+" in front of them, whose menu of groups opens a second menu of options to add beside it) and `tags` (what was added, on the left of the "+", each with an x shown on hover): the Progress page), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
+  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; its tags are `LabeledTag`s and badges, as on the passage cards; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap` (always one tooltip for the hovered day; a learner's own days: `timeZone`, `unit`, `legend`, see `ProfileHeatmap`), `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons, `menus` of its own in their look for a setting of the list such as `3 a day`, + actions above a list), `TabGroup` (a row of switch buttons; `iconsOnPhones` shows on phones only the icons of the tabs not selected, for a row too long for a phone such as the Typing page's modes) (`shared/components/`), `CompactToolbar` (Search, Sort, Filter and a total as icons whose word shows on hover, no background: for a list under a title, see `ProfileSessions`; `menus` add pickers of their own that always show their choice, an `adder` (a "+" in front of them, whose menu of groups opens a second menu of options to add beside it) and `tags` (what was added, on the left of the "+", each with an x shown on hover): the Progress page), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
   shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams`, `useFitLines` (`shared/hooks/`),
   date helpers in `shared/lib/local-date.ts` (a learner's today is `dateKeyIn(new Date(), timezone)`, never `toISOString()`).
   The daily mission goal is the backend's `missionGoal`: never write the number in the frontend.

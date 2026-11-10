@@ -13,6 +13,7 @@ import { recentProgressOf, recordCountedSession } from './daily-progress.service
 import { assertCanPractice, getAdminIds, getLockedPassageIds, getPlanOf } from './passage-lock.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
 import { saveSessionReplay } from './session-replay.service';
+import { lessonFor } from './targeted-practice.service';
 import { recordDailyTaskProgress, taskCountsSince } from './user-daily-tasks.service';
 
 /** Sessions with fewer words, or faster than this, are saved but kept out of the error profile (ASSUMPTION). */
@@ -165,19 +166,31 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
   return random;
 };
 
+/** What a session typing `passage` stores of it. */
+const passageContent = (passage: { _id: unknown; title: string; content: string }) => ({
+  passageId: String(passage._id),
+  passageTitle: passage.title,
+  targetWords: splitWords(passage.content)
+});
+
+/**
+ * What a new session types: a passage, or in Weak spots (`targeted`, US3.2) the words of a lesson aimed at the learner's
+ * errors. With nothing to aim at (no weak type yet, or no word for it), Weak spots types a random passage, as Random in
+ * Practice, with no focus: the page tells the learner why.
+ */
+const contentOf = async (userId: string, input: CreateSessionInput) => {
+  if (input.mode !== 'targeted') return passageContent(await pickPassage(userId, input));
+  const lesson = await lessonFor(userId, input.errorType);
+  if (lesson) return { passageTitle: lesson.title, targetWords: lesson.words, focusErrorTypes: lesson.focus };
+  return { ...passageContent(await pickPassage(userId, { mode: 'practice' })), focusErrorTypes: [] };
+};
+
 /** Starts a session. A session the learner left in progress becomes `abandoned`. */
 export const startSession = async (userId: string, input: CreateSessionInput) => {
-  const passage = await pickPassage(userId, input);
+  const content = await contentOf(userId, input);
 
   await TypingSessionModel.updateMany({ owner: userId, status: 'in_progress' }, { status: 'abandoned' });
-  return TypingSessionModel.create({
-    owner: userId,
-    mode: input.mode,
-    passageId: String(passage._id),
-    passageTitle: passage.title,
-    targetWords: splitWords(passage.content),
-    chosenLimitSeconds: input.timeLimitSeconds
-  });
+  return TypingSessionModel.create({ owner: userId, mode: input.mode, ...content, chosenLimitSeconds: input.timeLimitSeconds });
 };
 
 export const getSession = async (userId: string, id: string) => {
