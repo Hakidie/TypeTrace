@@ -15,6 +15,8 @@ export interface UserDailyTask {
   target: number;
   /** The error type of an accuracy task with a focus; absent otherwise. */
   errorType?: WordErrorType;
+  /** The coins the template gave for completing it when the day was made (SCRUM-301). Days stored before it have none: 0. */
+  coins: number;
 }
 
 /** The numbers of the counted sessions of one learner's day, which every task of that day is measured on. */
@@ -52,6 +54,11 @@ export interface UserDailyTasksDocument extends mongoose.Document {
    * back. Replaced when they move to another zone, where the old numbers can count sessions of another day.
    */
   progress: DayNumbers;
+  /**
+   * The templates (`taskId`) whose coins the learner has been paid today (SCRUM-301). A task is added once, by a conditional
+   * update (`$ne`) made before the coins are added, so a task is paid once however often it is recorded.
+   */
+  rewardedTaskIds: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,7 +70,8 @@ const taskSchema = new Schema<UserDailyTask>(
     description: { type: String, default: '' },
     type: { type: String, enum: DAILY_TASK_TYPES, required: true },
     target: { type: Number, required: true },
-    errorType: { type: String, enum: Object.values(WordError) }
+    errorType: { type: String, enum: Object.values(WordError) },
+    coins: { type: Number, default: 0, min: 0 }
   },
   { _id: false }
 );
@@ -88,7 +96,8 @@ const userDailyTasksSchema = new Schema<UserDailyTasksDocument>(
     date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
     timeZone: { type: String, required: true },
     tasks: { type: [taskSchema], default: [] },
-    progress: { type: numbersSchema, default: () => ({}) }
+    progress: { type: numbersSchema, default: () => ({}) },
+    rewardedTaskIds: { type: [Schema.Types.ObjectId], default: [] }
   },
   {
     timestamps: true,

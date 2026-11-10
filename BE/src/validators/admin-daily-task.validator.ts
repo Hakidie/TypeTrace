@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MAX_DAILY_TASK_COUNT } from '../models/app-setting.model';
-import { DAILY_TASK_TYPES } from '../models/daily-task.model';
+import { DAILY_TASK_COINS_MAX, DAILY_TASK_TYPES } from '../models/daily-task.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { WordError } from '../utils/vietnamese-errors';
 import { optionalBooleanQuerySchema } from './common.validator';
@@ -16,6 +16,8 @@ const dailyTaskFields = {
    * one is checked by the model, against the type the task ends up with, like the target.
    */
   errorType: z.enum(WordError).nullable(),
+  /** The reward for completing it (SCRUM-301); 0 = none. */
+  coins: z.number().int('Use a whole number').min(0, 'At least 0').max(DAILY_TASK_COINS_MAX, `At most ${DAILY_TASK_COINS_MAX}`),
   isActive: z.boolean()
 };
 
@@ -23,6 +25,7 @@ export const createDailyTaskSchema = z.object({
   ...dailyTaskFields,
   description: dailyTaskFields.description.default(''),
   errorType: dailyTaskFields.errorType.optional(),
+  coins: dailyTaskFields.coins.default(0),
   isActive: dailyTaskFields.isActive.default(true)
 });
 

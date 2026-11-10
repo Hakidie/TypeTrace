@@ -79,6 +79,9 @@ export const goalOf = ({ type, target, errorType }: Pick<DailyTask, 'type' | 'ta
   }
 };
 
+/** The most coins one task can give (`DAILY_TASK_COINS_MAX` in BE/src/models/daily-task.model.ts: keep the two the same). */
+export const DAILY_TASK_COINS_MAX = 100;
+
 /** The target as the row shows it: `95%` for accuracy, the number otherwise. */
 export const formatTarget = ({ type, target }: Pick<DailyTask, 'type' | 'target'>) =>
   type === 'accuracy' ? `${target}%` : String(target);

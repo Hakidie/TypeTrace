@@ -550,3 +550,43 @@ describe('daily task settings', () => {
     expect((await readSettings(auth)).body).toEqual({ dailyTaskCount: 4 });
   });
 });
+
+describe('the coins of a task (SCRUM-301)', () => {
+  it('are 0 on a new task, and can be set on create and update, from 0 to 100', async () => {
+    const auth = await signInAdmin();
+
+    const made = await create(auth);
+    expect(made.status).toBe(201);
+    expect(made.body.coins).toBe(0);
+
+    expect((await create(auth, { ...input, coins: 100 })).body.coins).toBe(100);
+    const changed = await update(auth, made.body._id, { coins: 25 });
+    expect(changed.status).toBe(200);
+    expect(changed.body.coins).toBe(25);
+    expect((await update(auth, made.body._id, { coins: 0 })).body.coins).toBe(0);
+  });
+
+  it('refuse a negative number, one above 100 and a number that is not whole, naming the field', async () => {
+    const auth = await signInAdmin();
+    const made = await create(auth);
+
+    for (const coins of [-1, 101, 2.5, '10', null]) {
+      const created = await create(auth, { ...input, coins });
+      expect(created.status).toBe(400);
+      expect(fieldsOf(created)).toEqual(['coins']);
+      const updated = await update(auth, made.body._id, { coins });
+      expect(updated.status).toBe(400);
+      expect(fieldsOf(updated)).toEqual(['coins']);
+    }
+    expect((await DailyTaskModel.findById(made.body._id))!.coins).toBe(0);
+  });
+
+  it('are listed with each task', async () => {
+    const auth = await signInAdmin();
+    await create(auth, { ...input, coins: 30 });
+
+    const list = await api().get('/api/admin/daily-tasks').set('Authorization', auth);
+
+    expect(list.body.items[0].coins).toBe(30);
+  });
+});

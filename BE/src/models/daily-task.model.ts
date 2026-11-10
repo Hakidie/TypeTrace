@@ -19,6 +19,9 @@ export type DailyTaskType = (typeof DAILY_TASK_TYPES)[number];
  */
 export const DAILY_TASK_TARGET_MAX: Record<DailyTaskType, number> = { sessions: 20, minutes: 120, wpm: 200, accuracy: 100, minigames: 10 };
 
+/** The most coins one task can give (SCRUM-301). The admin page has the same number. */
+export const DAILY_TASK_COINS_MAX = 100;
+
 export interface DailyTaskDocument extends mongoose.Document {
   title: string;
   /** Optional words for the learner; '' when there are none. */
@@ -31,6 +34,12 @@ export interface DailyTaskDocument extends mongoose.Document {
    * learners weakest at it get the task first. Only `accuracy` tasks may have one; absent = no focus.
    */
   errorType?: WordErrorType;
+  /**
+   * The coins a learner gets once, on the day they complete the task (SCRUM-301): a whole number from 0 to
+   * `DAILY_TASK_COINS_MAX`, 0 = no reward. Templates saved before it read as 0. Copied into the learner's day when it is
+   * made, so a change applies from the next day.
+   */
+  coins: number;
   /** Only active tasks are handed out; an inactive one is kept for later. */
   isActive: boolean;
   createdAt: Date;
@@ -44,6 +53,13 @@ const dailyTaskSchema = new Schema<DailyTaskDocument>(
     type: { type: String, enum: DAILY_TASK_TYPES, required: true },
     target: { type: Number, required: true, min: 1, validate: { validator: Number.isInteger, message: 'Use a whole number' } },
     errorType: { type: String, enum: Object.values(WordError) },
+    coins: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: DAILY_TASK_COINS_MAX,
+      validate: { validator: Number.isInteger, message: 'Use a whole number' }
+    },
     isActive: { type: Boolean, default: true }
   },
   {
