@@ -17,6 +17,8 @@ const task = (id: string, title: string, extra: Partial<DailyTaskProgress> = {})
   description: '',
   type: 'sessions',
   target: 3,
+  coins: 0,
+  rewarded: false,
   progress: 0,
   completed: false,
   ...extra,
@@ -230,5 +232,22 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     renderWithProviders(<ProfileDailyTasks />);
     expect(await screen.findByText('Daily mission done')).toBeInTheDocument();
     expect(tasksRegion()).toHaveTextContent('2 / 2 done');
+  });
+
+  it('shows the coins of each task, and which ones were paid (SCRUM-301)', async () => {
+    getDailyTasks.mockResolvedValue(
+      today(
+        task('t1', 'Paid', { coins: 15, progress: 3, completed: true, rewarded: true }),
+        task('t2', 'Waiting', { coins: 30, progress: 1 }),
+        task('t3', 'No reward', { coins: 0 })
+      )
+    );
+    renderWithProviders(<ProfileDailyTasks />);
+
+    await screen.findAllByRole('progressbar');
+    expect(itemOf('Paid')).toHaveTextContent('+15 coins');
+    expect(itemOf('Waiting')).toHaveTextContent('30 coins');
+    expect(itemOf('Waiting')).not.toHaveTextContent('+30 coins');
+    expect(itemOf('No reward')).not.toHaveTextContent('coins');
   });
 });

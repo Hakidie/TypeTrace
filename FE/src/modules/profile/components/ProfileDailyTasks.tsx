@@ -1,9 +1,10 @@
-import { CircleCheck } from 'lucide-react';
+import { CircleCheck, Coins } from 'lucide-react';
 import { DAILY_TASK_TYPE_INFO } from '@/modules/daily-tasks/daily-tasks.config';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Panel } from '@/shared/components/panel';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
+import { cn } from '@/shared/lib/utils';
 import { useDailyTasks } from '../hooks/use-profile';
 import type { DailyTaskProgress } from '../types/profile.types';
 
@@ -49,16 +50,23 @@ const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
   const filled = task.completed ? 100 : Math.min(task.progress / task.target, 1) * 100;
 
   return (
-    <li className="-mr-3 -ml-4 flex flex-col gap-3 py-3 pr-3 pl-4 transition-colors hover:bg-primary/15">
+    <li className="group -mr-3 -ml-4 flex flex-col gap-3 py-3 pr-3 pl-4 transition-colors hover:bg-primary/15">
       <div className="flex min-w-0 items-stretch gap-3">
         {/* As wide as the icon, so its left edge is the left edge of the bar below. The padding and the negative margin of the card keep the content in line with the heatmap while the hover color reaches past it, like a session card. */}
         <span className="flex w-9 shrink-0 items-center justify-center text-primary" aria-hidden>
           <Icon className="size-9" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-xl font-extrabold text-primary/80" title={task.title}>{task.title}</p>
           {task.description && <p className="line-clamp-2 text-base text-muted-foreground">{task.description}</p>}
         </div>
+        {/* Top right: the reward, shown while the card is hovered (always on touch screens), muted until the server paid it, then in the theme red with a plus. */}
+        {task.coins > 0 && (
+          <span className={cn('shrink-0 text-lg font-extrabold transition-opacity pointer-fine:opacity-0 pointer-fine:group-focus-within:opacity-100 pointer-fine:group-hover:opacity-100', task.rewarded ? 'text-primary/80' : 'text-muted-foreground')}>
+            <Coins className="mr-1.5 inline size-[18px] align-text-bottom" aria-hidden />
+            {task.rewarded ? `+${task.coins} coins` : `${task.coins} coins`}
+          </span>
+        )}
       </div>
       <div className="mt-auto space-y-2">
         <div

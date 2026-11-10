@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CircleCheck, CircleOff, Crosshair, Loader2, Plus, type LucideIcon } from 'lucide-react';
+import { CircleCheck, CircleOff, Coins, Crosshair, Loader2, Plus, type LucideIcon } from 'lucide-react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { errorLabels } from '@/modules/typing/typing.config';
@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shar
 import { Textarea } from '@/shared/components/ui/textarea';
 import { cn } from '@/shared/lib/utils';
 import { WordError } from '@/shared/lib/vietnamese-errors';
-import { DAILY_TASK_TYPE_INFO, goalOf } from '../daily-tasks.config';
+import { DAILY_TASK_COINS_MAX, DAILY_TASK_TYPE_INFO, goalOf } from '../daily-tasks.config';
 import { useCreateDailyTask, useUpdateDailyTask } from '../hooks/use-daily-tasks';
 import { DAILY_TASK_TYPES, type DailyTask } from '../types/daily-task.types';
 
@@ -26,6 +26,12 @@ const schema = z
     target: z.number({ error: 'Enter a number' }).int('Use a whole number').min(1, 'At least 1'),
     // The Focus error select: '' is None. Sent as `null` then, and whenever the type is not accuracy.
     errorType: z.union([z.enum(WordError), z.literal('')]),
+    // The reward for completing it (SCRUM-301); 0 = none.
+    coins: z
+      .number({ error: 'Enter a number' })
+      .int('Use a whole number')
+      .min(0, 'At least 0')
+      .max(DAILY_TASK_COINS_MAX, `At most ${DAILY_TASK_COINS_MAX}`),
     isActive: z.boolean(),
   })
   .superRefine(({ type, target }, context) => {
@@ -35,7 +41,7 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
-const emptyValues: FormValues = { title: '', description: '', type: 'sessions', target: 1, errorType: '', isActive: true };
+const emptyValues: FormValues = { title: '', description: '', type: 'sessions', target: 1, errorType: '', coins: 0, isActive: true };
 
 const ERROR_TYPES = Object.values(WordError);
 
@@ -143,16 +149,18 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
           type: task.type,
           target: task.target,
           errorType: task.errorType ?? '',
+          coins: task.coins,
           isActive: task.isActive,
         }
       : emptyValues,
   });
-  const [type, target, errorType] = useWatch({ control, name: ['type', 'target', 'errorType'] });
+  const [type, target, errorType, coins] = useWatch({ control, name: ['type', 'target', 'errorType', 'coins'] });
   const { max } = DAILY_TASK_TYPE_INFO[type];
   // What learners will be asked, while the target fits the type.
   const goal = Number.isInteger(target) && target >= 1 && target <= max ? goalOf({ type, target, errorType: errorType || null }) : '';
 
   const targetField = register('target', { valueAsNumber: true });
+  const coinsField = register('coins', { valueAsNumber: true });
 
   const submit = handleSubmit((values) => {
     // Only an accuracy task may have a focus. The form keeps the one picked while another type is chosen (switching back
@@ -221,6 +229,39 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
             </Tooltip>
           </TooltipProvider>
         </div>
+          {/* The reward: whole coins, 0 = none; in the look of Target, just before Active. */}
+          <div className={cn(partClass, 'h-12 px-0')}>
+            <Coins className="size-6 shrink-0 text-primary" aria-hidden="true" />
+            <label htmlFor="daily-task-coins" className="text-primary">
+              Coins
+            </label>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Input
+                    id="daily-task-coins"
+                    className={cn(controlClass, 'field-sizing-fixed h-auto min-w-[1ch] border-0 bg-transparent p-0 text-left text-[1.5rem] font-normal transition-[width] duration-150 focus-visible:ring-0')}
+                    type="number"
+                    // Grows and shrinks with the digits typed (an empty field keeps one digit of room).
+                    style={{ width: `${Number.isInteger(coins) ? String(coins).length : 1}ch` }}
+                    inputMode="numeric"
+                    min={0}
+                    max={DAILY_TASK_COINS_MAX}
+                    step={1}
+                    {...coinsField}
+                    // At most 3 digits (100): a longer entry is cut as it is typed.
+                    onChange={(event) => {
+                      event.target.value = event.target.value.replace(/\D/g, '').slice(0, 3);
+                      return coinsField.onChange(event);
+                    }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  {0}–{DAILY_TASK_COINS_MAX}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <Controller
             control={control}
             name="isActive"
@@ -268,6 +309,7 @@ export const DailyTaskForm = ({ task, onDone }: DailyTaskFormProps) => {
             <p className="w-fit bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">{goal}</p>
           </div>
           <FieldError message={errors.target?.message} />
+          <FieldError message={errors.coins?.message} />
         </div>
 
         <div className="flex items-center justify-end gap-4">

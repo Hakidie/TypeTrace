@@ -131,6 +131,12 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `match.service.ts` tells the daily tasks (`recordMatchMinigames`) after each finished duel is saved. A minigame belongs to the
   day it ended, in the learner's zone; `completedAtOf(task, sessions, minigameTimes)` gives a `minigames` task the time of its
   `target`th minigame for the admin completions chart. Counting never fails a finish or a duel: a failed write is only logged.
+- Coins for completed daily tasks (SCRUM-301): a `DailyTask` template has `coins` (0 to `DAILY_TASK_COINS_MAX` = 100, default 0 =
+  no reward), copied into the learner's day with the rest of the snapshot (a change applies from the next day; a day stored
+  before it reads 0 and pays nothing). `payCompletedTasks` (`user-daily-tasks.service.ts`, called by `updateDayNumbers`) pays
+  each completed task once: one conditional update adds its `taskId` to `rewardedTaskIds`, and only the request that changed
+  the document adds `$inc: { coins }` to the user. Only the server pays, a read pays nothing, and a failed payment is only
+  logged. The daily task list shows `coins` and `rewarded` (Profile, Progress page, admin page).
 - A learner's error profile (SCRUM-27) is never stored: `getErrorProfile` (`services/error-profile.service.ts`) works it out
   when it is read from their last 20 counted sessions that have chances (the current window is the 10 newest, the previous
   one the 10 before them), with the pure `computeErrorProfile`: per error type the rate in %, the level (`weak` from

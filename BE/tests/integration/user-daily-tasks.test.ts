@@ -131,6 +131,8 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
         description: template!.description,
         type: template!.type,
         target: template!.target,
+        coins: 0,
+        rewarded: false,
         ...(template!.errorType && { errorType: template!.errorType }),
         progress: 0,
         completed: false
@@ -169,6 +171,8 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
           type: 'accuracy',
           target: 90,
           errorType: 'HOI_NGA_CONFUSION',
+          coins: 0,
+          rewarded: false,
           progress: 0,
           completed: false
         }

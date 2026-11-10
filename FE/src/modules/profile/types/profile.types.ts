@@ -87,6 +87,10 @@ export interface DailyTaskProgress {
   target: number;
   /** Only on an accuracy task that focuses on one error type. */
   errorType?: WordErrorType;
+  /** The coins completing it pays (SCRUM-301), as the template had them when the day was made; 0 = no reward. */
+  coins: number;
+  /** Whether those coins were already added to the learner's account. Only the server pays. */
+  rewarded: boolean;
   /**
    * In the unit of the target, from today's counted sessions only: sessions, minutes (one decimal, rounded down), the best
    * WPM or the best accuracy (%) of one session; for a focused task, the best accuracy on its error type in a session

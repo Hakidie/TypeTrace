@@ -210,11 +210,19 @@ const tasksOfDay = async (owner: OwnerId, date: string, timeZone: string) => {
   const [{ dailyTaskCount }, templates, weakTypes] = await Promise.all([
     getAppSettings(),
     // In the order they were made, so the picks depend on `random` alone.
-    DailyTaskModel.find({ isActive: true }).sort({ _id: 1 }).select('title description type target errorType').lean(),
+    DailyTaskModel.find({ isActive: true }).sort({ _id: 1 }).select('title description type target errorType coins').lean(),
     weakErrorTypesOf(owner)
   ]);
   const tasks: UserDailyTask[] = pickDailyTasks(templates, weakTypes, dailyTaskCount).map(
-    ({ _id, title, description, type, target, errorType }) => ({ taskId: _id, title, description, type, target, ...(errorType && { errorType }) })
+    ({ _id, title, description, type, target, errorType, coins }) => ({
+      taskId: _id,
+      title,
+      description,
+      type,
+      target,
+      coins: coins ?? 0,
+      ...(errorType && { errorType })
+    })
   );
   if (tasks.length === 0) return null;
 
@@ -323,6 +331,29 @@ const maxOfNumbers = ({ bestErrorAccuracy, ...totals }: DayNumbers) =>
   ]);
 
 /**
+ * Pays the coins (SCRUM-301) of every task of `day` that is completed on `numbers` and not paid yet. A task is marked
+ * paid first, by a conditional update (`$ne`), and only the request that marks it adds the coins, so a task is paid once
+ * however often the same session is recorded or two requests race. A task without coins is not marked. A failed payment is
+ * only logged: it never fails the session, minigame or duel that completed the task, and the next recording pays it.
+ */
+const payCompletedTasks = async (owner: OwnerId, day: UserDailyTasksDocument, numbers: DayNumbers) => {
+  for (const task of day.tasks) {
+    const coins = task.coins ?? 0;
+    if (coins <= 0 || !taskProgressOf(task, numbers).completed) continue;
+    try {
+      const marked = await UserDailyTasksModel.updateOne(
+        { _id: day._id, rewardedTaskIds: { $ne: task.taskId } },
+        { $push: { rewardedTaskIds: task.taskId } }
+      );
+      if (marked.modifiedCount === 0) continue;
+      await UserModel.updateOne({ _id: owner }, { $inc: { coins } });
+    } catch (error) {
+      console.error('Daily task reward failed', error);
+    }
+  }
+};
+
+/**
  * Works the numbers of `day` out again from its counted sessions in `timeZone`, the learner's zone now, writes them and
  * answers them. In the zone the day is cut in, each number goes in with `$max`: the numbers only grow during a day, so a
  * repeated, late or out-of-order write never takes the day back. In another zone (the learner moved, or the day was made
@@ -343,10 +374,14 @@ const updateDayNumbers = async (owner: OwnerId, day: UserDailyTasksDocument, tim
       { _id: day._id, timeZone: { $ne: timeZone } },
       { $set: { progress: numbers, timeZone } }
     );
-    if (recut.matchedCount > 0) return numbers;
+    if (recut.matchedCount > 0) {
+      await payCompletedTasks(owner, day, numbers);
+      return numbers;
+    }
   }
   // The zone in the filter keeps numbers of one zone out of a day another request has just cut in another.
   await UserDailyTasksModel.updateOne({ _id: day._id, timeZone }, { $max: maxOfNumbers(numbers) });
+  await payCompletedTasks(owner, day, numbers);
   return numbers;
 };
 
@@ -379,6 +414,9 @@ export const getTodayDailyTasks = async (userId: string) => {
   const day = await tasksOfDay(userId, date, timeZone);
   if (!day) return { date, tasks: [] };
   const progress = day.timeZone === timeZone ? day.progress : await updateDayNumbers(userId, day, timeZone);
+  // Read after the numbers were worked out again: that can pay a task, which the page then shows as paid.
+  const paid = day.timeZone === timeZone ? day : await UserDailyTasksModel.findById(day._id).select('rewardedTaskIds').lean();
+  const rewarded = new Set((paid?.rewardedTaskIds ?? []).map(String));
   return {
     date,
     tasks: day.tasks.map((task) => ({
@@ -387,6 +425,8 @@ export const getTodayDailyTasks = async (userId: string) => {
       description: task.description,
       type: task.type,
       target: task.target,
+      coins: task.coins ?? 0,
+      rewarded: rewarded.has(String(task.taskId)),
       ...(task.errorType && { errorType: task.errorType }),
       ...taskProgressOf(task, progress)
     }))

@@ -18,6 +18,8 @@ export interface DailyTask {
    * weakest at it get the task first. Absent, or `null`, when the task has none.
    */
   errorType?: WordErrorType | null;
+  /** The coins a learner gets for completing it (SCRUM-301), 0 to `DAILY_TASK_COINS_MAX`; 0 = no reward. */
+  coins: number;
   /** Only active tasks are given to learners. */
   isActive: boolean;
   createdAt: string;
@@ -51,6 +53,7 @@ export interface DailyTaskInput {
   target: number;
   /** Only an accuracy task may have one; `null` takes it away. */
   errorType?: WordErrorType | null;
+  coins: number;
   isActive: boolean;
 }
 

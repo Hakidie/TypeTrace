@@ -89,6 +89,7 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
         extra={
           // One width per column (the widest value fits), so they line up from row to row, like the stats of a session card.
           <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-8">
+            <ListRowStat className="w-20" label="COINS" value={String(task.coins)} />
             <ListRowStat className="w-20" label="DONE" value={String(task.completions.learners)} />
             <ListRowStat className="w-28" label={stat} value={formatTarget(task)} />
           </div>
