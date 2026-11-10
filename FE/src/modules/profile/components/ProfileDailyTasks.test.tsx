@@ -34,6 +34,21 @@ beforeEach(() => {
 });
 
 describe('ProfileDailyTasks (SCRUM-112)', () => {
+  it('shows a minigames task in minigames, with the singular for one (SCRUM-300)', async () => {
+    getDailyTasks.mockResolvedValue(
+      today(
+        task('t1', 'Play games', { type: 'minigames', target: 3, progress: 1 }),
+        task('t2', 'One game', { type: 'minigames', target: 1, progress: 1, completed: true }),
+      ),
+    );
+    renderWithProviders(<ProfileDailyTasks />);
+
+    expect(await screen.findAllByRole('progressbar')).toHaveLength(2);
+    expect(within(itemOf('Play games')).getByText('1 / 3 minigames')).toBeInTheDocument();
+    expect(within(itemOf('One game')).getByText('1 / 1 minigame')).toBeInTheDocument();
+    expect(within(itemOf('One game')).getByText('Done')).toBeInTheDocument();
+  });
+
   it('shows each task with its description, a bar and the numbers in the unit of its type', async () => {
     getDailyTasks.mockResolvedValue(
       today(

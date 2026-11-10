@@ -1,6 +1,13 @@
 import { http } from '@/shared/api/http';
 import type { Paginated } from '@/shared/api/types';
-import type { DailyTask, DailyTaskInput, DailyTaskListItem, DailyTaskListParams, DailyTaskSettings } from '../types/daily-task.types';
+import type {
+  DailyTask,
+  DailyTaskInput,
+  DailyTaskListItem,
+  DailyTaskListParams,
+  DailyTaskSettings,
+  MinigameKind,
+} from '../types/daily-task.types';
 
 /** Drops empty values so the URL stays clean (`?type=` is never sent). */
 const cleanParams = (params: DailyTaskListParams) =>
@@ -18,4 +25,12 @@ export const dailyTasksApi = {
   getSettings: () => http.get<DailyTaskSettings>('/admin/daily-tasks/settings').then((r) => r.data),
   updateSettings: (settings: DailyTaskSettings) =>
     http.put<DailyTaskSettings>('/admin/daily-tasks/settings', settings).then((r) => r.data),
+};
+
+/** The plays of the minigames, which the daily task `minigames` counts (SCRUM-300). */
+export const minigamePlaysApi = {
+  /** `POST /api/minigames/plays`: a minigame starts; answers the id of its play. */
+  start: (game: MinigameKind) => http.post<{ id: string }>('/minigames/plays', { game }).then((r) => r.data),
+  /** `POST /api/minigames/plays/:id/finish`: the minigame ended; `counted` is false when it ran too short. */
+  finish: (id: string) => http.post<{ counted: boolean }>(`/minigames/plays/${id}/finish`).then((r) => r.data),
 };

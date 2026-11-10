@@ -427,6 +427,28 @@ describe('AdminDailyTasksPage', () => {
     );
   });
 
+  it('adds a minigames task: the goal in words, a target of at most 10 (SCRUM-300)', async () => {
+    create.mockResolvedValue(task('t7', 'Play games'));
+    renderPage();
+    await screen.findByLabelText('Daily task cards');
+
+    const form = formOf('New task');
+    fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Play games' } });
+    pickOption(form, 'Type', 'Minigames');
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '11' } });
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
+    expect(await form.findByText('At most 10 for this type')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '3' } });
+    expect(await form.findByText('Finish 3 minigames')).toBeInTheDocument();
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({ title: 'Play games', description: '', type: 'minigames', target: 3, errorType: null, isActive: true }),
+    );
+  });
+
   it('prefills the focus error of the task being edited, and None takes it away', async () => {
     listWith([hoiNga, warmUp]);
     update.mockResolvedValue({ ...hoiNga, errorType: undefined });

@@ -1,6 +1,7 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
+import { minigamePlaysApi } from '@/modules/daily-tasks/api/daily-tasks.api';
 import { tutorialStore } from '@/modules/tutorial/lib/tutorial-store';
 import { ROUND_MS } from '../lib/rain-game';
 import { RainMode } from './RainMode';
@@ -8,6 +9,7 @@ import { RainMode } from './RainMode';
 const words = vi.fn();
 
 vi.mock('../api/rain.api', () => ({ rainApi: { words: () => words() } }));
+vi.mock('@/modules/daily-tasks/api/daily-tasks.api', () => ({ minigamePlaysApi: { start: vi.fn(), finish: vi.fn() } }));
 vi.mock('@/modules/auth/api/auth.api', () => ({
   authApi: { getMe: async () => ({ _id: 'u1', email: 'lan@example.com', role: 'user' }) },
 }));
@@ -26,6 +28,8 @@ describe('RainMode', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     words.mockReset().mockResolvedValue({ words: ['nhà', 'cửa', 'bàn'], focus: [] });
+    vi.mocked(minigamePlaysApi.start).mockReset().mockResolvedValue({ id: 'p1' });
+    vi.mocked(minigamePlaysApi.finish).mockReset().mockResolvedValue({ counted: true });
   });
   afterEach(() => vi.useRealTimers());
 
@@ -122,6 +126,17 @@ describe('RainMode', () => {
 
     expect(screen.getByText('You beat the rain')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Play again' })).toBeInTheDocument();
+  });
+
+  it('opens a play of rain when a round starts and closes it when the round ends (SCRUM-300)', async () => {
+    await startRound();
+    await vi.waitFor(() => expect(minigamePlaysApi.start).toHaveBeenCalledWith('rain'));
+    expect(minigamePlaysApi.finish).not.toHaveBeenCalled();
+
+    advance(ROUND_MS + 500);
+
+    await vi.waitFor(() => expect(minigamePlaysApi.finish).toHaveBeenCalledWith('p1'));
+    expect(minigamePlaysApi.finish).toHaveBeenCalledTimes(1);
   });
 
   it('holds the rain for Ping until the framed word is typed', async () => {

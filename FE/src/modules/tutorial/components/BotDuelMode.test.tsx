@@ -1,9 +1,11 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
+import { minigamePlaysApi } from '@/modules/daily-tasks/api/daily-tasks.api';
 import { BotDuelMode } from './BotDuelMode';
 
 vi.mock('@/modules/rain/api/rain.api', () => ({ rainApi: { words: async () => ({ words: ['nhà', 'cửa', 'bàn', 'ghế', 'mưa', 'đèn'], focus: [] }) } }));
+vi.mock('@/modules/daily-tasks/api/daily-tasks.api', () => ({ minigamePlaysApi: { start: vi.fn(), finish: vi.fn() } }));
 vi.mock('../api/tutorial.api', () => ({
   tutorialApi: { start: vi.fn(), update: vi.fn(), reset: vi.fn(), coach: async () => ({ tip: 'Hay!', ai: true }) },
 }));
@@ -14,7 +16,11 @@ const advance = (ms: number) =>
   });
 
 describe('BotDuelMode', () => {
-  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(minigamePlaysApi.start).mockReset().mockResolvedValue({ id: 'p1' });
+    vi.mocked(minigamePlaysApi.finish).mockReset().mockResolvedValue({ counted: true });
+  });
   afterEach(() => vi.useRealTimers());
 
   it('picks a level, plays, then offers to play again or change level', async () => {
@@ -31,6 +37,21 @@ describe('BotDuelMode', () => {
     expect(await screen.findByRole('button', { name: 'Play again' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Change level' }));
     expect(screen.getByRole('button', { name: /^Bông · Easy/ })).toBeInTheDocument();
+  });
+
+  it('opens a play of the bot duel when a duel starts, closes it when it ends, and again for each new round (SCRUM-300)', async () => {
+    renderWithProviders(<BotDuelMode />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Dạ · Hard/ }));
+    expect(await screen.findByRole('region', { name: "Dạ's field" })).toBeInTheDocument();
+    await vi.waitFor(() => expect(minigamePlaysApi.start).toHaveBeenCalledWith('bot'));
+    expect(minigamePlaysApi.finish).not.toHaveBeenCalled();
+
+    advance(40_000);
+
+    expect(await screen.findByRole('button', { name: 'Play again' })).toBeInTheDocument();
+    await vi.waitFor(() => expect(minigamePlaysApi.finish).toHaveBeenCalledWith('p1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Play again' }));
+    await vi.waitFor(() => expect(minigamePlaysApi.start).toHaveBeenCalledTimes(2));
   });
 
   it('switches the picker between English and Vietnamese', async () => {

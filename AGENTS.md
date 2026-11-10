@@ -110,7 +110,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   update sets `rewardClaimedAt` and `rewardCoins` on today's `DailyProgress` row, so two claims pay once; coins
   `streakRewardCoins` = 20 + 5 per streak day before today, at most 50). The result page asks with `StreakRewardDialog`.
 - A learner's daily tasks (SCRUM-112) live in `UserDailyTasks` (`models/user-daily-tasks.model.ts`): one document per learner
-  and local day, made by the day's first `GET /api/profile/daily-tasks` or counted session, with a snapshot of `dailyTaskCount`
+  and local day, made by the day's first `GET /api/profile/daily-tasks`, counted session, finished minigame or finished duel, with a snapshot of `dailyTaskCount`
   active `DailyTask` templates (weak error types first) and the numbers of the sessions already counted that day, cut in the
   zone it keeps as `timeZone`. It is stored once (an upsert with `$setOnInsert`) and its `tasks` are never edited afterwards:
   template edits and a new count apply from the next day. After that upsert, its `progress` is written only by
@@ -118,6 +118,19 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   sessions: with `$max` after each counted session (`completeSession`, through `recordDailyTaskProgress`), so recording a
   session twice changes nothing, and replaced once, with the new `timeZone`, by the day's next counted session or `GET`
   after the learner's zone changed.
+- The daily task type `minigames` (SCRUM-300) asks the learner to finish `target` (at most 10) minigames or ranked duels in their
+  day, from `DayNumbers.minigames`, which `dayNumbersOf(sessions, minigames)` takes next to the counted sessions (a stored day
+  without it reads as 0). Two sources, read together by `minigameFinishTimes` (`services/minigame-times.service.ts`, models only,
+  so `user-daily-tasks.service.ts` can import it): the finished `MinigamePlay` rows (`models/minigame-play.model.ts`: Nối từ
+  `chain`, `rain`, `bot` of the Minigames tab) and the finished `Match` rows of ranked duels. The server opens a play with
+  `POST /api/minigames/plays { game }` and closes it with `POST /api/minigames/plays/:id/finish` (`services/minigame-play.service.ts`);
+  a finish counts only after `MIN_PLAY_MS[game]` (`config/minigames.ts`, 8 s: a Rain round or a Bot duel can be lost in about 10 s) by the server's clock, otherwise `{ counted: false }` and
+  the play stays open, and a finished play cannot be finished again (409); open plays nobody finished are deleted after a day.
+  A duel counts for a player (`countsAsPlayed`) when it is finished, not `flagged`, the player won, lost or drew (not a forfeit), and
+  its `unratedReason` is not one of `UNPLAYED_DUEL_REASONS` (`not-started`, `interrupted`, `abandoned`); `announceResult` in
+  `match.service.ts` tells the daily tasks (`recordMatchMinigames`) after each finished duel is saved. A minigame belongs to the
+  day it ended, in the learner's zone; `completedAtOf(task, sessions, minigameTimes)` gives a `minigames` task the time of its
+  `target`th minigame for the admin completions chart. Counting never fails a finish or a duel: a failed write is only logged.
 - A learner's error profile (SCRUM-27) is never stored: `getErrorProfile` (`services/error-profile.service.ts`) works it out
   when it is read from their last 20 counted sessions that have chances (the current window is the 10 newest, the previous
   one the 10 before them), with the pure `computeErrorProfile`: per error type the rate in %, the level (`weak` from
@@ -204,6 +217,10 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   Decorative motion that CSS cannot draw (a flame, confetti, a trophy) uses `Lottie` (`shared/components/lottie.tsx`, the one
   animation library, `@lottiefiles/dotlottie-react`) with files in `FE/public/lottie/` (source and author in its `CREDITS.md`);
   they keep their own colors like the avatar sprites, never carry information on their own, and stay still for reduced motion.
+- Minigames and the daily task `minigames` (SCRUM-300): a minigame of the Minigames tab tells the server when it starts and ends with
+  `useMinigamePlay(game)` (`modules/daily-tasks/hooks/use-minigame-play.ts`: `begin()` when the game starts, `finish()` when it runs to its
+  end; Nối từ, Rain and the Bot duel use it, never the tutorial's own duel). Both calls swallow their errors without a toast: counting
+  never gets in a game's way. Ranked duels need nothing here, the server counts them from the match.
 - Plans (US11.1, `modules/plan`): `PlanBadge` (a button with the word FREE or PREMIUM between the name and the pencil on the Profile: muted on Free, red on Premium, with a tooltip) opens `PlanDialog` (both plans side by side as read-only cards
   (`PlanOfferCard`: its own one-column design, not the two-column card of the admin Plans page), the learner's own outlined, and in each card, at the bottom, its button: "Buy now" on Premium,
   "Owned" on the learner's own card, none on Free for a learner on Premium; Buy now does nothing but say so until US11.2/US11.3) with `usePlan` (`GET /api/plan`, which also sends both plans with their price); the same dialog opens from a passage the plan

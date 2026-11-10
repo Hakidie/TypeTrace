@@ -14,4 +14,14 @@ describe('service imports', () => {
 
     expect(`${run.stdout}${run.stderr}`).toContain('max 180000');
   }, 60_000);
+
+  it('loads the match service on its own without a cycle (it records duels for the daily tasks, SCRUM-300)', () => {
+    const run = spawnSync(
+      process.execPath,
+      ['--import', 'tsx', '-e', "import('./src/services/match.service.ts').then((m) => console.log('loaded', typeof m.createMatch))"],
+      { cwd: process.cwd(), encoding: 'utf8', timeout: 60_000 }
+    );
+
+    expect(`${run.stdout}${run.stderr}`).toContain('loaded function');
+  }, 60_000);
 });

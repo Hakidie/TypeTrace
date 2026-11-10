@@ -21,7 +21,7 @@ const BLANK_TASKS = 3;
  */
 const oldestFirst = (tasks: DailyTaskProgress[]) => [...tasks].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
-/** How far a task is, in the unit of its target: "2 / 3 sessions", "12.5 / 15 min", "38.5 / 40 WPM", "85.5% / 90%". */
+/** How far a task is, in the unit of its target: "2 / 3 sessions", "12.5 / 15 min", "38.5 / 40 WPM", "85.5% / 90%", "1 / 3 minigames". */
 const numbersOf = ({ type, progress, target }: DailyTaskProgress) => {
   switch (type) {
     case 'sessions':
@@ -32,6 +32,8 @@ const numbersOf = ({ type, progress, target }: DailyTaskProgress) => {
       return `${progress} / ${target} WPM`;
     case 'accuracy':
       return `${progress}% / ${target}%`;
+    case 'minigames':
+      return `${progress} / ${target} ${target === 1 ? 'minigame' : 'minigames'}`;
   }
 };
 

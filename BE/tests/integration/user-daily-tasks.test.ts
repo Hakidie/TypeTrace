@@ -529,7 +529,7 @@ describe('recording a session again', () => {
     await recordDailyTaskProgress(String(learner._id), completedAt);
 
     expect((await storedDay(learner._id))!.progress).toEqual(once);
-    expect(once).toEqual({ sessions: 1, durationMs: 75_000, bestWpm: 33, bestAccuracy: 96, bestErrorAccuracy: { TONE_WRONG: 95 } });
+    expect(once).toEqual({ sessions: 1, durationMs: 75_000, bestWpm: 33, bestAccuracy: 96, minigames: 0, bestErrorAccuracy: { TONE_WRONG: 95 } });
   });
 
   it('never takes the numbers of the day back', async () => {
