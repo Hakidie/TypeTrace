@@ -5,6 +5,7 @@ import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR, type AvatarPose } from '@/modules/avatar/types/avatar.types';
 import { BotSprite, type BotMove } from '@/modules/tutorial/components/BotSprite';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
+import { useMinigamePlay } from '@/modules/daily-tasks/hooks/use-minigame-play';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -98,12 +99,15 @@ export const WordChainMode = () => {
   const { data: me } = useCurrentUser();
   const save = useSaveWordChainScore();
   const { mutate: saveScore } = save;
+  // every game that runs to its end counts for the daily task `minigames`, with or without a point (SCRUM-300)
+  const { begin: beginPlay, finish: finishPlay } = useMinigamePlay('chain');
   // a finished game with points goes to the leaderboard (the server works the score out again)
   const onOver = useCallback(
     (chain: ChainLink[], score: number) => {
+      finishPlay();
       if (score > 0) saveScore(chain.map(({ by, word }) => ({ by, word })));
     },
-    [saveScore],
+    [saveScore, finishPlay],
   );
   const { text: t, toggle: toggleLang } = useWordChainLang();
   const game = useWordChainGame(bank.data, me?._id ?? 'guest', onOver, t);
@@ -148,6 +152,7 @@ export const WordChainMode = () => {
   };
   const startGame = () => {
     setText('');
+    beginPlay();
     game.start();
   };
   const urgent = playing && game.leftMs <= 10_000;

@@ -1,7 +1,7 @@
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 
 /** The kinds of task, in the order the form and the filter offer them (`DAILY_TASK_TYPES` in BE/src/models/daily-task.model.ts). */
-export const DAILY_TASK_TYPES = ['sessions', 'minutes', 'wpm', 'accuracy'] as const;
+export const DAILY_TASK_TYPES = ['sessions', 'minutes', 'wpm', 'accuracy', 'minigames'] as const;
 
 export type DailyTaskType = (typeof DAILY_TASK_TYPES)[number];
 
@@ -69,3 +69,6 @@ export interface DailyTaskSettings {
   /** How many of the active tasks each learner gets a day. */
   dailyTaskCount: number;
 }
+
+/** The minigames of the Minigames tab that count for the daily task `minigames` (`MINIGAMES` in BE/src/models/minigame-play.model.ts). */
+export type MinigameKind = 'chain' | 'rain' | 'bot';

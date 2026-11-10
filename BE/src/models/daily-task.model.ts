@@ -7,16 +7,17 @@ import { WordError, WordErrorType } from '../utils/vietnamese-errors';
 /**
  * What a task asks of a learner's day, measured on their counted sessions like the daily mission: `sessions` = finish
  * `target` of them, `minutes` = `target` minutes of them in all, `wpm` = one of them at `target` words per minute or
- * more, `accuracy` = one of them at `target` % accuracy or more (on its `errorType` alone when it has one).
+ * more, `accuracy` = one of them at `target` % accuracy or more (on its `errorType` alone when it has one). `minigames`
+ * (SCRUM-300) = finish `target` minigames or ranked duels, not counted sessions (minigame-times.service.ts).
  */
-export const DAILY_TASK_TYPES = ['sessions', 'minutes', 'wpm', 'accuracy'] as const;
+export const DAILY_TASK_TYPES = ['sessions', 'minutes', 'wpm', 'accuracy', 'minigames'] as const;
 export type DailyTaskType = (typeof DAILY_TASK_TYPES)[number];
 
 /**
  * The largest `target` of each type, so every task can be done in a day. A counted session has at most 200 WPM
  * (`MAX_COUNTED_WPM` in typing-session.service.ts) and accuracy is a percentage. The admin page has the same table.
  */
-export const DAILY_TASK_TARGET_MAX: Record<DailyTaskType, number> = { sessions: 20, minutes: 120, wpm: 200, accuracy: 100 };
+export const DAILY_TASK_TARGET_MAX: Record<DailyTaskType, number> = { sessions: 20, minutes: 120, wpm: 200, accuracy: 100, minigames: 10 };
 
 export interface DailyTaskDocument extends mongoose.Document {
   title: string;

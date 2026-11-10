@@ -27,6 +27,8 @@ export interface DayNumbers {
   bestWpm: number;
   /** The best accuracy (%) of one of them. */
   bestAccuracy: number;
+  /** How many minigames and ranked duels the learner finished that day (SCRUM-300). Missing on days stored before it: read as 0. */
+  minigames: number;
   /**
    * The best accuracy (%) on each error type of one of them, only from the sessions with at least `MIN_FOCUS_CHANCES`
    * chances of that type (user-daily-tasks.service.ts): a type without such a session has no key.
@@ -74,6 +76,7 @@ const numbersSchema = new Schema<DayNumbers>(
     durationMs: { type: Number, default: 0, min: 0 },
     bestWpm: { type: Number, default: 0, min: 0 },
     bestAccuracy: { type: Number, default: 0, min: 0 },
+    minigames: { type: Number, default: 0, min: 0 },
     bestErrorAccuracy: { type: new Schema(errorAccuracyDefinition, { _id: false }), default: () => ({}) }
   },
   { _id: false }
