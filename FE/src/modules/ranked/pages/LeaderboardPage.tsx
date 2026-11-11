@@ -99,7 +99,7 @@ export const LeaderboardPage = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="w-full space-y-6">
       {/* Same tabs as the mode tabs of the Typing page, in the center of the page; on the Placement tab the passage is on their left and the range on their right. */}
       <div className="flex flex-col items-center gap-2 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-x-2">
         <div className="flex min-w-0 max-w-full md:justify-self-end">

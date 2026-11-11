@@ -1,5 +1,5 @@
 import userEvent from '@testing-library/user-event';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { LayoutDashboard, Users } from 'lucide-react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { tokenStore } from '@/modules/auth/store/token.store';
@@ -43,21 +43,38 @@ describe('AdminSidebar', () => {
     expect(link).toHaveClass('justify-center', 'px-3', 'py-2');
     expect(link.className).not.toContain('=>');
     expect(screen.getByRole('link', { name: 'Back to app' })).toHaveClass('justify-center');
-    expect(screen.getByText('Users')).toHaveClass('sr-only');
+    expect(within(link).getByText('Users')).toHaveClass('sr-only');
     expect(screen.getByRole('button', { name: /logout/i })).toHaveClass('px-0');
   });
 
   it.each([
     ['link', 'Users'],
     ['link', 'Back to app'],
-    ['button', 'Logout'],
-  ] as const)('says what the %s %s is in a tooltip when compact', async (role, name) => {
+  ] as const)('opens a flyout with the icon and the name of the %s %s when it is hovered, compact', async (role, name) => {
+    renderWithProviders(<AdminSidebar navItems={navItems} compact />, { route: '/admin', path: '/admin/*' });
+
+    // The flyout is in the page for the eye only, beside the link, with its own copy of the icon; CSS shows it on hover.
+    const flyout = screen.getByRole(role, { name }).parentElement!.querySelector('span[aria-hidden="true"]')!;
+    expect(flyout).toHaveTextContent(name);
+    expect(flyout.querySelector('svg')).toBeInTheDocument();
+    expect(flyout).toHaveClass('group-hover/tab:flex', 'hidden');
+    // The link keeps its name, so a screen reader reads it once.
+    expect(screen.getAllByText(name, { exact: true })).toHaveLength(2);
+  });
+
+  it('keeps a tooltip for the logout button when compact', async () => {
     const user = userEvent.setup();
     renderWithProviders(<AdminSidebar navItems={navItems} compact />, { route: '/admin', path: '/admin/*' });
 
-    await user.hover(screen.getByRole(role, { name }));
+    await user.hover(screen.getByRole('button', { name: 'Logout' }));
 
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(name);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Logout');
+  });
+
+  it('has no flyout when the sidebar shows its text', () => {
+    renderSidebar('/admin');
+    expect(screen.getByRole('link', { name: 'Users' }).parentElement!.querySelector('.group\\/tab')).toBeNull();
+    expect(document.querySelector('.group\\/tab')).toBeNull();
   });
 
   it('has no tooltips when the sidebar shows its text', async () => {

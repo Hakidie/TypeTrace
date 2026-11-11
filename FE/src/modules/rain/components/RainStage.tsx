@@ -132,7 +132,7 @@ export const RainStage = ({
       aria-label="Word rain"
       data-testid="rain-stage"
       data-paused={paused}
-      className={cn('relative isolate overflow-hidden border border-primary/20 bg-destructive/10 backdrop-blur-md [container-type:size]', !compact && 'rain-sky', className)}
+      className={cn('relative isolate overflow-hidden border border-primary/20 backdrop-blur-md [container-type:size]', !compact && 'rain-sky', className)}
       style={{ '--rain-ground': `${LAND_PX}px` } as CSSProperties}
     >
       <div aria-hidden="true" className="absolute inset-x-0 border-t border-dashed border-primary/30" style={{ bottom: LAND_PX }} />

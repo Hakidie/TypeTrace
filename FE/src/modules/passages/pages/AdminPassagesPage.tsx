@@ -327,14 +327,14 @@ export const AdminPassagesPage = () => {
       return next;
     });
 
-  // The form and the list share the page, one at a time, like the learner's Passages page: the form is first.
-  // `?show=list` keeps the list in the URL; the Pending review queue is always a list.
-  const showList = view === "pending" || params.get("show") === "list";
+  // The form and the list share the page, one at a time: the Passage list is first.
+  // `?show=form` keeps the form in the URL; the Pending review queue is always a list.
+  const showList = view === "pending" || params.get("show") !== "form";
   const setShowList = (show: boolean) =>
     setParams(
       (next) => {
-        if (show) next.set("show", "list");
-        else next.delete("show");
+        if (show) next.delete("show");
+        else next.set("show", "form");
         return next;
       },
       { replace: true },

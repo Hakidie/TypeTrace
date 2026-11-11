@@ -30,7 +30,7 @@ export const AdminLayout = ({ navItems }: AdminLayoutProps) => {
     <div className="flex min-h-screen bg-background">
       {/* Sidebar: fixed full-height column on large screens (icons only when compact; the drawer is always full) */}
       <aside className={cn('hidden shrink-0 border-r bg-background lg:block', compact ? 'w-16' : 'w-60')}>
-        <div className="sticky top-0 h-screen">
+        <div className="sticky top-0 z-50 h-screen">
           <AdminSidebar navItems={navItems} compact={compact} />
         </div>
       </aside>

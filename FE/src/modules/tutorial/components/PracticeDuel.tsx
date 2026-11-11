@@ -222,7 +222,7 @@ export const PracticeDuel = ({ words, onDone, onSkip, level, skipLabel = 'Bỏ q
           setBox('');
           dispatch({ type: 'input', text: '' });
         }}
-        className="h-14 w-full border border-foreground/15 bg-background/60 px-4 text-center font-mono text-2xl backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-14 w-full border border-foreground/15 bg-background/60 px-4 text-center font-mono text-2xl backdrop-blur-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       />
     </div>
   );

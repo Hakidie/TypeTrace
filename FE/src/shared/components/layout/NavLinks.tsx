@@ -17,7 +17,7 @@ export const NavLinks = ({ items }: { items: (NavItem | NavWidget)[] }) => {
             to={item.to}
             className={cn(
               'inline-flex items-center gap-1.5 px-3 py-1.5 text-base transition-colors',
-              location.pathname === item.to ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              location.pathname === item.to ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <item.icon className="size-4" />

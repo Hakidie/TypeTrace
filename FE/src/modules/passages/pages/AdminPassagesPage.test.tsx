@@ -55,7 +55,7 @@ const answer = ({ bank = [passage], pending = [] }: { bank?: unknown[]; pending?
       : page(bank),
   );
 
-const renderPage = (route = '/admin/passages?show=list') => renderWithProviders(<AdminPassagesPage />, { route });
+const renderPage = (route = '/admin/passages') => renderWithProviders(<AdminPassagesPage />, { route });
 
 beforeEach(() => {
   list.mockReset();
@@ -66,19 +66,20 @@ beforeEach(() => {
 });
 
 describe('AdminPassagesPage', () => {
-  it('shows the New passage form first, and the Passage list with the cards after the button under it', async () => {
+  it('shows the Passage list with the cards first, and the New passage form after the button under it', async () => {
     const user = userEvent.setup();
-    renderPage('/admin/passages');
+    renderPage();
 
-    expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /Passage list/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Switch to Passage list' }));
-    expect(screen.queryByRole('heading', { name: 'New passage' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Passage list/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'New passage' })).not.toBeInTheDocument();
     expect(await screen.findByText('Mùa thu Hà Nội')).toBeInTheDocument();
     expect(screen.getByText('draft')).toBeInTheDocument();
     expect(screen.getByText('6 words')).toBeInTheDocument();
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 9, visibility: 'public' }));
+
+    await user.click(screen.getByRole('button', { name: 'Switch to New passage' }));
+    expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Passage list/ })).not.toBeInTheDocument();
   });
 
   it('shows an empty state without any example card', async () => {
@@ -105,7 +106,7 @@ describe('AdminPassagesPage', () => {
 
   it('creates a passage and clears the form', async () => {
     create.mockResolvedValue({ ...passage, _id: 'p2' });
-    renderPage('/admin/passages');
+    renderPage('/admin/passages?show=form');
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Biển' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'TypeTrace' } });
@@ -126,7 +127,7 @@ describe('AdminPassagesPage', () => {
   });
 
   it('does not send a text over 200 words, and says why', async () => {
-    renderPage('/admin/passages');
+    renderPage('/admin/passages?show=form');
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Dài' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'TypeTrace' } });
@@ -139,7 +140,7 @@ describe('AdminPassagesPage', () => {
 
   it('counts the words and can mark the passage as a placement passage', async () => {
     create.mockResolvedValue({ ...passage, _id: 'p3', isPlacement: true });
-    renderPage('/admin/passages');
+    renderPage('/admin/passages?show=form');
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Kiểm tra' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'TypeTrace' } });
@@ -160,7 +161,7 @@ describe('AdminPassagesPage', () => {
   });
 
   it('does not submit an empty form', async () => {
-    renderPage('/admin/passages');
+    renderPage('/admin/passages?show=form');
 
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
 
@@ -364,7 +365,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
   it('searches, filters and sorts the passage bank, keeping each choice in the URL', async () => {
     answerPages(3);
     const user = userEvent.setup();
-    renderAt('/admin/passages?show=list&page=2');
+    renderAt('/admin/passages?page=2');
     await screen.findByText('Mùa thu Hà Nội');
     expect(list).toHaveBeenCalledWith({ page: 2, limit: 9, sort: '-createdAt', visibility: 'public' });
 
@@ -411,7 +412,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
   it('opens with the search, filters, sort and page of the URL, as after a reload or from a shared link', async () => {
     answerPages(3);
     const user = userEvent.setup();
-    renderAt('/admin/passages?show=list&q=biển&status=archived&type=placement&sort=title&page=2');
+    renderAt('/admin/passages?q=biển&status=archived&type=placement&sort=title&page=2');
     await screen.findByText('Mùa thu Hà Nội');
 
     expect(list).toHaveBeenCalledWith({
@@ -433,7 +434,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
 
   it('goes back to the last page when the page of the URL is past the end', async () => {
     answerPages(2);
-    renderAt('/admin/passages?show=list&page=5');
+    renderAt('/admin/passages?page=5');
 
     await waitFor(() => expect(urlParams().get('page')).toBe('2'));
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 2, visibility: 'public' }));
@@ -442,7 +443,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
 
   it('says when no passage matches the search or the filters', async () => {
     answer({ bank: [] });
-    renderAt('/admin/passages?show=list&q=xyz&status=draft');
+    renderAt('/admin/passages?q=xyz&status=draft');
 
     expect(await screen.findByText('No matching passages')).toBeInTheDocument();
     expect(screen.getByText('Try another search or filter.')).toBeInTheDocument();
@@ -547,7 +548,7 @@ describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
         <AdminPassagesPage />
         <LocationProbe />
       </>,
-      { route: '/admin/passages?show=list&status=published' },
+      { route: '/admin/passages?status=published' },
     );
     await screen.findByText('Mùa thu Hà Nội');
 
@@ -560,7 +561,7 @@ describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
 
   it('creates an English passage', async () => {
     create.mockResolvedValue({ ...passage, _id: 'p9', language: 'en' });
-    renderPage('/admin/passages');
+    renderPage('/admin/passages?show=form');
 
     fillForm();
     const english = screen.getByRole('switch', { name: 'English passage' });
@@ -574,7 +575,7 @@ describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
   });
 
   it('turns Placement off and disables it for an English passage', async () => {
-    renderPage('/admin/passages');
+    renderPage('/admin/passages?show=form');
 
     const placement = screen.getByRole('switch', { name: 'Placement passage' });
     fireEvent.click(placement);
@@ -776,7 +777,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
         <AdminPassagesPage />
         <LocationProbe />
       </>,
-      { route: '/admin/passages?show=list' },
+      { route: '/admin/passages' },
     );
     await screen.findByText('Mùa thu Hà Nội');
 

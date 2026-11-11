@@ -176,7 +176,7 @@ export const RainMode = () => {
           // Enter sends the word like space does. While a Vietnamese keyboard is still composing, its Enter only confirms the letters.
           onKeyDown={(event) => event.key === 'Enter' && !event.nativeEvent.isComposing && input(`${event.currentTarget.value}\n`)}
           className={cn(
-            'h-14 w-full border bg-background/60 px-4 text-center font-mono text-2xl backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'h-14 w-full border bg-background/60 px-4 text-center font-mono text-2xl backdrop-blur-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             missing ? 'border-primary text-primary' : 'border-foreground/15',
           )}
         />
