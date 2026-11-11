@@ -55,13 +55,25 @@ vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
   const match = GEMINI_URL.exec(String(input));
   if (!match) return realFetch(input, init);
   const { geminiRecorder } = await import('../helpers/gemini-recorder');
-  geminiRecorder.requests.push({
+  const request = {
     ...JSON.parse(String(init?.body)),
     apiKey: new Headers(init?.headers).get('x-goog-api-key'),
     model: match[1]
-  });
+  };
+  geminiRecorder.requests.push(request);
+  if (geminiRecorder.delayMs) {
+    // A slow answer: the caller's timeout aborts the request first, as `fetch` does.
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, geminiRecorder.delayMs);
+      init?.signal?.addEventListener('abort', () => {
+        clearTimeout(timer);
+        reject(init.signal!.reason);
+      });
+    });
+  }
   if (geminiRecorder.errorStatus) return new Response('{"error":"upstream"}', { status: geminiRecorder.errorStatus });
-  const parts = geminiRecorder.replyText === null ? [] : [{ text: geminiRecorder.replyText }];
+  const text = geminiRecorder.replyWith ? geminiRecorder.replyWith(request) : geminiRecorder.replyText;
+  const parts = text === null ? [] : [{ text }];
   return Response.json({ candidates: [{ content: { role: 'model', parts } }] });
 });
 

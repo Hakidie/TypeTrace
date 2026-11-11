@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { WORD_LIST } from '../../src/data/words';
+import { weakSpotsAi } from '../../src/config/weak-spots-ai';
 import {
   type BankWord,
   buildLesson,
+  checkAiPassage,
+  cleanAiText,
   LESSON_MAX_FOCUS_PERCENT,
   LESSON_MAX_WORDS,
   LESSON_MIN_FOCUS_PERCENT,
   LESSON_MIN_WORDS,
+  lessonPrompt,
   lessonTitle,
   trainsErrorType
 } from '../../src/services/targeted-practice.service';
@@ -198,6 +202,41 @@ describe('buildLesson', () => {
     const lesson = buildLesson({ focus: [WordError.D_MISSING, WordError.HOI_NGA_CONFUSION], words: bank, recentWords: new Set() });
 
     expect(lesson?.focus).toEqual([WordError.HOI_NGA_CONFUSION]);
+  });
+});
+
+describe('the passage the AI writes (US3.2)', () => {
+  const PRACTICE = ['đỏ', 'nghĩ', 'ngõ', 'đi', 'đường'];
+  /** A passage of `length` words that uses the practice words given, the rest "và". */
+  const passage = (used: string[], length: number) => [...used, ...Array(length - used.length).fill('và')].join(' ');
+
+  it('takes off the Markdown and the quotation marks around the passage and puts it on one line', () => {
+    expect(cleanAiText('**"Nhìn chiếc đèn lồng đỏ\n treo ở đầu ngõ."**')).toBe('Nhìn chiếc đèn lồng đỏ treo ở đầu ngõ.');
+  });
+
+  it('accepts a passage that uses 60 % of the practice words, and refuses one under it', () => {
+    expect(checkAiPassage(passage(['đỏ', 'nghĩ', 'ngõ'], 30), PRACTICE)).toMatchObject({ ok: true, used: 3, wanted: 5 });
+    expect(checkAiPassage(passage(['đỏ', 'nghĩ'], 30), PRACTICE)).toMatchObject({ ok: false, used: 2, wanted: 5 });
+  });
+
+  it('counts a practice word written with a capital letter or punctuation, once however often it comes', () => {
+    const check = checkAiPassage(`Đỏ, rồi ĐỎ. "Nghĩ" ngõ! ${passage([], 26)}`, PRACTICE);
+
+    expect(check).toMatchObject({ ok: true, used: 3 });
+    expect(check.words.slice(0, 4)).toEqual(['Đỏ,', 'rồi', 'ĐỎ.', '"Nghĩ"']);
+  });
+
+  it(`refuses a passage over ${weakSpotsAi.maxWords} words or under ${weakSpotsAi.minWords}`, () => {
+    expect(checkAiPassage(passage(PRACTICE, weakSpotsAi.maxWords), PRACTICE).ok).toBe(true);
+    expect(checkAiPassage(passage(PRACTICE, weakSpotsAi.maxWords + 1), PRACTICE).ok).toBe(false);
+    expect(checkAiPassage(passage(PRACTICE, weakSpotsAi.minWords), PRACTICE).ok).toBe(true);
+    expect(checkAiPassage(passage(PRACTICE, weakSpotsAi.minWords - 1), PRACTICE).ok).toBe(false);
+    expect(checkAiPassage('', PRACTICE).ok).toBe(false);
+  });
+
+  it('asks for the practice words, and offers the other picked words when there are some', () => {
+    expect(lessonPrompt(['đỏ', 'đi'], ['em', 'anh'])).toBe('Từ cần luyện: đỏ, đi\nTừ gợi ý: em, anh');
+    expect(lessonPrompt(['đỏ', 'đi'], [])).toBe('Từ cần luyện: đỏ, đi');
   });
 });
 

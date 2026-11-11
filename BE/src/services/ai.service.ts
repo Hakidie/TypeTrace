@@ -33,29 +33,31 @@ interface GeminiResponse {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
 }
 
-/**
- * Sends the conversation (latest messages only) to Gemini `generateContent` and returns the reply text. `systemPrompt`
- * gives another voice than the chat bot's (Ping, the tutorial coach).
- */
-export const generateChatReply = async (messages: ChatMessage[], systemPrompt = chatbotConfig.systemPrompt): Promise<string> => {
+interface GeminiRequest {
+  systemPrompt: string;
+  messages: ChatMessage[];
+  maxOutputTokens: number;
+  /** Stops waiting after this many milliseconds (504). Without it, the request waits as long as Gemini takes. */
+  timeoutMs?: number;
+}
+
+/** One `generateContent` call: the text of the answer, '' when Gemini sends none. Failures are `AppError`s. */
+const callGemini = async ({ systemPrompt, messages, maxOutputTokens, timeoutMs }: GeminiRequest): Promise<string> => {
   if (!env.geminiApiKey) {
     throw new AppError(503, 'The AI chat is not configured. Set GEMINI_API_KEY in BE/.env.');
   }
-
-  const contents = messages.slice(-chatbotConfig.historyLimit).map((message) => ({
-    role: message.role,
-    parts: [{ text: message.text }]
-  }));
 
   const response = await fetch(`${GEMINI_API_URL}/${encodeURIComponent(env.geminiModel)}:generateContent`, {
     method: 'POST',
     headers: { 'x-goog-api-key': env.geminiApiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents,
-      generationConfig: { maxOutputTokens: chatbotConfig.maxReplyTokens }
-    })
+      contents: messages.map((message) => ({ role: message.role, parts: [{ text: message.text }] })),
+      generationConfig: { maxOutputTokens }
+    }),
+    ...(timeoutMs && { signal: AbortSignal.timeout(timeoutMs) })
   }).catch((error: unknown) => {
+    if (error instanceof Error && error.name === 'TimeoutError') throw new AppError(504, 'The AI took too long to answer.');
     console.error('Gemini request failed:', error);
     throw new AppError(502, 'The AI did not answer. Please try again.');
   });
@@ -63,6 +65,27 @@ export const generateChatReply = async (messages: ChatMessage[], systemPrompt = 
   if (!response.ok) throw toAppError(response.status, await response.text());
 
   const data = (await response.json()) as GeminiResponse;
-  const text = (data.candidates?.[0]?.content?.parts ?? []).map((part) => part.text ?? '').join('').trim();
+  return (data.candidates?.[0]?.content?.parts ?? []).map((part) => part.text ?? '').join('').trim();
+};
+
+/**
+ * Sends the conversation (latest messages only) to Gemini `generateContent` and returns the reply text. `systemPrompt`
+ * gives another voice than the chat bot's (Ping, the tutorial coach).
+ */
+export const generateChatReply = async (messages: ChatMessage[], systemPrompt = chatbotConfig.systemPrompt): Promise<string> => {
+  const text = await callGemini({
+    systemPrompt,
+    messages: messages.slice(-chatbotConfig.historyLimit),
+    maxOutputTokens: chatbotConfig.maxReplyTokens
+  });
   return text || chatbotConfig.emptyReplyFallback;
 };
+
+/**
+ * One prompt, one answer (the Weak spots passage, US3.2): '' when Gemini sends no text. With `timeoutMs`, a slow answer
+ * is an `AppError` (504) like every other failure, so the caller can fall back.
+ */
+export const generateText = (
+  prompt: string,
+  { systemPrompt, maxOutputTokens, timeoutMs }: { systemPrompt: string; maxOutputTokens: number; timeoutMs?: number }
+) => callGemini({ systemPrompt, messages: [{ role: 'user', text: prompt }], maxOutputTokens, timeoutMs });

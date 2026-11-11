@@ -174,20 +174,29 @@ const passageContent = (passage: { _id: unknown; title: string; content: string 
 });
 
 /**
- * What a new session types: a passage, or in Weak spots (`targeted`, US3.2) the words of a lesson aimed at the learner's
- * errors. With nothing to aim at (no weak type yet, or no word for it), Weak spots types a random passage, as Random in
- * Practice, with no focus: the page tells the learner why.
+ * What a new session types: a passage, or in Weak spots (`targeted`, US3.2) a lesson aimed at the learner's errors (the AI's
+ * passage written from words of the bank, or those words; `aiAllowed` is false past the learner's AI limit). With nothing to
+ * aim at (no weak type yet, or no word for it), Weak spots types a random passage, as Random in Practice, with no focus: the
+ * page tells the learner why.
  */
-const contentOf = async (userId: string, input: CreateSessionInput) => {
+const contentOf = async (userId: string, input: CreateSessionInput, aiAllowed: boolean) => {
   if (input.mode !== 'targeted') return passageContent(await pickPassage(userId, input));
-  const lesson = await lessonFor(userId, input.errorType);
-  if (lesson) return { passageTitle: lesson.title, targetWords: lesson.words, focusErrorTypes: lesson.focus };
-  return { ...passageContent(await pickPassage(userId, { mode: 'practice' })), focusErrorTypes: [] };
+  const lesson = await lessonFor(userId, input.errorType, { aiAllowed });
+  if (lesson) {
+    return {
+      passageTitle: lesson.title,
+      targetWords: lesson.targetWords,
+      focusErrorTypes: lesson.focus,
+      lessonWords: lesson.lessonWords,
+      lessonSource: lesson.source
+    };
+  }
+  return { ...passageContent(await pickPassage(userId, { mode: 'practice' })), focusErrorTypes: [], lessonSource: 'passage' as const };
 };
 
 /** Starts a session. A session the learner left in progress becomes `abandoned`. */
-export const startSession = async (userId: string, input: CreateSessionInput) => {
-  const content = await contentOf(userId, input);
+export const startSession = async (userId: string, input: CreateSessionInput, { aiAllowed = true }: { aiAllowed?: boolean } = {}) => {
+  const content = await contentOf(userId, input, aiAllowed);
 
   await TypingSessionModel.updateMany({ owner: userId, status: 'in_progress' }, { status: 'abandoned' });
   return TypingSessionModel.create({ owner: userId, mode: input.mode, ...content, chosenLimitSeconds: input.timeLimitSeconds });

@@ -1,11 +1,18 @@
-// Weak spots (SCRUM-28, US3.2): a practice lesson aimed at the learner's errors. Its words come from the word bank: most of them
-// train the error types the learner is weak at (or the one they chose), the others none of them. `startSession` stores them as
-// the session's `targetWords`, so the lesson is typed, graded and counted like any practice session. Only models and services
-// that never import the typing sessions are imported here, so no service cycle can start (see `service-imports.test.ts`).
+// Weak spots (SCRUM-28, US3.2): a practice lesson aimed at the learner's errors. Its words are picked from the word bank: most of
+// them train the error types the learner is weak at (or the one they chose), the others none of them. The AI then writes a
+// passage that makes sense from them; when it cannot, the picked words are the lesson. `startSession` stores what is typed as
+// the session's `targetWords`, so the lesson is typed, graded and counted like any practice session. Only models, the AI
+// service and services that never import the typing sessions are imported here, so no service cycle can start (see
+// `service-imports.test.ts`).
+import { env } from '../config/env';
+import { weakSpotsAi } from '../config/weak-spots-ai';
+import { splitWords } from '../models/passage.model';
 import { TypingSessionModel } from '../models/typing-session.model';
 import { WordModel } from '../models/word.model';
 import { forbidden } from '../utils/app-error';
+import { cleanPassageText } from '../utils/passage-text';
 import { WordError, type WordErrorType } from '../utils/vietnamese-errors';
+import { generateText } from './ai.service';
 import { getWeakErrorTypes } from './error-profile.service';
 import { getPlanOf } from './passage-lock.service';
 
@@ -165,28 +172,92 @@ export const assertCanPracticeWeakSpots = async (userId: string) => {
 const activeWords = () => WordModel.find({ isActive: true }).select({ _id: 0, text: 1, tags: 1 }).lean<BankWord[]>();
 
 /**
- * The words of the learner's last `RECENT_LESSONS` lessons, finished or not (Restart and another error type leave one behind).
- * A session that typed a passage instead has no focus: it is not a lesson. Read through the index `{ owner, mode, createdAt }`.
+ * The words of the bank picked for the learner's last `RECENT_LESSONS` lessons, finished or not (Restart and another error type
+ * leave one behind): `lessonWords`, or the typed words of a lesson saved before the AI passages (they were the picked words). A
+ * session that typed a passage instead has no focus: it is not a lesson. Read through the index `{ owner, mode, createdAt }`.
  */
 const recentLessonWords = async (userId: string) => {
   const lessons = await TypingSessionModel.find({ owner: userId, mode: 'targeted', 'focusErrorTypes.0': { $exists: true } })
     .sort({ createdAt: -1 })
     .limit(RECENT_LESSONS)
-    .select({ targetWords: 1 })
+    .select({ lessonWords: 1, targetWords: 1 })
     .lean();
-  return new Set(lessons.flatMap((lesson) => lesson.targetWords));
+  return new Set(lessons.flatMap((lesson) => lesson.lessonWords ?? lesson.targetWords));
 };
 
+// Marks and quotes the AI may wrap its passage in, though it is asked not to.
+const MARKDOWN = /[*_#`>~]/g;
+const EDGE_QUOTES = /^["'“”‘’«»\s]+|["'“”‘’«»\s]+$/g;
+const NOT_LETTER_EDGES = /^[^\p{L}]+|[^\p{L}]+$/gu;
+
+/** The AI's answer as one line of plain text: no Markdown, no quotes around it, the spaces and characters of a pasted passage. */
+export const cleanAiText = (text: string) => cleanPassageText(text.replace(MARKDOWN, ' ')).replace(EDGE_QUOTES, '');
+
+/** A word of the passage as the bank writes it: lowercase, NFC, without the punctuation around it ("Đỏ," → "đỏ"). */
+const bankFormOf = (word: string) => word.normalize('NFC').toLowerCase().replace(NOT_LETTER_EDGES, '');
+
 /**
- * The lesson the learner asks for: of `errorType`, or of their weakest types (`getWeakErrorTypes`). `null` when there is
- * nothing to aim at (no weak type yet, or no word for it): the caller types a random passage instead. 403 for a plan without
- * Weak spots, even then.
+ * Whether the passage the AI wrote can be the lesson (pure, for the tests): `minWords` to `maxWords` words, and at least
+ * `minUsedPercent` % of the practice words it was given (compared in whole numbers). `words` are the words to type.
  */
-export const lessonFor = async (userId: string, errorType?: WordErrorType) => {
+export const checkAiPassage = (text: string, practiceWords: readonly string[]) => {
+  const words = splitWords(cleanAiText(text));
+  const written = new Set(words.map(bankFormOf));
+  const wanted = [...new Set(practiceWords)];
+  const used = wanted.filter((word) => written.has(word)).length;
+  const ok =
+    words.length >= weakSpotsAi.minWords &&
+    words.length <= weakSpotsAi.maxWords &&
+    used * 100 >= weakSpotsAi.minUsedPercent * wanted.length;
+  return { ok, words, used, wanted: wanted.length };
+};
+
+/** What the AI is asked: the practice words, and the other picked words it may use. */
+export const lessonPrompt = (practiceWords: readonly string[], otherWords: readonly string[]) =>
+  [`Từ cần luyện: ${practiceWords.join(', ')}`, ...(otherWords.length ? [`Từ gợi ý: ${otherWords.join(', ')}`] : [])].join('\n');
+
+/**
+ * The passage the AI writes from the picked words, or `null` (the lesson stays the word list): no key, over the learner's
+ * limit (`aiAllowed`), a failed, slow or refused answer. Nothing is thrown, so the learner never sees an AI error.
+ */
+const writePassage = async (practiceWords: string[], otherWords: string[], aiAllowed: boolean) => {
+  if (!aiAllowed || !env.geminiApiKey) return null;
+  try {
+    const text = await generateText(lessonPrompt(practiceWords, otherWords), weakSpotsAi);
+    const check = checkAiPassage(text, practiceWords);
+    if (check.ok) return check.words;
+    console.warn(`Weak spots: AI passage not used (${check.words.length} words, ${check.used} of ${check.wanted} practice words)`);
+  } catch (error) {
+    console.warn('Weak spots: AI passage not written, the word list is the lesson:', error instanceof Error ? error.message : error);
+  }
+  return null;
+};
+
+export type LessonSource = 'ai' | 'words' | 'passage';
+
+/**
+ * The lesson the learner asks for: of `errorType`, or of their weakest types (`getWeakErrorTypes`). Its words are picked from
+ * the bank (`lessonWords`), then the AI writes a passage from them (`targetWords`), or the picked words are typed as they are.
+ * `null` when there is nothing to aim at (no weak type yet, or no word for it): the caller types a random passage instead.
+ * 403 for a plan without Weak spots, even then.
+ */
+export const lessonFor = async (userId: string, errorType?: WordErrorType, { aiAllowed = true }: { aiAllowed?: boolean } = {}) => {
   await assertCanPracticeWeakSpots(userId);
   const focus = errorType ? [errorType] : await getWeakErrorTypes(userId, LESSON_FOCUS_TYPES);
   if (!focus.length) return null;
   const [words, recentWords] = await Promise.all([activeWords(), recentLessonWords(userId)]);
   const lesson = buildLesson({ focus, words, recentWords });
-  return lesson && { ...lesson, title: lessonTitle(lesson.focus) };
+  if (!lesson) return null;
+  const bank = new Map(words.map((word) => [word.text, word]));
+  const trains = (text: string) => lesson.focus.some((type) => trainsErrorType(bank.get(text)!, type));
+  const practiceWords = [...new Set(lesson.words.filter(trains))];
+  const otherWords = [...new Set(lesson.words.filter((text) => !trains(text)))];
+  const passage = await writePassage(practiceWords, otherWords, aiAllowed);
+  return {
+    focus: lesson.focus,
+    title: lessonTitle(lesson.focus),
+    lessonWords: lesson.words,
+    targetWords: passage ?? lesson.words,
+    source: (passage ? 'ai' : 'words') as LessonSource
+  };
 };

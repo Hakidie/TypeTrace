@@ -6,8 +6,10 @@ import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../
 // `authGuard` runs first, so `req.user` is always set here.
 const userIdOf = (req: Request) => req.user!.sub;
 
+/** Past the learner's AI limit (`lessonAiLimiter` sets `res.locals.aiLimited`), a Weak spots lesson is the word list. */
 export const createSession = async (req: Request, res: Response) => {
-  res.status(201).json(await sessionService.startSession(userIdOf(req), req.body as CreateSessionInput));
+  const aiAllowed = !res.locals.aiLimited;
+  res.status(201).json(await sessionService.startSession(userIdOf(req), req.body as CreateSessionInput, { aiAllowed }));
 };
 
 export const listSessions = async (req: Request, res: Response) => {

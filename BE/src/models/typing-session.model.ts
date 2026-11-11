@@ -48,6 +48,13 @@ export interface TypingSessionDocument extends mongoose.Document {
    * weak type yet, or no word for it) and the session types a random passage instead, which the page tells the learner.
    */
   focusErrorTypes?: WordErrorType[];
+  /**
+   * Weak spots only: the words of the bank picked for the lesson. The AI writes its passage (`targetWords`) from them, and the
+   * next lessons leave them out (US3.2). Lessons saved before the AI passages have none: their `targetWords` are the picked words.
+   */
+  lessonWords?: string[];
+  /** Weak spots only: what is typed: the AI's passage (`ai`), the picked words as they are (`words`), or a random passage (`passage`). */
+  lessonSource?: 'ai' | 'words' | 'passage';
   status: SessionStatus;
   words: SessionWord[];
   startedAt: Date;
@@ -102,6 +109,8 @@ const typingSessionSchema = new Schema<TypingSessionDocument>(
     targetWords: { type: [String], required: true },
     // No default: only Weak spots sessions have the field, so an empty list always means "nothing to aim at".
     focusErrorTypes: { type: [String], enum: Object.values(WordError), default: undefined },
+    lessonWords: { type: [String], default: undefined },
+    lessonSource: { type: String, enum: ['ai', 'words', 'passage'] },
     status: { type: String, enum: sessionStatuses, default: 'in_progress' },
     words: { type: [wordSchema], default: [] },
     startedAt: { type: Date, default: Date.now },
