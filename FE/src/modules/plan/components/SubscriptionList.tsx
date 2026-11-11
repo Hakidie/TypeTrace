@@ -6,14 +6,15 @@ import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
+import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { useSubscriptions } from '../hooks/use-admin-plans';
 import type { PlanId, SubscriptionStatus } from '../types/plan.types';
 import { SubscriptionCard } from './SubscriptionCard';
 
-// Nine rows a page.
-const PAGE_SIZE = 9;
+// Three rows a page.
+const PAGE_SIZE = 3;
 
 const SORT_OPTIONS = [
   { value: '-createdAt', label: 'Newest' },
@@ -40,9 +41,9 @@ const BY_OPTIONS = [
 
 /**
  * Every plan change of every user (US11.1), built like My Sessions of the profile: a title and a toolbar (search by user, Sort, Filter by plan, source, status and who changed it, the total),
- * a list of cards (`SubscriptionCard`) and pages. No frame or background.
+ * a list of cards (`SubscriptionCard`) and pages. No frame or background. With `onSwitch` a button next to the title shows the plans in its place (`PanelTitleSwitch`).
  */
-export const SubscriptionList = () => {
+export const SubscriptionList = ({ onSwitch }: { onSwitch?: () => void } = {}) => {
   const list = useListParams({ sort: '-createdAt', prefix: 'subscriptions' });
   const plan = list.get('plan') as PlanId | '';
   const method = list.get('method') as 'none' | '';
@@ -66,33 +67,26 @@ export const SubscriptionList = () => {
     if (lastPage > 0 && page > lastPage) setPage(lastPage);
   }, [lastPage, page, setPage]);
 
-  const renderList = () => {
-    if (rows.isPending) return <LoadingState rows={9} />;
+  // What the box shows when there are no rows to draw: the loading, error or empty state.
+  const renderState = () => {
+    if (rows.isPending) return <LoadingState rows={3} />;
     if (rows.isError) return <ErrorState error={rows.error} onRetry={() => void rows.refetch()} />;
     if (rows.data.items.length === 0) {
-      if (rows.data.totalPages > 0 && rows.data.page > rows.data.totalPages) return <LoadingState rows={9} />;
+      if (rows.data.totalPages > 0 && rows.data.page > rows.data.totalPages) return <LoadingState rows={3} />;
       return list.q || plan || method || by || status ? (
         <EmptyState icon={History} title="No matching plan changes" description="Try another search or filter." />
       ) : (
         <EmptyState icon={History} title="No plan changes yet" description="Every time a user's plan changes, it shows here." />
       );
     }
-    return (
-      <>
-        <div className="-mx-4 space-y-3" aria-label="Subscription cards">
-          {rows.data.items.map((row) => (
-            <SubscriptionCard key={row._id} row={row} />
-          ))}
-        </div>
-        <Pagination page={rows.data.page} totalPages={rows.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
-      </>
-    );
+    return null;
   };
 
   return (
     <section aria-label="Subscriptions">
       <Panel
         title="Subscription list"
+        titleAction={onSwitch && <PanelTitleSwitch other="Plans" onClick={onSwitch} />}
         bare
         titleClassName={sectionTitleClass}
         className="space-y-3"
@@ -111,7 +105,17 @@ export const SubscriptionList = () => {
           />
         }
       >
-        {renderList()}
+        {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar. */}
+        <div className="-mx-4 space-y-3" aria-label="Subscription cards">
+          {rows.data && rows.data.items.length > 0
+            ? rows.data.items.map((row) => (
+                <SubscriptionCard key={row._id} row={row} />
+              ))
+            : renderState()}
+        </div>
+        {rows.data && rows.data.items.length > 0 && (
+          <Pagination page={rows.data.page} totalPages={rows.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
+        )}
       </Panel>
     </section>
   );

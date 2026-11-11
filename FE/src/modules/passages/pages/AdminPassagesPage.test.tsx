@@ -752,7 +752,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     renderPending();
 
     // One list panel at a time: the queue replaces the bank, and no panel has a visible title.
-    expect(screen.getByRole('button', { name: 'Pending review. Switch to Passage list' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Switch to Passage list' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Search passages')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
 
@@ -767,7 +767,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ visibility: 'public' }));
   });
 
-  it('switches between Passages and Pending review with the button before the search, kept in the URL', async () => {
+  it('switches between Passages and Pending review with the button next to the title, kept in the URL', async () => {
     answer({ bank: [passage], pending: [waitingA] });
     const user = userEvent.setup();
     const LocationProbe = () => <output aria-label="URL">{useLocation().search}</output>;
@@ -780,12 +780,12 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
     );
     await screen.findByText('Mùa thu Hà Nội');
 
-    await user.click(screen.getByRole('button', { name: 'Passage list. Switch to Pending review' }));
+    await user.click(screen.getByRole('button', { name: 'Switch to Pending review' }));
     expect(await screen.findByLabelText('Search requests')).toBeInTheDocument();
     expect(screen.queryByLabelText('Search passages')).not.toBeInTheDocument();
     expect(new URLSearchParams(screen.getByLabelText('URL').textContent ?? '').get('view')).toBe('pending');
 
-    await user.click(screen.getByRole('button', { name: 'Pending review. Switch to Passage list' }));
+    await user.click(screen.getByRole('button', { name: 'Switch to Passage list' }));
     expect(await screen.findByLabelText('Search passages')).toBeInTheDocument();
     expect(new URLSearchParams(screen.getByLabelText('URL').textContent ?? '').get('view')).toBeNull();
   });

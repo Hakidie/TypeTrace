@@ -11,7 +11,6 @@ import { Panel } from "@/shared/components/panel";
 import { PanelTitleSwitch } from "@/shared/components/panel-title-switch";
 import { sectionTitleClass } from "@/shared/lib/panel-styles";
 import { useListParams } from "@/shared/hooks/use-list-params";
-import { ListViewSwitch } from "../components/ListViewSwitch";
 import { PassageCard } from "../components/PassageCard";
 import { PassageForm } from "../components/PassageForm";
 import { PendingPassagesPanel } from "../components/PendingPassagesPanel";
@@ -56,7 +55,7 @@ const TYPE_OPTIONS = [
   { value: "ranked", label: "Ranked" },
 ];
 
-/** The second panel is the passage bank or the review queue, switched by the button before its search (`?view=pending`). */
+/** The second panel is the passage bank or the review queue, switched by the button next to its title (`?view=pending`). */
 type View = "passages" | "pending";
 
 /**
@@ -224,13 +223,8 @@ const PassageBank = ({
       ) : (
         // PANEL Passages
         <Panel
-          title={
-            <ListViewSwitch
-              current="Passage list"
-              other="Pending review"
-              onSwitch={onSwitchView}
-            />
-          }
+          title="Passage list"
+          titleAction={<PanelTitleSwitch other="Pending review" onClick={onSwitchView} />}
           bare
           titleClassName={sectionTitleClass}
           className="space-y-3"
@@ -310,7 +304,7 @@ const PassageBank = ({
 
 /**
  * Admin passages page: the New passage panel, then one list panel that is either the passage bank or the Pending review
- * queue (learners' requests to make a passage public, SCRUM-176); the title button of its toolbar switches between them.
+ * queue (learners' requests to make a passage public, SCRUM-176); the button next to the title switches between them.
  */
 export const AdminPassagesPage = () => {
   const [params, setParams] = useSearchParams();

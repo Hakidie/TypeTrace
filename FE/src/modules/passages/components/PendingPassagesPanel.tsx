@@ -6,9 +6,9 @@ import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
+import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
-import { ListViewSwitch } from './ListViewSwitch';
 import { usePendingPassages } from '../hooks/use-passages';
 import type { Passage, ReviewDecision } from '../types/passage.types';
 import { PassageCard } from './PassageCard';
@@ -98,7 +98,8 @@ export const PendingPassagesPanel = ({ onSwitchView }: { onSwitchView: () => voi
   return (
     // PANEL Pending review
     <Panel
-      title={<ListViewSwitch current="Pending review" other="Passage list" onSwitch={onSwitchView} />}
+      title="Pending review"
+      titleAction={<PanelTitleSwitch other="Passage list" onClick={onSwitchView} />}
       bare
       titleClassName={sectionTitleClass}
       className="space-y-3"
