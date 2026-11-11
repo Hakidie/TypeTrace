@@ -2,6 +2,7 @@ import { Check, Save, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ThemeColorField, ThemeColors } from '@/shared/lib/theme';
 import { cn } from '@/shared/lib/utils';
+import { Tip } from './Tip';
 import { themeColorFields } from '../lib/theme-rules';
 
 export interface ThemePreview {
@@ -52,26 +53,28 @@ export const ThemeCard = ({ theme, current = false, className, nameSlot, onColor
         <div className="absolute right-2 top-2 flex gap-1">
           {actions}
           {onCancel && (
-            <button
-              type="button"
-              aria-label="Cancel"
-              title="Cancel"
-              onClick={onCancel}
-              className={cn('flex items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', buttonSize)}
-              style={{ backgroundColor: `color-mix(in srgb, ${text} 15%, transparent)`, color: text }}
-            >
-              <X className={iconSize} aria-hidden />
-            </button>
+            <Tip label="Cancel">
+              <button
+                type="button"
+                aria-label="Cancel"
+                onClick={onCancel}
+                className={cn('flex items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', buttonSize)}
+                style={{ backgroundColor: `color-mix(in srgb, ${text} 15%, transparent)`, color: text }}
+              >
+                <X className={iconSize} aria-hidden />
+              </button>
+            </Tip>
           )}
-          <button
-            type="submit"
-            aria-label={submitLabel}
-            title={submitLabel}
-            className={cn('flex items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', buttonSize)}
-            style={{ backgroundColor: accent, color: background }}
-          >
-            <Save className={iconSize} aria-hidden />
-          </button>
+          <Tip label={submitLabel}>
+            <button
+              type="submit"
+              aria-label={submitLabel}
+              className={cn('flex items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', buttonSize)}
+              style={{ backgroundColor: accent, color: background }}
+            >
+              <Save className={iconSize} aria-hidden />
+            </button>
+          </Tip>
         </div>
       )}
       <div className="flex flex-1 flex-col items-start gap-2 p-3" style={{ backgroundColor: background, color: text }}>
@@ -95,15 +98,17 @@ export const ThemeCard = ({ theme, current = false, className, nameSlot, onColor
       <div className={cn('flex shrink-0', onColorPick ? (large ? 'h-8' : 'h-5') : 'h-3')}>
         {themeColorFields.map(({ name, label }) =>
           onColorPick ? (
-            <label key={name} className="relative flex-1 cursor-pointer hover:brightness-125" style={{ backgroundColor: theme.colors[name] }} title={`${label} color`}>
-              <input
-                type="color"
-                aria-label={`${label} picker`}
-                value={theme.colors[name]}
-                onChange={(event) => onColorPick(name, event.target.value)}
-                className="absolute inset-0 size-full cursor-pointer opacity-0"
-              />
-            </label>
+            <Tip key={name} label={`${label} color`}>
+              <label className="relative flex-1 cursor-pointer hover:brightness-125" style={{ backgroundColor: theme.colors[name] }}>
+                <input
+                  type="color"
+                  aria-label={`${label} picker`}
+                  value={theme.colors[name]}
+                  onChange={(event) => onColorPick(name, event.target.value)}
+                  className="absolute inset-0 size-full cursor-pointer opacity-0"
+                />
+              </label>
+            </Tip>
           ) : (
             <div key={name} className="flex-1" style={{ backgroundColor: theme.colors[name] }} />
           ),

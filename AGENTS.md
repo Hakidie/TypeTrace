@@ -318,7 +318,7 @@ The mascot Ping guides new learners (`docs/superpowers/specs/2026-10-30-ping-tut
   (the Daily mode left with the daily challenge; an old stored `modes.daily` is ignored).
   **Missing = an account from before the tutorial: nothing is shown.** Never give it a default. `/api/tutorial`
   (`routes/tutorial.route.ts`): `POST /start` (after sign-up, keeps an existing state), `PATCH /` (`{ mode, status }` and/or
-  `{ tour }`, 400 without a state), `POST /reset` (Settings "Xem lại hướng dẫn"), `POST /coach` (Ping's tip after the practice
+  `{ tour }`, 400 without a state), `POST /reset` (Settings "Replay tutorial"), `POST /coach` (Ping's tip after the practice
   duel: `generateChatReply` with `config/ping-coach.ts`, a written tip when the AI cannot answer; shares the chat limiter).
 - Frontend: `modules/tutorial` (a widget, `TutorialGuide`, on /typing only). The steps of each mode are in `steps.ts`
   (`MODE_STEPS`, Vietnamese, Ping's voice); the tour chains them in `TOUR_ORDER`. A step frames `[data-tutorial="<id>"]` with

@@ -85,7 +85,7 @@ chọn theo số liệu, không bao giờ để trống.
   không hiện gì. Không sửa `createUserWithOtp` (luật OTP): sau đăng ký, frontend đã biết `newAccount` và gọi
   `POST /api/tutorial/start`, server tạo trạng thái nếu chưa có.
 - **Endpoint** (đều `authGuard`, `validate`): `POST /api/tutorial/start`; `PATCH /api/tutorial { mode, status }` và
-  `{ tour }`; `POST /api/tutorial/reset` (Settings "Xem lại hướng dẫn": tạo lại trạng thái, tour `active`);
+  `{ tour }`; `POST /api/tutorial/reset` (Settings "Replay tutorial": tạo lại trạng thái, tour `active`);
   `POST /api/tutorial/coach` (nhận xét, giới hạn như chat: 10/phút/người). Trạng thái trả về trong user hiện tại.
 - **Bỏ qua** chỉ cho màn đó (hoặc cả chuyến nếu bỏ ở chuyến chung): ghi `skipped`, không hiện lại; Settings mở lại.
 - **Bỏ qua chuyến chung** cũng bỏ câu hỏi xếp lớp sau đăng ký (một lần bỏ là đủ); tab Placement vẫn hỏi như cũ.

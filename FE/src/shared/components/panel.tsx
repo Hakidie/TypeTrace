@@ -25,7 +25,8 @@ interface PanelProps {
   titleClassName?: string;
   /** Extra classes for the body (e.g. `p-0` for a table that touches the edges). */
   className?: string;
-  children: ReactNode;
+  /** Optional: a panel can be only a header (title, tip and actions). */
+  children?: ReactNode;
 }
 
 /** A block of content in a page: a bordered card with an optional header (title, description, actions) and the content below. */

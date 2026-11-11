@@ -33,9 +33,10 @@ export const createTheme = async (actor: Actor, input: CreateThemeInput) => {
   const user = await UserModel.findById(actor.id).select('settings displayName email');
   if (!user) throw notFound('User not found');
 
-  // A theme is made for the mode in use: its background must fit that mode.
-  const isDark = isDarkBackground(input.colors.background);
-  if (isDark !== (user.settings.mode === 'dark')) throw wrongMode(isDark);
+  // A theme is made for the mode asked, else the mode in use: its background must fit that mode.
+  const { mode = user.settings.mode, ...fields } = input;
+  const isDark = isDarkBackground(fields.colors.background);
+  if (isDark !== (mode === 'dark')) throw wrongMode(isDark);
 
   if ((await ThemeModel.countDocuments(ownedBy(actor))) >= MAX_USER_THEMES) {
     throw badRequest(`You can have at most ${MAX_USER_THEMES} themes`);
@@ -44,7 +45,7 @@ export const createTheme = async (actor: Actor, input: CreateThemeInput) => {
 
   try {
     return await ThemeModel.create({
-      ...input,
+      ...fields,
       isDark,
       owner: actor.id,
       ownerName: user.displayName || user.email,

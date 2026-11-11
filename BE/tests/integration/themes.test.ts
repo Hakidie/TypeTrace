@@ -94,6 +94,18 @@ describe('POST /api/themes', () => {
     expect((await post(user, { name: 'Night', colors: dark })).body.message).toMatch(/too dark for a light theme/);
   });
 
+  it('makes a theme for the other mode when `mode` says so, whatever mode is in use', async () => {
+    const user = await alice();
+
+    const response = await post(user, { name: 'Bright', colors: light, mode: 'light' });
+    expect(response.body).toMatchObject({ isDark: false });
+    expect((await UserModel.findById(user._id))?.settings.mode).toBe('dark');
+
+    const wrong = await post(user, { name: 'Night', colors: dark, mode: 'light' });
+    expect(wrong.status).toBe(400);
+    expect(wrong.body.message).toMatch(/too dark for a light theme/);
+  });
+
   it('refuses a name already used by the same user, ignoring case, but not by another user', async () => {
     const user = await alice();
     const other = await bob();
