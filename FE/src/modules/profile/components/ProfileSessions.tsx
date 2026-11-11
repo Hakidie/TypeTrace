@@ -4,6 +4,7 @@ import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
+import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
@@ -13,8 +14,8 @@ import type { SessionMode } from '@/modules/typing/types/typing.types';
 import { useSessions } from '../hooks/use-profile';
 import { SessionCard } from './SessionCard';
 
-// Three rows like the user list of the admin area.
-const PAGE_SIZE = 3;
+// Five rows a page.
+const PAGE_SIZE = 5;
 
 const SORT_OPTIONS = [
   { value: '-createdAt', label: 'Newest' },
@@ -31,8 +32,9 @@ const TIME_OPTIONS = [10, 20, 30, 60, 120, 180].map((seconds) => ({ value: Strin
 /**
  * The learner's completed typing sessions (SCRUM-157 profile page): a toolbar with search (by passage name), Sort, Filter (mode and time chosen) and pages, built like My Passages
  * (`CompactToolbar`, a list of cards built like the user cards of the admin area, `Pagination`). A card opens the result page of its session.
+ * With `onSwitch` a button next to the title shows the error profile in its place (`PanelTitleSwitch`, the Progress page).
  */
-export const ProfileSessions = () => {
+export const ProfileSessions = ({ onSwitch }: { onSwitch?: () => void } = {}) => {
   const list = useListParams({ sort: '-createdAt', prefix: 'sessions' });
   const mode = list.get('mode') as SessionMode | '';
   const time = list.get('time');
@@ -81,6 +83,7 @@ export const ProfileSessions = () => {
       {/* PANEL My Sessions */}
       <Panel
         title="My Sessions"
+        titleAction={onSwitch && <PanelTitleSwitch other="Error profile" onClick={onSwitch} />}
         bare
         titleClassName={sectionTitleClass}
         className="space-y-3"

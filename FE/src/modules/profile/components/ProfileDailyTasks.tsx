@@ -1,7 +1,10 @@
 import { CircleCheck, Coins } from 'lucide-react';
+import { useState } from 'react';
 import { DAILY_TASK_TYPE_INFO } from '@/modules/daily-tasks/daily-tasks.config';
 import { getApiErrorMessage } from '@/shared/api/api-error';
+import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
+import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { cn } from '@/shared/lib/utils';
@@ -14,6 +17,8 @@ const linkClass = 'text-primary underline-offset-4 hover:underline';
 const gridClass = 'grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2 lg:grid-cols-3';
 // Blank tasks while they load: a row of them on wide screens.
 const BLANK_TASKS = 3;
+// Tasks on a page: one row on wide screens, the rest on the next pages.
+const TASKS_PER_PAGE = 3;
 
 /**
  * The tasks from the oldest template to the newest, left to right: the id of a template is a MongoDB ObjectId, which starts
@@ -57,16 +62,19 @@ const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
           <Icon className="size-9" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xl font-extrabold text-primary/80" title={task.title}>{task.title}</p>
+          {/* The reward sits on the title row only, so the description under it keeps the whole width of the card. */}
+          <div className="flex min-w-0 items-baseline gap-3">
+            <p className="min-w-0 flex-1 truncate text-xl font-extrabold text-primary/80" title={task.title}>{task.title}</p>
+            {/* Top right: the reward, shown while the card is hovered (always on touch screens), muted until the server paid it, then in the theme red with a plus. */}
+            {task.coins > 0 && (
+              <span className={cn('shrink-0 text-lg font-extrabold transition-opacity pointer-fine:opacity-0 pointer-fine:group-focus-within:opacity-100 pointer-fine:group-hover:opacity-100', task.rewarded ? 'text-primary/80' : 'text-muted-foreground')}>
+                <Coins className="mr-1.5 inline size-[18px] align-text-bottom" aria-hidden />
+                {task.rewarded ? `+${task.coins} coins` : `${task.coins} coins`}
+              </span>
+            )}
+          </div>
           {task.description && <p className="line-clamp-2 text-base text-muted-foreground">{task.description}</p>}
         </div>
-        {/* Top right: the reward, shown while the card is hovered (always on touch screens), muted until the server paid it, then in the theme red with a plus. */}
-        {task.coins > 0 && (
-          <span className={cn('shrink-0 text-lg font-extrabold transition-opacity pointer-fine:opacity-0 pointer-fine:group-focus-within:opacity-100 pointer-fine:group-hover:opacity-100', task.rewarded ? 'text-primary/80' : 'text-muted-foreground')}>
-            <Coins className="mr-1.5 inline size-[18px] align-text-bottom" aria-hidden />
-            {task.rewarded ? `+${task.coins} coins` : `${task.coins} coins`}
-          </span>
-        )}
       </div>
       <div className="mt-auto space-y-2">
         <div
@@ -99,10 +107,12 @@ const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
  * the TODAY one, then one item per task, in the order the backend gives them. Only today's counted sessions count, in
  * the learner's time zone (the backend measures them). While the tasks load, blank tasks hold their place so the
  * sessions under them do not jump; when they fail, the reason and a retry on one line; a day
- * without tasks (no task is active) is one muted line.
+ * without tasks (no task is active) is one muted line. With `onSwitch` a button next to the title shows the error profile
+ * in its place (`PanelTitleSwitch`, the profile page).
  */
-export const ProfileDailyTasks = () => {
+export const ProfileDailyTasks = ({ onSwitch }: { onSwitch?: () => void } = {}) => {
   const dailyTasks = useDailyTasks();
+  const [page, setPage] = useState(1);
 
   const renderBody = () => {
     if (dailyTasks.isPending) {
@@ -125,12 +135,19 @@ export const ProfileDailyTasks = () => {
       );
     }
     if (dailyTasks.data.tasks.length === 0) return <p className="text-base text-muted-foreground">No daily tasks today.</p>;
+    const ordered = oldestFirst(dailyTasks.data.tasks);
+    const totalPages = Math.ceil(ordered.length / TASKS_PER_PAGE);
+    // A page past the end (the tasks changed) shows the last one.
+    const current = Math.min(page, totalPages);
     return (
-      <ul className={gridClass}>
-        {oldestFirst(dailyTasks.data.tasks).map((task) => (
-          <DailyTaskItem key={task.id} task={task} />
-        ))}
-      </ul>
+      <>
+        <ul className={gridClass}>
+          {ordered.slice((current - 1) * TASKS_PER_PAGE, current * TASKS_PER_PAGE).map((task) => (
+            <DailyTaskItem key={task.id} task={task} />
+          ))}
+        </ul>
+        {totalPages > 1 && <Pagination page={current} totalPages={totalPages} onPageChange={setPage} variant="toolbar" accent plain flushRight />}
+      </>
     );
   };
 
@@ -144,6 +161,7 @@ export const ProfileDailyTasks = () => {
       {/* PANEL Daily tasks */}
       <Panel
         title="Daily tasks"
+        titleAction={onSwitch && <PanelTitleSwitch other="Error profile" onClick={onSwitch} />}
         bare
         titleClassName={sectionTitleClass}
         className="space-y-4"

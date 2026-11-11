@@ -76,6 +76,8 @@ interface CompactToolbarProps {
   decisions?: { label: string; onClick: () => void; destructive?: boolean }[];
   /** Every part shows its word next to its icon all the time (Search, Sort, Filter, the count), as on the admin pages, not only while hovered. */
   showWords?: boolean;
+  /** Buttons that do something when pressed (not a menu), in the look of the other parts: an icon and what they show now, which grows next to it while hovered or focused (always with `showWords`; `label` names the button for screen readers). */
+  buttons?: { label: string; icon: LucideIcon; valueLabel: ReactNode; onClick: () => void; disabled?: boolean }[];
   /** A total at the end of the toolbar: an icon and a number, and the word (e.g. `Sessions`) next to them while hovered. */
   count?: { icon: LucideIcon; value: ReactNode; label: string };
 }
@@ -84,13 +86,14 @@ interface CompactToolbarProps {
 const partClass = 'group inline-flex h-10 items-center whitespace-nowrap bg-transparent px-4 text-base font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** The word of a part: it grows from nothing next to the icon while the part (a `group`) is hovered or focused, or is always there (`always`). */
-const Word = ({ children, always }: { children: ReactNode; always?: boolean }) => (
+const Word = ({ children, always, className }: { children: ReactNode; always?: boolean; className?: string }) => (
   <span
     className={cn(
       'whitespace-nowrap',
       always
         ? 'ml-2'
         : 'max-w-0 overflow-hidden opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-20 group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-20 group-focus-visible:opacity-100',
+      className,
     )}
   >
     {children}
@@ -184,7 +187,7 @@ const AdderPart = ({ adder }: { adder: CompactToolbarAdder }) => {
  *     count={{ icon: History, value: total, label: 'Sessions' }}
  *   />
  */
-export const CompactToolbar = ({ menus = [], adder, tags = [], search, sort, filters = [], count, decisions = [], showWords, className }: CompactToolbarProps) => {
+export const CompactToolbar = ({ menus = [], adder, tags = [], buttons = [], search, sort, filters = [], count, decisions = [], showWords, className }: CompactToolbarProps) => {
   const activeFilters = filters.filter((filter) => filter.value !== '').length;
   const CountIcon = count?.icon;
 
@@ -220,6 +223,14 @@ export const CompactToolbar = ({ menus = [], adder, tags = [], search, sort, fil
       {adder && <AdderPart adder={adder} />}
       {menus.map((menu) => (
         <MenuPart key={menu.label} menu={menu} />
+      ))}
+      {buttons.map((button) => (
+        <button key={button.label} type="button" className={cn(partClass, 'disabled:opacity-40')} aria-label={button.label} onClick={button.onClick} disabled={button.disabled}>
+          <button.icon className="size-4" />
+          <Word always={showWords} className="group-hover:max-w-40 group-focus-visible:max-w-40">
+            {button.valueLabel}
+          </Word>
+        </button>
       ))}
       {search && (
         <SearchInput

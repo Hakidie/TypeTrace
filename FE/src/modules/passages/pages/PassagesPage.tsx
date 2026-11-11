@@ -1,5 +1,5 @@
 import { FileText } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { usePlan } from '@/modules/plan/hooks/use-plan';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
@@ -9,6 +9,7 @@ import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
+import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { OwnPassageForm } from '../components/OwnPassageForm';
@@ -25,7 +26,7 @@ import { ANONYMOUS_OWNER_NAME } from '../passages.config';
 import type { LearnerPassage, PassageVisibility } from '../types/passage.types';
 
 // Three columns of three, like the passage bank of the admin area.
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 9;
 
 const SORT_OPTIONS = [
   { value: '-createdAt', label: 'Newest' },
@@ -45,7 +46,8 @@ const VISIBILITY_OPTIONS = [
  * The learner's Passages page (SCRUM-34): a form to paste a text of their own, and all of their own passages (private,
  * waiting for review or approved; nobody else's) with search, sort, a visibility filter and pages. Practice opens a
  * passage on the Typing page, whose passage menu also offers TypeTrace's passages. An own private passage can be offered
- * to everyone: an admin reviews the request (SCRUM-176).
+ * to everyone: an admin reviews the request (SCRUM-176). The form and the list share the page, one at a time: a button
+ * (`PanelTitleSwitch` with its icon and the name of the other panel) under each switches to the other; the form is first, and Edit on a card opens it with that passage.
  */
 export const PassagesPage = () => {
   const list = useListParams({ sort: '-createdAt' });
@@ -73,12 +75,13 @@ export const PassagesPage = () => {
   // The passage open in the top panel (Edit passage instead of New passage), loaded with its text.
   const [editingId, setEditingId] = useState<string>();
   const editing = useOwnPassage(editingId);
-  const formPanelRef = useRef<HTMLDivElement>(null);
+  // The form and My Passages share the page: one at a time, switched by the button of each panel (the form first).
+  const [view, setView] = useState<'form' | 'list'>('form');
 
-  // The form is at the top of the page: bring it into view when a card asks to be edited.
+  // A card that asks to be edited shows the form, loaded with its passage.
   const startEditing = (passage: LearnerPassage) => {
     setEditingId(passage._id);
-    formPanelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    setView('form');
   };
   // A passage that is deleted or sent for review can no longer be edited: the panel goes back to New passage.
   const stopEditing = (id: string) => setEditingId((current) => (current === id ? undefined : current));
@@ -88,7 +91,17 @@ export const PassagesPage = () => {
     if (editing.isPending) return <LoadingState rows={2} />;
     if (editing.isError) return <ErrorState error={editing.error} onRetry={() => void editing.refetch()} />;
     // `key` remounts the form, so it starts from the passage being edited.
-    return <OwnPassageForm key={editingId} passage={editing.data} onDone={() => setEditingId(undefined)} />;
+    return (
+      <OwnPassageForm
+        key={editingId}
+        passage={editing.data}
+        onDone={() => {
+          // Saved or cancelled: back to the list.
+          setEditingId(undefined);
+          setView('list');
+        }}
+      />
+    );
   };
 
   // A page past the end (its last passage was just deleted, or an old link) goes back to the last page. Not while the
@@ -108,14 +121,14 @@ export const PassagesPage = () => {
       return list.q || visibility ? (
         <EmptyState icon={FileText} title="No matching passages" description="Try another search or filter." />
       ) : (
-        <EmptyState icon={FileText} title="No passages yet" description="Paste a text in the form above to add one." />
+        <EmptyState icon={FileText} title="No passages yet" description="Switch to New passage to paste a text and add one." />
       );
     }
     // Like the passage bank of the admin area: a grid of cards, the pages at the bottom right.
     return (
       <>
         {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar above and the pages below */}
-        <div className="-mx-4 grid gap-4 sm:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-[repeat(2,minmax(0,1fr))]" aria-label="Passage cards">
+        <div className="-mx-4 grid gap-4 sm:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-[repeat(3,minmax(0,1fr))]" aria-label="Passage cards">
           {passages.data.items.map((passage) => {
             // A private passage is the learner's to change and delete; while it waits for review it can only be taken back
             // or deleted. A public one can be edited (an admin approves the edit, the approved text stays public
@@ -140,51 +153,65 @@ export const PassagesPage = () => {
             );
           })}
         </div>
-        <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
       </>
     );
   };
 
-  return (
-    // On a desktop the page is one screen tall below the header (the footer is below it, like the Typing page): the form
-    // takes a third of it, the list the rest, and the cards show as many lines of text as fit.
-    <div className="flex flex-1 flex-col gap-12">
-      <div ref={formPanelRef} className="scroll-mt-4 lg:flex lg:min-h-72 lg:flex-[1_1_0] lg:flex-col">
-        {/* No visible title (the form says what it is); screen readers still get one. */}
-        {/* PANEL Passage form */}
-        <Panel bare fill>
-          <h2 className="sr-only">{editingId ? 'Edit passage' : 'New passage'}</h2>
-          {renderForm()}
-        </Panel>
-      </div>
+  // The pages, at the bottom right, above the row of the switch button (nothing while the list is loading, empty or failed).
+  const pagination =
+    passages.data && passages.data.items.length > 0 ? (
+      <Pagination page={passages.data.page} totalPages={passages.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
+    ) : undefined;
 
-      <div className="lg:flex lg:min-h-[28rem] lg:flex-[2_1_0] lg:flex-col">
-        {/* PANEL My passages */}
-        <Panel
-          title="My Passages"
-          bare
-          fill
-          titleClassName={sectionTitleClass}
-          className="flex min-h-0 flex-1 flex-col gap-3"
-          actions={
-            <CompactToolbar
-              search={{
-                label: 'Search passages',
-                placeholder: 'Search titles…',
-                defaultValue: list.q,
-                onSearch: (value) => list.set('q', value),
-              }}
-              sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-              filters={[
-                { label: 'Visibility', value: visibility, options: VISIBILITY_OPTIONS, onChange: (value) => list.set('visibility', value) },
-              ]}
-              count={{ icon: FileText, value: passages.data?.total ?? '…', label: 'Passages' }}
-            />
-          }
-        >
-          {renderList()}
-        </Panel>
-      </div>
+  return (
+    // On a desktop the page is one screen tall below the header (the footer is below it, like the Typing page): the panel
+    // shown takes all of it, and the cards show as many lines of text as fit.
+    <div className="flex flex-1 flex-col gap-12">
+      {view === 'form' ? (
+        <div className="lg:flex lg:min-h-[28rem] lg:flex-1 lg:flex-col">
+          {/* No visible title (the form says what it is); screen readers still get one. The switch is under the form. */}
+          {/* PANEL Passage form */}
+          <Panel bare fill>
+            <h2 className="sr-only">{editingId ? 'Edit passage' : 'New passage'}</h2>
+            {renderForm()}
+            <div className="mt-3 flex shrink-0 items-center justify-center">
+              <PanelTitleSwitch other="My Passages" showLabel onClick={() => setView('list')} />
+            </div>
+          </Panel>
+        </div>
+      ) : (
+        <div className="lg:flex lg:min-h-[28rem] lg:flex-1 lg:flex-col">
+          {/* PANEL My passages */}
+          <Panel
+            title="My Passages"
+            bare
+            fill
+            titleClassName={sectionTitleClass}
+            className="flex min-h-0 flex-1 flex-col gap-3"
+            actions={
+              <CompactToolbar
+                search={{
+                  label: 'Search passages',
+                  placeholder: 'Search titles…',
+                  defaultValue: list.q,
+                  onSearch: (value) => list.set('q', value),
+                }}
+                sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
+                filters={[
+                  { label: 'Visibility', value: visibility, options: VISIBILITY_OPTIONS, onChange: (value) => list.set('visibility', value) },
+                ]}
+                count={{ icon: FileText, value: passages.data?.total ?? '…', label: 'Passages' }}
+              />
+            }
+          >
+            {renderList()}
+            {pagination}
+            <div className="flex shrink-0 items-center justify-center">
+              <PanelTitleSwitch other={editingId ? 'Edit passage' : 'New passage'} showLabel onClick={() => setView('form')} />
+            </div>
+          </Panel>
+        </div>
+      )}
 
       <RejectionReasonDialog passage={reasonOf} onClose={() => setReasonOf(undefined)} />
 

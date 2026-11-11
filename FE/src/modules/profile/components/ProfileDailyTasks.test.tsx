@@ -57,19 +57,17 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
         task('t1', 'Warm-up', { progress: 2, description: 'Finish three sessions.' }),
         task('t2', 'Long practice', { type: 'minutes', target: 15, progress: 12.5, description: 'Take your time.' }),
         task('t3', 'Speed run', { type: 'wpm', target: 40, progress: 38.5, description: 'Go fast once.' }),
-        task('t4', 'Clean hands', { type: 'accuracy', target: 90, progress: 85.5, description: 'Keep it clean.' }),
       ),
     );
     renderWithProviders(<ProfileDailyTasks />);
 
-    expect(await screen.findAllByRole('progressbar')).toHaveLength(4);
+    expect(await screen.findAllByRole('progressbar')).toHaveLength(3);
     expect(tasksRegion()).toHaveAttribute('aria-busy', 'false');
 
     const expected = [
       { title: 'Warm-up', description: 'Finish three sessions.', numbers: '2 / 3 sessions', now: '2', max: '3', filled: 2 / 3 },
       { title: 'Long practice', description: 'Take your time.', numbers: '12.5 / 15 min', now: '12.5', max: '15', filled: 12.5 / 15 },
       { title: 'Speed run', description: 'Go fast once.', numbers: '38.5 / 40 WPM', now: '38.5', max: '40', filled: 38.5 / 40 },
-      { title: 'Clean hands', description: 'Keep it clean.', numbers: '85.5% / 90%', now: '85.5', max: '90', filled: 85.5 / 90 },
     ];
     for (const { title, description, numbers, now, max, filled } of expected) {
       const item = itemOf(title);
@@ -88,7 +86,6 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
       'Warm-up',
       'Long practice',
       'Speed run',
-      'Clean hands',
     ]);
     expect(screen.getAllByText('Take your time.')).toHaveLength(1);
     expect(within(itemOf('Long practice')).getByText('Take your time.')).toBeInTheDocument();
@@ -249,5 +246,27 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     expect(itemOf('Waiting')).toHaveTextContent('30 coins');
     expect(itemOf('Waiting')).not.toHaveTextContent('+30 coins');
     expect(itemOf('No reward')).not.toHaveTextContent('coins');
+  });
+
+  it('shows 3 tasks a page, with Previous and Next only when there are more', async () => {
+    const user = userEvent.setup();
+    getDailyTasks.mockResolvedValue(today(...['A', 'B', 'C', 'D', 'E'].map((title, index) => task(`t${index}`, title))));
+    renderWithProviders(<ProfileDailyTasks />);
+
+    expect(await screen.findAllByRole('progressbar')).toHaveLength(3);
+    expect(screen.queryByRole('progressbar', { name: 'D' })).not.toBeInTheDocument();
+    expect(tasksRegion()).toHaveTextContent('0 / 5');
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getAllByRole('progressbar').map((bar) => bar.getAttribute('aria-label'))).toEqual(['D', 'E']);
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+  });
+
+  it('has no pagination for 3 tasks or fewer', async () => {
+    getDailyTasks.mockResolvedValue(today(task('t1', 'A'), task('t2', 'B'), task('t3', 'C')));
+    renderWithProviders(<ProfileDailyTasks />);
+
+    expect(await screen.findAllByRole('progressbar')).toHaveLength(3);
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument();
   });
 });
