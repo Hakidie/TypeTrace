@@ -1,4 +1,5 @@
 import type { ActivityDay } from '@/shared/components/activity-heatmap';
+import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 import type { DailyTaskType } from '@/modules/daily-tasks/types/daily-task.types';
 import type { SessionMode, SessionStatus, SessionTimeline } from '@/modules/typing/types/typing.types';
@@ -11,8 +12,10 @@ export interface TypingStats {
 
 /** `GET /api/sessions/activity`: the learner's own typing activity, shown on the profile page (SCRUM-157, SCRUM-31). */
 export interface TypingActivity {
-  /** Absent until a session is completed. Every completed session counts here, counted or not. */
+  /** Absent until a session is completed in `language`. Every completed session of that language counts here, counted or not. */
   stats?: TypingStats;
+  /** The language of `stats` (SCRUM-219): the one asked for, the learner's Practice language. The days count both. */
+  language: TypingLanguage;
   /** The learner's time zone (`settings.timezone`): the dates of `sessions` are days in it. */
   timezone: string;
   /** Counted sessions per day of the last `HEATMAP_DAYS` days, oldest first, with the days the daily mission was done. */
@@ -23,6 +26,8 @@ export interface TypingActivity {
 export interface SessionSummary {
   _id: string;
   mode: SessionMode;
+  /** What it was typed in (SCRUM-219); missing on sessions from before: Vietnamese. */
+  language?: TypingLanguage;
   /** Missing on sessions from before the title was stored. */
   passageTitle?: string;
   status: SessionStatus;
@@ -116,7 +121,7 @@ export type ErrorTrend = 'insufficient_data' | 'improved' | 'worse' | 'unchanged
 
 /** One error type of the error profile (SCRUM-27). */
 export interface ErrorTypeProfile {
-  type: WordErrorType;
+  type: SessionErrorType;
   /** Errors and chances of the type in the current window: the learner's last `window` counted sessions. */
   errors: number;
   opportunities: number;
@@ -130,6 +135,8 @@ export interface ErrorTypeProfile {
 
 /** `GET /api/profile/error-profile` (SCRUM-27). The thresholds come from the backend: never write them in the frontend. */
 export interface ErrorProfile {
+  /** The language of the sessions it is worked out from (SCRUM-219): the one asked for, the learner's Practice language. */
+  language: TypingLanguage;
   /** How many counted sessions a window has (10). */
   window: number;
   /** Chances of a type a window needs for a level or a trend (20). */
@@ -138,10 +145,10 @@ export interface ErrorProfile {
   weakRate: number;
   /** Sessions in the current window: 0 to `window`. */
   sessionsUsed: number;
-  /** One per error type, in the order of `WordError`. */
+  /** One per error type of `language`, in the order of its set (`WordError` or `EnglishError`). */
   types: ErrorTypeProfile[];
   /** The weak types, highest error rate first. */
-  weakTypes: WordErrorType[];
+  weakTypes: SessionErrorType[];
 }
 
 /** What a point of the profile chart covers: a month (`year`: the last 12 months), a block of 7 days of the current month (`month`: 4-5 points) or a day (`week`: the last 7 days). */
@@ -160,7 +167,7 @@ export interface ChartCompare {
 export interface MonthlyProgressPoint {
   /** The period: 'YYYY-MM' (`year`), the first day of the block 'YYYY-MM-DD' (`month`) or the day 'YYYY-MM-DD' (`week`). */
   key: string;
-  /** Average WPM of the period; `null` before the learner's first counted placement session. */
+  /** Average WPM of the period; `null` before the learner's first counted placement session (in English: their first counted session). */
   avgWpm: number | null;
   /** Average accuracy (0-100) of the period; `null` where `avgWpm` is. */
   avgAccuracy: number | null;
@@ -171,5 +178,7 @@ export interface MonthlyProgressPoint {
 /** `GET /api/profile/monthly-progress?range=`: the points of the range, oldest first, the last one being the current month, block or day. */
 export interface MonthlyProgress {
   range: ChartRange;
+  /** The language of the sessions averaged (SCRUM-219): the one asked for, the learner's Practice language. */
+  language: TypingLanguage;
   points: MonthlyProgressPoint[];
 }

@@ -10,6 +10,7 @@ import { useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
+import { languageNames } from '@/modules/typing/typing.config';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { Input } from '@/shared/components/ui/input';
 import { cn } from '@/shared/lib/utils';
@@ -188,7 +189,7 @@ const HoverTip = ({ tip, children }: { tip: string; children: ReactNode }) => (
 
 interface ProfileHeaderProps {
   user: CurrentUser;
-  /** The learner's typing activity (`useTypingActivity`): only the speed and accuracy are used here. */
+  /** The learner's typing activity (`useTypingActivity`): only the speed and accuracy (and their language) are used here. */
   activity: UseQueryResult<TypingActivity>;
   /** The learner's streak (`useStreak`): the current one, and the longest in a tooltip on it. */
   streak: UseQueryResult<Streak>;
@@ -206,10 +207,12 @@ interface ProfileHeaderProps {
 export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }: ProfileHeaderProps) => {
   const name = user.displayName || user.email;
   const stats = activity.data?.stats;
+  // The averages are the ones of the learner's typing language (SCRUM-219): the tooltip names it.
+  const averagesTip = activity.data && `Average of your ${languageNames[activity.data.language ?? 'vi']} sessions`;
 
   const statList = [
-    { label: 'WPM', value: stats ? String(Math.round(stats.wpm)) : '0000' },
-    { label: 'ACC', value: stats ? `${Math.round(stats.accuracy)}%` : '000%' },
+    { label: 'WPM', value: stats ? String(Math.round(stats.wpm)) : '0000', tip: averagesTip },
+    { label: 'ACC', value: stats ? `${Math.round(stats.accuracy)}%` : '000%', tip: averagesTip },
     { label: 'STREAK', value: daysValue(streak.data?.current), tip: `Longest streak: ${daysValue(streak.data?.longest)}` },
   ];
 

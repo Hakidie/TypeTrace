@@ -198,7 +198,7 @@ describe('GET /api/profile/monthly-progress (SCRUM-240)', () => {
 
     const response = await monthlyOf(user);
 
-    expect(Object.keys(response.body).sort()).toEqual(['points', 'range']);
+    expect(Object.keys(response.body).sort()).toEqual(['language', 'points', 'range']);
     expect(Object.keys(response.body.points[11]).sort()).toEqual(['avgAccuracy', 'avgWpm', 'carriedOver', 'key']);
   });
 

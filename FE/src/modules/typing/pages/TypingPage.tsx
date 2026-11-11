@@ -1,10 +1,12 @@
-import { Gamepad2, Lock, RotateCcw, Trophy } from 'lucide-react';
+import { Gamepad2, Languages, Lock, RotateCcw, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
 import { useStartTutorial } from '@/modules/tutorial/hooks/use-tutorial';
 import { RankMode } from '@/modules/ranked/components/RankMode';
 import { PlanDialog } from '@/modules/plan/components/PlanDialog';
+import { useSaveTypingLanguage, useTypingLanguage } from '@/modules/profile/hooks/use-profile';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -13,11 +15,12 @@ import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 import { redGlassTheme } from '@/shared/lib/red-glass-theme';
+import { type TypingLanguage } from '@/shared/lib/typing-language';
 import { MinigamesMode, type MinigameId } from '../components/MinigamesMode';
 import { TypingArea, TypingStatus } from '../components/TypingArea';
 import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession } from '../hooks/use-typing';
 import type { ReplayEvent, SessionMode, StartSessionInput } from '../types/typing.types';
-import { modeIcons, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
+import { languageNames, modeIcons, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
@@ -30,6 +33,10 @@ const modeTabs = [
   { value: 'minigames', label: 'Minigames', icon: Gamepad2 },
 ];
 
+
+const IME_HINT = 'Turn off Vietnamese input (Unikey, EVKey) to type English.';
+const IME_HINT_ID = 'ime-hint';
+
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
 // second choice (20 seconds) is the one selected at first in Practice, 1 minute in the placement test (`defaultTimeOf`);
 // the longest, 3 minutes, is the most the server accepts.
@@ -41,20 +48,22 @@ const unitLabels: Record<TimeUnit, string> = { sec: 'Sec', min: 'Min' };
 const defaultTimeOf = (mode: SessionMode): { unit: TimeUnit; index: number } =>
   mode === 'placement' ? { unit: 'min', index: 0 } : { unit: 'sec', index: 1 };
 
-/** The passages to choose from for `mode`; the picked one is red. It is only mounted while the menu is open, so the list is fetched when the learner opens it. */
+/** The passages to choose from for `mode` (in Practice, of `language`); the picked one is red. It is only mounted while the menu is open, so the list is fetched when the learner opens it. */
 const PassageMenu = ({
   mode,
+  language,
   selectedId,
   onSelect,
   onNeedPremium,
 }: {
   mode: SessionMode;
+  language: TypingLanguage;
   selectedId?: string;
   onSelect: (id: string) => void;
   /** Called for a passage the plan does not allow (US11.1): the page opens the plan instead of starting it. */
   onNeedPremium: () => void;
 }) => {
-  const { data, isLoading, isError } = usePassageOptions(mode);
+  const { data, isLoading, isError } = usePassageOptions(mode, { language });
   if (isLoading) return <p className="px-2 py-1.5 text-base text-muted-foreground">Loading…</p>;
   if (isError) return <p className="px-2 py-1.5 text-base text-destructive">Could not load passages</p>;
   if (!data?.length) return <p className="px-2 py-1.5 text-base text-muted-foreground">No passages</p>;
@@ -117,6 +126,10 @@ export const TypingPage = () => {
   const [placementPrompt, setPlacementPrompt] = useState({ open: false });
   // The plan (US11.1), opened by a passage the plan does not allow.
   const [planOpen, setPlanOpen] = useState(false);
+  // What the learner types in Practice (SCRUM-219), saved on their account; `undefined` while the user loads. The server
+  // starts a Practice session in it and the placement test always in Vietnamese.
+  const language = useTypingLanguage();
+  const { mutate: saveLanguage, isPending: savingLanguage } = useSaveTypingLanguage();
   // A learner who has just created their account starts Ping's tour (it brings the placement test in its turn), once:
   // the state leaves the history entry at once, so a reload or Back does not start it again.
   const { mutate: startTutorial } = useStartTutorial();
@@ -184,10 +197,81 @@ export const TypingPage = () => {
   useEffect(() => {
     // Rank and the minigames have no typing session of their own (a duel is a match on the server, a rain round stays in the browser).
     if (game || openedFor.current === mode) return;
-    const firstOpen = openedFor.current === null;
+    const firstPassage = openedFor.current === null ? passageId : undefined;
+    // A passage of the Passages page (`?passage=`) is Vietnamese (SCRUM-219): a learner who types English is switched back
+    // to Vietnamese first, or the server would refuse it. That waits for the user, to know their language.
+    if (firstPassage && mode === 'practice' && language !== 'vi') {
+      if (language === undefined) return;
+      openedFor.current = mode;
+      saveLanguage('vi', {
+        onSuccess: () => start.mutate(startInputOf(mode, firstPassage, timeSeconds)),
+        // Not saved (the toast says why): a random passage of the language the learner still has.
+        onError: () => {
+          setChosen(undefined);
+          start.mutate(startInputOf(mode, undefined, timeSeconds));
+        },
+      });
+      return;
+    }
     openedFor.current = mode;
-    start.mutate(startInputOf(mode, firstOpen ? passageId : undefined, timeSeconds));
-  }, [mode, game, start, passageId, timeSeconds]);
+    start.mutate(startInputOf(mode, firstPassage, timeSeconds));
+  }, [mode, game, start, passageId, timeSeconds, language, saveLanguage]);
+
+  // The placement test is Vietnamese only (SCRUM-219): whichever way the learner comes in (the tab, Ping's tour, a link),
+  // a learner who types English is switched back to Vietnamese, saved on the account. Once per visit of the Placement tab.
+  const placementSwitched = useRef(false);
+  useEffect(() => {
+    if (mode !== 'placement') {
+      placementSwitched.current = false;
+      return;
+    }
+    if (language !== 'en' || placementSwitched.current) return;
+    placementSwitched.current = true;
+    saveLanguage('vi');
+  }, [mode, language, saveLanguage]);
+
+  // VI / EN in Practice: saved on the account first (the server starts a session in the saved language), then a new random
+  // passage of that language, as Random does. The session being typed is left, like on Random.
+  const switchLanguage = (next: TypingLanguage) => {
+    if (next === language) return;
+    saveLanguage(next, {
+      onSuccess: () => {
+        setChosen(undefined);
+        start.mutate(startInputOf(mode, undefined, timeSeconds));
+      },
+    });
+  };
+  // The Placement tab is hidden while the learner types English; it comes back with VI (or while the test is open).
+  // The language switch, Practice only (the placement test is always Vietnamese): one button, built like Restart, at the top
+  // center of the passage. It shows the language being typed and a click switches to the other one. Also shown while the
+  // passage loads or fails, so a language with no passage can be left.
+  const current = language ?? 'vi';
+  const other: TypingLanguage = current === 'vi' ? 'en' : 'vi';
+  const languageSwitch =
+    mode === 'practice' && !game ? (
+      <Button
+        variant="ghost"
+        className="h-auto gap-2 px-4 py-2 text-[1.125rem] text-muted-foreground"
+        aria-label={`Typing language: ${languageNames[current]}. Switch to ${languageNames[other]}`}
+        onClick={() => switchLanguage(other)}
+        disabled={language === undefined || savingLanguage || start.isPending || complete.isPending}
+      >
+        <Languages className="size-5" /> {languageNames[current]}
+      </Button>
+    ) : undefined;
+
+  // An input method for Vietnamese (Telex, VNI) turns English words into Vietnamese ones ("dd" into "đ"): a notification
+  // while the learner types English in Practice, with one id so it never stacks, taken back when the language or mode changes.
+  const imeHint = mode === 'practice' && !game && language === 'en';
+  useEffect(() => {
+    if (!imeHint) return;
+    toast.info(IME_HINT, { id: IME_HINT_ID, duration: 8000 });
+    return () => {
+      toast.dismiss(IME_HINT_ID);
+    };
+  }, [imeHint]);
+
+  const tabs = language === 'en' && mode !== 'placement' ? modeTabs.filter((tab) => tab.value !== 'placement') : modeTabs;
 
   // A new session on the picked passage (a random one when none is picked): used by Restart and when the time is up.
   const restart = () => start.mutate(startInput(passageId, timeSeconds));
@@ -216,9 +300,11 @@ export const TypingPage = () => {
 
   return (
     <div ref={pageRef} className={cn('flex flex-1 flex-col p-4 pb-0 pt-0 md:p-8 md:pb-0 md:pt-0', ranked ? 'gap-24' : 'gap-4', redGlassTheme)}>
-      {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right. */}
-      <div data-tutorial="mode-tabs" className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
-        <div className="flex min-w-0 max-w-full md:justify-self-end">
+      {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right.
+          On one row from `xl` only: below it the three do not fit side by side (the mode tabs alone are about 490px), so they are stacked and centered, as on phones.
+          `[&>*]:min-w-0` lets the frame of the passage shrink to its column (or the screen): the passage name is cut first. */}
+      <div data-tutorial="mode-tabs" className="flex flex-col items-center gap-2 xl:grid xl:gap-x-2 xl:grid-cols-[1fr_auto_1fr]">
+        <div className="flex min-w-0 max-w-full xl:justify-self-end [&>*]:min-w-0">
           {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Minigames. */}
           {!game && (
           <DropdownMenu>
@@ -240,14 +326,14 @@ export const TypingPage = () => {
             </div>
             {/* The page theme tints --color-background; the menu keeps the normal one, like the Sort and Filter menus. */}
             <DropdownMenuContent role="menu" aria-label="Passages" className="max-h-72 w-full min-w-0 overflow-y-auto [--color-background:var(--background)]">
-              <PassageMenu mode={mode} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
+              <PassageMenu mode={mode} language={language ?? 'vi'} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
             </DropdownMenuContent>
           </DropdownMenu>
           )}
         </div>
         <TabGroup
           label="Mode"
-          tabs={modeTabs}
+          tabs={tabs}
           value={ranked ? 'rank' : minigames ? 'minigames' : mode}
           onChange={(value) => {
             if (value === 'practice') setSearchParams({});
@@ -260,7 +346,7 @@ export const TypingPage = () => {
             else if (value !== mode || game) setPlacementPrompt({ open: true });
           }}
         />
-        <div className="md:justify-self-start">
+        <div className="xl:justify-self-start">
           {/* Not in Rank (a duel lasts the time the server gives it) or a minigame (a Rain round lasts a minute). */}
           <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', game && 'hidden')}>
             <TabGroup
@@ -320,6 +406,8 @@ export const TypingPage = () => {
         <TypingArea
           key={session._id}
           targetWords={session.targetWords}
+          language={session.language ?? 'vi'}
+          header={languageSwitch}
           disabled={complete.isPending}
           onStart={() => begin.mutate(session._id)}
           onFinish={finish}
@@ -339,6 +427,7 @@ export const TypingPage = () => {
       ) : (
         <>
           <div className="mx-auto my-auto w-full max-w-7xl">
+            {languageSwitch && <div className="mb-4 flex justify-center">{languageSwitch}</div>}
             {start.isError ? <ErrorState error={start.error} onRetry={restart} /> : <LoadingState rows={2} />}
           </div>
           {/* The words and the clock stay while the next session loads. */}

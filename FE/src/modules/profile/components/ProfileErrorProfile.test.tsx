@@ -24,6 +24,7 @@ const item = (type: ErrorTypeProfile['type'], extra: Partial<ErrorTypeProfile> =
 });
 
 const profileOf = (types: ErrorTypeProfile[], extra: Partial<ErrorProfile> = {}): ErrorProfile => ({
+  language: 'vi',
   window: 10,
   minOpportunities: 20,
   weakRate: 15,
@@ -58,7 +59,7 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
     expect(await within(region()).findAllByRole('listitem')).toHaveLength(5);
     expect(region()).toHaveAttribute('aria-busy', 'false');
     expect(within(region()).getByRole('heading', { name: 'Error profile' })).toBeInTheDocument();
-    expect(within(region()).getByText('Last 10 counted sessions')).toBeInTheDocument();
+    expect(within(region()).getByText('Last 10 counted Vietnamese sessions')).toBeInTheDocument();
 
     const hoiNga = itemOf('Hỏi / ngã confusion');
     expect(within(hoiNga).getByText('15%')).toBeInTheDocument();
@@ -143,7 +144,11 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
     await user.hover(within(region()).getByText('Error profile'));
 
     expect(
-      (await screen.findAllByText('Your last 10 counted sessions: a type is weak from 15% wrong, and its trend compares them with the 10 sessions before.'))[0],
+      (
+        await screen.findAllByText(
+          'Your last 10 counted Vietnamese sessions: a type is weak from 15% wrong, and its trend compares them with the 10 sessions before. Switch VI / EN in Practice to see the other language.',
+        )
+      )[0],
     ).toBeInTheDocument();
   });
 
@@ -156,9 +161,43 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
     );
     renderWithProviders(<ProfileErrorProfile />);
 
-    expect(await screen.findByText('No counted sessions yet: your error profile starts with your first one.')).toBeInTheDocument();
+    expect(await screen.findByText('No counted Vietnamese sessions yet: your error profile starts with your first one.')).toBeInTheDocument();
     expect(within(region()).queryByRole('list')).not.toBeInTheDocument();
     expect(within(region()).queryByText(/^Last \d+ counted/)).not.toBeInTheDocument();
+  });
+
+  it('shows the English error types and names the language of a learner who types English (SCRUM-219)', async () => {
+    const user = userEvent.setup();
+    getErrorProfile.mockResolvedValue(
+      profileOf(
+        [
+          item('LETTER_WRONG', { errors: 12, opportunities: 400, rate: 3 }),
+          item('LETTER_MISSING'),
+          item('LETTER_EXTRA'),
+          item('LETTERS_SWAPPED', { errors: 9, opportunities: 50, rate: 18, level: 'weak', previousRate: 18 }),
+          item('CASE_WRONG'),
+          item('PUNCTUATION_WRONG', { opportunities: 14, level: 'insufficient_data', trend: 'insufficient_data' }),
+        ],
+        { language: 'en', sessionsUsed: 4 },
+      ),
+    );
+    renderWithProviders(<ProfileErrorProfile />);
+
+    const items = await within(region()).findAllByRole('listitem');
+    expect(items.map((li) => li.querySelector('p')?.textContent)).toEqual([
+      'Wrong letter',
+      'Missing letter',
+      'Extra letter',
+      'Swapped letters',
+      'Wrong case',
+      'Wrong punctuation',
+    ]);
+    expect(within(region()).getByText('Last 4 counted English sessions')).toBeInTheDocument();
+    // What a type needs is said in the words that give a chance of it in English.
+    expect(within(itemOf('Wrong punctuation')).getByText('Needs 6 more words with punctuation')).toBeInTheDocument();
+
+    await user.hover(within(itemOf('Swapped letters')).getByText('Weak'));
+    expect((await screen.findAllByText('Wrong in 15% or more of the words of two letters or more'))[0]).toBeInTheDocument();
   });
 
   it('holds its place while it loads, then shows why it failed with a retry', async () => {

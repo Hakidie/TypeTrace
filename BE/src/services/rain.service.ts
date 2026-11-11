@@ -1,5 +1,6 @@
 import { TypingSessionModel } from '../models/typing-session.model';
 import { WordModel } from '../models/word.model';
+import { sessionsIn } from '../utils/typing-language';
 import { WordError, type WordErrorType } from '../utils/vietnamese-errors';
 
 /** How many words one round of word rain gets, and how many come from the learner's weak spots (half). */
@@ -11,9 +12,12 @@ export const RAIN_FOCUS_TAGS = 2;
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 12;
 
-/** The error types the learner made most often in their recent counted sessions, most frequent first. */
+/**
+ * The error types the learner made most often in their recent counted Vietnamese sessions (the rain's words are Vietnamese;
+ * English sessions count English errors, SCRUM-219), most frequent first.
+ */
 const focusFor = async (userId: string): Promise<WordErrorType[]> => {
-  const sessions = await TypingSessionModel.find({ owner: userId, status: 'completed', isCounted: true })
+  const sessions = await TypingSessionModel.find({ owner: userId, status: 'completed', isCounted: true, ...sessionsIn('vi') })
     .sort({ completedAt: -1 })
     .limit(RAIN_RECENT_SESSIONS)
     .select({ errorCounts: 1 })

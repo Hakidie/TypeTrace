@@ -1,6 +1,7 @@
 import { http } from '@/shared/api/http';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import type { Paginated } from '@/shared/api/types';
+import type { TypingLanguage } from '@/shared/lib/typing-language';
 import type {
   ChartRange,
   DailyTasks,
@@ -23,14 +24,17 @@ export interface UpdateSecurityInput {
   loginOtpEnabled: boolean;
 }
 
+/** One setting or both. */
 export interface UpdateSettingsInput {
   /** An IANA time zone, e.g. `Europe/Paris`: the learner's days (streak, mission, heatmap) are counted in it. */
-  timezone: string;
+  timezone?: string;
+  /** The language the learner types in Practice (SCRUM-219). */
+  typingLanguage?: TypingLanguage;
 }
 
 /** Every function resolves with the response body (not the Axios response). */
 export const profileApi = {
-  // The signed-in learner's own typing activity (the typing sessions API, SCRUM-157).
+  // The signed-in learner's own typing activity (the typing sessions API, SCRUM-157), its averages in their typing language (SCRUM-219).
   getActivity: () => http.get<TypingActivity>('/sessions/activity').then((r) => r.data),
   // The learner's own typing sessions, one page of summaries (the typing sessions API).
   getSessions: (params: SessionListParams) =>
@@ -41,9 +45,9 @@ export const profileApi = {
   claimStreakReward: () => http.post<StreakRewardClaim>('/profile/streak/reward').then((r) => r.data),
   // The learner's tasks of today, with how far they are (SCRUM-112).
   getDailyTasks: () => http.get<DailyTasks>('/profile/daily-tasks').then((r) => r.data),
-  // The learner's error profile: rate, level and trend of each error type in their last counted sessions (SCRUM-27).
+  // The learner's error profile: rate, level and trend of each error type in their last counted sessions (SCRUM-27) of their typing language (SCRUM-219).
   getErrorProfile: () => http.get<ErrorProfile>('/profile/error-profile').then((r) => r.data),
-  // The learner's average WPM and errors by month (a year), week of this month (a month) or day (a week) (SCRUM-240).
+  // The learner's average WPM and errors by month (a year), week of this month (a month) or day (a week) (SCRUM-240), in their typing language.
   getMonthlyProgress: (range: ChartRange, date?: string) =>
     http.get<MonthlyProgress>('/profile/monthly-progress', { params: { range, date } }).then((r) => r.data),
   updateProfile: (data: UpdateProfileInput) =>

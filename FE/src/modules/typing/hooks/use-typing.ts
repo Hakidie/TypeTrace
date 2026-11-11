@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { TypingLanguage } from '@/shared/lib/typing-language';
 import { typingApi } from '../api/typing.api';
 import type { ReplayEvent, SessionMode } from '../types/typing.types';
 
 /** Cache keys. Invalidating `typingKeys.all` refreshes every typing query. */
 export const typingKeys = {
   all: ['typing'] as const,
-  passages: (mode: SessionMode) => [...typingKeys.all, 'passages', mode] as const,
+  passages: (mode: SessionMode, language: TypingLanguage = 'vi') => [...typingKeys.all, 'passages', mode, language] as const,
   detail: (id: string) => [...typingKeys.all, 'session', id] as const,
   replay: (id: string) => [...typingKeys.detail(id), 'replay'] as const,
 };
@@ -20,9 +21,14 @@ export const useSessionStats = (id: string) =>
 export const useSessionReplay = (id: string) =>
   useQuery({ queryKey: typingKeys.replay(id), queryFn: () => typingApi.replay(id), staleTime: Infinity });
 
-/** The passages to choose from for a mode. `enabled: false` waits until the list is needed (the leaderboard reads it on its Placement tab only). */
-export const usePassageOptions = (mode: SessionMode, { enabled = true }: { enabled?: boolean } = {}) =>
-  useQuery({ queryKey: typingKeys.passages(mode), queryFn: () => typingApi.passages(mode), enabled });
+/**
+ * The passages to choose from for a mode, in Practice the ones of `language` (SCRUM-219, Vietnamese by default). `enabled:
+ * false` waits until the list is needed (the leaderboard reads it on its Placement tab only).
+ */
+export const usePassageOptions = (
+  mode: SessionMode,
+  { enabled = true, language = 'vi' }: { enabled?: boolean; language?: TypingLanguage } = {},
+) => useQuery({ queryKey: typingKeys.passages(mode, language), queryFn: () => typingApi.passages(mode, language), enabled });
 
 // Mutations: no `onError` — the shared query client toasts the backend message.
 

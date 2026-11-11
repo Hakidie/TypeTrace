@@ -84,8 +84,10 @@ export interface PassageListParams {
   status?: PassageStatus;
   /** `public` = the passage bank, without the learners' private passages. */
   visibility?: PassageVisibility;
-  /** `true` = only the placement passages, `false` = only the regular ones. */
+  /** `true` = only the placement passages, `false` = none of them. */
   isPlacement?: boolean;
+  /** `true` = only the passages of ranked duels, `false` = none of them (both `false` = the Practice passages). */
+  isRanked?: boolean;
   language?: PassageLanguage;
   /** With `status: 'pending'`: `true` = only learners' edits of public passages, `false` = only requests to make a passage public. */
   edited?: boolean;

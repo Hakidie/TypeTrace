@@ -1,5 +1,6 @@
 import { http } from '@/shared/api/http';
 import type { Paginated } from '@/shared/api/types';
+import type { TypingLanguage } from '@/shared/lib/typing-language';
 import type {
   PassageOption,
   ReplayEvent,
@@ -29,10 +30,13 @@ export const typingApi = {
     http.patch<TypingSession>(`/sessions/${id}/complete`, { typedWords, typedAtMs, timeLimitSeconds, replay }).then((r) => r.data),
   /** The replay of a completed session (owner only); 404 when it has none: older than 30 days, or saved without one. */
   replay: (id: string) => http.get<SessionReplay>(`/sessions/${id}/replay`).then((r) => r.data),
-  /** The passages the learner can choose for a mode (published, public, and their own in practice). */
-  passages: (mode: SessionMode) =>
+  /**
+   * The passages the learner can choose for a mode (published, public, and their own in practice), in Practice the ones of
+   * `language` (SCRUM-219); the placement test is always Vietnamese.
+   */
+  passages: (mode: SessionMode, language: TypingLanguage = 'vi') =>
     http
-      .get<Paginated<PassageOption>>('/passages', { params: { mode, limit: PASSAGE_MENU_LIMIT } })
+      .get<Paginated<PassageOption>>('/passages', { params: { mode, language, limit: PASSAGE_MENU_LIMIT } })
       .then((r) => r.data.items),
   abandon: (id: string) => http.patch<TypingSession>(`/sessions/${id}/abandon`).then((r) => r.data),
 };

@@ -4,7 +4,9 @@ import {
   notEnglish,
   ownerFieldsFor,
   PassageDocument,
+  type PassageLanguage,
   PassageModel,
+  practiceLanguageFilter,
   publicOwnerName
 } from '../models/passage.model';
 import type { SessionMode } from '../models/typing-session.model';
@@ -60,17 +62,23 @@ const OWN_TYPEABLE_STATUSES = ['published', 'pending', 'rejected'] as const;
 const OWN_EDITABLE_STATUSES = ['published', 'rejected'] as const;
 
 /**
- * What a learner may pick for a `mode`: placement passages for the test, practice ones otherwise. Public passages must be
- * published. The owner exception: in practice the learner's own passages come on top, published, waiting for review
- * (`pending`) or turned down (`rejected`). Drafts, archived passages and other people's private passages never match.
- * `lockedIds` (`getLockedPassageIds`) never match either.
+ * What a learner may pick for a `mode`: placement passages for the test (always Vietnamese), practice ones of `language`
+ * otherwise (SCRUM-219: Vietnamese, or the English ones that are not the ranked duels', see `practiceLanguageFilter`). Public
+ * passages must be published. The owner exception: in practice the learner's own passages come on top, published, waiting
+ * for review (`pending`) or turned down (`rejected`). Drafts, archived passages and other people's private passages never
+ * match. `lockedIds` (`getLockedPassageIds`) never match either.
  */
-export const learnerPassageFilter = (userId: string, mode: SessionMode, lockedIds: Types.ObjectId[] = []) =>
+export const learnerPassageFilter = (
+  userId: string,
+  mode: SessionMode,
+  lockedIds: Types.ObjectId[] = [],
+  language: PassageLanguage = 'vi'
+) =>
   mode === 'placement'
     ? { status: 'published' as const, isPlacement: true, visibility: 'public' as const, ...notEnglish }
     : {
         isPlacement: false,
-        ...notEnglish,
+        ...practiceLanguageFilter(language),
         // Passages past their owner's limit (US11.1): the caller says which ones.
         ...(lockedIds.length ? { _id: { $nin: lockedIds } } : {}),
         $or: [
@@ -131,12 +139,12 @@ const tooManyPassages = (limit: number) => badRequest(`You can have at most ${li
  * own passages (`true`, private or approved: the Passages page, whose cards also show the text) or only the others
  * (`false`). Titles sort in Vietnamese order.
  */
-export const listPassages = async (userId: string, { mode, q, visibility, mine, ...pagination }: ListPassagesQuery) => {
+export const listPassages = async (userId: string, { mode, language, q, visibility, mine, ...pagination }: ListPassagesQuery) => {
   // A locked passage is hidden from everyone but its owner, who sees it dimmed (US11.1).
   const [lockedByOwner, { config }] = await Promise.all([getLockedByOwner(), getPlanOf(userId)]);
   const ownLocked = lockedByOwner.get(userId) ?? [];
   const hidden = [...lockedByOwner].filter(([owner]) => owner !== userId).flatMap(([, lockedIds]) => lockedIds);
-  const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode, hidden)];
+  const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode, hidden, language)];
   if (visibility) conditions.push({ visibility });
   if (mine !== undefined) conditions.push(mine ? { owner: userId } : { owner: { $ne: userId } });
   if (q) conditions.push({ title: titleSearchPattern(q) });
