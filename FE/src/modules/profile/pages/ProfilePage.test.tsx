@@ -241,20 +241,27 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
 
   it('lists the finished sessions as cards under the heatmap, each one linking to its result page', async () => {
     getSessions.mockResolvedValue(
-      page([session(), session({ _id: 's2', passageTitle: undefined, mode: 'placement', timeLimitSeconds: 120, isCounted: false, wpm: 20, accuracy: 80, timeline: { status: 'no_data', points: [] } })]),
+      page([
+        session(),
+        session({ _id: 's2', passageTitle: undefined, mode: 'placement', timeLimitSeconds: 120, isCounted: false, wpm: 20, accuracy: 80, timeline: { status: 'no_data', points: [] } }),
+        session({ _id: 's3', passageTitle: 'Watering the Plants', language: 'en' }),
+      ]),
     );
     renderPage();
 
     const cards = await screen.findAllByRole('article');
-    expect(cards).toHaveLength(2);
+    expect(cards).toHaveLength(3);
     expect(within(cards[0]).getByText('Tiếng Việt rất đẹp')).toBeInTheDocument();
     expect(within(cards[0]).getByText('42')).toBeInTheDocument();
     expect(within(cards[0]).getByText('97.2%')).toBeInTheDocument();
     expect(within(cards[0]).getByText('02 Mar 2026')).toBeInTheDocument();
+    // The history holds both languages, each card with its own (SCRUM-219); a session from before has none: Vietnamese.
+    expect(within(cards[0]).getByText('VI')).toBeInTheDocument();
+    expect(within(cards[2]).getByText('EN')).toBeInTheDocument();
     expect(within(cards[0]).getByText('30s')).toBeInTheDocument();
     expect(within(cards[0]).queryByText('Practice', { exact: false })).not.toBeInTheDocument(); // the mode is only the icon
     expect(within(cards[0]).getByRole('img', { name: /Speed over time/  })).toBeInTheDocument();
-    expect(screen.getByText('Sessions').parentElement).toHaveTextContent('2Sessions');
+    expect(screen.getByText('Sessions').parentElement).toHaveTextContent('3Sessions');
     expect(getSessions).toHaveBeenCalledWith({ page: 1, limit: 3, sort: '-createdAt', status: 'completed' });
 
     expect(within(cards[1]).getByText('Untitled passage')).toBeInTheDocument();

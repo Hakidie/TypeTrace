@@ -2,6 +2,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, CompositionEvent, KeyboardEvent, ReactNode } from 'react';
 import { Card, CardContent } from '@/shared/components/ui/card';
+import type { TypingLanguage } from '@/shared/lib/typing-language';
 import { useElapsedSeconds } from '../hooks/use-elapsed';
 import type { ReplayEvent } from '../types/typing.types';
 import { SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
@@ -24,6 +25,8 @@ const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'Ca
 
 interface TypingAreaProps {
   targetWords: string[];
+  /** The rules the words are checked by while they are typed (SCRUM-219): the language of the session, Vietnamese by default. */
+  language?: TypingLanguage;
   /** Stops typing, e.g. while the result is being saved. */
   disabled?: boolean;
   /** Called once, when the first key is pressed: the timer starts then. */
@@ -79,6 +82,7 @@ export const TypingStatus = ({ typed, total, seconds, finished }: TypingStatusPr
 
 export const TypingArea = ({
   targetWords,
+  language = 'vi',
   disabled = false,
   onStart,
   onFinish,
@@ -118,7 +122,7 @@ export const TypingArea = ({
   };
 
   const { done } = useMemo(() => splitTyped(committed), [committed]);
-  const results = useMemo(() => checkWords(targetWords, done), [targetWords, done]);
+  const results = useMemo(() => checkWords(targetWords, done, language), [targetWords, done, language]);
 
   // When the time limit is reached (3:00 at most) the session ends with the words finished so far (the server enforces the same limit).
   useEffect(() => {

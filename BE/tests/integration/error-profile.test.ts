@@ -71,8 +71,8 @@ describe('GET /api/profile/error-profile (SCRUM-27)', () => {
     const response = await profileOf(learner);
 
     expect(response.status).toBe(200);
-    expect(Object.keys(response.body).sort()).toEqual(['minOpportunities', 'sessionsUsed', 'types', 'weakRate', 'weakTypes', 'window']);
-    expect(response.body).toMatchObject({ window: 10, minOpportunities: 20, weakRate: 15, sessionsUsed: 0, weakTypes: [] });
+    expect(Object.keys(response.body).sort()).toEqual(['language', 'minOpportunities', 'sessionsUsed', 'types', 'weakRate', 'weakTypes', 'window']);
+    expect(response.body).toMatchObject({ language: 'vi', window: 10, minOpportunities: 20, weakRate: 15, sessionsUsed: 0, weakTypes: [] });
     expect(response.body.types).toEqual(
       Object.values(WordError).map((type) => ({
         type,

@@ -1,5 +1,6 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import { AvatarLook, DEFAULT_AVATAR } from '../data/avatar-catalog';
+import { type TypingLanguage, typingLanguages } from '../utils/typing-language';
 import { SubscriptionModel } from './subscription.model';
 
 export const USER_ROLES = ['user', 'admin'] as const;
@@ -52,6 +53,11 @@ export interface UserDocument extends mongoose.Document {
     lightTheme: Types.ObjectId | null;
     /** IANA time zone of the learner's days: streak, daily mission and profile heatmap (SCRUM-31). Sent by the browser. */
     timezone: string;
+    /**
+     * The language the learner types in Practice (SCRUM-219, US2.7), `vi` until they switch: it picks the passages and the
+     * error set of their practice sessions and of the stats they see. The placement test is always Vietnamese.
+     */
+    typingLanguage: TypingLanguage;
   };
   /** The pixel avatar the user wears (ranked duel design, section 7). Missing on accounts saved before: `DEFAULT_AVATAR`. */
   avatar: AvatarLook;
@@ -104,7 +110,8 @@ const userSchema = new Schema<UserDocument>(
           darkTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null },
           lightTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null },
           // Checked by `PATCH /api/profile/settings`, not here: a zone unknown to a later server must not block a save.
-          timezone: { type: String, default: DEFAULT_TIMEZONE }
+          timezone: { type: String, default: DEFAULT_TIMEZONE },
+          typingLanguage: { type: String, enum: typingLanguages, default: 'vi' }
         },
         { _id: false }
       ),

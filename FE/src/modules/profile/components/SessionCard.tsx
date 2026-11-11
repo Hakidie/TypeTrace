@@ -1,15 +1,17 @@
 import { Link } from 'react-router-dom';
 import { ListRow, ListRowStat } from '@/shared/components/list-row';
-import { formatTimeLimit, modeIcons } from '@/modules/typing/typing.config';
+import { formatTimeLimit, languageCodes, modeIcons } from '@/modules/typing/typing.config';
 import type { SessionSummary } from '../types/profile.types';
 import { SessionLine } from './SessionLine';
 
 /**
  * One finished typing session, built like the user card of the admin area (`ListRow`): the icon of the mode and the passage name on
  * the left, the speed line (where the heatmap is) in the middle, WPM, ACC and TIME (the time chosen) on the right; the date under the passage name, with no bottom tier. The whole card links to the result page of the session.
+ * The history holds both typing languages (SCRUM-219): the language of the session (VI, EN) follows the date.
  */
 export const SessionCard = ({ session }: { session: SessionSummary }) => {
   const ModeIcon = modeIcons[session.mode];
+  const language = session.language ?? 'vi';
   const title = session.passageTitle ?? 'Untitled passage';
   const date = new Date(session.completedAt ?? session.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   return (
@@ -28,7 +30,9 @@ export const SessionCard = ({ session }: { session: SessionSummary }) => {
             </span>
             <div className="min-w-0">
               <p className="truncate text-2xl font-extrabold text-primary/80">{title}</p>
-              <p className="truncate text-lg text-muted-foreground">{date}</p>
+              <p className="truncate text-lg text-muted-foreground">
+                <span>{date}</span> · <span>{languageCodes[language]}</span>
+              </p>
             </div>
           </div>
         }

@@ -100,7 +100,7 @@ describe('PATCH /api/profile/settings (SCRUM-31)', () => {
     const response = await patchSettings(bearerFor(user), { timezone: 'UTC', mode: 'dark', darkTheme: String(new Types.ObjectId()) });
 
     expect(response.status).toBe(200);
-    expect(response.body.settings).toEqual({ mode: 'light', darkTheme: null, lightTheme: String(lightTheme), timezone: 'UTC' });
+    expect(response.body.settings).toEqual({ mode: 'light', darkTheme: null, lightTheme: String(lightTheme), timezone: 'UTC', typingLanguage: 'vi' });
   });
 
   it('answers 400 for a missing, empty, unknown or too long zone, and keeps the saved one', async () => {

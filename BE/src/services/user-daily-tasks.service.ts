@@ -8,6 +8,7 @@ import { DayNumbers, UserDailyTask, UserDailyTasksDocument, UserDailyTasksModel 
 import { UserModel } from '../models/user.model';
 import { notFound } from '../utils/app-error';
 import { addDays, localDateKey } from '../utils/local-date';
+import { sessionsIn } from '../utils/typing-language';
 import { WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { getAppSettings } from './app-setting.service';
 import { learnerTimeZone, usableTimeZone } from './daily-progress.service';
@@ -41,13 +42,14 @@ export const rankWeakErrorTypes = (errors: ErrorCounts, chances: ErrorCounts): W
 };
 
 /**
- * The learner's weak error types (`rankWeakErrorTypes`) in their last `WEAKNESS_SESSIONS` counted sessions. A session
- * adds its errors and chances of a type only with at least `MIN_FOCUS_CHANCES` chances of it, the sessions that can move
- * a task focused on that type (`dayNumbersOf`): a type met only a few times in each of them would otherwise be ranked
+ * The learner's weak error types (`rankWeakErrorTypes`) in their last `WEAKNESS_SESSIONS` counted Vietnamese sessions (the
+ * tasks focus on Vietnamese error types: English sessions, SCRUM-219, would only take places with no chance of them). A
+ * session adds its errors and chances of a type only with at least `MIN_FOCUS_CHANCES` chances of it, the sessions that can
+ * move a task focused on that type (`dayNumbersOf`): a type met only a few times in each of them would otherwise be ranked
  * weak and handed out as a task that sessions like theirs never move.
  */
 const weakErrorTypesOf = async (owner: OwnerId) => {
-  const sessions = await TypingSessionModel.find({ owner, status: 'completed', isCounted: true })
+  const sessions = await TypingSessionModel.find({ owner, status: 'completed', isCounted: true, ...sessionsIn('vi') })
     .sort({ completedAt: -1 })
     .limit(WEAKNESS_SESSIONS)
     .select('errorCounts opportunityCounts')
