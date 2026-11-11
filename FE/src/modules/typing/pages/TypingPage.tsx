@@ -1,6 +1,7 @@
-import { Gamepad2, Lock, RotateCcw, Trophy } from 'lucide-react';
+import { Gamepad2, Languages, Lock, RotateCcw, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
 import { useStartTutorial } from '@/modules/tutorial/hooks/use-tutorial';
 import { RankMode } from '@/modules/ranked/components/RankMode';
@@ -14,12 +15,12 @@ import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 import { redGlassTheme } from '@/shared/lib/red-glass-theme';
-import { type TypingLanguage, typingLanguages } from '@/shared/lib/typing-language';
+import { type TypingLanguage } from '@/shared/lib/typing-language';
 import { MinigamesMode, type MinigameId } from '../components/MinigamesMode';
 import { TypingArea, TypingStatus } from '../components/TypingArea';
 import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession } from '../hooks/use-typing';
 import type { ReplayEvent, SessionMode, StartSessionInput } from '../types/typing.types';
-import { languageCodes, modeIcons, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
+import { languageNames, modeIcons, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
@@ -32,8 +33,9 @@ const modeTabs = [
   { value: 'minigames', label: 'Minigames', icon: Gamepad2 },
 ];
 
-// The language the learner types in Practice (SCRUM-219), left of the passage name: VI, EN.
-const languageTabs = typingLanguages.map((value) => ({ value, label: languageCodes[value] }));
+
+const IME_HINT = 'Turn off Vietnamese input (Unikey, EVKey) to type English.';
+const IME_HINT_ID = 'ime-hint';
 
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
 // second choice (20 seconds) is the one selected at first in Practice, 1 minute in the placement test (`defaultTimeOf`);
@@ -240,6 +242,35 @@ export const TypingPage = () => {
     });
   };
   // The Placement tab is hidden while the learner types English; it comes back with VI (or while the test is open).
+  // The language switch, Practice only (the placement test is always Vietnamese): one button, built like Restart, at the top
+  // center of the passage. It shows the language being typed and a click switches to the other one. Also shown while the
+  // passage loads or fails, so a language with no passage can be left.
+  const current = language ?? 'vi';
+  const other: TypingLanguage = current === 'vi' ? 'en' : 'vi';
+  const languageSwitch =
+    mode === 'practice' && !game ? (
+      <Button
+        variant="ghost"
+        className="h-auto gap-2 px-4 py-2 text-[1.125rem] text-muted-foreground"
+        aria-label={`Typing language: ${languageNames[current]}. Switch to ${languageNames[other]}`}
+        onClick={() => switchLanguage(other)}
+        disabled={language === undefined || savingLanguage || start.isPending || complete.isPending}
+      >
+        <Languages className="size-5" /> {languageNames[current]}
+      </Button>
+    ) : undefined;
+
+  // An input method for Vietnamese (Telex, VNI) turns English words into Vietnamese ones ("dd" into "đ"): a notification
+  // while the learner types English in Practice, with one id so it never stacks, taken back when the language or mode changes.
+  const imeHint = mode === 'practice' && !game && language === 'en';
+  useEffect(() => {
+    if (!imeHint) return;
+    toast.info(IME_HINT, { id: IME_HINT_ID, duration: 8000 });
+    return () => {
+      toast.dismiss(IME_HINT_ID);
+    };
+  }, [imeHint]);
+
   const tabs = language === 'en' && mode !== 'placement' ? modeTabs.filter((tab) => tab.value !== 'placement') : modeTabs;
 
   // A new session on the picked passage (a random one when none is picked): used by Restart and when the time is up.
@@ -278,16 +309,6 @@ export const TypingPage = () => {
           {!game && (
           <DropdownMenu>
             <div className="flex outline outline-1 -outline-offset-1 outline-border">
-              {/* The language switch, Practice only: the placement test is always Vietnamese. */}
-              {mode === 'practice' && (
-                <TabGroup
-                  label="Typing language"
-                  framed={false}
-                  tabs={languageTabs.map((tab) => ({ ...tab, disabled: language === undefined || savingLanguage || start.isPending || complete.isPending }))}
-                  value={language ?? 'vi'}
-                  onChange={(value) => switchLanguage(value as TypingLanguage)}
-                />
-              )}
               <DropdownMenuTrigger disabled={complete.isPending} title={passageTitle} aria-label="Choose passage" className={cn(chipClass, randomPassage ? 'text-muted-foreground' : 'text-primary')}>
                 <span className="truncate">{passageTitle ?? '—'}</span>
               </DropdownMenuTrigger>
@@ -355,12 +376,6 @@ export const TypingPage = () => {
           Only 3-minute placement sessions go on the leaderboard.
         </p>
       )}
-      {/* An input method for Vietnamese (Telex, VNI) turns English words into Vietnamese ones ("dd" into "đ"). */}
-      {mode === 'practice' && !game && language === 'en' && (
-        <p role="status" className="text-center text-muted-foreground">
-          Turn off Vietnamese input (Unikey, EVKey) to type English.
-        </p>
-      )}
       <ConfirmDialog
         open={placementPrompt.open}
         onOpenChange={(open) => setPlacementPrompt({ open })}
@@ -392,6 +407,7 @@ export const TypingPage = () => {
           key={session._id}
           targetWords={session.targetWords}
           language={session.language ?? 'vi'}
+          header={languageSwitch}
           disabled={complete.isPending}
           onStart={() => begin.mutate(session._id)}
           onFinish={finish}
@@ -411,6 +427,7 @@ export const TypingPage = () => {
       ) : (
         <>
           <div className="mx-auto my-auto w-full max-w-7xl">
+            {languageSwitch && <div className="mb-4 flex justify-center">{languageSwitch}</div>}
             {start.isError ? <ErrorState error={start.error} onRetry={restart} /> : <LoadingState rows={2} />}
           </div>
           {/* The words and the clock stay while the next session loads. */}

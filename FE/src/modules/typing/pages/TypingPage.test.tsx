@@ -1,12 +1,15 @@
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor, within } from '@testing-library/react';
 import { Link, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
 import { resetMinigameLang } from '@/shared/hooks/use-minigame-lang';
 import { createTestQueryClient, renderWithProviders } from '@/test/render-with-providers';
 import { decodeReplay, replayTextAt } from '../utils/session-replay';
 import { TypingPage } from './TypingPage';
+
+vi.mock('sonner', () => ({ toast: { info: vi.fn(), dismiss: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
 const start = vi.fn();
 const begin = vi.fn();
@@ -95,6 +98,8 @@ const renderPage = () =>
 const UrlSearch = () => <p aria-label="URL search">{useLocation().search}</p>;
 
 beforeEach(() => {
+  vi.mocked(toast.info).mockClear();
+  vi.mocked(toast.dismiss).mockClear();
   startTutorial.mockReset();
   sessionStorage.clear();
   start.mockReset().mockResolvedValue(session);
@@ -713,26 +718,27 @@ describe('TypingPage', () => {
 });
 
 describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
-  const switcher = () => screen.getByRole('radiogroup', { name: 'Typing language' });
+  // One button: it shows the language being typed and switches to the other one.
+  const switcher = () => screen.getByRole('button', { name: /^Typing language:/ });
   const imeHint = 'Turn off Vietnamese input (Unikey, EVKey) to type English.';
 
-  it('switches Practice to English next to the passage name: saved first, then a new passage of that language', async () => {
+  it('switches Practice to English with the language button: saved first, then a new passage of that language', async () => {
     const user = userEvent.setup();
     renderWithProviders(<TypingPage />, { route: '/typing', queryClient: clientFor('vi') });
     await screen.findByRole('textbox', { name: 'Typing area' });
-    expect(within(switcher()).getByRole('radio', { name: 'VI' })).toHaveAttribute('aria-checked', 'true');
+    expect(switcher()).toHaveTextContent('Vietnamese');
     expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
-    expect(screen.queryByText(imeHint)).not.toBeInTheDocument();
+    expect(toast.info).not.toHaveBeenCalledWith(imeHint, expect.anything());
 
-    await user.click(within(switcher()).getByRole('radio', { name: 'EN' }));
+    await user.click(switcher());
 
     await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
     expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'en' });
     // The server starts a session in the saved language: the save comes first.
     expect(updateSettings.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[1]);
     expect(start).toHaveBeenLastCalledWith({ mode: 'practice' });
-    expect(within(switcher()).getByRole('radio', { name: 'EN' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByText(imeHint)).toBeInTheDocument();
+    expect(switcher()).toHaveTextContent('English');
+    expect(toast.info).toHaveBeenCalledWith(imeHint, expect.objectContaining({ id: 'ime-hint' }));
     // The placement test is Vietnamese only: its tab is hidden while the learner types English.
     expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
 
@@ -745,16 +751,17 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     const user = userEvent.setup();
     renderWithProviders(<TypingPage />, { route: '/typing', queryClient: clientFor('en') });
     await screen.findByRole('textbox', { name: 'Typing area' });
-    expect(within(switcher()).getByRole('radio', { name: 'EN' })).toHaveAttribute('aria-checked', 'true');
+    expect(switcher()).toHaveTextContent('English');
     expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
-    expect(screen.getByText(imeHint)).toBeInTheDocument();
+    expect(toast.info).toHaveBeenCalledWith(imeHint, expect.objectContaining({ id: 'ime-hint' }));
 
-    await user.click(within(switcher()).getByRole('radio', { name: 'VI' }));
+    await user.click(switcher());
 
     await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
     expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' });
     expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
-    expect(screen.queryByText(imeHint)).not.toBeInTheDocument();
+    // Back on Vietnamese the notification is taken back.
+    expect(toast.dismiss).toHaveBeenCalledWith('ime-hint');
   });
 
   it('switches an English learner back to Vietnamese when the placement test opens (the tab, the tour or a link)', async () => {
@@ -766,7 +773,7 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     expect(updateSettings).toHaveBeenCalledOnce();
     expect(start).toHaveBeenCalledWith({ mode: 'placement', timeLimitSeconds: 60 });
     // No language switch in Placement, and its tab is there (and on) once the learner types Vietnamese again.
-    expect(screen.queryByRole('radiogroup', { name: 'Typing language' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Typing language:/ })).not.toBeInTheDocument();
     expect(await screen.findByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
   });
 
@@ -778,7 +785,7 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     expect(start).toHaveBeenCalledTimes(1);
     expect(start).toHaveBeenCalledWith({ mode: 'practice', passageId: 'p2' });
     expect(updateSettings.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[0]);
-    expect(within(switcher()).getByRole('radio', { name: 'VI' })).toHaveAttribute('aria-checked', 'true');
+    expect(switcher()).toHaveTextContent('Vietnamese');
   });
 
   it('types a random English passage when the switch back to Vietnamese cannot be saved', async () => {
@@ -788,7 +795,7 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     await screen.findByRole('textbox', { name: 'Typing area' });
     expect(start).toHaveBeenCalledTimes(1);
     expect(start).toHaveBeenCalledWith({ mode: 'practice' });
-    expect(within(switcher()).getByRole('radio', { name: 'EN' })).toHaveAttribute('aria-checked', 'true');
+    expect(switcher()).toHaveTextContent('English');
   });
 });
 
