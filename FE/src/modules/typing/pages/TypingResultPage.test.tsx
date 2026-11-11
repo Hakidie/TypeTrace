@@ -331,7 +331,7 @@ describe('TypingResultPage', () => {
 
     expect(await screen.findByRole('link', { name: 'Type again' })).toHaveAttribute('href', '/typing?mode=targeted');
     expect(await screen.findByText('Weak spots: hỏi / ngã, đ')).toBeInTheDocument();
-    expect(screen.getByText('Weak spots')).toBeInTheDocument();
+    expect(screen.getByText('Train')).toBeInTheDocument();
   });
 
   it('plays the replay in place of the typed passage on Replay, and shows the passage again on a second press (SCRUM-35)', async () => {

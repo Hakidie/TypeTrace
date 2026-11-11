@@ -310,7 +310,7 @@ describe('TypingPage', () => {
     renderPage();
     await screen.findByRole('textbox', { name: 'Typing area' });
 
-    expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Weak spots', 'Rank', 'Minigames']);
+    expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Rank', 'Train', 'Minigames']);
     expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radio', { name: 'Rank' })).toBeEnabled();
     expect(screen.getByText('Mùa thu Hà Nội')).toBeInTheDocument();
@@ -775,7 +775,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     renderAt('/typing');
     await screen.findByRole('textbox', { name: 'Typing area' });
 
-    await user.click(screen.getByRole('radio', { name: 'Weak spots' }));
+    await user.click(screen.getByRole('radio', { name: 'Train' }));
 
     const auto = await screen.findByRole('button', { name: 'Practice your weak spots' });
     // The auto card names the two weakest error types and their rates, as the server picks them.
@@ -886,14 +886,14 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     expect(back.compareDocumentPosition(restartButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByRole('button', { name: 'All weak spots' })).toHaveLength(1);
 
-    await user.click(screen.getByRole('radio', { name: 'Weak spots' }));
+    await user.click(screen.getByRole('radio', { name: 'Train' }));
 
     expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
     expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
 
     // On the cards the tab is already there: a click changes nothing.
-    await user.click(screen.getByRole('radio', { name: 'Weak spots' }));
+    await user.click(screen.getByRole('radio', { name: 'Train' }));
     expect(screen.getByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
     expect(start).toHaveBeenCalledTimes(1);
   });
@@ -1041,7 +1041,7 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     // Placement leaves the tabs while the learner types English; Weak spots stays, so it is always found.
     expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('radio', { name: 'Weak spots' }));
+    await user.click(screen.getByRole('radio', { name: 'Train' }));
 
     expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));

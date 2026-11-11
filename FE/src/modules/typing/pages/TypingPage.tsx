@@ -37,8 +37,8 @@ const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-color
 const modeTabs = [
   { value: 'practice', label: 'Practice', icon: modeIcons.practice },
   { value: 'placement', label: 'Placement', icon: modeIcons.placement },
-  { value: 'targeted', label: modeLabels.targeted, icon: modeIcons.targeted },
   { value: 'rank', label: 'Rank', icon: Trophy },
+  { value: 'targeted', label: modeLabels.targeted, icon: modeIcons.targeted },
   { value: 'minigames', label: 'Minigames', icon: Gamepad2 },
 ];
 
@@ -124,7 +124,7 @@ const FocusNote = ({ focus, chosen }: { focus: WordErrorType[]; chosen?: WordErr
     ) : chosen ? (
       `There are no words for ${errorLabels[chosen]} yet, so here is a random passage.`
     ) : (
-      'Your error profile does not have enough data yet, so here is a random passage. Weak spots aims at your errors once your counted sessions give it some.'
+      'Your error profile does not have enough data yet, so here is a random passage. Train aims at your errors once your counted sessions give it some.'
     )}
   </p>
 );
@@ -422,7 +422,7 @@ export const TypingPage = () => {
         />
         <div className="xl:justify-self-start">
           {/* Not in Rank (a duel lasts the time the server gives it) or a minigame (a Rain round lasts a minute). */}
-          <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', game && 'hidden')}>
+          <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', (game || weakSpotsCards) && 'hidden')}>
             <TabGroup
               label="Time"
               framed={false}
@@ -484,7 +484,7 @@ export const TypingPage = () => {
         <div className="mx-auto my-auto flex max-w-md flex-col items-center gap-4 text-center">
           <Lock className="size-8 text-muted-foreground" aria-hidden />
           <p className="text-muted-foreground">
-            Weak spots builds lessons from the words of the error types you get wrong most. Your plan does not include it.
+            Train builds lessons from the words of the error types you get wrong most. Your plan does not include it.
           </p>
           <Button onClick={() => setPlanOpen(true)}>See plans</Button>
           <Button variant="ghost" className="h-auto gap-2 px-3 py-1.5 text-base text-muted-foreground" onClick={backToWeakSpots}>

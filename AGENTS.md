@@ -146,7 +146,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   are sent with `GET /api/profile/error-profile`: never write them in the frontend. A feature that needs the learner's weak
   error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way); Weak spots reads
   `getTopErrorTypes` (every type with enough data, weak or not, highest rate first: `rankedTypes` of the answer).
-- Weak spots (SCRUM-28, US3.2; one error type: SCRUM-74) is the session mode `targeted` (the Weak spots tab of the Typing
+- Weak spots (SCRUM-28, US3.2; one error type: SCRUM-74) is the session mode `targeted` (the Train tab, called Weak spots before, of the Typing
   page): `POST /api/sessions { mode: 'targeted', errorType? }` types a lesson aimed at the learner's errors instead of a
   passage, built by `lessonFor` (`services/targeted-practice.service.ts`). The pure `buildLesson` picks 30 to 50 words of
   the bank (`lessonWords`), 60 to 70 % of them training the focus (the type chosen, else the 2 types with the highest error
@@ -163,7 +163,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   enough data yet, or no word for it) it types a random practice passage with `focusErrorTypes: []`, which the page explains.
   Weak spots is Vietnamese only (SCRUM-219): its session is always `language: 'vi'` (its random passage too), its focus comes
   from the Vietnamese sessions and its cards show the Vietnamese error profile, whatever the learner types in Practice. On the
-  Typing page the Weak spots tab opens its cards from anywhere, also from a lesson (it stays shown while the learner types
+  Typing page the Train tab opens its cards from anywhere, also from a lesson (it stays shown while the learner types
   English, and opening it switches them back to Vietnamese), and a lesson's other way back is the "All weak spots" button
   under the passage, left of Restart. The passage menu and `GET /api/passages` take `passageModes` (practice, placement),
   never `targeted`.
@@ -189,7 +189,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `admin` (`grantPremium` queues the months as a new term that starts when the last one ends, so every term keeps its own dates; `cancelPremium` lets the paid time run out, `revokePremium` stops it at once; `changedBy` is the admin), `auto`, `migration`. What a
   plan gives (`priceVnd`, `maxPassages`, `canCreateErrorPractice`, `canUsePublicPassages`) is `AppSettings.plans`
   (`getPlanConfig`, defaults `DEFAULT_PLANS`: Free 9 passages, Premium 90): Weak spots (US3.2) checks `canCreateErrorPractice`
-  (`assertCanPracticeWeakSpots`, 403; the Weak spots cards of the Typing page show a lock and open `PlanDialog`).
+  (`assertCanPracticeWeakSpots`, 403; the Train cards of the Typing page show a lock and open `PlanDialog`).
   `MAX_USER_PASSAGES` is gone: `passage-lock.service.ts` counts every passage the learner made (draft, private, pending,
   rejected, public; not archived, placement, ranked or English ones, never an admin's or a deleted account's) and locks, when they have more than their plan's
   `maxPassages`, all but the newest ones (`getLockedPassageIds`, worked out on every read, nothing stored: buying Premium,
