@@ -1,4 +1,5 @@
 import { http } from '@/shared/api/http';
+import type { ChartRange } from '@/modules/profile/types/profile.types';
 import type { Paginated } from '@/shared/api/types';
 import type {
   DailyTask,
@@ -6,6 +7,7 @@ import type {
   DailyTaskListItem,
   DailyTaskListParams,
   DailyTaskSettings,
+  TaskCompletionsChartData,
   MinigameKind,
 } from '../types/daily-task.types';
 
@@ -22,6 +24,9 @@ export const dailyTasksApi = {
   update: (id: string, input: Partial<DailyTaskInput>) =>
     http.patch<DailyTask>(`/admin/daily-tasks/${id}`, input).then((r) => r.data),
   remove: (id: string) => http.delete(`/admin/daily-tasks/${id}`).then(() => undefined),
+  /** The learners who completed tasks over a year, a month or a week (the one that holds `date`). */
+  completionsOverTime: (range: ChartRange, date: string) =>
+    http.get<TaskCompletionsChartData>('/admin/daily-tasks/completions-over-time', { params: { range, date } }).then((r) => r.data),
   getSettings: () => http.get<DailyTaskSettings>('/admin/daily-tasks/settings').then((r) => r.data),
   updateSettings: (settings: DailyTaskSettings) =>
     http.put<DailyTaskSettings>('/admin/daily-tasks/settings', settings).then((r) => r.data),

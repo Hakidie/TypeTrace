@@ -149,15 +149,19 @@ const PassageBank = ({
       );
     }
     return (
-      <div className="space-y-3">
-        {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar above and the pages below */}
-        <div className="-mx-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <>
+        {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar above and the pages below. From `lg` up the grid takes the height of the panel: three rows of cards that show as many lines of text as fit. */}
+        <div
+          className="-mx-4 grid gap-4 sm:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-[repeat(3,minmax(0,1fr))]"
+          aria-label="Passage cards"
+        >
           {passages.data.items.map((passage) => (
             <PassageCard
               key={passage._id}
               passage={passage}
               onEdit={startEditing}
               onDelete={setDeleting}
+              fitText
             />
           ))}
         </div>
@@ -170,7 +174,7 @@ const PassageBank = ({
           plain
           flushRight
         />
-      </div>
+      </>
     );
   };
 
@@ -191,14 +195,15 @@ const PassageBank = ({
           }}
           onDelete={setDeleting}
         />
-        <div className="mt-3 flex shrink-0 items-center justify-center">
-          <PanelTitleSwitch
-            other="Passage list"
-            showLabel
-            onClick={() => onShowList(true)}
-          />
-        </div>
       </Panel>
+      {/* Apart from the panel, 12px under it; the panel takes the height the screen leaves. */}
+      <div className="mt-3 flex shrink-0 items-center justify-center">
+        <PanelTitleSwitch
+          other="Passage list"
+          showLabel
+          onClick={() => onShowList(true)}
+        />
+      </div>
     </div>
   );
   const backToForm = (
@@ -221,58 +226,64 @@ const PassageBank = ({
           {backToForm}
         </div>
       ) : (
-        // PANEL Passages
-        <Panel
-          title="Passage list"
-          titleAction={<PanelTitleSwitch other="Pending review" onClick={onSwitchView} />}
-          bare
-          titleClassName={sectionTitleClass}
-          className="space-y-3"
-          actions={
-            <CompactToolbar
-              showWords
-              search={{
-                label: "Search passages",
-                placeholder: "Search title or source…",
-                defaultValue: list.q,
-                onSearch: (value) => list.set("q", value),
-              }}
-              sort={{
-                value: list.sort,
-                options: SORT_OPTIONS,
-                onChange: (value) => list.set("sort", value),
-              }}
-              filters={[
-                {
-                  label: "Status",
-                  value: status,
-                  options: STATUS_OPTIONS,
-                  onChange: (value) => list.set("status", value),
-                },
-                {
-                  label: "Type",
-                  value: type,
-                  options: TYPE_OPTIONS,
-                  onChange: (value) => list.set("type", value),
-                },
-                {
-                  label: "Language",
-                  value: language,
-                  options: LANGUAGE_OPTIONS,
-                  onChange: (value) => list.set("language", value),
-                },
-              ]}
-              count={{
-                icon: FileText,
-                value: passages.data?.total ?? "…",
-                label: "Passages",
-              }}
-            />
-          }
-        >
-          {renderList()}
+        // The button apart from the panel, 12px under it (`space-y-3` of this wrapper, not the page's gap).
+        <div className="flex flex-col gap-3 lg:min-h-[28rem] lg:flex-1">
+          {/* PANEL Passages */}
+          <Panel
+            fill
+            title="Passage list"
+            titleAction={
+              <PanelTitleSwitch other="Pending review" onClick={onSwitchView} />
+            }
+            bare
+            titleClassName={sectionTitleClass}
+            className="flex min-h-0 flex-1 flex-col gap-3"
+            actions={
+              <CompactToolbar
+                showWords
+                search={{
+                  label: "Search passages",
+                  placeholder: "Search title or source…",
+                  defaultValue: list.q,
+                  onSearch: (value) => list.set("q", value),
+                }}
+                sort={{
+                  value: list.sort,
+                  options: SORT_OPTIONS,
+                  onChange: (value) => list.set("sort", value),
+                }}
+                filters={[
+                  {
+                    label: "Status",
+                    value: status,
+                    options: STATUS_OPTIONS,
+                    onChange: (value) => list.set("status", value),
+                  },
+                  {
+                    label: "Type",
+                    value: type,
+                    options: TYPE_OPTIONS,
+                    onChange: (value) => list.set("type", value),
+                  },
+                  {
+                    label: "Language",
+                    value: language,
+                    options: LANGUAGE_OPTIONS,
+                    onChange: (value) => list.set("language", value),
+                  },
+                ]}
+                count={{
+                  icon: FileText,
+                  value: passages.data?.total ?? "…",
+                  label: "Passages",
+                }}
+              />
+            }
+          >
+            {renderList()}
+          </Panel>
           {backToForm}
-        </Panel>
+        </div>
       )}
       {/* One confirmation for both ways to delete for good: the card's Delete icon and Delete passage in the edit form. */}
       <ConfirmDialog

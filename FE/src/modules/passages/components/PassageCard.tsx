@@ -68,6 +68,8 @@ interface PassageCardProps {
   review?: PassageReview;
   /** A card of the learner's Passages page: the icon buttons at the top right (Practice always, the others when given). */
   own?: OwnPassageActions;
+  /** Shows as many lines of the text as the card has room for (`FitText`), as the learner's cards do: for a list that fills the screen. */
+  fitText?: boolean;
 }
 
 /**
@@ -165,7 +167,7 @@ const FitText = ({ children }: { children: string }) => {
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageCardProps) => {
+export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }: PassageCardProps) => {
   // The admin's passage has `updatedAt`; the learner's list item has not. `review` and `onEdit` come with the first, `own`
   // with the second.
   const full = 'updatedAt' in passage ? passage : undefined;
@@ -280,7 +282,7 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
           </p>
         )}
         {shown.content &&
-          (own ? <FitText>{shown.content}</FitText> : <p className="line-clamp-3 min-h-[4.5rem] text-base text-muted-foreground">{shown.content}</p>)}
+          (own || fitText ? <FitText>{shown.content}</FitText> : <p className="line-clamp-3 min-h-[4.5rem] text-base text-muted-foreground">{shown.content}</p>)}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <span className="text-sm text-primary/70">{passage.wordCount} words</span>
           <div className="flex flex-wrap items-center justify-end gap-2">

@@ -176,10 +176,11 @@ export const PassagesPage = () => {
           <Panel bare fill>
             <h2 className="sr-only">{editingId ? 'Edit passage' : 'New passage'}</h2>
             {renderForm()}
-            <div className="mt-3 flex shrink-0 items-center justify-center">
-              <PanelTitleSwitch other="My Passages" showLabel onClick={() => setView('list')} />
-            </div>
           </Panel>
+          {/* Apart from the panel, 12px under it; the panel takes the height the screen leaves. */}
+          <div className="mt-3 flex shrink-0 items-center justify-center">
+            <PanelTitleSwitch other="My Passages" showLabel onClick={() => setView('list')} />
+          </div>
         </div>
       ) : (
         <div className="lg:flex lg:min-h-[28rem] lg:flex-1 lg:flex-col">
@@ -208,10 +209,11 @@ export const PassagesPage = () => {
           >
             {renderList()}
             {pagination}
-            <div className="flex shrink-0 items-center justify-center">
-              <PanelTitleSwitch other={editingId ? 'Edit passage' : 'New passage'} showLabel onClick={() => setView('form')} />
-            </div>
           </Panel>
+          {/* Apart from the panel, 12px under it (`mt-3`). */}
+          <div className="mt-3 flex shrink-0 items-center justify-center">
+            <PanelTitleSwitch other={editingId ? 'Edit passage' : 'New passage'} showLabel onClick={() => setView('form')} />
+          </div>
         </div>
       )}
 
