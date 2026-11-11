@@ -2,10 +2,12 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
+import { minigamePlaysApi } from '@/modules/daily-tasks/api/daily-tasks.api';
 import { wordChainApi } from '../api/word-chain.api';
 import { WordChainMode } from './WordChainMode';
 
 vi.mock('../api/word-chain.api', () => ({ wordChainApi: { words: vi.fn(), saveScore: vi.fn(), board: vi.fn() } }));
+vi.mock('@/modules/daily-tasks/api/daily-tasks.api', () => ({ minigamePlaysApi: { start: vi.fn(), finish: vi.fn() } }));
 vi.mock('@/modules/auth/hooks/use-current-user', () => ({
   useCurrentUser: () => ({ data: { _id: 'u1' } }),
 }));
@@ -19,6 +21,8 @@ describe('WordChainMode', () => {
   beforeEach(() => {
     vi.mocked(wordChainApi.words).mockResolvedValue(LIST);
     vi.mocked(wordChainApi.saveScore).mockResolvedValue({ score: 1 });
+    vi.mocked(minigamePlaysApi.start).mockReset().mockResolvedValue({ id: 'p1' });
+    vi.mocked(minigamePlaysApi.finish).mockReset().mockResolvedValue({ counted: true });
     vi.mocked(wordChainApi.board).mockResolvedValue({
       range: 'week',
       items: [{ rank: 1, displayName: 'Lan', avatar: { skin: 'a' } as never, score: 12, isMe: false }],
@@ -115,6 +119,20 @@ describe('WordChainMode', () => {
       ),
     );
     expect(wordChainApi.saveScore).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a play of the game when it starts and closes it when it ends, also without a point (SCRUM-300)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-09T10:00:00Z'));
+    await startGame();
+    await waitFor(() => expect(minigamePlaysApi.start).toHaveBeenCalledWith('chain'));
+    expect(minigamePlaysApi.finish).not.toHaveBeenCalled();
+
+    vi.setSystemTime(new Date('2026-11-09T10:05:00Z'));
+
+    await waitFor(() => expect(minigamePlaysApi.finish).toHaveBeenCalledWith('p1'));
+    expect(minigamePlaysApi.finish).toHaveBeenCalledTimes(1);
+    expect(wordChainApi.saveScore).not.toHaveBeenCalled();
   });
 
   it('shows an error with a retry when the word list cannot load', async () => {

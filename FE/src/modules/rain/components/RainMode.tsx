@@ -2,6 +2,7 @@ import { CloudRain, Heart, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
+import { useMinigamePlay } from '@/modules/daily-tasks/hooks/use-minigame-play';
 import { tutorialStore, useTutorialHold } from '@/modules/tutorial/lib/tutorial-store';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -47,6 +48,12 @@ export const RainMode = () => {
   const hold = useTutorialHold() === 'rain-word';
   const [heldId, setHeldId] = useState<string | null>(null);
   const { state, paused, start, input, land, togglePause } = useRainGame(hold && heldId !== null);
+  // A round that runs to its end counts for the daily task `minigames` (SCRUM-300).
+  const { begin: beginPlay, finish: finishPlay } = useMinigamePlay('rain');
+  const ended = state.phase === 'won' || state.phase === 'lost';
+  useEffect(() => {
+    if (ended) finishPlay();
+  }, [ended, finishPlay]);
   const box = useRef<HTMLInputElement>(null);
   const list = useMemo(() => words.data?.words ?? [], [words.data]);
   const playing = state.phase === 'playing';
@@ -59,7 +66,10 @@ export const RainMode = () => {
     if (heldTyped) tutorialStore.completeHold();
   }, [heldTyped]);
 
-  const begin = useCallback(() => start(shuffled(list), laneCount()), [start, list]);
+  const begin = useCallback(() => {
+    beginPlay();
+    start(shuffled(list), laneCount());
+  }, [beginPlay, start, list]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

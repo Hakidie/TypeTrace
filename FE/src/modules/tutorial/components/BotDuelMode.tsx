@@ -1,5 +1,6 @@
 import { CloudRain, Languages } from 'lucide-react';
 import { useState } from 'react';
+import { useMinigamePlay } from '@/modules/daily-tasks/hooks/use-minigame-play';
 import { useRainWords } from '@/modules/rain/hooks/use-rain';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -67,6 +68,12 @@ export const BotDuelMode = () => {
   const t = TEXT[lang];
   /** The level picked (none: the picker), the round (a new one remounts the duel) and, once it ended, its numbers. */
   const [duel, setDuel] = useState<{ level: BotLevel; round: number; stats?: CoachStats } | null>(null);
+  // Each duel that runs to its end counts for the daily task `minigames` (SCRUM-300); the tutorial's own duel does not.
+  const { begin: beginPlay, finish: finishPlay } = useMinigamePlay('bot');
+  const openDuel = (level: BotLevel, round: number) => {
+    beginPlay();
+    setDuel({ level, round });
+  };
 
   if (words.isLoading) return <LoadingState rows={2} />;
   if (words.isError) return <ErrorState error={words.error} onRetry={() => words.refetch()} />;
@@ -79,7 +86,7 @@ export const BotDuelMode = () => {
         lang={lang}
         againLabel={t.again}
         nextLabel={t.change}
-        onAgain={() => setDuel({ level: duel.level, round: duel.round + 1 })}
+        onAgain={() => openDuel(duel.level, duel.round + 1)}
         onRank={() => setDuel(null)}
       />
     );
@@ -90,7 +97,10 @@ export const BotDuelMode = () => {
         words={words.data.words}
         level={duel.level}
         skipLabel={t.leave}
-        onDone={(stats) => setDuel({ ...duel, stats })}
+        onDone={(stats) => {
+          finishPlay();
+          setDuel({ ...duel, stats });
+        }}
         onSkip={() => setDuel(null)}
       />
     );
@@ -109,7 +119,7 @@ export const BotDuelMode = () => {
             <button
               key={level}
               type="button"
-              onClick={() => setDuel({ level, round: 1 })}
+              onClick={() => openDuel(level, 1)}
               className="group flex cursor-pointer flex-col items-center gap-3 border border-primary/20 bg-background/40 p-5 text-center backdrop-blur-sm transition-colors hover:border-primary/60 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="text-lg font-bold">

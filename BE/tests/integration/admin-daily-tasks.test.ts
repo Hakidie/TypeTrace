@@ -1,6 +1,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppSettingModel } from '../../src/models/app-setting.model';
 import { DailyTaskModel } from '../../src/models/daily-task.model';
+import { MatchModel } from '../../src/models/match.model';
+import { MinigamePlayModel } from '../../src/models/minigame-play.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
 import { UserModel } from '../../src/models/user.model';
 import { updateDailyTask } from '../../src/services/admin-daily-task.service';
@@ -70,7 +72,7 @@ describe('POST /api/admin/daily-tasks', () => {
 
   it('takes a description, an inactive task and the largest target of each type', async () => {
     const auth = await signInAdmin();
-    const largest = { sessions: 20, minutes: 120, wpm: 200, accuracy: 100 };
+    const largest = { sessions: 20, minutes: 120, wpm: 200, accuracy: 100, minigames: 10 };
 
     for (const [type, target] of Object.entries(largest)) {
       const response = await create(auth, { title: `Max ${type}`, type, target, description: ' Cố lên ', isActive: false });
@@ -82,12 +84,13 @@ describe('POST /api/admin/daily-tasks', () => {
   it('refuses a target above the most of its type, naming the field', async () => {
     const auth = await signInAdmin();
 
-    for (const [type, target] of [['sessions', 21], ['minutes', 121], ['wpm', 201], ['accuracy', 101]] as const) {
+    for (const [type, target] of [['sessions', 21], ['minutes', 121], ['wpm', 201], ['accuracy', 101], ['minigames', 11]] as const) {
       const response = await create(auth, { ...input, type, target });
       expect(response.status).toBe(400);
       expect(fieldsOf(response)).toEqual(['target']);
     }
     expect((await create(auth, { ...input, type: 'accuracy', target: 101 })).body.errors[0].message).toBe('At most 100 for type accuracy');
+    expect((await create(auth, { ...input, type: 'minigames', target: 11 })).body.errors[0].message).toBe('At most 10 for type minigames');
     expect(await DailyTaskModel.countDocuments()).toBe(0);
   });
 
@@ -246,6 +249,37 @@ describe('GET /api/admin/daily-tasks: the learners who completed each task in th
     });
   });
 
+  it('counts a minigames task in the hour of the finish of its last needed minigame or duel', async () => {
+    const auth = await signInAdmin();
+    await create(auth, { title: 'Hai trò', type: 'minigames', target: 2 });
+    const an = await createUser({ email: 'an@example.com' });
+    const binh = await createUser({ email: 'binh@example.com' });
+    const finishPlay = async (learner: { _id: unknown }, time: string) => {
+      const finishedAt = new Date(time);
+      await MinigamePlayModel.create({ owner: learner._id, game: 'rain', startedAt: new Date(finishedAt.getTime() - 60_000), finished: true, finishedAt });
+      await recordDailyTaskProgress(learner._id, finishedAt);
+    };
+
+    await finishPlay(an, '2026-03-10T01:10:00.000Z');
+    // A won duel is her second minigame: that completes the task, at the end of the duel.
+    const endedAt = new Date('2026-03-10T03:20:00.000Z');
+    await MatchModel.create({
+      code: 'DUELAN',
+      kind: 'rain',
+      status: 'finished',
+      flagged: false,
+      passageTitle: 'Rain',
+      targetWords: ['a'],
+      endedAt,
+      players: [{ user: an._id, displayName: 'An', avatar: an.avatar, result: 'win' }]
+    });
+    await recordDailyTaskProgress(an._id, endedAt);
+    // He played only one.
+    await finishPlay(binh, '2026-03-10T05:00:00.000Z');
+
+    expect(await completionsOf(auth)).toEqual({ 'Hai trò': { learners: 1, hours: { '2026-03-10T03:00:00.000Z': 1 } } });
+  });
+
   it('leaves out a task completed before the 24 hours, and counts a learner once in all when two of their days completed it', async () => {
     const auth = await signInAdmin();
     await create(auth, { title: 'Một phiên', type: 'sessions', target: 1 });
@@ -357,7 +391,7 @@ describe('the error type an accuracy task focuses on (SCRUM-112)', () => {
   it('refuses an error type on a task of another type, naming the field', async () => {
     const auth = await signInAdmin();
 
-    for (const type of ['sessions', 'minutes', 'wpm']) {
+    for (const type of ['sessions', 'minutes', 'wpm', 'minigames']) {
       const response = await create(auth, { title: 'Ba phiên', type, target: 3, errorType: 'TONE_WRONG' });
       expect(response.status).toBe(400);
       expect(response.body).toEqual(onlyAccuracy);
@@ -514,5 +548,45 @@ describe('daily task settings', () => {
 
     for (const body of bodies) expect((await saveSettings(auth, body)).status).toBe(400);
     expect((await readSettings(auth)).body).toEqual({ dailyTaskCount: 4 });
+  });
+});
+
+describe('the coins of a task (SCRUM-301)', () => {
+  it('are 0 on a new task, and can be set on create and update, from 0 to 100', async () => {
+    const auth = await signInAdmin();
+
+    const made = await create(auth);
+    expect(made.status).toBe(201);
+    expect(made.body.coins).toBe(0);
+
+    expect((await create(auth, { ...input, coins: 100 })).body.coins).toBe(100);
+    const changed = await update(auth, made.body._id, { coins: 25 });
+    expect(changed.status).toBe(200);
+    expect(changed.body.coins).toBe(25);
+    expect((await update(auth, made.body._id, { coins: 0 })).body.coins).toBe(0);
+  });
+
+  it('refuse a negative number, one above 100 and a number that is not whole, naming the field', async () => {
+    const auth = await signInAdmin();
+    const made = await create(auth);
+
+    for (const coins of [-1, 101, 2.5, '10', null]) {
+      const created = await create(auth, { ...input, coins });
+      expect(created.status).toBe(400);
+      expect(fieldsOf(created)).toEqual(['coins']);
+      const updated = await update(auth, made.body._id, { coins });
+      expect(updated.status).toBe(400);
+      expect(fieldsOf(updated)).toEqual(['coins']);
+    }
+    expect((await DailyTaskModel.findById(made.body._id))!.coins).toBe(0);
+  });
+
+  it('are listed with each task', async () => {
+    const auth = await signInAdmin();
+    await create(auth, { ...input, coins: 30 });
+
+    const list = await api().get('/api/admin/daily-tasks').set('Authorization', auth);
+
+    expect(list.body.items[0].coins).toBe(30);
   });
 });

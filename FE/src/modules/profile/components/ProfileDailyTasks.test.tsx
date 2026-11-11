@@ -17,6 +17,8 @@ const task = (id: string, title: string, extra: Partial<DailyTaskProgress> = {})
   description: '',
   type: 'sessions',
   target: 3,
+  coins: 0,
+  rewarded: false,
   progress: 0,
   completed: false,
   ...extra,
@@ -34,6 +36,21 @@ beforeEach(() => {
 });
 
 describe('ProfileDailyTasks (SCRUM-112)', () => {
+  it('shows a minigames task in minigames, with the singular for one (SCRUM-300)', async () => {
+    getDailyTasks.mockResolvedValue(
+      today(
+        task('t1', 'Play games', { type: 'minigames', target: 3, progress: 1 }),
+        task('t2', 'One game', { type: 'minigames', target: 1, progress: 1, completed: true }),
+      ),
+    );
+    renderWithProviders(<ProfileDailyTasks />);
+
+    expect(await screen.findAllByRole('progressbar')).toHaveLength(2);
+    expect(within(itemOf('Play games')).getByText('1 / 3 minigames')).toBeInTheDocument();
+    expect(within(itemOf('One game')).getByText('1 / 1 minigame')).toBeInTheDocument();
+    expect(within(itemOf('One game')).getByText('Done')).toBeInTheDocument();
+  });
+
   it('shows each task with its description, a bar and the numbers in the unit of its type', async () => {
     getDailyTasks.mockResolvedValue(
       today(
@@ -215,5 +232,22 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     renderWithProviders(<ProfileDailyTasks />);
     expect(await screen.findByText('Daily mission done')).toBeInTheDocument();
     expect(tasksRegion()).toHaveTextContent('2 / 2 done');
+  });
+
+  it('shows the coins of each task, and which ones were paid (SCRUM-301)', async () => {
+    getDailyTasks.mockResolvedValue(
+      today(
+        task('t1', 'Paid', { coins: 15, progress: 3, completed: true, rewarded: true }),
+        task('t2', 'Waiting', { coins: 30, progress: 1 }),
+        task('t3', 'No reward', { coins: 0 })
+      )
+    );
+    renderWithProviders(<ProfileDailyTasks />);
+
+    await screen.findAllByRole('progressbar');
+    expect(itemOf('Paid')).toHaveTextContent('+15 coins');
+    expect(itemOf('Waiting')).toHaveTextContent('30 coins');
+    expect(itemOf('Waiting')).not.toHaveTextContent('+30 coins');
+    expect(itemOf('No reward')).not.toHaveTextContent('coins');
   });
 });

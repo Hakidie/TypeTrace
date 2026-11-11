@@ -9,6 +9,8 @@ describe('goalOf', () => {
     expect(goalOf({ type: 'minutes', target: 15 })).toBe('Type 15 minutes in all');
     expect(goalOf({ type: 'wpm', target: 40 })).toBe('Reach 40 WPM in one session');
     expect(goalOf({ type: 'accuracy', target: 90, errorType: null })).toBe('Reach 90% accuracy in one session');
+    expect(goalOf({ type: 'minigames', target: 1 })).toBe('Finish 1 minigame');
+    expect(goalOf({ type: 'minigames', target: 3 })).toBe('Finish 3 minigames');
   });
 
   it('names the focus of an accuracy task, and the 5 words a session needs when only some words are a chance of it', () => {

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ENGLISH_PASSAGE_LIST } from '../../src/data/passages-en';
+import { DailyTaskModel } from '../../src/models/daily-task.model';
 import { MatchModel } from '../../src/models/match.model';
 import { PassageModel } from '../../src/models/passage.model';
+import { UserDailyTasksModel } from '../../src/models/user-daily-tasks.model';
 import { matchSettings, resetMatchHub } from '../../src/services/match-hub';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { api } from '../helpers/api';
@@ -314,6 +316,20 @@ describe('the race (ranked duel, phase 3)', () => {
 const rematch = (auth: string, code: string) => api().post(`/api/matches/${code}/rematch`).set('Authorization', auth);
 
 describe('leaving and coming back (ranked duel, phase 3)', () => {
+  it('counts a finished duel for the daily task minigames of the player who played it out, not for the one who forfeited (SCRUM-300)', async () => {
+    await DailyTaskModel.create({ title: 'Chơi minigame', type: 'minigames', target: 1 });
+    const { host, guest, code } = await startRace();
+    const match = (await MatchModel.findOne({ code }).sort({ createdAt: -1 }))!;
+    const [hostId, guestId] = match.players.map((p) => p.user);
+
+    await leave(guest, code);
+
+    await waitFor(async () => (await UserDailyTasksModel.countDocuments({ owner: hostId, 'progress.minigames': 1 })) === 1);
+    expect(await UserDailyTasksModel.countDocuments({ owner: hostId, 'progress.minigames': 1 })).toBe(1);
+    expect(await UserDailyTasksModel.countDocuments({ owner: guestId, 'progress.minigames': 1 })).toBe(0);
+    expect(host).toBeTruthy();
+  });
+
   it('makes a player who leaves during the race forfeit', async () => {
     const { host, guest, code } = await startRace();
 

@@ -131,6 +131,8 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
         description: template!.description,
         type: template!.type,
         target: template!.target,
+        coins: 0,
+        rewarded: false,
         ...(template!.errorType && { errorType: template!.errorType }),
         progress: 0,
         completed: false
@@ -169,6 +171,8 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
           type: 'accuracy',
           target: 90,
           errorType: 'HOI_NGA_CONFUSION',
+          coins: 0,
+          rewarded: false,
           progress: 0,
           completed: false
         }
@@ -529,7 +533,7 @@ describe('recording a session again', () => {
     await recordDailyTaskProgress(String(learner._id), completedAt);
 
     expect((await storedDay(learner._id))!.progress).toEqual(once);
-    expect(once).toEqual({ sessions: 1, durationMs: 75_000, bestWpm: 33, bestAccuracy: 96, bestErrorAccuracy: { TONE_WRONG: 95 } });
+    expect(once).toEqual({ sessions: 1, durationMs: 75_000, bestWpm: 33, bestAccuracy: 96, minigames: 0, bestErrorAccuracy: { TONE_WRONG: 95 } });
   });
 
   it('never takes the numbers of the day back', async () => {

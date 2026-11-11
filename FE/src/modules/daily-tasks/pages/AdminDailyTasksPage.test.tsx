@@ -32,6 +32,7 @@ const task = (id: string, title: string, extra: Partial<DailyTaskListItem> = {})
   description: '',
   type: 'sessions',
   target: 3,
+  coins: 0,
   isActive: true,
   createdAt: '2026-10-20T00:00:00.000Z',
   updatedAt: '2026-10-20T00:00:00.000Z',
@@ -56,7 +57,7 @@ const statOf = (card: HTMLElement, label: string) => within(card).getByText(labe
 const cardOf = (title: string) => screen.getByText(title).closest('article') as HTMLElement;
 
 const warmUp = task('t1', 'Warm-up');
-const speed = task('t2', 'Speed run', { type: 'wpm', target: 40, description: 'Type fast but clean.' });
+const speed = task('t2', 'Speed run', { type: 'wpm', target: 40, coins: 25, description: 'Type fast but clean.' });
 const focus = task('t3', 'Focus', { type: 'accuracy', target: 95 });
 const slowDay = task('t4', 'Slow day', { type: 'minutes', target: 10, isActive: false });
 const hoiNga = task('t5', 'Phân biệt hỏi/ngã', { type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' });
@@ -191,10 +192,47 @@ describe('AdminDailyTasksPage', () => {
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Precise', description: '', type: 'accuracy', target: 98, errorType: null, isActive: true }),
+      expect(create).toHaveBeenCalledWith({ title: 'Precise', description: '', type: 'accuracy', target: 98, errorType: null, coins: 0, isActive: true }),
     );
     await waitFor(() => expect(form.getByLabelText('Title')).toHaveValue(''));
     expect(form.getByRole('button', { name: 'Type: Sessions' })).toBeInTheDocument();
+  });
+
+  it('sends the coins of the form, 0 to 100, and refuses more or an empty field (SCRUM-301)', async () => {
+    create.mockResolvedValue(task('t5', 'Rewarded'));
+    renderPage();
+    await screen.findByLabelText('Daily task cards');
+
+    const form = formOf('New task');
+    fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Rewarded' } });
+    fireEvent.change(form.getByLabelText('Coins'), { target: { value: '' } });
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
+    expect(await form.findByText('Enter a number')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+
+    // A longer entry is cut at 3 digits; 101 is above the most.
+    fireEvent.change(form.getByLabelText('Coins'), { target: { value: '1011' } });
+    expect(form.getByLabelText('Coins')).toHaveValue(101);
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
+    expect(await form.findByText('At most 100')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+
+    fireEvent.change(form.getByLabelText('Coins'), { target: { value: '100' } });
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({ title: 'Rewarded', description: '', type: 'sessions', target: 1, errorType: null, coins: 100, isActive: true }),
+    );
+  });
+
+  it('shows the coins of a task on its card and in the form when it is edited (SCRUM-301)', async () => {
+    renderPage();
+
+    await screen.findByLabelText('Daily task cards');
+    expect(statOf(cardOf('Speed run'), 'COINS')).toBe('25');
+    expect(statOf(cardOf('Warm-up'), 'COINS')).toBe('0');
+
+    await pickAction('Speed run', 'Edit');
+    expect(formOf('Edit task').getByLabelText('Coins')).toHaveValue(25);
   });
 
   it('makes a task inactive with the Active menu', async () => {
@@ -211,7 +249,7 @@ describe('AdminDailyTasksPage', () => {
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Quiet', description: '', type: 'sessions', target: 1, errorType: null, isActive: false }),
+      expect(create).toHaveBeenCalledWith({ title: 'Quiet', description: '', type: 'sessions', target: 1, errorType: null, coins: 0, isActive: false }),
     );
   });
 
@@ -256,6 +294,7 @@ describe('AdminDailyTasksPage', () => {
         type: 'wpm',
         target: 45,
         errorType: null,
+        coins: 25,
         isActive: true,
       }),
     );
@@ -395,6 +434,7 @@ describe('AdminDailyTasksPage', () => {
         type: 'accuracy',
         target: 90,
         errorType: 'HOI_NGA_CONFUSION',
+        coins: 0,
         isActive: true,
       }),
     );
@@ -423,7 +463,29 @@ describe('AdminDailyTasksPage', () => {
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Steady', description: '', type: 'minutes', target: 10, errorType: null, isActive: true }),
+      expect(create).toHaveBeenCalledWith({ title: 'Steady', description: '', type: 'minutes', target: 10, errorType: null, coins: 0, isActive: true }),
+    );
+  });
+
+  it('adds a minigames task: the goal in words, a target of at most 10 (SCRUM-300)', async () => {
+    create.mockResolvedValue(task('t7', 'Play games'));
+    renderPage();
+    await screen.findByLabelText('Daily task cards');
+
+    const form = formOf('New task');
+    fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Play games' } });
+    pickOption(form, 'Type', 'Minigames');
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '11' } });
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
+    expect(await form.findByText('At most 10 for this type')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '3' } });
+    expect(await form.findByText('Finish 3 minigames')).toBeInTheDocument();
+    fireEvent.click(form.getByRole('button', { name: 'Add task' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({ title: 'Play games', description: '', type: 'minigames', target: 3, errorType: null, coins: 0, isActive: true }),
     );
   });
 
@@ -449,6 +511,7 @@ describe('AdminDailyTasksPage', () => {
         type: 'accuracy',
         target: 90,
         errorType: null,
+        coins: 0,
         isActive: true,
       }),
     );

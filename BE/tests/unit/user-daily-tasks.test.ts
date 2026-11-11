@@ -124,7 +124,7 @@ describe('pickDailyTasks', () => {
 
 describe('dayNumbersOf', () => {
   it('is all zeros for a day without a session', () => {
-    expect(dayNumbersOf([])).toEqual({ sessions: 0, durationMs: 0, bestWpm: 0, bestAccuracy: 0, bestErrorAccuracy: {} });
+    expect(dayNumbersOf([])).toEqual({ sessions: 0, durationMs: 0, bestWpm: 0, bestAccuracy: 0, minigames: 0, bestErrorAccuracy: {} });
   });
 
   it('counts the sessions, adds up their time and keeps the best WPM and the best accuracy of one session', () => {
@@ -134,7 +134,7 @@ describe('dayNumbersOf', () => {
       { durationMs: 30_000, wpm: 12, accuracy: 100 }
     ];
 
-    expect(dayNumbersOf(sessions)).toEqual({ sessions: 3, durationMs: 180_500, bestWpm: 42.5, bestAccuracy: 100, bestErrorAccuracy: {} });
+    expect(dayNumbersOf(sessions)).toEqual({ sessions: 3, durationMs: 180_500, bestWpm: 42.5, bestAccuracy: 100, minigames: 0, bestErrorAccuracy: {} });
   });
 
   it('counts a field a session lacks as 0', () => {
@@ -143,9 +143,14 @@ describe('dayNumbersOf', () => {
       durationMs: 0,
       bestWpm: 20,
       bestAccuracy: 0,
+      minigames: 0,
       // Chances without error counts: no error.
       bestErrorAccuracy: { TONE_WRONG: 100 }
     });
+  });
+
+  it('takes the number of finished minigames and duels it is given', () => {
+    expect(dayNumbersOf([], 3).minigames).toBe(3);
   });
 
   it('keeps for each error type the best accuracy on it of one session with at least 5 chances of it', () => {
@@ -173,7 +178,7 @@ describe('dayNumbersOf', () => {
 });
 
 describe('taskProgressOf', () => {
-  const numbers = { sessions: 2, durationMs: 359_999, bestWpm: 41.5, bestAccuracy: 96.4, bestErrorAccuracy: { HOI_NGA_CONFUSION: 85.5 } };
+  const numbers = { sessions: 2, durationMs: 359_999, bestWpm: 41.5, bestAccuracy: 96.4, minigames: 1, bestErrorAccuracy: { HOI_NGA_CONFUSION: 85.5 } };
 
   it('counts the sessions of a sessions task', () => {
     expect(taskProgressOf({ type: 'sessions', target: 2 }, numbers)).toEqual({ progress: 2, completed: true });
@@ -206,6 +211,17 @@ describe('taskProgressOf', () => {
     });
   });
 
+  it('counts the finished minigames of a minigames task', () => {
+    expect(taskProgressOf({ type: 'minigames', target: 2 }, numbers)).toEqual({ progress: 1, completed: false });
+    expect(taskProgressOf({ type: 'minigames', target: 2 }, { ...numbers, minigames: 2 })).toEqual({ progress: 2, completed: true });
+  });
+
+  it('reads a day stored before minigames existed as 0 minigames', () => {
+    const old = { ...numbers, minigames: undefined } as unknown as typeof numbers;
+
+    expect(taskProgressOf({ type: 'minigames', target: 1 }, old)).toEqual({ progress: 0, completed: false });
+  });
+
   it('is 0 on a focused error type until a session has enough chances of it', () => {
     expect(taskProgressOf({ type: 'accuracy', target: 90, errorType: 'TONE_WRONG' }, numbers)).toEqual({
       progress: 0,
@@ -216,7 +232,7 @@ describe('taskProgressOf', () => {
   it('is 0 and not completed for every type on a day without a session', () => {
     const empty = dayNumbersOf([]);
 
-    for (const type of ['sessions', 'minutes', 'wpm', 'accuracy'] as const) {
+    for (const type of ['sessions', 'minutes', 'wpm', 'accuracy', 'minigames'] as const) {
       expect(taskProgressOf({ type, target: 1 }, empty)).toEqual({ progress: 0, completed: false });
     }
   });
@@ -236,6 +252,14 @@ describe('completedAtOf', () => {
     expect(completedAtOf({ type: 'minutes', target: 1 }, day)).toEqual(at('02:00'));
     expect(completedAtOf({ type: 'wpm', target: 30 }, day)).toEqual(at('01:00'));
     expect(completedAtOf({ type: 'accuracy', target: 100 }, day)).toEqual(at('03:00'));
+  });
+
+  it('is the time of the nth minigame for a minigames task, and undefined with fewer', () => {
+    const times = [at('01:30'), at('02:30'), at('03:30')];
+
+    expect(completedAtOf({ type: 'minigames', target: 2 }, day, times)).toEqual(at('02:30'));
+    expect(completedAtOf({ type: 'minigames', target: 2 }, day, [at('01:30')])).toBeUndefined();
+    expect(completedAtOf({ type: 'minigames', target: 1 }, day)).toBeUndefined();
   });
 
   it('keeps the first time: a later session past the target changes nothing', () => {
