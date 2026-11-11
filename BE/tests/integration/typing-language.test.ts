@@ -5,7 +5,7 @@ import { ENGLISH_PRACTICE_PASSAGE_LIST } from '../../src/data/passages-en-practi
 import { PassageModel } from '../../src/models/passage.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
 import { UserModel } from '../../src/models/user.model';
-import { getWeakErrorTypes } from '../../src/services/error-profile.service';
+import { getTopErrorTypes, getWeakErrorTypes } from '../../src/services/error-profile.service';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { rainWordsFor } from '../../src/services/rain.service';
 import { typingActivityOf } from '../../src/services/typing-session.service';
@@ -245,6 +245,7 @@ describe('the stats of each typing language (SCRUM-219)', () => {
     await TypingSessionModel.create(Array.from({ length: 12 }, (_, index) => countedSession(learner._id, index + 1, 'en', 60, { LETTER_WRONG: [9, 40] })));
 
     expect(await getWeakErrorTypes(String(learner._id))).toEqual(['HOI_NGA_CONFUSION']);
+    expect(await getTopErrorTypes(String(learner._id))).toEqual(['HOI_NGA_CONFUSION', 'D_MISSING']);
     expect((await rainWordsFor(String(learner._id))).focus).toEqual(['HOI_NGA_CONFUSION', 'D_MISSING']);
   });
 

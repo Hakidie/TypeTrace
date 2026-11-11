@@ -144,7 +144,29 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `WEAK_RATE`, compared in whole numbers, never with a sum of decimals) and the trend (a two-proportion z-test between the
   windows). Nothing is written in `completeSession`, there is nothing to rebuild or to delete with the user. The thresholds
   are sent with `GET /api/profile/error-profile`: never write them in the frontend. A feature that needs the learner's weak
-  error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way).
+  error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way); Weak spots reads
+  `getTopErrorTypes` (every type with enough data, weak or not, highest rate first: `rankedTypes` of the answer).
+- Weak spots (SCRUM-28, US3.2; one error type: SCRUM-74) is the session mode `targeted` (the Train tab, called Weak spots before, of the Typing
+  page): `POST /api/sessions { mode: 'targeted', errorType? }` types a lesson aimed at the learner's errors instead of a
+  passage, built by `lessonFor` (`services/targeted-practice.service.ts`). The pure `buildLesson` picks 30 to 50 words of
+  the bank (`lessonWords`), 60 to 70 % of them training the focus (the type chosen, else the 2 types with the highest error
+  rates among those with enough data, weak or not: `getTopErrorTypes`, so an error profile is enough; taking turns), only
+  active words (`isActive`), none of the learner's last 3 lessons' picked words while the bank has others, repeats once it
+  runs short. `TONE_WRONG` and `BASE_LETTER` are on every word (`tagWord` counts
+  chances), so `trainsErrorType` takes a word with a tone mark for the tone and any word for the letters. Then Gemini writes
+  a passage that makes sense from them (`generateText`, prompt and limits in `config/weak-spots-ai.ts`); the pure
+  `checkAiPassage` keeps it with 20 to 200 words that use at least 60 % of the practice words (not 60 % of the passage: natural
+  text has 11 % words with đ). No key, a timeout, any Gemini error, a refused passage or more than 5 AI lessons a minute for
+  the learner (`lessonAiLimiter`, which never answers 429) leave the picked words as the lesson: the learner never sees an AI
+  error, and `lessonSource` (`ai`, `words`, `passage`) records which. The passage lives only in the session (`targetWords`),
+  never in the passage bank. The session has no `passageId` and keeps `focusErrorTypes`; with nothing to aim at (no type with
+  enough data yet, or no word for it) it types a random practice passage with `focusErrorTypes: []`, which the page explains.
+  Weak spots is Vietnamese only (SCRUM-219): its session is always `language: 'vi'` (its random passage too), its focus comes
+  from the Vietnamese sessions and its cards show the Vietnamese error profile, whatever the learner types in Practice. On the
+  Typing page the Train tab opens its cards from anywhere, also from a lesson (it stays shown while the learner types
+  English, and opening it switches them back to Vietnamese), and a lesson's other way back is the "All weak spots" button
+  under the passage, left of Restart. The passage menu and `GET /api/passages` take `passageModes` (practice, placement),
+  never `targeted`.
 - A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
   which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen
   (`createReplayRecorder`, `FE/src/modules/typing/utils/session-replay.ts`), the page sends them as `replay` with
@@ -166,7 +188,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   (never from the OTP functions). A row says who made it: `signup`, `payment` (`recordPaidMonth`, for US11.2 and US11.3),
   `admin` (`grantPremium` queues the months as a new term that starts when the last one ends, so every term keeps its own dates; `cancelPremium` lets the paid time run out, `revokePremium` stops it at once; `changedBy` is the admin), `auto`, `migration`. What a
   plan gives (`priceVnd`, `maxPassages`, `canCreateErrorPractice`, `canUsePublicPassages`) is `AppSettings.plans`
-  (`getPlanConfig`, defaults `DEFAULT_PLANS`: Free 9 passages, Premium 90): US3.2 must check `canCreateErrorPractice`.
+  (`getPlanConfig`, defaults `DEFAULT_PLANS`: Free 9 passages, Premium 90): Weak spots (US3.2) checks `canCreateErrorPractice`
+  (`assertCanPracticeWeakSpots`, 403; the Train cards of the Typing page show a lock and open `PlanDialog`).
   `MAX_USER_PASSAGES` is gone: `passage-lock.service.ts` counts every passage the learner made (draft, private, pending,
   rejected, public; not archived, placement, ranked or English ones, never an admin's or a deleted account's) and locks, when they have more than their plan's
   `maxPassages`, all but the newest ones (`getLockedPassageIds`, worked out on every read, nothing stored: buying Premium,
@@ -185,8 +208,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   After changing a `tag…` function, run `npm run rebuild:tag-counts`.
 - Typing language (SCRUM-219): a learner types Practice in Vietnamese or English, `settings.typingLanguage` (`vi` by default,
   saved with `PATCH /api/profile/settings`, which takes a time zone, a typing language or both). A session keeps its
-  `language`, set by the server when it starts (Practice: the learner's language then, `typingLanguageOf`; the placement test:
-  always `vi`), and is graded and counted in its set only (its `errorCounts` / `opportunityCounts` hold the keys of that set).
+  `language`, set by the server when it starts (Practice: the learner's language then, `typingLanguageOf`; the placement test
+  and Weak spots: always `vi`), and is graded and counted in its set only (its `errorCounts` / `opportunityCounts` hold the keys of that set).
   A session without `language` (from before) is Vietnamese: filter with `sessionsIn(language)` (`{ language: { $ne: 'en' } }`
   for `vi`), never `{ language: 'vi' }`; there is no migration. Practice picks among the passages of the learner's language
   (`practiceLanguageFilter`: English = `language: 'en'` and not `isRanked`, so the passages of ranked duels never come up), a
@@ -195,12 +218,13 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   and `GET /api/profile/monthly-progress` are the ones of one language (`?language=`, the learner's when missing; the answer
   says which, as `language`; the English chart starts at the first counted English session). Both languages count for the
   days (streak, daily mission, heatmap) and for the sessions, minutes, WPM and accuracy of the daily tasks; word rain's focus,
-  `getWeakErrorTypes`, the daily tasks of an error type and the admin user list's averages read Vietnamese sessions only.
-  Frontend: the VI / EN switch sits left of the passage name, in Practice only (`TypingPage`): it saves the language
-  (`useSaveTypingLanguage`, which empties the per-language profile queries) and then starts a random passage of it; in English
-  a line says to turn off Vietnamese input, and the Placement tab is hidden. Every way into the placement test (the tab, Ping's
-  tour, `?mode=placement`) and a `?passage=` link of the Passages page (a Vietnamese passage) switch back to Vietnamese and save
-  it. `TypingArea`, the replay and the result page check and name errors with the session's `language`; the session cards of
+  `getWeakErrorTypes`, `getTopErrorTypes` (Weak spots), the daily tasks of an error type and the admin user list's averages
+  read Vietnamese sessions only. Frontend: the language button sits at the top center of the passage, in Practice only
+  (`TypingPage`, `TypingArea`'s `header`: it shows the language being typed and a click switches to the other one): it saves
+  the language (`useSaveTypingLanguage`, which empties the per-language profile queries) and then starts a random passage of
+  it; in English a notification says to turn off Vietnamese input, and the Placement tab is hidden (the Weak spots tab stays).
+  Every way into the placement test (the tab, Ping's tour, `?mode=placement`) or into Weak spots (its tab, a `?mode=targeted`
+  link) and a `?passage=` link of the Passages page (a Vietnamese passage) switch back to Vietnamese and save it. `TypingArea`, the replay and the result page check and name errors with the session's `language`; the session cards of
   the profile say VI or EN. The minigames keep their own language (`useMinigameLang`), and the word bank (`word.model.ts`) is
   Vietnamese only.
 - Payments (VNPay, `/api/payments`, `services/payment.service.ts`): what can be bought and its price live in `config/payment.ts`
@@ -228,7 +252,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog` (`children` for an extra field such as a reason, `confirmDisabled` until it is filled, `cancelLabel` to rename Cancel), `Pagination`,
-  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; its tags are `LabeledTag`s and badges, as on the passage cards; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap` (always one tooltip for the hovered day; a learner's own days: `timeZone`, `unit`, `legend`, see `ProfileHeatmap`), `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons, `menus` of its own in their look for a setting of the list such as `3 a day`, + actions above a list) (`shared/components/`), `CompactToolbar` (Search, Sort, Filter and a total as icons whose word shows on hover, no background: for a list under a title, see `ProfileSessions`; `menus` add pickers of their own that always show their choice, an `adder` (a "+" in front of them, whose menu of groups opens a second menu of options to add beside it) and `tags` (what was added, on the left of the "+", each with an x shown on hover): the Progress page), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
+  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; its tags are `LabeledTag`s and badges, as on the passage cards; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap` (always one tooltip for the hovered day; a learner's own days: `timeZone`, `unit`, `legend`, see `ProfileHeatmap`), `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons, `menus` of its own in their look for a setting of the list such as `3 a day`, + actions above a list), `TabGroup` (a row of switch buttons; `iconsOnPhones` shows on phones only the icons of the tabs not selected, for a row too long for a phone such as the Typing page's modes) (`shared/components/`), `CompactToolbar` (Search, Sort, Filter and a total as icons whose word shows on hover, no background: for a list under a title, see `ProfileSessions`; `menus` add pickers of their own that always show their choice, an `adder` (a "+" in front of them, whose menu of groups opens a second menu of options to add beside it) and `tags` (what was added, on the left of the "+", each with an x shown on hover): the Progress page), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
   shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams`, `useFitLines` (`shared/hooks/`),
   date helpers in `shared/lib/local-date.ts` (a learner's today is `dateKeyIn(new Date(), timezone)`, never `toISOString()`).
   The daily mission goal is the backend's `missionGoal`: never write the number in the frontend.
@@ -325,6 +349,8 @@ A sample chat bot to customize, not a finished product:
   the conversation each time. Signed-in users only, 10 messages per minute per user.
 - Personality: `BE/src/config/chatbot.ts` (system prompt, longest reply in tokens, history length).
   Gemini calls: `BE/src/services/ai.service.ts`, `generateContent` with plain `fetch` (no SDK); the key goes in the `x-goog-api-key` header, the system prompt in `systemInstruction`, and `model` messages keep their `model` role.
+  `generateChatReply` is the chat (and Ping's coach); `generateText` is one prompt with an optional timeout (504), used by the
+  Weak spots lessons, which fall back to their word list on any failure.
 - Config: `GEMINI_API_KEY` (https://aistudio.google.com/apikey, free tier with limits) and `GEMINI_MODEL` (default `gemini-2.5-flash`)
   in `BE/.env`. Quota errors answer 429, a bad key or model 503. Never put the key in frontend code.
 

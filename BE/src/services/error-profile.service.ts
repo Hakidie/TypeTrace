@@ -56,6 +56,11 @@ export interface ErrorProfile {
   types: ErrorTypeProfile[];
   /** The weak types, highest error rate first (a tie goes to more errors, then to the order of the set). */
   weakTypes: SessionErrorType[];
+  /**
+   * Every type with enough data for a level, weak or ok, in the same order, so the weak ones come first: in the Vietnamese
+   * profile, what a Weak spots lesson trains when the learner picks no type (US3.2).
+   */
+  rankedTypes: SessionErrorType[];
 }
 
 type OwnerId = string | Types.ObjectId;
@@ -114,12 +119,11 @@ export const computeErrorProfile = (sessions: readonly ProfileSession[], languag
     const before = totalsOf(previous, type);
     return { type, ...now, rate: rateOf(now), level: levelOf(now), previousRate: rateOf(before), trend: trendOf(now, before) };
   });
-  // A weak type has at least MIN_PROFILE_OPPORTUNITIES chances, so no division by 0; the sort is stable, so the order of
-  // the error set settles what is left of a tie.
-  const weakTypes = types
-    .filter((profile) => profile.level === 'weak')
-    .sort((a, b) => b.errors / b.opportunities - a.errors / a.opportunities || b.errors - a.errors)
-    .map((profile) => profile.type);
+  // A type with a level has at least MIN_PROFILE_OPPORTUNITIES chances, so no division by 0; the sort is stable, so the order
+  // of the error set settles what is left of a tie. A weak type has a higher rate than an ok one, so the weak ones lead.
+  const ranked = types
+    .filter((profile) => profile.level !== 'insufficient_data')
+    .sort((a, b) => b.errors / b.opportunities - a.errors / a.opportunities || b.errors - a.errors);
   return {
     language,
     window: PROFILE_WINDOW,
@@ -127,7 +131,8 @@ export const computeErrorProfile = (sessions: readonly ProfileSession[], languag
     weakRate: WEAK_RATE,
     sessionsUsed: current.length,
     types,
-    weakTypes
+    weakTypes: ranked.filter((profile) => profile.level === 'weak').map((profile) => profile.type),
+    rankedTypes: ranked.map((profile) => profile.type)
   };
 };
 
@@ -153,8 +158,16 @@ export const getErrorProfile = async (userId: string, language?: TypingLanguage)
 };
 
 /**
- * The learner's weak Vietnamese error types, highest error rate first, at most `limit`: what a practice aimed at their errors
- * trains (US3.2). Only their Vietnamese sessions: the word bank and its lessons are Vietnamese.
+ * The learner's weak Vietnamese error types, highest error rate first, at most `limit`. Only their Vietnamese sessions, as
+ * every feature built on the word bank, which is Vietnamese.
  */
 export const getWeakErrorTypes = async (userId: OwnerId, limit = 2) =>
   computeErrorProfile(await profileSessionsOf(userId, 'vi'), 'vi').weakTypes.slice(0, limit) as WordErrorType[];
+
+/**
+ * The learner's Vietnamese error types with enough data, weak or not, highest error rate first, at most `limit`: what a Weak
+ * spots lesson trains when the learner picks no type (US3.2). Only their Vietnamese sessions, whatever language they type
+ * in Practice: the word bank and its lessons are Vietnamese. Empty only before that profile has a type with enough data.
+ */
+export const getTopErrorTypes = async (userId: OwnerId, limit = 2) =>
+  computeErrorProfile(await profileSessionsOf(userId, 'vi'), 'vi').rankedTypes.slice(0, limit) as WordErrorType[];

@@ -11,6 +11,8 @@ describe('tutorial steps', () => {
     // The Bot duel is not a mode of the tour: Ping waits there as on the cards.
     expect(open('mode=minigames&game=bot')).toBeUndefined();
     expect(open('mode=minigames&game=chain')).toBeUndefined();
+    // Weak spots (US3.2) is not a mode of the tour either: the Practice guide does not run there.
+    expect(open('mode=targeted')).toBeUndefined();
   });
 
   it('never guides an account from before the tutorial', () => {

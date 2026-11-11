@@ -2,21 +2,33 @@ import { z } from 'zod';
 import { MAX_REPLAY_BYTES } from '../models/session-replay.model';
 import { sessionModes, sessionStatuses, startableModes, TIME_LIMIT_CHOICES_SECONDS } from '../models/typing-session.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
+import { WordError } from '../utils/vietnamese-errors';
 import { objectIdSchema } from './common.validator';
 
-export const createSessionSchema = z.object({
-  mode: z.enum(startableModes).default('practice'),
-  /** Missing = a random passage (the placement passage in `placement` mode). */
-  passageId: objectIdSchema.optional(),
-  /**
-   * The time the learner chose (US10.1), kept by the server as `chosenLimitSeconds` to decide at the end if a placement session goes
-   * on the leaderboard. One of the times the page offers. Changing the time starts a new session.
-   */
-  timeLimitSeconds: z
-    .number()
-    .refine((seconds) => (TIME_LIMIT_CHOICES_SECONDS as readonly number[]).includes(seconds), 'Choose one of the times offered')
-    .optional()
-});
+export const createSessionSchema = z
+  .object({
+    mode: z.enum(startableModes).default('practice'),
+    /** Missing = a random passage (the placement passage in `placement` mode). */
+    passageId: objectIdSchema.optional(),
+    /**
+     * The time the learner chose (US10.1), kept by the server as `chosenLimitSeconds` to decide at the end if a placement session goes
+     * on the leaderboard. One of the times the page offers. Changing the time starts a new session.
+     */
+    timeLimitSeconds: z
+      .number()
+      .refine((seconds) => (TIME_LIMIT_CHOICES_SECONDS as readonly number[]).includes(seconds), 'Choose one of the times offered')
+      .optional(),
+    /** Weak spots only (`targeted`, US3.2): the one error type to practice. Missing = the learner's types with the highest error rates. */
+    errorType: z.enum(WordError).optional()
+  })
+  .refine((body) => body.mode !== 'targeted' || body.passageId === undefined, {
+    message: 'A weak spots lesson picks its own words',
+    path: ['passageId']
+  })
+  .refine((body) => body.mode === 'targeted' || body.errorType === undefined, {
+    message: 'Only a weak spots lesson takes an error type',
+    path: ['errorType']
+  });
 
 const replayNumber = z.number().int().min(0);
 

@@ -325,6 +325,15 @@ describe('TypingResultPage', () => {
     expect(replay).not.toHaveBeenCalled(); // loaded only when asked for
   });
 
+  it('goes back to Weak spots with Type again after a Weak spots lesson, and names the mode (US3.2)', async () => {
+    get.mockResolvedValue({ ...completed, mode: 'targeted', passageTitle: 'Weak spots: hỏi / ngã, đ', focusErrorTypes: ['HOI_NGA_CONFUSION', 'D_MISSING'] });
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: 'Type again' })).toHaveAttribute('href', '/typing?mode=targeted');
+    expect(await screen.findByText('Weak spots: hỏi / ngã, đ')).toBeInTheDocument();
+    expect(screen.getByText('Train')).toBeInTheDocument();
+  });
+
   it('plays the replay in place of the typed passage on Replay, and shows the passage again on a second press (SCRUM-35)', async () => {
     get.mockResolvedValue(completed);
     replay.mockResolvedValue({

@@ -26,9 +26,14 @@ vi.mock('../api/typing.api', () => ({
   },
 }));
 
+// The language switch saves the typing language (SCRUM-219); the Weak spots cards read the learner's error profile (US3.2, SCRUM-74).
 const updateSettings = vi.fn();
+const getErrorProfile = vi.fn();
 vi.mock('@/modules/profile/api/profile.api', () => ({
-  profileApi: { updateSettings: (input: unknown) => updateSettings(input) },
+  profileApi: {
+    updateSettings: (input: unknown) => updateSettings(input),
+    getErrorProfile: (language?: string) => getErrorProfile(language),
+  },
 }));
 
 /** A signed-in learner who types `typingLanguage` in Practice (SCRUM-219), as `PATCH /api/profile/settings` answers it. */
@@ -62,12 +67,30 @@ vi.mock('@/modules/rain/api/rain.api', () => ({
   rainApi: { words: () => Promise.resolve({ words: ['nhà', 'cửa'], focus: [] }) },
 }));
 
+const FREE_PLAN = { plan: 'free', expiresAt: null, maxPassages: 9, usedPassages: 2, canUsePublicPassages: false, canCreateErrorPractice: false, plans: { free: { priceVnd: 0, maxPassages: 9, canCreateErrorPractice: false, canUsePublicPassages: false }, premium: { priceVnd: 99000, maxPassages: 90, canCreateErrorPractice: true, canUsePublicPassages: true } } };
+const getPlan = vi.fn();
 vi.mock('@/modules/plan/api/plan.api', () => ({
-  planApi: {
-    get: () =>
-      Promise.resolve({ plan: 'free', expiresAt: null, maxPassages: 9, usedPassages: 2, canUsePublicPassages: false, canCreateErrorPractice: false, plans: { free: { priceVnd: 0, maxPassages: 9, canCreateErrorPractice: false, canUsePublicPassages: false }, premium: { priceVnd: 99000, maxPassages: 90, canCreateErrorPractice: true, canUsePublicPassages: true } } }),
-  },
+  planApi: { get: () => getPlan() },
 }));
+
+/** The error profile the Weak spots cards read: hỏi / ngã and đ weak, the tone without enough data yet. */
+const typeProfile = (type: string, rate: number, level = 'ok', trend = 'unchanged', opportunities = 100) => ({ type, errors: rate, opportunities, rate, level, previousRate: rate, trend });
+const ERROR_PROFILE = {
+  window: 10,
+  minOpportunities: 20,
+  weakRate: 15,
+  sessionsUsed: 10,
+  types: [
+    typeProfile('BASE_LETTER', 2),
+    typeProfile('D_MISSING', 20, 'weak'),
+    typeProfile('MARK_WRONG', 3),
+    typeProfile('TONE_WRONG', 0, 'insufficient_data', 'insufficient_data', 5),
+    typeProfile('HOI_NGA_CONFUSION', 25.5, 'weak', 'worse'),
+  ],
+  weakTypes: ['HOI_NGA_CONFUSION', 'D_MISSING'],
+  // Every type with enough data, highest rate first: the tone has too few chances.
+  rankedTypes: ['HOI_NGA_CONFUSION', 'D_MISSING', 'MARK_WRONG', 'BASE_LETTER'],
+};
 
 const startTutorial = vi.fn();
 vi.mock('@/modules/tutorial/api/tutorial.api', () => ({
@@ -102,6 +125,8 @@ beforeEach(() => {
   vi.mocked(toast.dismiss).mockClear();
   startTutorial.mockReset();
   sessionStorage.clear();
+  getPlan.mockReset().mockResolvedValue(FREE_PLAN);
+  getErrorProfile.mockReset().mockResolvedValue(ERROR_PROFILE);
   start.mockReset().mockResolvedValue(session);
   begin.mockReset().mockResolvedValue(session);
   complete.mockReset().mockResolvedValue({ ...session, status: 'completed' });
@@ -280,12 +305,12 @@ describe('TypingPage', () => {
     await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
   });
 
-  it('has Practice, Placement, Rank and Minigames tabs and shows the name of the passage', async () => {
+  it('has Practice, Placement, Weak spots, Rank and Minigames tabs and shows the name of the passage', async () => {
     start.mockResolvedValue({ ...session, passageTitle: 'Mùa thu Hà Nội' });
     renderPage();
     await screen.findByRole('textbox', { name: 'Typing area' });
 
-    expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Rank', 'Minigames']);
+    expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Rank', 'Train', 'Minigames']);
     expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radio', { name: 'Rank' })).toBeEnabled();
     expect(screen.getByText('Mùa thu Hà Nội')).toBeInTheDocument();
@@ -670,8 +695,11 @@ describe('TypingPage', () => {
     // A passage of another learner on the Free plan: the plan opens instead of the session.
     await user.click(await screen.findByRole('menuitemradio', { name: /Của người khác.*Premium/ }));
     expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
+    // The page has the plan already (the Weak spots tab needs it), so the dialog opens with the focus on the first tooltip of a
+    // card, which a first Escape would only close: the dialog is closed with its button.
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     // A passage past the owner's limit: nothing happens.
-    await user.keyboard('{Escape}');
     await user.click(screen.getByRole('button', { name: 'Choose passage' }));
     const locked = await screen.findByRole('menuitemradio', { name: /Quá hạn mức.*Locked/ });
     expect(locked).toHaveAttribute('aria-disabled', 'true');
@@ -714,6 +742,207 @@ describe('TypingPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Choose passage' }));
 
     expect(await screen.findByText('Could not load passages')).toBeInTheDocument();
+  });
+});
+
+describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
+  const PREMIUM_PLAN = { ...FREE_PLAN, plan: 'premium', canUsePublicPassages: true, canCreateErrorPractice: true };
+  const lesson = {
+    ...session,
+    _id: 's2',
+    mode: 'targeted',
+    passageTitle: 'Weak spots: hỏi / ngã, đ',
+    focusErrorTypes: ['HOI_NGA_CONFUSION', 'D_MISSING'],
+    lessonSource: 'ai',
+  };
+
+  const renderAt = (route: string) =>
+    renderWithProviders(
+      <>
+        <UrlSearch />
+        <TypingPage />
+      </>,
+      { route },
+    );
+
+  beforeEach(() => {
+    getPlan.mockResolvedValue(PREMIUM_PLAN);
+    start.mockImplementation((input: { mode?: string }) => Promise.resolve(input.mode === 'targeted' ? lesson : session));
+  });
+
+  it('shows the cards from its tab, the auto lesson first, and starts nothing until one is picked', async () => {
+    const user = userEvent.setup();
+    renderAt('/typing');
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(screen.getByRole('radio', { name: 'Train' }));
+
+    const auto = await screen.findByRole('button', { name: 'Practice your weak spots' });
+    // The auto card names the two weakest error types and their rates, as the server picks them.
+    expect(auto).toHaveTextContent('Hỏi / ngã confusion25.5%');
+    expect(auto).toHaveTextContent('Missing stroke on đ20%');
+    // The five error types, the cards of the error profile; the auto card comes first (on top on phones).
+    const types = screen.getByRole('region', { name: 'Error types' });
+    expect(within(types).getAllByRole('button', { name: /^Practice / })).toHaveLength(5);
+    expect(within(types).getAllByText('Weak')).toHaveLength(2);
+    expect(auto.compareDocumentPosition(types) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted');
+    expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
+    expect(start).not.toHaveBeenCalledWith(expect.objectContaining({ mode: 'targeted' }));
+  });
+
+  it('starts the auto lesson from its card with 1 minute, says what it trains, restarts it and goes back to the cards', async () => {
+    const user = userEvent.setup();
+    renderAt('/typing?mode=targeted');
+
+    await user.click(await screen.findByRole('button', { name: 'Practice your weak spots' }));
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted' }));
+    expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Training: Hỏi / ngã confusion · Missing stroke on đ');
+    expect(screen.getByText('Weak spots: hỏi / ngã, đ')).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('focus=auto');
+    expect(within(screen.getByRole('radiogroup', { name: 'Time' })).getByRole('radio', { name: '01' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.queryByRole('button', { name: 'Choose passage' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /restart/i }));
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(start).toHaveBeenLastCalledWith({ mode: 'targeted' });
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(screen.getByRole('button', { name: 'All weak spots' }));
+
+    expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
+  });
+
+  it('starts a lesson of the error type of the card picked, also one without enough data yet', async () => {
+    const user = userEvent.setup();
+    renderAt('/typing?mode=targeted');
+
+    await user.click(await screen.findByRole('button', { name: 'Practice Wrong vowel mark (â ê ô ă ơ ư)' }));
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'MARK_WRONG' }));
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('focus=MARK_WRONG');
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    await user.click(screen.getByRole('button', { name: /restart/i }));
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'MARK_WRONG' });
+
+    await user.click(screen.getByRole('button', { name: 'All weak spots' }));
+    const tone = await screen.findByRole('button', { name: 'Practice Wrong tone' });
+    expect(within(tone.closest('li')!).getByText(/Needs 15 more/)).toBeInTheDocument();
+    await user.click(tone);
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'TONE_WRONG' }));
+  });
+
+  it('names on the auto card the two highest error rates when no type is weak: an error profile is enough', async () => {
+    const user = userEvent.setup();
+    getErrorProfile.mockResolvedValue({
+      ...ERROR_PROFILE,
+      types: [
+        typeProfile('BASE_LETTER', 2),
+        typeProfile('D_MISSING', 0),
+        typeProfile('MARK_WRONG', 3),
+        typeProfile('TONE_WRONG', 0, 'insufficient_data', 'insufficient_data', 5),
+        typeProfile('HOI_NGA_CONFUSION', 1),
+      ],
+      weakTypes: [],
+      rankedTypes: ['MARK_WRONG', 'BASE_LETTER', 'HOI_NGA_CONFUSION', 'D_MISSING'],
+    });
+    renderAt('/typing?mode=targeted');
+
+    const auto = await screen.findByRole('button', { name: 'Practice your weak spots' });
+    expect(auto).toHaveTextContent('Wrong vowel mark (â ê ô ă ơ ư)3%');
+    expect(auto).toHaveTextContent('Wrong letter2%');
+    expect(auto).not.toHaveTextContent('random passage');
+    await user.click(auto);
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted' }));
+  });
+
+  it('says on the auto card that a random passage comes while the error profile has too little data, and says it again in the lesson', async () => {
+    const user = userEvent.setup();
+    getErrorProfile.mockResolvedValue({ ...ERROR_PROFILE, sessionsUsed: 0, weakTypes: [], rankedTypes: [] });
+    start.mockResolvedValue({ ...session, mode: 'targeted', passageId: 'p1', passageTitle: 'Hà Nội vào thu', focusErrorTypes: [], lessonSource: 'passage' });
+    renderAt('/typing?mode=targeted');
+
+    const auto = await screen.findByRole('button', { name: 'Practice your weak spots' });
+    expect(auto).toHaveTextContent('Your error profile does not have enough data yet, so this starts a random passage.');
+    await user.click(auto);
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Your error profile does not have enough data yet, so here is a random passage.');
+  });
+
+  it('goes back to the cards from a lesson with the Weak spots tab, and with the button left of Restart', async () => {
+    const user = userEvent.setup();
+    renderAt('/typing?mode=targeted&focus=MARK_WRONG');
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    // The way back sits under the passage, before Restart; the name of the lesson above has no button of its own.
+    const back = screen.getByRole('button', { name: 'All weak spots' });
+    const restartButton = screen.getByRole('button', { name: /restart/i });
+    expect(back.compareDocumentPosition(restartButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'All weak spots' })).toHaveLength(1);
+
+    await user.click(screen.getByRole('radio', { name: 'Train' }));
+
+    expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
+    expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
+
+    // On the cards the tab is already there: a click changes nothing.
+    await user.click(screen.getByRole('radio', { name: 'Train' }));
+    expect(screen.getByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it('says the lesson is being written while the AI writes it', async () => {
+    start.mockImplementation(() => new Promise(() => {}));
+    renderAt('/typing?mode=targeted&focus=auto');
+
+    expect(await screen.findByText('Writing your lesson…')).toBeInTheDocument();
+  });
+
+  it('shows the cards with a lock on a plan without Weak spots, and a card opens the plan instead of a lesson', async () => {
+    const user = userEvent.setup();
+    getPlan.mockResolvedValue(FREE_PLAN);
+    renderAt('/typing?mode=targeted');
+
+    expect(await screen.findByRole('button', { name: 'Practice your weak spots (Premium)' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /\(Premium\)$/ })).toHaveLength(6);
+    await user.click(screen.getByRole('button', { name: 'Practice Hỏi / ngã confusion (Premium)' }));
+
+    expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('shows what the plan lacks instead of a lesson when a link opens one on a plan without Weak spots', async () => {
+    const user = userEvent.setup();
+    getPlan.mockResolvedValue(FREE_PLAN);
+    renderAt('/typing?mode=targeted&focus=auto');
+
+    expect(await screen.findByText(/Your plan does not include it/)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
+    // The lesson waited for the plan: no request, so no 403 and no error toast.
+    expect(start).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'See plans' }));
+
+    expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
+  });
+
+  it('goes back to the cards from what the plan lacks', async () => {
+    const user = userEvent.setup();
+    getPlan.mockResolvedValue(FREE_PLAN);
+    renderAt('/typing?mode=targeted&focus=auto');
+
+    await user.click(await screen.findByRole('button', { name: 'All weak spots' }));
+
+    expect(await screen.findByRole('button', { name: 'Practice your weak spots (Premium)' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
   });
 });
 
@@ -796,6 +1025,45 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     expect(start).toHaveBeenCalledTimes(1);
     expect(start).toHaveBeenCalledWith({ mode: 'practice' });
     expect(switcher()).toHaveTextContent('English');
+  });
+
+  it('keeps the Weak spots tab in English, switches back to Vietnamese when it opens and shows the Vietnamese error profile', async () => {
+    const user = userEvent.setup();
+    getPlan.mockResolvedValue({ ...FREE_PLAN, plan: 'premium', canUsePublicPassages: true, canCreateErrorPractice: true });
+    renderWithProviders(
+      <>
+        <UrlSearch />
+        <TypingPage />
+      </>,
+      { route: '/typing', queryClient: clientFor('en') },
+    );
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    // Placement leaves the tabs while the learner types English; Weak spots stays, so it is always found.
+    expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'Train' }));
+
+    expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    // The lessons are Vietnamese: the cards read the Vietnamese profile, and the language switch is Practice only.
+    expect(getErrorProfile).toHaveBeenCalledWith('vi');
+    expect(getErrorProfile).not.toHaveBeenCalledWith(undefined);
+    expect(screen.queryByRole('button', { name: /^Typing language:/ })).not.toBeInTheDocument();
+    // Back in Vietnamese: Placement is in the tabs again.
+    expect(await screen.findByRole('radio', { name: 'Placement' })).toBeInTheDocument();
+  });
+
+  it('switches back to Vietnamese when a link opens a Weak spots lesson for a learner who types English', async () => {
+    getPlan.mockResolvedValue({ ...FREE_PLAN, plan: 'premium', canUsePublicPassages: true, canCreateErrorPractice: true });
+    start.mockResolvedValue({ ...session, mode: 'targeted', language: 'vi', passageTitle: 'Weak spots: đ', focusErrorTypes: ['D_MISSING'] });
+    renderWithProviders(<TypingPage />, { route: '/typing?mode=targeted&focus=D_MISSING', queryClient: clientFor('en') });
+
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    expect(start).toHaveBeenCalledWith({ mode: 'targeted', errorType: 'D_MISSING' });
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
+    expect(updateSettings).toHaveBeenCalledTimes(1);
   });
 });
 

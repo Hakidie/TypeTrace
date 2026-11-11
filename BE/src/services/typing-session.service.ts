@@ -13,6 +13,7 @@ import { recentProgressOf, recordCountedSession } from './daily-progress.service
 import { assertCanPractice, getAdminIds, getLockedPassageIds, getPlanOf } from './passage-lock.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
 import { saveSessionReplay } from './session-replay.service';
+import { lessonFor } from './targeted-practice.service';
 import { typingLanguageOf } from './typing-language.service';
 import { recordDailyTaskProgress, taskCountsSince } from './user-daily-tasks.service';
 
@@ -183,24 +184,45 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
   return random;
 };
 
+/** What a session typing `passage` stores of it. */
+const passageContent = (passage: { _id: unknown; title: string; content: string }) => ({
+  passageId: String(passage._id),
+  passageTitle: passage.title,
+  targetWords: splitWords(passage.content)
+});
+
 /**
- * Starts a session in the learner's typing language (SCRUM-219: `settings.typingLanguage` in Practice, always Vietnamese in
- * the placement test), which picks its passage and grades it. A session the learner left in progress becomes `abandoned`.
+ * What a new session types: a passage of `language`, or in Weak spots (`targeted`, US3.2) a lesson aimed at the learner's
+ * errors (the AI's passage written from words of the bank, or those words; `aiAllowed` is false past the learner's AI limit).
+ * With nothing to aim at (no type with enough data in the error profile yet, or no word for it), Weak spots types a random
+ * Vietnamese passage, as Random in Practice, with no focus: the page tells the learner why.
  */
-export const startSession = async (userId: string, input: CreateSessionInput) => {
-  const language = input.mode === 'placement' ? 'vi' : await typingLanguageOf(userId);
-  const passage = await pickPassage(userId, input, language);
+const contentOf = async (userId: string, input: CreateSessionInput, language: TypingLanguage, aiAllowed: boolean) => {
+  if (input.mode !== 'targeted') return passageContent(await pickPassage(userId, input, language));
+  const lesson = await lessonFor(userId, input.errorType, { aiAllowed });
+  if (lesson) {
+    return {
+      passageTitle: lesson.title,
+      targetWords: lesson.targetWords,
+      focusErrorTypes: lesson.focus,
+      lessonWords: lesson.lessonWords,
+      lessonSource: lesson.source
+    };
+  }
+  return { ...passageContent(await pickPassage(userId, { mode: 'practice' }, language)), focusErrorTypes: [], lessonSource: 'passage' as const };
+};
+
+/**
+ * Starts a session in its typing language (SCRUM-219), which picks its passage and grades it: the learner's
+ * `settings.typingLanguage` in Practice, always Vietnamese in the placement test and in Weak spots, whose word bank and
+ * lessons are Vietnamese. A session the learner left in progress becomes `abandoned`.
+ */
+export const startSession = async (userId: string, input: CreateSessionInput, { aiAllowed = true }: { aiAllowed?: boolean } = {}) => {
+  const language: TypingLanguage = input.mode === 'practice' ? await typingLanguageOf(userId) : 'vi';
+  const content = await contentOf(userId, input, language, aiAllowed);
 
   await TypingSessionModel.updateMany({ owner: userId, status: 'in_progress' }, { status: 'abandoned' });
-  return TypingSessionModel.create({
-    owner: userId,
-    mode: input.mode,
-    language,
-    passageId: String(passage._id),
-    passageTitle: passage.title,
-    targetWords: splitWords(passage.content),
-    chosenLimitSeconds: input.timeLimitSeconds
-  });
+  return TypingSessionModel.create({ owner: userId, mode: input.mode, language, ...content, chosenLimitSeconds: input.timeLimitSeconds });
 };
 
 export const getSession = async (userId: string, id: string) => {

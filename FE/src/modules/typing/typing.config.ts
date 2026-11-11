@@ -1,4 +1,4 @@
-import { CalendarDays, ClipboardCheck, Keyboard, type LucideIcon } from 'lucide-react';
+import { CalendarDays, ClipboardCheck, Dumbbell, Keyboard, type LucideIcon } from 'lucide-react';
 import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
 import type { SessionMode } from './types/typing.types';
 
@@ -28,6 +28,7 @@ export const modeLabels: Record<SessionMode, string> = {
   practice: 'Practice',
   placement: 'Placement',
   daily: 'Daily',
+  targeted: 'Train',
 };
 
 /** The icons of the typing modes: on the Typing page tabs and on the session cards of the profile page. */
@@ -35,6 +36,7 @@ export const modeIcons: Record<SessionMode, LucideIcon> = {
   practice: Keyboard,
   placement: ClipboardCheck,
   daily: CalendarDays,
+  targeted: Dumbbell,
 };
 
 /** "30s", "2m": the way the Typing page names its time choices. */
@@ -54,6 +56,9 @@ export const errorChartLabels: Record<SessionErrorType, string> = {
   CASE_WRONG: 'Sai hoa/thường',
   PUNCTUATION_WRONG: 'Sai dấu câu',
 };
+
+/** The Weak spots auto lesson trains the learner's weakest error types, at most this many (`LESSON_FOCUS_TYPES` in the backend). */
+export const WEAK_SPOTS_FOCUS_TYPES = 2;
 
 /** A session lasts at most 3 minutes (the server enforces it too: `MAX_SESSION_MS` in the backend). */
 export const SESSION_TIME_LIMIT_SECONDS = 180;

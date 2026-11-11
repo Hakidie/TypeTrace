@@ -149,6 +149,11 @@ export interface ErrorProfile {
   types: ErrorTypeProfile[];
   /** The weak types, highest error rate first. */
   weakTypes: SessionErrorType[];
+  /**
+   * Every type with enough data, weak or ok, highest error rate first: in the Vietnamese profile, what the auto Weak spots
+   * lesson trains (US3.2).
+   */
+  rankedTypes: SessionErrorType[];
 }
 
 /** What a point of the profile chart covers: a month (`year`: the last 12 months), a block of 7 days of the current month (`month`: 4-5 points) or a day (`week`: the last 7 days). */

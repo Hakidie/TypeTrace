@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { MAX_PASSAGE_WORDS, MIN_USER_PASSAGE_WORDS, passageLanguages, passageVisibilities, splitWords } from '../models/passage.model';
-import { startableModes } from '../models/typing-session.model';
+import { passageModes } from '../models/typing-session.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { cleanPassageText } from '../utils/passage-text';
 import { optionalBooleanQuerySchema } from './common.validator';
 
 export const listPassagesQuerySchema = paginationQuerySchema.extend({
-  mode: z.enum(startableModes).default('practice'),
+  mode: z.enum(passageModes).default('practice'),
   /**
    * Practice only (SCRUM-219): the passages of this typing language, the Typing page's menu sends the learner's. Vietnamese
    * when missing: the Passages page lists the learner's own passages, which are Vietnamese. The placement test ignores it.

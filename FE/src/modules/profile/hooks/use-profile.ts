@@ -64,10 +64,16 @@ export const useDailyTasks = () => useQuery({ queryKey: profileKeys.dailyTasks()
 /**
  * The learner's error profile (SCRUM-27): rate, level and trend of each error type of their typing language (SCRUM-219) in
  * their last counted sessions of it, worked out by the backend when asked; asked again each time the profile page opens,
- * like the streak, so it has the sessions just typed.
+ * like the streak, so it has the sessions just typed. With `language`, the profile of that language whatever the learner
+ * types: Weak spots asks for `vi`, since its lessons are Vietnamese. Its key starts with `errorProfile()`, so changing the
+ * typing language or finishing a session refreshes it too.
  */
-export const useErrorProfile = () =>
-  useQuery({ queryKey: profileKeys.errorProfile(), queryFn: profileApi.getErrorProfile, staleTime: 0 });
+export const useErrorProfile = (language?: TypingLanguage) =>
+  useQuery({
+    queryKey: language ? [...profileKeys.errorProfile(), language] : profileKeys.errorProfile(),
+    queryFn: () => profileApi.getErrorProfile(language),
+    staleTime: 0,
+  });
 
 /** The learner's average WPM and errors by month, week or day, by `range`, and with `date` the year, month or week that holds that day (SCRUM-240), in their typing language (SCRUM-219); asked again each time the profile page opens, like the streak. The range on screen stays while the next one loads. */
 export const useMonthlyProgress = (range: ChartRange, date?: string) =>

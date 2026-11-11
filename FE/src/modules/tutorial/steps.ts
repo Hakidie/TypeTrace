@@ -13,11 +13,13 @@ export const MODE_SEARCH: Record<TutorialMode, string> = {
 
 /**
  * The mode open on the Typing page: its tab (`?mode=`), or the open game of the Minigames tab (`&game=`; the old
- * `?mode=rain` link too), Practice without one. None on the cards of the Minigames tab.
+ * `?mode=rain` link too), Practice without one. None on the cards of the Minigames tab, nor in Weak spots.
  */
 export const openModeOf = (params: URLSearchParams): TutorialMode | undefined => {
   const tab = params.get('mode');
   const query = tab === 'minigames' ? params.get('game') : tab;
+  // Weak spots (US3.2) is not a mode of the tour: the Practice guide must not run there.
+  if (tab === 'targeted') return undefined;
   // No mode on the cards, nor in the Bot duel (not a mode of the tour).
   if (tab === 'minigames' && (!query || query === 'bot' || query === 'chain')) return undefined;
   return TOUR_ORDER.find((mode) => mode === query) ?? 'practice';
