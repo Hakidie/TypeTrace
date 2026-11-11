@@ -32,8 +32,9 @@ export interface TypingSession {
   passageTitle?: string;
   targetWords: string[];
   /**
-   * Weak spots only: the error types the lesson trains, the weakest first. Empty when there was nothing to aim at (no weak
-   * type yet, or no word for the type chosen) and the session types a random passage instead.
+   * Weak spots only: the error types the lesson trains, the highest error rate first. Empty when there was nothing to aim at
+   * (no type with enough data in the error profile yet, or no word for the type chosen) and the session types a random passage
+   * instead.
    */
   focusErrorTypes?: WordErrorType[];
   status: SessionStatus;
@@ -100,7 +101,7 @@ export interface StartSessionInput {
   passageId?: string;
   /** The time the learner chose; a placement session needs it to be ranked (US10.1). */
   timeLimitSeconds?: number;
-  /** Weak spots only: the one error type to practice. Missing = the learner's weakest types. */
+  /** Weak spots only: the one error type to practice. Missing = the learner's types with the highest error rates. */
   errorType?: WordErrorType;
 }
 

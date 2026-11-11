@@ -7,7 +7,7 @@ import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 import { cn } from '@/shared/lib/utils';
 import { errorLabels, WEAK_SPOTS_FOCUS_TYPES } from '../typing.config';
 
-/** What a Weak spots card starts: the learner's weakest error types (`auto`, US3.2) or one error type (SCRUM-74). */
+/** What a Weak spots card starts: the learner's error types with the highest error rates (`auto`, US3.2) or one error type (SCRUM-74). */
 export type WeakSpotsFocus = 'auto' | WordErrorType;
 
 // The frame of the cards, as the tiles of the Minigames tab.
@@ -21,9 +21,10 @@ interface WeakSpotsModeProps {
 
 /**
  * The Weak spots tab before a lesson: on the left the auto lesson (US3.2), which names the error types it will train (the
- * learner's weakest, from their error profile, as the server picks them) and their rates, or says that a random passage comes
- * when they have none; on the right the five error types (SCRUM-74), the cards of the Profile's error profile, each starting a
- * lesson of its own type, also before it has enough data. On phones the auto lesson is on top.
+ * learner's highest error rates among the types with enough data, weak or not, from their error profile, as the server picks
+ * them) and their rates, or says that a random passage comes while the profile has no type with enough data; on the right the
+ * five error types (SCRUM-74), the cards of the Profile's error profile, each starting a lesson of its own type, also before it
+ * has enough data. On phones the auto lesson is on top.
  */
 export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
   const errorProfile = useErrorProfile();
@@ -31,7 +32,7 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
   if (errorProfile.isError) return <ErrorState error={errorProfile.error} onRetry={() => void errorProfile.refetch()} />;
 
   const profile = errorProfile.data;
-  const focus = profile.weakTypes.slice(0, WEAK_SPOTS_FOCUS_TYPES).map((type) => profile.types.find((item) => item.type === type)!);
+  const focus = profile.rankedTypes.slice(0, WEAK_SPOTS_FOCUS_TYPES).map((type) => profile.types.find((item) => item.type === type)!);
 
   return (
     <div className="mx-auto grid w-full max-w-6xl gap-6 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
@@ -70,7 +71,7 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
           </>
         ) : (
           <span className="text-base text-muted-foreground">
-            You have no weak error type yet, so this starts a random passage. Pick an error type to practice it now.
+            Your error profile does not have enough data yet, so this starts a random passage. Pick an error type to practice it now.
           </span>
         )}
         <span className="mt-auto flex h-9 w-fit items-center gap-2 bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform duration-200 group-hover:-translate-y-0.5">

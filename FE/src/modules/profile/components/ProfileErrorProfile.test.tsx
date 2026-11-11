@@ -30,6 +30,7 @@ const profileOf = (types: ErrorTypeProfile[], extra: Partial<ErrorProfile> = {})
   sessionsUsed: 10,
   types,
   weakTypes: types.filter((type) => type.level === 'weak').map((type) => type.type),
+  rankedTypes: types.filter((type) => type.level !== 'insufficient_data').map((type) => type.type),
   ...extra,
 });
 

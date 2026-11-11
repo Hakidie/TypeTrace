@@ -3,7 +3,7 @@ import { PASSAGE_LIST } from '../../src/data/passages';
 import { PassageModel } from '../../src/models/passage.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
 import { UserModel } from '../../src/models/user.model';
-import { getWeakErrorTypes, PROFILE_WINDOW } from '../../src/services/error-profile.service';
+import { getTopErrorTypes, getWeakErrorTypes, PROFILE_WINDOW } from '../../src/services/error-profile.service';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { WordError, type WordErrorType } from '../../src/utils/vietnamese-errors';
 import { api } from '../helpers/api';
@@ -71,8 +71,8 @@ describe('GET /api/profile/error-profile (SCRUM-27)', () => {
     const response = await profileOf(learner);
 
     expect(response.status).toBe(200);
-    expect(Object.keys(response.body).sort()).toEqual(['minOpportunities', 'sessionsUsed', 'types', 'weakRate', 'weakTypes', 'window']);
-    expect(response.body).toMatchObject({ window: 10, minOpportunities: 20, weakRate: 15, sessionsUsed: 0, weakTypes: [] });
+    expect(Object.keys(response.body).sort()).toEqual(['minOpportunities', 'rankedTypes', 'sessionsUsed', 'types', 'weakRate', 'weakTypes', 'window']);
+    expect(response.body).toMatchObject({ window: 10, minOpportunities: 20, weakRate: 15, sessionsUsed: 0, weakTypes: [], rankedTypes: [] });
     expect(response.body.types).toEqual(
       Object.values(WordError).map((type) => ({
         type,
@@ -184,7 +184,7 @@ describe('GET /api/profile/error-profile (SCRUM-27)', () => {
     expect(typeIn(body, 'BASE_LETTER')).toMatchObject({ errors: 10, opportunities: 200, rate: 5, level: 'ok' });
   });
 
-  it('gives a practice aimed at the errors the weak types, highest rate first (getWeakErrorTypes, US3.2)', async () => {
+  it('gives the weak types, highest rate first (getWeakErrorTypes)', async () => {
     const learner = await createUser({});
     await TypingSessionModel.create(
       countedSession(learner._id, 1, { HOI_NGA_CONFUSION: [10, 40], TONE_WRONG: [8, 40], BASE_LETTER: [9, 40], MARK_WRONG: [1, 40] })
@@ -193,5 +193,19 @@ describe('GET /api/profile/error-profile (SCRUM-27)', () => {
     expect(await getWeakErrorTypes(String(learner._id))).toEqual(['HOI_NGA_CONFUSION', 'BASE_LETTER']);
     expect(await getWeakErrorTypes(String(learner._id), 1)).toEqual(['HOI_NGA_CONFUSION']);
     expect(await getWeakErrorTypes(String(learner._id), 5)).toEqual(['HOI_NGA_CONFUSION', 'BASE_LETTER', 'TONE_WRONG']);
+  });
+
+  it('gives a Weak spots lesson its types with enough data, weak or not, highest rate first (getTopErrorTypes, US3.2)', async () => {
+    const learner = await createUser({});
+    // Nothing weak: hỏi / ngã 10 %, the tone 5 %, the letters 0 %, đ with too few chances.
+    await TypingSessionModel.create(
+      countedSession(learner._id, 1, { HOI_NGA_CONFUSION: [4, 40], TONE_WRONG: [2, 40], BASE_LETTER: [0, 40], D_MISSING: [3, 5] })
+    );
+
+    expect(await getWeakErrorTypes(String(learner._id))).toEqual([]);
+    expect(await getTopErrorTypes(String(learner._id))).toEqual(['HOI_NGA_CONFUSION', 'TONE_WRONG']);
+    expect(await getTopErrorTypes(String(learner._id), 5)).toEqual(['HOI_NGA_CONFUSION', 'TONE_WRONG', 'BASE_LETTER']);
+    // A learner without a counted session has nothing to aim at.
+    expect(await getTopErrorTypes(String((await createUser({ email: 'new@example.com' }))._id))).toEqual([]);
   });
 });

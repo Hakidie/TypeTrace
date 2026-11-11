@@ -176,8 +176,8 @@ const passageContent = (passage: { _id: unknown; title: string; content: string 
 /**
  * What a new session types: a passage, or in Weak spots (`targeted`, US3.2) a lesson aimed at the learner's errors (the AI's
  * passage written from words of the bank, or those words; `aiAllowed` is false past the learner's AI limit). With nothing to
- * aim at (no weak type yet, or no word for it), Weak spots types a random passage, as Random in Practice, with no focus: the
- * page tells the learner why.
+ * aim at (no type with enough data in the error profile yet, or no word for it), Weak spots types a random passage, as Random
+ * in Practice, with no focus: the page tells the learner why.
  */
 const contentOf = async (userId: string, input: CreateSessionInput, aiAllowed: boolean) => {
   if (input.mode !== 'targeted') return passageContent(await pickPassage(userId, input));

@@ -143,12 +143,13 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `WEAK_RATE`, compared in whole numbers, never with a sum of decimals) and the trend (a two-proportion z-test between the
   windows). Nothing is written in `completeSession`, there is nothing to rebuild or to delete with the user. The thresholds
   are sent with `GET /api/profile/error-profile`: never write them in the frontend. A feature that needs the learner's weak
-  error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way).
+  error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way); Weak spots reads
+  `getTopErrorTypes` (every type with enough data, weak or not, highest rate first: `rankedTypes` of the answer).
 - Weak spots (SCRUM-28, US3.2; one error type: SCRUM-74) is the session mode `targeted` (the Weak spots tab of the Typing
   page): `POST /api/sessions { mode: 'targeted', errorType? }` types a lesson aimed at the learner's errors instead of a
   passage, built by `lessonFor` (`services/targeted-practice.service.ts`). The pure `buildLesson` picks 30 to 50 words of
-  the bank (`lessonWords`), 60 to 70 % of them training the focus (the type chosen, else the 2 weakest of
-  `getWeakErrorTypes`, taking turns), only active words (`isActive`), none of the learner's last 3 lessons' picked words
+  the bank (`lessonWords`), 60 to 70 % of them training the focus (the type chosen, else the 2 types with the highest error
+  rates among those with enough data, weak or not: `getTopErrorTypes`, so an error profile is enough; taking turns), only active words (`isActive`), none of the learner's last 3 lessons' picked words
   while the bank has others, repeats once it runs short. `TONE_WRONG` and `BASE_LETTER` are on every word (`tagWord` counts
   chances), so `trainsErrorType` takes a word with a tone mark for the tone and any word for the letters. Then Gemini writes
   a passage that makes sense from them (`generateText`, prompt and limits in `config/weak-spots-ai.ts`); the pure
@@ -156,8 +157,10 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   text has 11 % words with đ). No key, a timeout, any Gemini error, a refused passage or more than 5 AI lessons a minute for
   the learner (`lessonAiLimiter`, which never answers 429) leave the picked words as the lesson: the learner never sees an AI
   error, and `lessonSource` (`ai`, `words`, `passage`) records which. The passage lives only in the session (`targetWords`),
-  never in the passage bank. The session has no `passageId` and keeps `focusErrorTypes`; with nothing to aim at (no weak type,
-  or no word for it) it types a random practice passage with `focusErrorTypes: []`, which the page explains. The passage
+  never in the passage bank. The session has no `passageId` and keeps `focusErrorTypes`; with nothing to aim at (no type with
+  enough data yet, or no word for it) it types a random practice passage with `focusErrorTypes: []`, which the page explains.
+  On the Typing page the Weak spots tab opens its cards from anywhere, also from a lesson, and a lesson's other way back is
+  the "All weak spots" button under the passage, left of Restart. The passage
   menu and `GET /api/passages` take `passageModes` (practice, placement), never `targeted`.
 - A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
   which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen

@@ -44,8 +44,9 @@ export interface TypingSessionDocument extends mongoose.Document {
   /** Copy of the passage words taken when the session started, or the words of a Weak spots lesson. */
   targetWords: string[];
   /**
-   * Weak spots only (US3.2): the error types the lesson trains, the weakest first. Empty when there was nothing to aim at (no
-   * weak type yet, or no word for it) and the session types a random passage instead, which the page tells the learner.
+   * Weak spots only (US3.2): the error types the lesson trains, the highest error rate first. Empty when there was nothing to
+   * aim at (no type with enough data in the error profile yet, or no word for it) and the session types a random passage
+   * instead, which the page tells the learner.
    */
   focusErrorTypes?: WordErrorType[];
   /**

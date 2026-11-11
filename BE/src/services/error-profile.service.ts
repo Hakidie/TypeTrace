@@ -53,6 +53,11 @@ export interface ErrorProfile {
   types: ErrorTypeProfile[];
   /** The weak types, highest error rate first (a tie goes to more errors, then to the order of `WordError`). */
   weakTypes: WordErrorType[];
+  /**
+   * Every type with enough data for a level, weak or ok, in the same order, so the weak ones come first: what a Weak spots
+   * lesson trains when the learner picks no type (US3.2).
+   */
+  rankedTypes: WordErrorType[];
 }
 
 type OwnerId = string | Types.ObjectId;
@@ -111,19 +116,19 @@ export const computeErrorProfile = (sessions: readonly ProfileSession[]): ErrorP
     const before = totalsOf(previous, type);
     return { type, ...now, rate: rateOf(now), level: levelOf(now), previousRate: rateOf(before), trend: trendOf(now, before) };
   });
-  // A weak type has at least MIN_PROFILE_OPPORTUNITIES chances, so no division by 0; the sort is stable, so the order of
-  // WordError settles what is left of a tie.
-  const weakTypes = types
-    .filter((profile) => profile.level === 'weak')
-    .sort((a, b) => b.errors / b.opportunities - a.errors / a.opportunities || b.errors - a.errors)
-    .map((profile) => profile.type);
+  // A type with a level has at least MIN_PROFILE_OPPORTUNITIES chances, so no division by 0; the sort is stable, so the order
+  // of WordError settles what is left of a tie. A weak type has a higher rate than an ok one, so the weak ones lead.
+  const ranked = types
+    .filter((profile) => profile.level !== 'insufficient_data')
+    .sort((a, b) => b.errors / b.opportunities - a.errors / a.opportunities || b.errors - a.errors);
   return {
     window: PROFILE_WINDOW,
     minOpportunities: MIN_PROFILE_OPPORTUNITIES,
     weakRate: WEAK_RATE,
     sessionsUsed: current.length,
     types,
-    weakTypes
+    weakTypes: ranked.filter((profile) => profile.level === 'weak').map((profile) => profile.type),
+    rankedTypes: ranked.map((profile) => profile.type)
   };
 };
 
@@ -144,6 +149,13 @@ export const getErrorProfile = async (userId: string) => {
   return computeErrorProfile(await profileSessionsOf(userId));
 };
 
-/** The learner's weak error types, highest error rate first, at most `limit`: what a practice aimed at their errors trains (US3.2). */
+/** The learner's weak error types, highest error rate first, at most `limit`. */
 export const getWeakErrorTypes = async (userId: OwnerId, limit = 2) =>
   computeErrorProfile(await profileSessionsOf(userId)).weakTypes.slice(0, limit);
+
+/**
+ * The learner's error types with enough data, weak or not, highest error rate first, at most `limit`: what a Weak spots lesson
+ * trains when the learner picks no type (US3.2). Empty only before their error profile has a type with enough data.
+ */
+export const getTopErrorTypes = async (userId: OwnerId, limit = 2) =>
+  computeErrorProfile(await profileSessionsOf(userId)).rankedTypes.slice(0, limit);

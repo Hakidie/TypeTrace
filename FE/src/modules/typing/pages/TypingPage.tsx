@@ -12,7 +12,6 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
 import { redGlassTheme } from '@/shared/lib/red-glass-theme';
 import { WordError, type WordErrorType } from '@/shared/lib/vietnamese-errors';
@@ -22,6 +21,9 @@ import { WeakSpotsMode, type WeakSpotsFocus } from '../components/WeakSpotsMode'
 import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession } from '../hooks/use-typing';
 import type { ReplayEvent, SessionMode, StartSessionInput } from '../types/typing.types';
 import { errorLabels, modeIcons, modeLabels, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
+
+// The buttons under the passage: Restart, and in a Weak spots lesson the way back to its cards.
+const actionClass = 'h-auto gap-2 px-4 py-2 text-[1.125rem] text-muted-foreground';
 
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
 const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
@@ -113,7 +115,7 @@ const FocusNote = ({ focus, chosen }: { focus: WordErrorType[]; chosen?: WordErr
     ) : chosen ? (
       `There are no words for ${errorLabels[chosen]} yet, so here is a random passage.`
     ) : (
-      'You have no weak error type yet, so here is a random passage. Weak spots aims at your errors once your sessions show some.'
+      'Your error profile does not have enough data yet, so here is a random passage. Weak spots aims at your errors once your counted sessions give it some.'
     )}
   </p>
 );
@@ -276,28 +278,10 @@ export const TypingPage = () => {
       <div data-tutorial="mode-tabs" className="flex flex-col items-center gap-2 md:grid md:gap-x-2 md:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 max-w-full md:justify-self-end">
           {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Minigames.
-              A Weak spots lesson shows its name and a way back to the cards instead: its card is its choice. */}
+              A Weak spots lesson shows only its name: its card is its choice, and the ways back to the cards are the Weak spots tab
+              and the button under the passage. */}
           {targeted && !weakSpotsCards && (
             <div className="flex min-w-0 outline outline-1 -outline-offset-1 outline-border">
-              {/* An arrow only, its words in the tooltip: the frame must leave the mode tabs their place. */}
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-flex shrink-0">
-                      <button
-                        type="button"
-                        aria-label="All weak spots"
-                        onClick={backToWeakSpots}
-                        disabled={complete.isPending}
-                        className="inline-flex items-center px-3 py-1.5 text-muted-foreground transition-colors enabled:hover:bg-muted enabled:hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <ArrowLeft className="size-5" aria-hidden />
-                      </button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>All weak spots</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
               <span className={cn(chipClass, 'truncate text-primary')}>{passageTitle ?? '—'}</span>
             </div>
           )}
@@ -340,8 +324,9 @@ export const TypingPage = () => {
             else if (value === 'minigames') {
               if (!minigames) setSearchParams({ mode: 'minigames' });
             }
+            // From anywhere but its cards, Weak spots opens its cards: in a lesson the tab is a way back to them.
             else if (value === 'targeted') {
-              if (!targeted || game) setSearchParams({ mode: 'targeted' });
+              if (!weakSpotsCards) backToWeakSpots();
             }
             else if (value !== mode || game) setPlacementPrompt({ open: true });
           }}
@@ -413,6 +398,9 @@ export const TypingPage = () => {
             Weak spots builds lessons from the words of the error types you get wrong most. Your plan does not include it.
           </p>
           <Button onClick={() => setPlanOpen(true)}>See plans</Button>
+          <Button variant="ghost" className="h-auto gap-2 px-3 py-1.5 text-base text-muted-foreground" onClick={backToWeakSpots}>
+            <ArrowLeft className="size-4" aria-hidden /> All weak spots
+          </Button>
         </div>
       ) : session ? (
         <TypingArea
@@ -424,14 +412,17 @@ export const TypingPage = () => {
           timeLimitSeconds={timeSeconds}
           onTimeUp={restart}
           actions={
-            <Button
-              variant="ghost"
-              className="h-auto gap-2 px-4 py-2 text-[1.125rem] text-muted-foreground"
-              onClick={restart}
-              disabled={start.isPending || complete.isPending}
-            >
-              <RotateCcw className="size-5" /> Restart
-            </Button>
+            // A Weak spots lesson has its way back to the cards on the left of Restart, like the Minigames' way back under a game.
+            <div className={cn('flex items-center gap-4', targeted && 'w-full justify-between')}>
+              {targeted && (
+                <Button variant="ghost" className={actionClass} onClick={backToWeakSpots} disabled={complete.isPending}>
+                  <ArrowLeft className="size-5" aria-hidden /> All weak spots
+                </Button>
+              )}
+              <Button variant="ghost" className={actionClass} onClick={restart} disabled={start.isPending || complete.isPending}>
+                <RotateCcw className="size-5" /> Restart
+              </Button>
+            </div>
           }
         />
       ) : (

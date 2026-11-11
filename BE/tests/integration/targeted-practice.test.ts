@@ -119,6 +119,34 @@ describe('POST /api/sessions in Weak spots (targeted, US3.2)', () => {
     expect(trained).toBeLessThanOrEqual(Math.floor(words.length * 0.7));
   });
 
+  it('aims at the two types with the highest error rates when none is weak: an error profile is enough', async () => {
+    const learner = await premiumLearner();
+    // hỏi / ngã 10 %, vowel marks 5 %, the rest lower: all ok, none weak.
+    await TypingSessionModel.create({
+      owner: learner._id,
+      passageId: 'p1',
+      targetWords: ['a'],
+      status: 'completed',
+      isCounted: true,
+      completedAt: new Date(Date.now() - 60_000),
+      durationMs: 60_000,
+      wpm: 30,
+      accuracy: 97,
+      errorCounts: { BASE_LETTER: 1, D_MISSING: 0, MARK_WRONG: 2, TONE_WRONG: 1, HOI_NGA_CONFUSION: 4 },
+      opportunityCounts: { BASE_LETTER: 40, D_MISSING: 40, MARK_WRONG: 40, TONE_WRONG: 40, HOI_NGA_CONFUSION: 40 }
+    });
+
+    const response = await startLesson(learner);
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      mode: 'targeted',
+      focusErrorTypes: ['HOI_NGA_CONFUSION', 'MARK_WRONG'],
+      passageTitle: 'Weak spots: hỏi / ngã, vowel marks'
+    });
+    expect(response.body).not.toHaveProperty('passageId');
+  });
+
   it('practices the one error type the learner chose, weak or not', async () => {
     const learner = await premiumLearner();
     await makeWeak(learner);
@@ -198,7 +226,7 @@ describe('POST /api/sessions in Weak spots (targeted, US3.2)', () => {
     expect(body.lessonWords.every((text: string) => allowed.includes(text))).toBe(true);
   });
 
-  it('types a random published passage and has no focus when the learner has no weak type yet, without asking the AI', async () => {
+  it('types a random published passage and has no focus when the learner has no error profile yet, without asking the AI', async () => {
     const learner = await premiumLearner();
 
     const response = await startLesson(learner);

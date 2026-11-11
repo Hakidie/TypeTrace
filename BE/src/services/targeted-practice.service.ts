@@ -1,5 +1,5 @@
 // Weak spots (SCRUM-28, US3.2): a practice lesson aimed at the learner's errors. Its words are picked from the word bank: most of
-// them train the error types the learner is weak at (or the one they chose), the others none of them. The AI then writes a
+// them train the error types the learner misses most (or the one they chose), the others none of them. The AI then writes a
 // passage that makes sense from them; when it cannot, the picked words are the lesson. `startSession` stores what is typed as
 // the session's `targetWords`, so the lesson is typed, graded and counted like any practice session. Only models, the AI
 // service and services that never import the typing sessions are imported here, so no service cycle can start (see
@@ -13,7 +13,7 @@ import { forbidden } from '../utils/app-error';
 import { cleanPassageText } from '../utils/passage-text';
 import { WordError, type WordErrorType } from '../utils/vietnamese-errors';
 import { generateText } from './ai.service';
-import { getWeakErrorTypes } from './error-profile.service';
+import { getTopErrorTypes } from './error-profile.service';
 import { getPlanOf } from './passage-lock.service';
 
 /** A lesson has 30 to 50 words, a random number in between. */
@@ -22,7 +22,7 @@ export const LESSON_MAX_WORDS = 50;
 /** 60 to 70 % of them train the lesson's error types: whole percents, since a sum of decimals can miss an edge. */
 export const LESSON_MIN_FOCUS_PERCENT = 60;
 export const LESSON_MAX_FOCUS_PERCENT = 70;
-/** Without an error type chosen, a lesson trains the learner's weakest types: at most this many. */
+/** Without an error type chosen, a lesson trains the learner's types with the highest error rates, weak or not: at most this many. */
 export const LESSON_FOCUS_TYPES = 2;
 /** The words of the learner's last lessons come back only when the bank has too few others. */
 export const RECENT_LESSONS = 3;
@@ -48,7 +48,7 @@ export const trainsErrorType = (word: BankWord, type: WordErrorType) => {
 };
 
 export interface LessonInput {
-  /** The error types to train, the weakest first. */
+  /** The error types to train, the highest error rate first. */
   focus: readonly WordErrorType[];
   /** The active words of the bank. */
   words: readonly BankWord[];
@@ -236,14 +236,15 @@ const writePassage = async (practiceWords: string[], otherWords: string[], aiAll
 export type LessonSource = 'ai' | 'words' | 'passage';
 
 /**
- * The lesson the learner asks for: of `errorType`, or of their weakest types (`getWeakErrorTypes`). Its words are picked from
- * the bank (`lessonWords`), then the AI writes a passage from them (`targetWords`), or the picked words are typed as they are.
- * `null` when there is nothing to aim at (no weak type yet, or no word for it): the caller types a random passage instead.
- * 403 for a plan without Weak spots, even then.
+ * The lesson the learner asks for: of `errorType`, or of their types with the highest error rates, weak or not
+ * (`getTopErrorTypes`). Its words are picked from the bank (`lessonWords`), then the AI writes a passage from them
+ * (`targetWords`), or the picked words are typed as they are. `null` when there is nothing to aim at (no type with enough data
+ * in the error profile yet, or no word for it): the caller types a random passage instead. 403 for a plan without Weak spots,
+ * even then.
  */
 export const lessonFor = async (userId: string, errorType?: WordErrorType, { aiAllowed = true }: { aiAllowed?: boolean } = {}) => {
   await assertCanPracticeWeakSpots(userId);
-  const focus = errorType ? [errorType] : await getWeakErrorTypes(userId, LESSON_FOCUS_TYPES);
+  const focus = errorType ? [errorType] : await getTopErrorTypes(userId, LESSON_FOCUS_TYPES);
   if (!focus.length) return null;
   const [words, recentWords] = await Promise.all([activeWords(), recentLessonWords(userId)]);
   const lesson = buildLesson({ focus, words, recentWords });

@@ -18,7 +18,7 @@ export const createSessionSchema = z
       .number()
       .refine((seconds) => (TIME_LIMIT_CHOICES_SECONDS as readonly number[]).includes(seconds), 'Choose one of the times offered')
       .optional(),
-    /** Weak spots only (`targeted`, US3.2): the one error type to practice. Missing = the learner's weakest types. */
+    /** Weak spots only (`targeted`, US3.2): the one error type to practice. Missing = the learner's types with the highest error rates. */
     errorType: z.enum(WordError).optional()
   })
   .refine((body) => body.mode !== 'targeted' || body.passageId === undefined, {
