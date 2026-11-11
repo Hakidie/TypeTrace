@@ -307,6 +307,18 @@ describe('PassagesPage', () => {
     expect(screen.getByRole('link', { name: 'Practice Bài của tôi' })).toBeInTheDocument();
   });
 
+  it('shows a passage an admin archived dimmed and labelled, with nothing to do but read it', async () => {
+    answer({ items: [{ ...approvedMine, status: 'archived' }, mine] });
+    await renderListPage();
+
+    const card = (await screen.findByRole('heading', { name: 'Hà Nội vào thu' })).closest<HTMLElement>('[role="article"]')!;
+    expect(within(card).getByText('Archived')).toBeInTheDocument();
+    expect(card).toHaveClass('opacity-60');
+    expect(screen.queryByRole('link', { name: 'Practice Hà Nội vào thu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit Hà Nội vào thu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete Hà Nội vào thu' })).not.toBeInTheDocument();
+  });
+
   it('deletes an own passage after confirmation', async () => {
     const user = userEvent.setup();
     remove.mockResolvedValue(undefined);

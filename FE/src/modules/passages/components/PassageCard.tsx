@@ -137,6 +137,8 @@ const IconButton = ({
 
 /** Where one of the learner's own passages stands (SCRUM-176), as its badge says it. */
 const ownStatus = (passage: LearnerPassage) => {
+  // An admin archived it: still listed for its owner, dimmed, with nothing to do but read it.
+  if (passage.status === 'archived') return 'Archived';
   // A public passage waits again while an edit of it does, and shows Rejected when the last edit was turned down.
   if (passage.visibility === 'public') {
     if (passage.editPending) return 'Pending';
@@ -189,7 +191,7 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
         review && 'cursor-pointer transition-colors',
         review?.selected && 'bg-primary/25 ring-2 ring-primary',
         // Past the limit of the owner's plan (US11.1): dimmed.
-        own && learner.locked && 'opacity-60',
+        own && (learner.locked || learner.status === 'archived') && 'opacity-60',
       )}
       // A card of the review queue is chosen by clicking it (or Space / Enter on it), for a decision on many at once.
       {...(review && {
@@ -254,7 +256,7 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own }: PassageC
         {own && (
           // Shown on hover or keyboard focus; always on touch screens, which cannot hover.
           <div className="-mr-1 -mt-1 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
-            {!learner.locked && (
+            {!learner.locked && learner.status !== 'archived' && (
               <Link to={`/typing?passage=${passage._id}`} aria-label={`Practice ${passage.title}`} title="Practice" className={iconButtonClass}>
                 <Keyboard className="size-4" aria-hidden />
               </Link>

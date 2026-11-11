@@ -138,15 +138,17 @@ export const PassagesPage = () => {
             const waiting = passage.status === 'pending';
             // Past the limit of the plan: nothing but deleting, public or not (it is the way to get a place back).
             const locked = passage.locked === true;
+            // Archived by an admin: nothing to do with it, not even deleting.
+            const archived = passage.status === 'archived';
             return (
               <PassageCard
                 key={passage._id}
                 passage={passage}
                 own={{
-                  onEdit: !locked && ((ownPrivate && !waiting) || ownPublic) ? startEditing : undefined,
-                  onDelete: ownPrivate || locked ? setDeleting : undefined,
-                  onRequestPublic: !locked && ownPrivate && !waiting ? setRequesting : undefined,
-                  onWithdraw: !locked && ((ownPrivate && waiting) || (ownPublic && passage.editPending)) ? (target) => withdrawRequest.mutate(target._id) : undefined,
+                  onEdit: !locked && !archived && ((ownPrivate && !waiting) || ownPublic) ? startEditing : undefined,
+                  onDelete: !archived && (ownPrivate || locked) ? setDeleting : undefined,
+                  onRequestPublic: !locked && !archived && ownPrivate && !waiting ? setRequesting : undefined,
+                  onWithdraw: !locked && !archived && ((ownPrivate && waiting) || (ownPublic && passage.editPending)) ? (target) => withdrawRequest.mutate(target._id) : undefined,
                   onShowReason: setReasonOf,
                 }}
               />

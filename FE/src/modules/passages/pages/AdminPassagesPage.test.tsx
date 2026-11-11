@@ -55,7 +55,7 @@ const answer = ({ bank = [passage], pending = [] }: { bank?: unknown[]; pending?
       : page(bank),
   );
 
-const renderPage = () => renderWithProviders(<AdminPassagesPage />, { route: '/admin/passages' });
+const renderPage = (route = '/admin/passages?show=list') => renderWithProviders(<AdminPassagesPage />, { route });
 
 beforeEach(() => {
   list.mockReset();
@@ -66,15 +66,19 @@ beforeEach(() => {
 });
 
 describe('AdminPassagesPage', () => {
-  it('has a New passage panel and a Passages panel with the cards', async () => {
-    renderPage();
+  it('shows the New passage form first, and the Passage list with the cards after the button under it', async () => {
+    const user = userEvent.setup();
+    renderPage('/admin/passages');
 
     expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Passage list/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Switch to Passage list' }));
+    expect(screen.queryByRole('heading', { name: 'New passage' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Passage list/ })).toBeInTheDocument();
     expect(await screen.findByText('Mùa thu Hà Nội')).toBeInTheDocument();
     expect(screen.getByText('draft')).toBeInTheDocument();
     expect(screen.getByText('6 words')).toBeInTheDocument();
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 6, visibility: 'public' }));
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 9, visibility: 'public' }));
   });
 
   it('shows an empty state without any example card', async () => {
@@ -101,8 +105,7 @@ describe('AdminPassagesPage', () => {
 
   it('creates a passage and clears the form', async () => {
     create.mockResolvedValue({ ...passage, _id: 'p2' });
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
+    renderPage('/admin/passages');
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Biển' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'TypeTrace' } });
@@ -123,8 +126,7 @@ describe('AdminPassagesPage', () => {
   });
 
   it('does not send a text over 200 words, and says why', async () => {
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
+    renderPage('/admin/passages');
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Dài' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'TypeTrace' } });
@@ -137,8 +139,7 @@ describe('AdminPassagesPage', () => {
 
   it('counts the words and can mark the passage as a placement passage', async () => {
     create.mockResolvedValue({ ...passage, _id: 'p3', isPlacement: true });
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
+    renderPage('/admin/passages');
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Kiểm tra' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'TypeTrace' } });
@@ -159,8 +160,7 @@ describe('AdminPassagesPage', () => {
   });
 
   it('does not submit an empty form', async () => {
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
+    renderPage('/admin/passages');
 
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
 
@@ -195,7 +195,9 @@ describe('AdminPassagesPage', () => {
         language: 'vi',
       }),
     );
-    expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+    // Saved: back to the list; the button under it opens the empty New passage form again.
+    expect(await screen.findByRole('heading', { name: /Passage list/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to New passage' }));
     expect(screen.getByLabelText('Title')).toHaveValue('');
     expect(create).not.toHaveBeenCalled();
   });
@@ -207,7 +209,9 @@ describe('AdminPassagesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit Mùa thu Hà Nội' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+    // Cancelled: back to the list; the form under its button is empty again.
+    expect(screen.getByRole('heading', { name: /Passage list/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to New passage' }));
     expect(screen.getByRole('button', { name: 'Add passage' })).toBeInTheDocument();
     expect(update).not.toHaveBeenCalled();
   });
@@ -231,7 +235,7 @@ describe('AdminPassagesPage', () => {
 
     expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Update passage' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Status: published' })).toHaveClass('bg-primary');
+    expect(screen.getByRole('button', { name: 'Status: published' })).toHaveClass('text-primary');
   });
 
   it('shows a draft passage status like the Regular passage chip, left of Cancel', async () => {
@@ -243,7 +247,7 @@ describe('AdminPassagesPage', () => {
 
     const status = screen.getByRole('button', { name: 'Status: draft' });
     expect(status).toHaveTextContent('draft');
-    expect(status).toHaveClass('bg-muted');
+    expect(status).toHaveClass('text-muted-foreground');
     expect(status.compareDocumentPosition(screen.getByRole('button', { name: 'Cancel' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
@@ -255,12 +259,12 @@ describe('AdminPassagesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit Mùa thu Hà Nội' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Status: draft' }));
-    expect(screen.getByRole('button', { name: 'Status: published' })).toHaveClass('bg-primary');
+    expect(screen.getByRole('button', { name: 'Status: published' })).toHaveClass('text-primary');
     expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Status: published' }));
-    expect(screen.getByRole('button', { name: 'Status: archived' })).toHaveClass('bg-muted');
+    expect(screen.getByRole('button', { name: 'Status: archived' })).toHaveClass('text-muted-foreground');
     fireEvent.click(screen.getByRole('button', { name: 'Status: archived' }));
-    expect(screen.getByRole('button', { name: 'Status: draft' })).toHaveClass('bg-muted');
+    expect(screen.getByRole('button', { name: 'Status: draft' })).toHaveClass('text-muted-foreground');
     expect(setStatus).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Status: draft' }));
@@ -360,9 +364,9 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
   it('searches, filters and sorts the passage bank, keeping each choice in the URL', async () => {
     answerPages(3);
     const user = userEvent.setup();
-    renderAt('/admin/passages?page=2');
+    renderAt('/admin/passages?show=list&page=2');
     await screen.findByText('Mùa thu Hà Nội');
-    expect(list).toHaveBeenCalledWith({ page: 2, limit: 6, sort: '-createdAt', visibility: 'public' });
+    expect(list).toHaveBeenCalledWith({ page: 2, limit: 9, sort: '-createdAt', visibility: 'public' });
 
     // A search (on Enter) looks in the title and the source, from the first page.
     await user.type(screen.getByLabelText('Search passages'), 'hà nội{Enter}');
@@ -407,12 +411,12 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
   it('opens with the search, filters, sort and page of the URL, as after a reload or from a shared link', async () => {
     answerPages(3);
     const user = userEvent.setup();
-    renderAt('/admin/passages?q=biển&status=archived&type=placement&sort=title&page=2');
+    renderAt('/admin/passages?show=list&q=biển&status=archived&type=placement&sort=title&page=2');
     await screen.findByText('Mùa thu Hà Nội');
 
     expect(list).toHaveBeenCalledWith({
       page: 2,
-      limit: 6,
+      limit: 9,
       sort: 'title',
       q: 'biển',
       status: 'archived',
@@ -429,7 +433,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
 
   it('goes back to the last page when the page of the URL is past the end', async () => {
     answerPages(2);
-    renderAt('/admin/passages?page=5');
+    renderAt('/admin/passages?show=list&page=5');
 
     await waitFor(() => expect(urlParams().get('page')).toBe('2'));
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 2, visibility: 'public' }));
@@ -438,7 +442,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
 
   it('says when no passage matches the search or the filters', async () => {
     answer({ bank: [] });
-    renderAt('/admin/passages?q=xyz&status=draft');
+    renderAt('/admin/passages?show=list&q=xyz&status=draft');
 
     expect(await screen.findByText('No matching passages')).toBeInTheDocument();
     expect(screen.getByText('Try another search or filter.')).toBeInTheDocument();
@@ -519,6 +523,8 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
       fireEvent.click(screen.getByRole('button', { name: `Edit ${title}` }));
       expect(screen.getByLabelText('Title')).toHaveValue(title);
       expect(screen.queryByRole('button', { name: 'Delete passage' })).not.toBeInTheDocument();
+      // The form replaces the list: back to it for the next card.
+      fireEvent.click(screen.getByRole('button', { name: 'Switch to Passage list' }));
     }
     fireEvent.click(screen.getByRole('button', { name: 'Edit Bài cũ' }));
     expect(screen.getByRole('button', { name: 'Delete passage' })).toBeInTheDocument();
@@ -541,7 +547,7 @@ describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
         <AdminPassagesPage />
         <LocationProbe />
       </>,
-      { route: '/admin/passages?status=published' },
+      { route: '/admin/passages?show=list&status=published' },
     );
     await screen.findByText('Mùa thu Hà Nội');
 
@@ -554,8 +560,7 @@ describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
 
   it('creates an English passage', async () => {
     create.mockResolvedValue({ ...passage, _id: 'p9', language: 'en' });
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
+    renderPage('/admin/passages');
 
     fillForm();
     const english = screen.getByRole('switch', { name: 'English passage' });
@@ -569,8 +574,7 @@ describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
   });
 
   it('turns Placement off and disables it for an English passage', async () => {
-    renderPage();
-    await screen.findByText('Mùa thu Hà Nội');
+    renderPage('/admin/passages');
 
     const placement = screen.getByRole('switch', { name: 'Placement passage' });
     fireEvent.click(placement);
@@ -772,7 +776,7 @@ describe('AdminPassagesPage: Pending review panel (SCRUM-176)', () => {
         <AdminPassagesPage />
         <LocationProbe />
       </>,
-      { route: '/admin/passages' },
+      { route: '/admin/passages?show=list' },
     );
     await screen.findByText('Mùa thu Hà Nội');
 

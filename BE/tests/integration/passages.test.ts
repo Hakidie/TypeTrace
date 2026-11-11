@@ -187,8 +187,10 @@ describe('GET /api/passages', () => {
 
     const mine = await listPassages(auth, '?mine=true');
     expect(mine.status).toBe(200);
-    expect(titlesOf(mine)).toHaveLength(3);
-    expect(titlesOf(mine)).toEqual(expect.arrayContaining(['Riêng của tôi', 'Đang chờ duyệt', 'Đã được duyệt']));
+    // The one an admin archived stays in the owner's own list, to be read (and nothing else).
+    expect(titlesOf(mine)).toHaveLength(4);
+    expect(titlesOf(mine)).toEqual(expect.arrayContaining(['Riêng của tôi', 'Đang chờ duyệt', 'Đã được duyệt', 'Bị lưu trữ']));
+    expect(titlesOf(await listPassages(auth))).not.toContain('Bị lưu trữ');
     expect(mine.body.items.every((item: { isOwn: boolean }) => item.isOwn)).toBe(true);
     expect(titlesOf(await listPassages(auth, '?mine=true&visibility=public'))).toEqual(['Đã được duyệt']);
 
