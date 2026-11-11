@@ -18,7 +18,7 @@ export const useUpdateTutorial = () => {
   return useMutation({ mutationFn: (body: TutorialUpdate) => tutorialApi.update(body), onSuccess: setUser });
 };
 
-/** "Xem lại hướng dẫn" in Settings. */
+/** "Replay tutorial" in Settings. */
 export const useResetTutorial = () => {
   const setUser = useSetCurrentUser();
   return useMutation({ mutationFn: () => tutorialApi.reset(), onSuccess: setUser });

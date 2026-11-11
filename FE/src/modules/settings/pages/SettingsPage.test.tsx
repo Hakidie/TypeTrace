@@ -51,7 +51,7 @@ const Layout = () => {
   return <SettingsPage />;
 };
 
-const renderPage = () => renderWithProviders(<Layout />, { route: '/settings', path: '/settings' });
+const renderPage = (tab?: string) => renderWithProviders(<Layout />, { route: tab ? `/settings?tab=${tab}` : '/settings', path: '/settings' });
 
 const card = (name: string) => screen.getByRole('button', { name: new RegExp(`Button ${name}$`) });
 const isChosen = (name: string) => card(name).querySelector('[aria-current]') !== null;
@@ -92,39 +92,114 @@ describe('SettingsPage', () => {
   it('shows the Appearance panel with the themes of the mode in use', async () => {
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Appearance' })).toBeInTheDocument();
-    // One list: the fallback, TypeTrace's themes, the user's own, then the add card.
+    expect(await screen.findByRole('heading', { name: 'Themes' })).toBeInTheDocument();
+    // One list: the fallback, TypeTrace's themes, then the user's own.
     const list = screen.getByRole('list', { name: 'Themes' });
     expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
       expect.stringContaining('Blood red'),
       expect.stringContaining('Midnight'),
       expect.stringContaining('Night'),
-      'Custom theme',
     ]);
     expect(screen.queryByText('Mono')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Custom theme' })).toBeInTheDocument();
+    // The editor for a new theme is above the list.
+    expect(screen.getByRole('form', { name: 'New theme' })).toBeInTheDocument();
   });
 
   it("replays Ping's tutorial from the Tutorial panel", async () => {
     resetTutorial.mockResolvedValue({ _id: 'u1', email: 'lan@example.com', role: 'user', tutorial: { tour: 'active', modes: {} } });
-    renderPage();
+    renderPage('tutorial');
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Xem lại hướng dẫn' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Replay tutorial' }));
 
     await waitFor(() => expect(resetTutorial).toHaveBeenCalledOnce());
   });
 
   it('has a Security panel with the email code at login switch', async () => {
-    renderPage();
+    renderPage('security');
 
-    expect(await screen.findByRole('heading', { name: 'Security' })).toBeInTheDocument();
     const toggle = await screen.findByRole('switch', { name: 'Email code at login' });
     expect(toggle).toHaveAttribute('aria-checked', 'false');
   });
 
+
+  it('shows one setting at a time, chosen with the tabs', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'Themes' });
+    expect(screen.queryByRole('switch', { name: 'Email code at login' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Security' }));
+    expect(await screen.findByRole('switch', { name: 'Email code at login' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Themes' })).not.toBeInTheDocument();
+  });
+
+  it('shows 6 themes a page, in 3 columns', async () => {
+    themes = [midnight, ...Array.from({ length: 6 }, (_, i) => make(`m${i}`, `Mine ${i}`, true, false, '#44ccaa'))];
+    renderPage();
+    await screen.findByRole('heading', { name: 'Themes' });
+
+    const list = screen.getByRole('list', { name: 'Themes' });
+    expect(list).toHaveClass('grid-cols-3');
+    // The fallback, Midnight and 4 of the user's 6; the other 2 are on page 2.
+    expect(within(list).getAllByRole('listitem')).toHaveLength(6);
+    expect(screen.queryByText('Mine 5')).not.toBeInTheDocument();
+  });
+
+  it('puts the page in the mode of a theme picked after the Mode filter', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'Themes' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Mode' })).getByRole('menuitemradio', { name: 'Light' }));
+    // Picking the filter alone changes nothing.
+    expect(api.updateActive).not.toHaveBeenCalled();
+
+    await userEvent.click(card('Mono'));
+
+    await waitFor(() => expect(api.updateActive).toHaveBeenCalledWith({ mode: 'light', lightTheme: 't3' }));
+    expect(await screen.findByRole('button', { name: 'Mode: Dark' })).toBeInTheDocument();
+  });
+
+  it('sorts the themes by name and filters them by source', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'Themes' });
+    const names = () => within(screen.getByRole('list', { name: 'Themes' })).getAllByRole('listitem').map((item) => item.textContent);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Name Z–A' }));
+    expect(names()).toEqual([expect.stringContaining('Night'), expect.stringContaining('Midnight'), expect.stringContaining('Blood red')]);
+
+    fireEvent.click(screen.getByRole('button', { name: /Filter/ }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Source' })).getByRole('menuitemradio', { name: 'Mine' }));
+    expect(names()).toEqual([expect.stringContaining('Night')]);
+  });
+
+  it('filters by mode (the page mode at first) and by System', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'Themes' });
+    const names = () => within(screen.getByRole('list', { name: 'Themes' })).getAllByRole('listitem').map((item) => item.textContent);
+    const pick = (group: string, option: string) => {
+      fireEvent.click(screen.getByRole('button', { name: /Filter/ }));
+      fireEvent.click(within(screen.getByRole('group', { name: group })).getByRole('menuitemradio', { name: option }));
+    };
+
+    pick('Mode', 'Light');
+    expect(names()).toEqual([expect.stringContaining('Sand'), expect.stringContaining('Mono'), expect.stringContaining('Paper')]);
+
+    pick('Mode', 'All');
+    expect(names()).toHaveLength(6);
+
+    pick('Source', 'System');
+    expect(names()).toEqual([
+      expect.stringContaining('Blood red'),
+      expect.stringContaining('Midnight'),
+      expect.stringContaining('Sand'),
+      expect.stringContaining('Mono'),
+    ]);
+  });
+
   it('marks the fallback as chosen when no theme is, and only one card at a time', async () => {
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
 
     expect(isChosen('Blood red')).toBe(true);
     expect(document.querySelectorAll('[aria-current]')).toHaveLength(1);
@@ -133,7 +208,7 @@ describe('SettingsPage', () => {
   it('marks the theme chosen for the mode', async () => {
     active = { mode: 'dark', dark: night, light: null };
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
 
     expect(isChosen('Night')).toBe(true);
     expect(isChosen('Blood red')).toBe(false);
@@ -141,20 +216,20 @@ describe('SettingsPage', () => {
 
   it('chooses a theme for the mode and goes back to the fallback', async () => {
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
 
     await userEvent.click(card('Midnight'));
-    expect(api.updateActive).toHaveBeenCalledWith({ darkTheme: 't1' });
+    expect(api.updateActive).toHaveBeenCalledWith({ mode: 'dark', darkTheme: 't1' });
     await waitFor(() => expect(isChosen('Midnight')).toBe(true));
 
     await userEvent.click(card('Blood red'));
-    expect(api.updateActive).toHaveBeenLastCalledWith({ darkTheme: null });
+    expect(api.updateActive).toHaveBeenLastCalledWith({ mode: 'dark', darkTheme: null });
   });
 
   it('shows the light themes and the Sand fallback after the Light tab, and keeps the theme of each mode', async () => {
     active = { mode: 'dark', dark: night, light: paper };
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
 
     await userEvent.click(screen.getByRole('radio', { name: 'Light' }));
 
@@ -173,15 +248,18 @@ describe('SettingsPage', () => {
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
-    expect(await screen.findByRole('heading', { name: 'Appearance' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Themes' })).toBeInTheDocument();
   });
 });
 
 describe('adding a theme', () => {
   const openEditor = async () => {
     renderPage();
-    await userEvent.click(await screen.findByRole('button', { name: 'Custom theme' }));
-    return screen.getByRole('form', { name: 'New theme' });
+    const form = await screen.findByRole('form', { name: 'New theme' });
+    // The form starts in the other mode than the page; the button makes it match.
+    await userEvent.click(screen.getByRole('button', { name: 'Mode: Light' }));
+    await screen.findByRole('button', { name: 'Mode: Dark' });
+    return form;
   };
 
   it('saves the name and colors, then chooses the new theme for the mode', async () => {
@@ -197,27 +275,25 @@ describe('adding a theme', () => {
     expect(api.create.mock.calls[0][0]).toEqual({
       name: 'Ocean',
       colors: { background: '#140606', text: '#e6d2d2', muted: '#a87878', accent: '#00aaff' },
+      mode: 'dark',
     });
     await waitFor(() => expect(api.updateActive).toHaveBeenCalledWith({ darkTheme: 't9' }));
-    expect(screen.queryByRole('form', { name: 'New theme' })).not.toBeInTheDocument();
+    // The editor starts again, empty.
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue(''));
   });
 
-  it('shows the colors on the page while editing and puts the theme in use back on cancel', async () => {
+  it('shows the colors of a new theme on the page while editing', async () => {
     await openEditor();
 
     fireEvent.change(screen.getByLabelText('Accent picker'), { target: { value: '#00aaff' } });
     expect(document.documentElement.style.getPropertyValue('--theme-accent')).toBe('#00aaff');
-
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(document.documentElement.style.getPropertyValue('--theme-accent')).toBe('');
-    expect(screen.queryByRole('form', { name: 'New theme' })).not.toBeInTheDocument();
     expect(api.create).not.toHaveBeenCalled();
   });
 
   it('keeps an unsaved theme when the page is left and opened again, and drops it on logout', async () => {
     const first = renderPage();
-    await userEvent.click(await screen.findByRole('button', { name: 'Custom theme' }));
-    await userEvent.type(screen.getByLabelText('Name'), 'Draft');
+    await userEvent.click(await screen.findByRole('button', { name: 'Mode: Light' }));
+    await userEvent.type(await screen.findByLabelText('Name'), 'Draft');
     fireEvent.change(screen.getByLabelText('Accent picker'), { target: { value: '#00aaff' } });
     first.unmount();
 
@@ -228,7 +304,7 @@ describe('adding a theme', () => {
     expect(screen.getByLabelText('Accent picker')).toHaveValue('#00aaff');
 
     themeDraftStore.clear();
-    await waitFor(() => expect(screen.queryByRole('form', { name: 'New theme' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue(''));
     expect(document.documentElement.style.getPropertyValue('--theme-accent')).toBe('');
   });
 
@@ -248,8 +324,31 @@ describe('adding a theme', () => {
 
     await userEvent.click(screen.getByRole('radio', { name: 'Light' }));
 
-    await waitFor(() => expect(screen.queryByRole('form', { name: 'New theme' })).not.toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Custom theme' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue(''));
+    expect(screen.getByRole('form', { name: 'New theme' })).toBeInTheDocument();
+  });
+
+  it('starts in the other mode than the page, and its button switches only the form', async () => {
+    const created = make('t9', 'Bright', false, false, '#1f6f78');
+    api.create.mockResolvedValue(created);
+    renderPage();
+
+    // The page is in dark mode, so the form makes a light theme.
+    expect(await screen.findByRole('button', { name: 'Mode: Light' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked();
+
+    await userEvent.type(screen.getByLabelText('Name'), 'Bright');
+    await userEvent.click(screen.getByRole('button', { name: 'Save theme' }));
+
+    await waitFor(() => expect(api.create).toHaveBeenCalledOnce());
+    expect(api.create.mock.calls[0][0]).toMatchObject({ name: 'Bright', mode: 'light' });
+    // It is chosen for light mode, and the mode in use is not touched.
+    await waitFor(() => expect(api.updateActive).toHaveBeenCalledWith({ lightTheme: 't9' }));
+    expect(api.updateActive).not.toHaveBeenCalledWith(expect.objectContaining({ mode: expect.anything() }));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Mode: Light' }));
+    expect(await screen.findByRole('button', { name: 'Mode: Dark' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked();
   });
 
   it('rejects an empty name and a name the user already has, ignoring case', async () => {
@@ -286,30 +385,29 @@ describe('adding a theme', () => {
     expect(api.create).not.toHaveBeenCalled();
   });
 
-  it('disables the add card when the user has 9 themes', async () => {
+  it('replaces the editor with a note when the user has 9 themes', async () => {
     themes = [midnight, ...Array.from({ length: 9 }, (_, i) => make(`m${i}`, `Mine ${i}`, true, false, '#44ccaa'))];
     renderPage();
 
-    expect(await screen.findByRole('button', { name: 'Custom theme' })).toBeDisabled();
+    expect(await screen.findByText(/at most 9 themes/)).toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'New theme' })).not.toBeInTheDocument();
   });
 });
 
 describe('editing a theme', () => {
   const edit = async (name: string) => {
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
     await userEvent.click(screen.getByRole('button', { name: `Edit ${name}` }));
     return screen.getByRole('form', { name: 'Edit theme' });
   };
 
-  it('opens the theme in place of its card, with its name and colors', async () => {
+  it('opens the theme in the editor above the list, with its name and colors', async () => {
     await edit('Night');
 
     expect(screen.getByLabelText('Name')).toHaveValue('Night');
     expect(screen.getByLabelText('Accent picker')).toHaveValue('#44ccaa');
-    expect(screen.queryByRole('button', { name: /Button Night$/ })).not.toBeInTheDocument();
-    // The add card is still the last card.
-    expect(screen.getByRole('button', { name: 'Custom theme' })).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Edit theme' })).toBeInTheDocument();
   });
 
   it('saves the new name and colors', async () => {
@@ -349,7 +447,7 @@ describe('editing a theme', () => {
 
   it('is only offered on the user’s own themes', async () => {
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
 
     expect(screen.queryByRole('button', { name: 'Edit Midnight' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit Blood red' })).not.toBeInTheDocument();
@@ -359,7 +457,7 @@ describe('editing a theme', () => {
   it('sits between the delete button and the chosen tag', async () => {
     active = { mode: 'dark', dark: night, light: null };
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
 
     // From the right: the check at right-2, then Edit, then Delete.
     expect(screen.getByRole('button', { name: 'Edit Night' })).toHaveClass('right-9');
@@ -371,7 +469,7 @@ describe('deleting a theme', () => {
   it('asks first, then deletes the theme', async () => {
     api.remove.mockResolvedValue(undefined);
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete Night' }));
     expect(screen.getByText('Delete this theme?')).toBeInTheDocument();
@@ -384,7 +482,7 @@ describe('deleting a theme', () => {
   it('warns that the fallback comes back when the theme in use is deleted', async () => {
     active = { mode: 'dark', dark: night, light: null };
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete Night' }));
 
@@ -393,7 +491,7 @@ describe('deleting a theme', () => {
 
   it('has no delete button on TypeTrace themes or the fallback', async () => {
     renderPage();
-    await screen.findByRole('heading', { name: 'Appearance' });
+    await screen.findByRole('heading', { name: 'Themes' });
 
     expect(screen.queryByRole('button', { name: 'Delete Midnight' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete Blood red' })).not.toBeInTheDocument();

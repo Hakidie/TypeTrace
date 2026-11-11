@@ -66,13 +66,15 @@ const OWN_EDITABLE_STATUSES = ['published', 'rejected'] as const;
  * otherwise (SCRUM-219: Vietnamese, or the English ones that are not the ranked duels', see `practiceLanguageFilter`). Public
  * passages must be published. The owner exception: in practice the learner's own passages come on top, published, waiting
  * for review (`pending`) or turned down (`rejected`). Drafts, archived passages and other people's private passages never
- * match. `lockedIds` (`getLockedPassageIds`) never match either.
+ * match. `lockedIds` (`getLockedPassageIds`) never match either. `includeArchived` (the learner's own list, `mine=true`) also
+ * shows their own archived passages, which they can no longer practice, edit or delete.
  */
 export const learnerPassageFilter = (
   userId: string,
   mode: SessionMode,
   lockedIds: Types.ObjectId[] = [],
-  language: PassageLanguage = 'vi'
+  language: PassageLanguage = 'vi',
+  includeArchived = false
 ) =>
   mode === 'placement'
     ? { status: 'published' as const, isPlacement: true, visibility: 'public' as const, ...notEnglish }
@@ -83,7 +85,7 @@ export const learnerPassageFilter = (
         ...(lockedIds.length ? { _id: { $nin: lockedIds } } : {}),
         $or: [
           { status: 'published' as const, visibility: 'public' as const },
-          { owner: userId, status: { $in: [...OWN_TYPEABLE_STATUSES] } }
+          { owner: userId, status: { $in: includeArchived ? [...OWN_TYPEABLE_STATUSES, 'archived' as const] : [...OWN_TYPEABLE_STATUSES] } }
         ]
       };
 
@@ -144,7 +146,7 @@ export const listPassages = async (userId: string, { mode, language, q, visibili
   const [lockedByOwner, { config }] = await Promise.all([getLockedByOwner(), getPlanOf(userId)]);
   const ownLocked = lockedByOwner.get(userId) ?? [];
   const hidden = [...lockedByOwner].filter(([owner]) => owner !== userId).flatMap(([, lockedIds]) => lockedIds);
-  const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode, hidden, language)];
+  const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode, hidden, language, mine === true)];
   if (visibility) conditions.push({ visibility });
   if (mine !== undefined) conditions.push(mine ? { owner: userId } : { owner: { $ne: userId } });
   if (q) conditions.push({ title: titleSearchPattern(q) });

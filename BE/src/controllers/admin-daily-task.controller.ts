@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import * as dailyTaskService from '../services/admin-daily-task.service';
+import { getTaskCompletionsOverTime } from '../services/daily-task-stats.service';
+import type { PlanUsersQuery } from '../validators/plan.validator';
 import {
   CreateDailyTaskInput,
   DailyTaskSettingsInput,
@@ -36,4 +38,9 @@ export const getDailyTaskSettings = async (_req: Request, res: Response) => {
 
 export const updateDailyTaskSettings = async (req: Request, res: Response) => {
   res.json(await dailyTaskService.updateDailyTaskSettings(req.body as DailyTaskSettingsInput));
+};
+
+export const getTaskCompletions = async (req: Request, res: Response) => {
+  const { range, date } = req.query as unknown as PlanUsersQuery;
+  res.json({ range, ...(await getTaskCompletionsOverTime(range, date)) });
 };

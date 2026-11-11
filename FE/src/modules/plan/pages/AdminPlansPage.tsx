@@ -1,11 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Panel } from '@/shared/components/panel';
+import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
@@ -32,7 +34,17 @@ const schema = z.object({ free: planSchema, premium: planSchema });
 // Number fields that look like text: no border, background or focus ring.
 const bareInput = 'h-auto border-0 bg-transparent p-0 text-right shadow-none focus-visible:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
 
-const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: PlanLines; onPickLine: (line: 'free' | 'premium') => void }) => {
+const PlansForm = ({
+  plans,
+  lines,
+  onPickLine,
+  onSwitch,
+}: {
+  plans: PlansConfig;
+  lines: PlanLines;
+  onPickLine: (line: 'free' | 'premium') => void;
+  onSwitch: () => void;
+}) => {
   const preview = usePreviewPlans();
   const save = useSavePlans();
   // The saved values waiting for a confirmation, and how many users and passages they would lock.
@@ -61,6 +73,7 @@ const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: Pl
   return (
     <Panel
       title="Plans"
+      titleAction={<PanelTitleSwitch other="Subscription list" onClick={onSwitch} />}
       bare
       titleClassName={sectionTitleClass}
       className="space-y-3"
@@ -159,28 +172,41 @@ const PlansForm = ({ plans, lines, onPickLine }: { plans: PlansConfig; lines: Pl
 
 /**
  * The plans page (US11.1) in panels without padding, border or background: first a line chart of the users on each plan, then the cards of the Free and Premium plans (under the title Plans, with Save on its row; two columns that share the whole width) (price, passage limit and the
- * two permissions; saving first warns how many users would lose access to passages), and under them the list of every plan change of every user.
+ * two permissions; saving first warns how many users would lose access to passages), and, one at a time with the cards, the list of every plan change of every user: a button next to the title of each shows the other (`?show=list`, the cards first); the chart stays above both.
  */
 export const AdminPlansPage = () => {
   const plans = useAdminPlans();
   // The lines of the users chart: a click on a plan card picks its line (a second click, or the Lines button, brings both back).
   const [lines, setLines] = useState<PlanLines>('all');
+  // The cards and the subscription list share the place under the chart, one at a time, the cards first.
+  const [params, setParams] = useSearchParams();
+  const showList = params.get('show') === 'list';
+  const setShowList = (show: boolean) =>
+    setParams(
+      (next) => {
+        if (show) next.set('show', 'list');
+        else next.delete('show');
+        return next;
+      },
+      { replace: true },
+    );
 
   return (
-    <div className="space-y-8">
-      {/* The first screen: the chart takes the height the cards leave, so the Users and Plans panels fit the screen (the screen minus the 61px header and the 2rem padding of the page above and below); the list is below it. */}
-      <div className="flex min-h-[calc(100svh-61px-4rem)] flex-col gap-8">
-        <PlanUsersChart lines={lines} onLinesChange={setLines} />
+    // The chart takes the height the panel under it leaves, so both fit the screen (the screen minus the 61px header and the 2rem padding of the page above and below).
+    <div className="flex min-h-[calc(100svh-61px-4rem)] flex-col gap-8">
+      <PlanUsersChart lines={lines} onLinesChange={setLines} />
+      {/* The cards stay mounted (hidden) while the list is shown, so unsaved changes are not lost. */}
+      <div className={showList ? 'hidden' : 'space-y-3'}>
         {plans.data ? (
-          <PlansForm plans={plans.data} lines={lines} onPickLine={(line) => setLines(lines === line ? 'all' : line)} />
+          <PlansForm plans={plans.data} lines={lines} onPickLine={(line) => setLines(lines === line ? 'all' : line)} onSwitch={() => setShowList(true)} />
         ) : (
-          <Panel title="Plans" bare titleClassName={sectionTitleClass}>
+          <Panel title="Plans" titleAction={<PanelTitleSwitch other="Subscription list" onClick={() => setShowList(true)} />} bare titleClassName={sectionTitleClass}>
             {plans.isPending && <LoadingState rows={3} />}
             {plans.isError && <ErrorState error={plans.error} onRetry={() => void plans.refetch()} />}
           </Panel>
         )}
       </div>
-      <SubscriptionList />
+      {showList && <SubscriptionList onSwitch={() => setShowList(false)} />}
     </div>
   );
 };

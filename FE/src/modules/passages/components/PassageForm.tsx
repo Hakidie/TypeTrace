@@ -139,14 +139,14 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
         <FieldError id="passage-content-error" message={errors.content?.message} />
       </div>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
         {/* Bottom left: the same look as the learner's passage form. */}
         <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
           {countWords(content)}/{MAX_PASSAGE_WORDS} words
         </p>
 
-        {/* Up to five controls in edit mode: they wrap to a second line (on the right) when the row is too narrow. */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+        {/* In the middle: the switches, the status and Delete passage (up to four in edit mode; they wrap when the row is too narrow). */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
           <Controller
             control={control}
             name="language"
@@ -166,7 +166,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
                 }}
                 className={cn(
                   'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  field.value === 'en' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
+                  field.value === 'en' ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground hover:text-foreground',
                 )}
               >
                 {field.value === 'en' && <CheckCircle2 className="size-5" />}
@@ -189,7 +189,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
                 onClick={() => field.onChange(!field.value)}
                 className={cn(
                   'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-                  field.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground enabled:hover:text-foreground',
+                  field.value ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground enabled:hover:text-foreground',
                 )}
               >
                 {field.value && <CheckCircle2 className="size-5" />}
@@ -219,7 +219,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
                   onClick={() => field.onChange(!field.value)}
                   className={cn(
                     'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-                    field.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground enabled:hover:text-foreground',
+                    field.value ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground enabled:hover:text-foreground',
                   )}
                 >
                   {field.value && <CheckCircle2 className="size-5" />}
@@ -238,7 +238,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
               onClick={() => next && setStatusChoice(next)}
               className={cn(
                 'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed',
-                status === 'published' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground',
+                status === 'published' ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground hover:text-foreground',
               )}
             >
               {status === 'published' && <CheckCircle2 className="size-5" />}
@@ -246,17 +246,21 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
             </button>
           )}
           {passage && onDelete && canHardDelete(passage) && (
-            // Outlined in the destructive red: less weight than Update passage, the main action of the form.
+            // No background or border, in the destructive red.
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               disabled={isPending}
               onClick={() => onDelete(passage)}
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="text-destructive hover:bg-transparent hover:text-destructive/80"
             >
               Delete passage
             </Button>
           )}
+        </div>
+
+        {/* On the right: Cancel and Add / Update passage. */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
           {passage && (
             <Button type="button" variant="outline" onClick={onDone}>
               Cancel

@@ -5,22 +5,60 @@ import { renderWithProviders } from '@/test/render-with-providers';
 import { ProgressPage } from './ProgressPage';
 
 const getMonthlyProgress = vi.fn();
-const getDailyTasks = vi.fn();
+const getErrorProfile = vi.fn();
+const getSessions = vi.fn();
 
 vi.mock('@/modules/profile/api/profile.api', () => ({
-  profileApi: { getMonthlyProgress: (range: string, date?: string) => getMonthlyProgress(range, date), getDailyTasks: () => getDailyTasks() },
+  profileApi: { getMonthlyProgress: (range: string, date?: string) => getMonthlyProgress(range, date), getErrorProfile: () => getErrorProfile(), getSessions: (params: unknown) => getSessions(params) },
 }));
+
+const session = (overrides = {}) => ({
+  _id: 's1',
+  mode: 'practice',
+  passageTitle: 'Tiếng Việt rất đẹp',
+  status: 'completed',
+  wpm: 41.6,
+  accuracy: 97.2,
+  durationMs: 30000,
+  timeLimitSeconds: 30,
+  isCounted: true,
+  timeline: { status: 'ok', points: [{ second: 1, wpm: 30, errors: 0 }, { second: 2, wpm: 45, errors: 1 }] },
+  startedAt: '2026-03-02T10:00:00.000Z',
+  completedAt: '2026-03-02T10:00:35.000Z',
+  createdAt: '2026-03-02T10:00:00.000Z',
+  ...overrides,
+});
+const page = (items: unknown[], overrides = {}) => ({ items, page: 1, limit: 3, total: items.length, totalPages: 1, ...overrides });
+
+/** The page with My Sessions shown: the error profile is under the chart at first, and its switch button shows the sessions. */
+const renderSessions = async () => {
+  const view = renderWithProviders(<ProgressPage />, { route: '/progress' });
+  const region = await screen.findByRole('region', { name: 'Error profile' });
+  await within(region).findAllByRole('listitem');
+  await userEvent.setup().click(within(region).getByRole('button', { name: 'Switch to My Sessions' }));
+  return view;
+};
 
 // Today: Tuesday 10 March 2026 (the browser's UTC day: the test user has no time zone).
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-03-10T08:00:00.000Z'));
-  getDailyTasks.mockReset().mockResolvedValue({
-    date: '2026-03-10',
-    tasks: [
-      { id: 't1', title: 'Warm-up', description: '', type: 'sessions', target: 3, progress: 2, completed: false },
-      { id: 't2', title: 'Phân biệt hỏi/ngã', description: 'Practise hỏi and ngã.', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION', progress: 92.5, completed: true },
-    ],
+  getSessions.mockReset().mockResolvedValue(page([session()]));
+  getErrorProfile.mockReset().mockResolvedValue({
+    window: 10,
+    minOpportunities: 20,
+    weakRate: 15,
+    sessionsUsed: 10,
+    types: (['BASE_LETTER', 'D_MISSING', 'MARK_WRONG', 'TONE_WRONG', 'HOI_NGA_CONFUSION'] as const).map((type) => ({
+      type,
+      errors: type === 'HOI_NGA_CONFUSION' ? 8 : 1,
+      opportunities: 40,
+      rate: type === 'HOI_NGA_CONFUSION' ? 20 : 2.5,
+      level: type === 'HOI_NGA_CONFUSION' ? 'weak' : 'ok',
+      previousRate: 30,
+      trend: 'improved',
+    })),
+    weakTypes: ['HOI_NGA_CONFUSION'],
   });
   getMonthlyProgress.mockReset().mockImplementation((range: string) =>
     Promise.resolve({ range, points: [{ key: '2026-02', avgWpm: null, avgAccuracy: null, carriedOver: false }] }),
@@ -67,15 +105,24 @@ describe('ProgressPage (SCRUM-240)', () => {
     await waitFor(() => expect(getMonthlyProgress).toHaveBeenLastCalledWith('year', '2025-02-08'));
   });
 
-  it("shows today's daily tasks with their progress bars under the chart", async () => {
+  it('shows the error profile under the chart and switches to My Sessions and back with the title (SCRUM-27)', async () => {
+    const user = userEvent.setup();
     renderWithProviders(<ProgressPage />, { route: '/progress' });
 
-    const tasks = await screen.findByRole('region', { name: 'Daily tasks' });
-    expect(await within(tasks).findByRole('progressbar', { name: 'Warm-up' })).toHaveAttribute('aria-valuenow', '2');
-    expect(within(tasks).getByText('2 / 3 sessions')).toBeInTheDocument();
-    expect(within(tasks).getByText('Done')).toBeInTheDocument();
-    expect(getDailyTasks).toHaveBeenCalledOnce();
-    expect((await screen.findByRole('img', { name: /WPM and accuracy by/ })).compareDocumentPosition(tasks)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    const errorProfile = await screen.findByRole('region', { name: 'Error profile' });
+    expect(screen.queryByRole('region', { name: 'My sessions' })).not.toBeInTheDocument();
+    expect(getSessions).not.toHaveBeenCalled();
+    expect(await within(errorProfile).findAllByRole('listitem')).toHaveLength(5);
+    expect(within(errorProfile).getByText('Weak')).toBeInTheDocument();
+    expect((await screen.findByRole('img', { name: /WPM and accuracy by/ })).compareDocumentPosition(errorProfile)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    await user.click(within(errorProfile).getByRole('button', { name: 'Switch to My Sessions' }));
+    expect(await screen.findByRole('region', { name: 'My sessions' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Error profile' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Switch to Error profile' }));
+    expect(await screen.findByRole('region', { name: 'Error profile' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'My sessions' })).not.toBeInTheDocument();
   });
 
   it('adds weeks, months and years to the chart with the +, each as a tag that can be taken away', async () => {
@@ -156,5 +203,102 @@ describe('ProgressPage (SCRUM-240)', () => {
     }
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Add comparison' })).toBeDisabled());
+  });
+
+  it('lists the finished sessions as cards under the error profile, each one linking to its result page', async () => {
+    getSessions.mockResolvedValue(
+      page([
+        session(),
+        session({ _id: 's2', passageTitle: undefined, mode: 'placement', timeLimitSeconds: 120, isCounted: false, wpm: 20, accuracy: 80, timeline: { status: 'no_data', points: [] } }),
+        session({ _id: 's3', passageTitle: 'Watering the Plants', language: 'en' }),
+      ]),
+    );
+    await renderSessions();
+
+    const cards = await screen.findAllByRole('article');
+    expect(cards).toHaveLength(3);
+    expect(within(cards[0]).getByText('Tiếng Việt rất đẹp')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('42')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('97.2%')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('02 Mar 2026')).toBeInTheDocument();
+    // The history holds both languages, each card with its own (SCRUM-219); a session from before has none: Vietnamese.
+    expect(within(cards[0]).getByText('VI')).toBeInTheDocument();
+    expect(within(cards[2]).getByText('EN')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('30s')).toBeInTheDocument();
+    expect(within(cards[0]).queryByText('Practice', { exact: false })).not.toBeInTheDocument(); // the mode is only the icon
+    expect(within(cards[0]).getByRole('img', { name: /Speed over time/  })).toBeInTheDocument();
+    expect(screen.getByText('Sessions').parentElement).toHaveTextContent('3Sessions');
+    expect(getSessions).toHaveBeenCalledWith({ page: 1, limit: 5, sort: '-createdAt', status: 'completed' });
+
+    expect(within(cards[1]).getByText('Untitled passage')).toBeInTheDocument();
+    expect(within(cards[1]).getByText('02 Mar 2026')).toBeInTheDocument();
+    expect(within(cards[1]).getByText('2m')).toBeInTheDocument();
+    expect(screen.queryByText('Not counted')).not.toBeInTheDocument(); // an uncounted session looks like the others
+    expect(within(cards[1]).getByText('No time data for this session')).toBeInTheDocument();
+    expect(within(cards[1]).queryByRole('img', { name: /Speed over time/  })).not.toBeInTheDocument();
+
+    const links = screen.getAllByRole('link', { name: /Open the result of/ });
+    expect(links[0]).toHaveAttribute('href', '/typing/result/s1');
+    expect(links[1]).toHaveAttribute('href', '/typing/result/s2');
+  });
+
+  it('sorts the sessions and goes to the next page', async () => {
+    getSessions.mockResolvedValue(page([session()], { total: 8, totalPages: 2 }));
+    const user = userEvent.setup();
+    await renderSessions();
+
+    await screen.findByRole('article');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(getSessions).toHaveBeenLastCalledWith({ page: 2, limit: 5, sort: '-createdAt', status: 'completed' }));
+
+    await user.click(screen.getByRole('button', { name: /Sort/ }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Fastest' }));
+    await waitFor(() => expect(getSessions).toHaveBeenLastCalledWith({ page: 1, limit: 5, sort: '-wpm', status: 'completed' }));
+  });
+
+  it('searches the sessions by passage name and filters them by mode and time', async () => {
+    const user = userEvent.setup();
+    await renderSessions();
+    await screen.findByRole('article');
+
+    await user.click(screen.getByRole('button', { name: 'Search sessions' }));
+    await user.type(screen.getByRole('textbox', { name: 'Search sessions' }), 'thu{Enter}');
+    await waitFor(() => expect(getSessions).toHaveBeenLastCalledWith({ page: 1, limit: 5, sort: '-createdAt', status: 'completed', q: 'thu' }));
+
+    await user.click(screen.getByRole('button', { name: /Filter/ }));
+    await user.click(within(await screen.findByRole('group', { name: 'Mode' })).getByRole('menuitemradio', { name: 'Placement' }));
+    await waitFor(() => expect(getSessions).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'thu', mode: 'placement' })));
+
+    await user.click(screen.getByRole('button', { name: /Filter/ }));
+    await user.click(within(await screen.findByRole('group', { name: 'Time' })).getByRole('menuitemradio', { name: '2m' }));
+    await waitFor(() =>
+      expect(getSessions).toHaveBeenLastCalledWith({ page: 1, limit: 5, sort: '-createdAt', status: 'completed', q: 'thu', mode: 'placement', timeLimitSeconds: 120 }),
+    );
+  });
+
+  it('says that nothing matches, not that there is no session, when a search or filter finds none', async () => {
+    getSessions.mockResolvedValue(page([]));
+    const user = userEvent.setup();
+    await renderSessions();
+    expect(await screen.findByText('No sessions yet')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Search sessions' }));
+    await user.type(screen.getByRole('textbox', { name: 'Search sessions' }), 'zzz{Enter}');
+    expect(await screen.findByText('No matching sessions')).toBeInTheDocument();
+  });
+
+  it('says so when there is no session yet, and shows an error with a retry when the list cannot load', async () => {
+    getSessions.mockResolvedValueOnce(page([]));
+    const first = await renderSessions();
+    expect(await screen.findByText('No sessions yet')).toBeInTheDocument();
+    first.unmount();
+
+    getSessions.mockRejectedValueOnce({ response: { status: 500, data: { message: 'Sessions offline' } } });
+    const user = userEvent.setup();
+    await renderSessions();
+    expect(await screen.findByText('Sessions offline')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /WPM and accuracy by/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('article')).toBeInTheDocument();
   });
 });

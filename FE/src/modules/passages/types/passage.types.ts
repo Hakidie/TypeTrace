@@ -113,9 +113,10 @@ export interface LearnerPassage {
   visibility: PassageVisibility;
   /**
    * `pending`: the learner asked for it to become public and an admin has not decided yet; `rejected`: an admin turned
-   * the request down (the reason is in `reviewNote`) (SCRUM-176).
+   * the request down (the reason is in `reviewNote`) (SCRUM-176); `archived`: an admin archived it, only the owner's own
+   * list still shows it (dimmed, nothing to do with it).
    */
-  status: 'published' | 'pending' | 'rejected';
+  status: 'published' | 'pending' | 'rejected' | 'archived';
   /** Only on the learner's own passages: why an admin turned the request to make it public down. */
   reviewNote?: string;
   /** One of the signed-in learner's passages: private, or public once an admin approved it. */

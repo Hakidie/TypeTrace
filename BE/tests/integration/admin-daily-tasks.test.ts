@@ -590,3 +590,83 @@ describe('the coins of a task (SCRUM-301)', () => {
     expect(list.body.items[0].coins).toBe(30);
   });
 });
+
+describe('GET /api/admin/daily-tasks/completions-over-time: the learners who completed tasks, by period', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-03-10T08:30:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const typeAt = async (learner: { _id: unknown }, time: string) => {
+    const completedAt = new Date(time);
+    await TypingSessionModel.create({
+      owner: learner._id,
+      passageId: 'p1',
+      targetWords: ['a'],
+      status: 'completed',
+      isCounted: true,
+      completedAt,
+      durationMs: 60_000,
+      wpm: 30,
+      accuracy: 95
+    });
+    await recordDailyTaskProgress(learner._id, completedAt);
+  };
+
+  const read = (auth: string, query = '') => api().get(`/api/admin/daily-tasks/completions-over-time${query}`).set('Authorization', auth);
+
+  it('counts the learners (once each) and the tasks completed on each day, up to today', async () => {
+    const auth = await signInAdmin();
+    await create(auth, { title: 'Một phiên', type: 'sessions', target: 1 });
+    await create(auth, { title: 'Hai phiên', type: 'sessions', target: 2 });
+    await updateAppSettings({ dailyTaskCount: 2 });
+    const an = await createUser({ email: 'an@example.com' });
+    const binh = await createUser({ email: 'binh@example.com' });
+
+    // An completes both tasks on the 9th and the first one on the 10th; Bình completes one task on the 10th.
+    await typeAt(an, '2026-03-09T03:00:00.000Z');
+    await typeAt(an, '2026-03-09T04:00:00.000Z');
+    await typeAt(an, '2026-03-10T03:00:00.000Z');
+    await typeAt(binh, '2026-03-10T04:00:00.000Z');
+
+    const response = await read(auth, '?range=week&date=2026-03-10');
+    expect(response.status).toBe(200);
+    expect(response.body.range).toBe('week');
+    // The 8th to the 10th: the days after today are left out.
+    const taskId = (title: string) => response.body.tasks.find((task: { title: string }) => task.title === title).taskId;
+    // The one with the most learners first.
+    expect(response.body.tasks.map((task: { title: string }) => task.title)).toEqual(['Một phiên', 'Hai phiên']);
+    expect(response.body.points).toEqual([
+      { key: '2026-03-08', learners: 0, tasks: 0, byTask: [] },
+      {
+        key: '2026-03-09',
+        learners: 1,
+        tasks: 2,
+        byTask: expect.arrayContaining([
+          { taskId: taskId('Một phiên'), learners: 1 },
+          { taskId: taskId('Hai phiên'), learners: 1 }
+        ])
+      },
+      { key: '2026-03-10', learners: 2, tasks: 2, byTask: [{ taskId: taskId('Một phiên'), learners: 2 }] }
+    ]);
+
+    // A month is one point for a block of 7 days: each learner once in it.
+    const month = await read(auth, '?range=month&date=2026-03-10');
+    expect(month.body.points.find((point: { key: string }) => point.key === '2026-03-08')).toMatchObject({ key: '2026-03-08', learners: 2, tasks: 4 });
+  });
+
+  it('is open to admins only', async () => {
+    const learnerAuth = bearerFor(await createUser({ email: 'learner@example.com' }));
+    expect((await read(learnerAuth)).status).toBe(403);
+    expect((await api().get('/api/admin/daily-tasks/completions-over-time')).status).toBe(401);
+  });
+
+  it('refuses an unknown range', async () => {
+    const auth = await signInAdmin();
+    expect((await read(auth, '?range=decade')).status).toBe(400);
+  });
+});

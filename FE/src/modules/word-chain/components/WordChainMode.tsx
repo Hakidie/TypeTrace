@@ -211,7 +211,7 @@ export const WordChainMode = () => {
             </p>
             <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
               {/* the linking syllable is typed for the player: a fixed part of the box, in red, before what they type */}
-              <div className="flex h-12 min-w-0 flex-1 border border-input bg-background/60 focus-within:border-primary focus-within:ring-2 focus-within:ring-ring">
+              <div className="flex h-12 min-w-0 flex-1 border border-input bg-background/60 focus-within:border-primary focus-within:ring-1 focus-within:ring-ring">
                 {game.prompt && (
                   <span
                     aria-hidden="true"

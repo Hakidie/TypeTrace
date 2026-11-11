@@ -8,7 +8,7 @@ import { ProfileErrorProfile } from './ProfileErrorProfile';
 const getErrorProfile = vi.fn();
 
 vi.mock('@/modules/profile/api/profile.api', () => ({
-  profileApi: { getErrorProfile: () => getErrorProfile() },
+  profileApi: { getErrorProfile: (language?: string) => getErrorProfile(language) },
 }));
 
 /** One error type: OK and steady on 400 chances unless the test says otherwise. */
@@ -60,7 +60,7 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
     expect(await within(region()).findAllByRole('listitem')).toHaveLength(5);
     expect(region()).toHaveAttribute('aria-busy', 'false');
     expect(within(region()).getByRole('heading', { name: 'Error profile' })).toBeInTheDocument();
-    expect(within(region()).getByText('Last 10 counted Vietnamese sessions')).toBeInTheDocument();
+    expect(within(region()).getByRole('button', { name: /Error profile language: Vietnamese/ })).toBeInTheDocument();
 
     const hoiNga = itemOf('Hỏi / ngã confusion');
     expect(within(hoiNga).getByText('15%')).toBeInTheDocument();
@@ -147,10 +147,26 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
     expect(
       (
         await screen.findAllByText(
-          'Your last 10 counted Vietnamese sessions: a type is weak from 15% wrong, and its trend compares them with the 10 sessions before. Switch VI / EN in Practice to see the other language.',
+          'Your last 10 counted Vietnamese sessions: a type is weak from 15% wrong, and its trend compares them with the 10 sessions before. Use the language button to see the other language.',
         )
       )[0],
     ).toBeInTheDocument();
+  });
+
+  it('switches the profile between Vietnamese and English with the button on the right of the title, without saving the language', async () => {
+    const user = userEvent.setup();
+    getErrorProfile.mockImplementation((language?: string) =>
+      Promise.resolve(language === 'en' ? profileOf([item('LETTER_WRONG')], { language: 'en', sessionsUsed: 4 }) : profile),
+    );
+    renderWithProviders(<ProfileErrorProfile />);
+    await within(region()).findAllByRole('listitem');
+    expect(getErrorProfile).toHaveBeenLastCalledWith(undefined);
+
+    await user.click(within(region()).getByRole('button', { name: /Switch to English/ }));
+
+    expect(await within(region()).findByRole('button', { name: /Error profile language: English. Switch to Vietnamese/ })).toBeInTheDocument();
+    expect(getErrorProfile).toHaveBeenLastCalledWith('en');
+    expect(await within(region()).findAllByRole('listitem')).toHaveLength(1);
   });
 
   it('says so before the first counted session', async () => {
@@ -164,7 +180,6 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
 
     expect(await screen.findByText('No counted Vietnamese sessions yet: your error profile starts with your first one.')).toBeInTheDocument();
     expect(within(region()).queryByRole('list')).not.toBeInTheDocument();
-    expect(within(region()).queryByText(/^Last \d+ counted/)).not.toBeInTheDocument();
   });
 
   it('shows the English error types and names the language of a learner who types English (SCRUM-219)', async () => {
@@ -193,7 +208,7 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
       'Wrong case',
       'Wrong punctuation',
     ]);
-    expect(within(region()).getByText('Last 4 counted English sessions')).toBeInTheDocument();
+    expect(within(region()).getByRole('button', { name: /Error profile language: English/ })).toBeInTheDocument();
     // What a type needs is said in the words that give a chance of it in English.
     expect(within(itemOf('Wrong punctuation')).getByText('Needs 6 more words with punctuation')).toBeInTheDocument();
 

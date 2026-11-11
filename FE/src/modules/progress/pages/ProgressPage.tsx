@@ -1,7 +1,8 @@
 import { Calendar, CalendarDays, CalendarRange, ChartLine, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
-import { ProfileDailyTasks } from '@/modules/profile/components/ProfileDailyTasks';
+import { ProfileErrorProfile } from '@/modules/profile/components/ProfileErrorProfile';
+import { ProfileSessions } from '@/modules/profile/components/ProfileSessions';
 import { ProfileMonthlyChart } from '@/modules/profile/components/ProfileMonthlyChart';
 import { anchorFor, compareLabel, periodLabel, periodOptions, periodValue, previousMonthStart } from '@/modules/profile/lib/chart-period';
 import { COMPARE_OPACITIES } from '@/modules/profile/lib/monthly-chart';
@@ -52,6 +53,8 @@ export const ProgressPage = () => {
   const { data: user } = useCurrentUser();
   const today = dateKeyIn(new Date(), user?.settings?.timezone);
   const [range, setRange] = useState<ChartRange>('month');
+  // The panel under the chart: the error profile (first) or My Sessions, switched by clicking its title.
+  const [bottomPanel, setBottomPanel] = useState<'sessions' | 'errors'>('errors');
   // The day that decides the period shown (the month before this one at first); the periods are cut from it, and never after today.
   const [picked, setPicked] = useState<string | null>(null);
   const date = picked && picked <= today ? picked : previousMonthStart(today);
@@ -166,8 +169,12 @@ export const ProgressPage = () => {
         </div>
       </Panel>
 
-      {/* Today's tasks under the chart (moved here from the profile; `ProfileDailyTasks` has its panel). */}
-      <ProfileDailyTasks />
+      {/* One place for two panels: the title of each switches to the other (the error profile first). */}
+      {bottomPanel === 'errors' ? (
+        <ProfileErrorProfile onSwitch={() => setBottomPanel('sessions')} />
+      ) : (
+        <ProfileSessions onSwitch={() => setBottomPanel('errors')} />
+      )}
     </div>
   );
 };

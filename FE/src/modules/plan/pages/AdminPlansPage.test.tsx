@@ -51,7 +51,7 @@ const row = (over: object = {}) => ({
   createdAt: '2026-01-15T00:00:00.000Z',
   ...over,
 });
-const subscriptionPage = (items: object[], over: object = {}) => ({ items, page: 1, limit: 9, total: items.length, totalPages: items.length ? 1 : 0, ...over });
+const subscriptionPage = (items: object[], over: object = {}) => ({ items, page: 1, limit: 3, total: items.length, totalPages: items.length ? 1 : 0, ...over });
 
 beforeEach(() => {
   listSubscriptions.mockReset().mockResolvedValue(subscriptionPage([row()]));
@@ -141,15 +141,24 @@ describe('AdminPlansPage', () => {
     expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
   });
 
-  it('has three panels, each under its title: the users chart, the plan cards and the subscription list', async () => {
+  it('has the users chart and the plan cards, and the subscription list after the button under them', async () => {
+    const user = userEvent.setup();
     renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
 
     await screen.findByRole('group', { name: 'Free plan' });
-    expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual(['Subscriptions', 'Plans', 'Subscription list']);
+    expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual(['Subscriptions', 'Plans']);
     // Save is on the row of the title Plans, and it still saves the form.
     expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('form', 'plans-form');
+
+    await user.click(screen.getByRole('button', { name: 'Switch to Subscription list' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Subscription list' })).toBeInTheDocument();
     const cards = within(await screen.findByRole('region', { name: 'Subscriptions' }));
     expect(await cards.findByText('An')).toBeInTheDocument();
+    // The cards stay mounted, hidden, so unsaved changes are kept.
+    expect(screen.getByRole('group', { name: 'Free plan' }).closest('.hidden')).not.toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Switch to Plans' }));
+    expect(screen.getByRole('group', { name: 'Free plan' }).closest('.hidden')).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Subscription list' })).not.toBeInTheDocument();
   });
 
   it('draws the users on each plan for the year, and asks again when a range is picked', async () => {
@@ -219,7 +228,7 @@ describe('AdminPlansPage', () => {
     listSubscriptions.mockResolvedValue(
       subscriptionPage([row(), row({ _id: 'r2', userName: 'Binh', plan: 'free', source: 'signup', endsAt: null, changedByName: null, email: 'binh@example.com' })]),
     );
-    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
 
     expect(await screen.findByText('Binh')).toBeInTheDocument();
     expect(screen.getByText(/by Boss/)).toBeInTheDocument();
@@ -240,7 +249,7 @@ describe('AdminPlansPage', () => {
 
   it('shows the avatar of each user: the picture, else the pixel avatar', async () => {
     listSubscriptions.mockResolvedValue(subscriptionPage([row(), row({ _id: 'r2', userName: 'Binh', avatarUrl: 'https://img.example.com/binh.png' })]));
-    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
 
     expect(await screen.findByRole('img', { name: 'Avatar of An' })).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: 'Avatar of Binh' })).not.toBeInTheDocument();
@@ -251,7 +260,7 @@ describe('AdminPlansPage', () => {
     listSubscriptions.mockResolvedValue(
       subscriptionPage(['upcoming', 'cancelled', 'ended'].map((status, index) => row({ _id: `s${index}`, userName: `User ${status}`, status }))),
     );
-    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
 
     expect(await screen.findByText('Upcoming')).toBeInTheDocument();
     expect(screen.getByText('Cancelled')).toBeInTheDocument();
@@ -260,7 +269,7 @@ describe('AdminPlansPage', () => {
 
   it('filters by status', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
     await screen.findByText('An');
 
     await user.click(screen.getByRole('button', { name: /filter/i }));
@@ -270,14 +279,14 @@ describe('AdminPlansPage', () => {
 
   it('shows None for a source the list does not know', async () => {
     listSubscriptions.mockResolvedValue(subscriptionPage([row({ source: undefined })]));
-    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
 
     expect(await screen.findByText('None')).toBeInTheDocument();
   });
 
   it('shows None as the source of a row made by the migration script', async () => {
     listSubscriptions.mockResolvedValue(subscriptionPage([row({ plan: 'free', source: 'migration', endsAt: '2026-03-15T00:00:00.000Z', changedByName: null })]));
-    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
 
     expect(await screen.findByText('None')).toBeInTheDocument();
     expect(screen.queryByText('Migration')).not.toBeInTheDocument();
@@ -285,9 +294,9 @@ describe('AdminPlansPage', () => {
 
   it('asks the server for the first page, and for a plan when the filter changes', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
     await screen.findByText('An');
-    expect(listSubscriptions).toHaveBeenCalledWith({ page: 1, limit: 9, sort: '-createdAt' });
+    expect(listSubscriptions).toHaveBeenCalledWith({ page: 1, limit: 3, sort: '-createdAt' });
 
     await user.click(screen.getByRole('button', { name: /filter/i }));
     await user.click(await screen.findByRole('menuitemradio', { name: 'Premium' }));
@@ -296,7 +305,7 @@ describe('AdminPlansPage', () => {
 
   it('filters by source (None) and by who changed the plan (Admin, System)', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
     await screen.findByText('An');
 
     await user.click(screen.getByRole('button', { name: /filter/i }));
@@ -310,12 +319,12 @@ describe('AdminPlansPage', () => {
 
   it('shows an empty state and a backend error with a retry button', async () => {
     listSubscriptions.mockResolvedValueOnce(subscriptionPage([]));
-    const { unmount } = renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    const { unmount } = renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
     expect(await screen.findByText('No plan changes yet')).toBeInTheDocument();
     unmount();
 
     listSubscriptions.mockRejectedValueOnce({ response: { status: 500, data: { message: 'Subscriptions offline' } } });
-    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans' });
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
     expect(await screen.findByText('Subscriptions offline')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('An')).toBeInTheDocument();

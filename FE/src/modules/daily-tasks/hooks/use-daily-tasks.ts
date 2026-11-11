@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ChartRange } from '@/modules/profile/types/profile.types';
 import { toast } from 'sonner';
 import { dailyTasksApi } from '../api/daily-tasks.api';
 import type { DailyTaskInput, DailyTaskListParams } from '../types/daily-task.types';
@@ -7,6 +8,7 @@ import type { DailyTaskInput, DailyTaskListParams } from '../types/daily-task.ty
 export const dailyTaskKeys = {
   all: ['daily-tasks'] as const,
   list: (params: DailyTaskListParams) => [...dailyTaskKeys.all, 'list', params] as const,
+  completions: (range: ChartRange, date: string) => [...dailyTaskKeys.all, 'completions', range, date] as const,
   settings: () => [...dailyTaskKeys.all, 'settings'] as const,
 };
 
@@ -15,6 +17,14 @@ export const useDailyTasks = (params: DailyTaskListParams) =>
   useQuery({
     queryKey: dailyTaskKeys.list(params),
     queryFn: () => dailyTasksApi.list(params),
+    placeholderData: keepPreviousData,
+  });
+
+/** The learners who completed tasks over a period; the previous period stays on screen while the next one loads. */
+export const useTaskCompletions = (range: ChartRange, date: string) =>
+  useQuery({
+    queryKey: dailyTaskKeys.completions(range, date),
+    queryFn: () => dailyTasksApi.completionsOverTime(range, date),
     placeholderData: keepPreviousData,
   });
 

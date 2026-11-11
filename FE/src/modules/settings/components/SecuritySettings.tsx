@@ -4,14 +4,15 @@ import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { profileApi } from '@/modules/profile/api/profile.api';
 import { getApiErrorMessage } from '@/shared/api/api-error';
-import { Label } from '@/shared/components/ui/label';
+import { Panel } from '@/shared/components/panel';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { Switch } from '@/shared/components/ui/switch';
 
 interface SecuritySettingsProps {
   user: CurrentUser;
 }
 
-/** Lets the user turn the emailed login code (second login step) on or off. In the Security panel of the Settings page. */
+/** Lets the user turn the emailed login code (second login step) on or off. The Security tab of the Settings page. */
 export const SecuritySettings = ({ user }: SecuritySettingsProps) => {
   const queryClient = useQueryClient();
 
@@ -38,20 +39,19 @@ export const SecuritySettings = ({ user }: SecuritySettingsProps) => {
     },
   });
 
+  const description = `After your password, ask for a 6-digit code sent to ${user.email}.`;
+
+  // A title (its tooltip has the description too); under it the description and, on the right, the switch.
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="space-y-1">
-        <Label htmlFor="login-otp">Email code at login</Label>
-        <p className="text-base text-muted-foreground">
-          After your password, ask for a 6-digit code sent to {user.email}.
-        </p>
-      </div>
+    <Panel title="Email code at login" titleTip={description} bare titleClassName={sectionTitleClass} className="flex items-center justify-between gap-4 pt-3">
+      <p className="text-lg text-muted-foreground">{description}</p>
       <Switch
         id="login-otp"
+        aria-label="Email code at login"
         checked={user.loginOtpEnabled}
         disabled={toggleLoginOtp.isPending}
         onCheckedChange={(checked) => toggleLoginOtp.mutate(checked)}
       />
-    </div>
+    </Panel>
   );
 };

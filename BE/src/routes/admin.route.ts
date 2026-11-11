@@ -16,6 +16,7 @@ import {
   deleteDailyTask,
   getDailyTask,
   getDailyTaskSettings,
+  getTaskCompletions,
   listDailyTasks,
   updateDailyTask,
   updateDailyTaskSettings
@@ -105,6 +106,7 @@ adminRouter.put('/placement/settings', validate({ body: placementSettingsSchema 
 
 // Daily tasks (SCRUM-210). The settings come before `/daily-tasks/:id`, which would take `settings` for an id.
 adminRouter.get('/daily-tasks/settings', getDailyTaskSettings);
+adminRouter.get('/daily-tasks/completions-over-time', validate({ query: planUsersQuerySchema }), getTaskCompletions);
 adminRouter.put('/daily-tasks/settings', validate({ body: dailyTaskSettingsSchema }), updateDailyTaskSettings);
 adminRouter.get('/daily-tasks', validate({ query: listDailyTasksQuerySchema }), listDailyTasks);
 adminRouter.post('/daily-tasks', validate({ body: createDailyTaskSchema }), createDailyTask);

@@ -1,8 +1,13 @@
+import { Languages } from 'lucide-react';
+import { useState } from 'react';
 import { languageNames } from '@/modules/typing/typing.config';
 import { getApiErrorMessage } from '@/shared/api/api-error';
+import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { Panel } from '@/shared/components/panel';
+import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
+import type { TypingLanguage } from '@/shared/lib/typing-language';
 import { useErrorProfile } from '../hooks/use-profile';
 import { ErrorTypeCard } from './ErrorTypeCard';
 
@@ -18,13 +23,17 @@ const BLANK_TYPES = 3;
  * sessions of their typing language (SCRUM-219: the set of that language, which the texts name) with its error rate, its
  * level (weak, OK, or what it needs first) and its trend against the sessions before, as the backend works them out
  * (`useErrorProfile`); the thresholds come with the answer. While it loads, blank items hold their place; when it fails,
- * the reason and a retry on one line; before the first counted session, one muted line.
+ * the reason and a retry on one line; before the first counted session, one muted line. With `onSwitch` a button
+ * next to the title shows another panel in its place (`switchTo`, My Sessions by default) (`PanelTitleSwitch`, the Progress page).
  */
-export const ProfileErrorProfile = () => {
-  const errorProfile = useErrorProfile();
-  const used = errorProfile.data?.sessionsUsed ?? 0;
-  // The profile is the one of the learner's typing language (SCRUM-219): "English sessions".
-  const language = languageNames[errorProfile.data?.language ?? 'vi'];
+export const ProfileErrorProfile = ({ onSwitch, switchTo = 'My Sessions' }: { onSwitch?: () => void; switchTo?: string } = {}) => {
+  // The language shown: the learner's own until they press the switch (a view only, the account's typing language is not saved).
+  const [picked, setPicked] = useState<TypingLanguage>();
+  const errorProfile = useErrorProfile(picked);
+  const shown: TypingLanguage = picked ?? errorProfile.data?.language ?? 'vi';
+  const other: TypingLanguage = shown === 'vi' ? 'en' : 'vi';
+  // The profile is the one of the language shown (SCRUM-219): "English sessions".
+  const language = languageNames[shown];
 
   const renderBody = () => {
     if (errorProfile.isPending) {
@@ -63,14 +72,26 @@ export const ProfileErrorProfile = () => {
       {/* PANEL Error profile */}
       <Panel
         title="Error profile"
+        titleAction={onSwitch && <PanelTitleSwitch other={switchTo} onClick={onSwitch} />}
         titleTip={
           errorProfile.data &&
-          `Your last ${errorProfile.data.window} counted ${language} sessions: a type is weak from ${errorProfile.data.weakRate}% wrong, and its trend compares them with the ${errorProfile.data.window} sessions before. Switch VI / EN in Practice to see the other language.`
+          `Your last ${errorProfile.data.window} counted ${language} sessions: a type is weak from ${errorProfile.data.weakRate}% wrong, and its trend compares them with the ${errorProfile.data.window} sessions before. Use the language button to see the other language.`
         }
         bare
         titleClassName={sectionTitleClass}
         className="space-y-4"
-        actions={used > 0 && <p className="text-base text-muted-foreground">Last {used} counted {language} {used === 1 ? 'session' : 'sessions'}</p>}
+        actions={
+          <CompactToolbar
+            buttons={[
+              {
+                label: `Error profile language: ${language}. Switch to ${languageNames[other]}`,
+                icon: Languages,
+                valueLabel: language,
+                onClick: () => setPicked(other),
+              },
+            ]}
+          />
+        }
       >
         {renderBody()}
       </Panel>
