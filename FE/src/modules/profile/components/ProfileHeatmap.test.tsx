@@ -9,7 +9,9 @@ import { ProfileHeatmap } from './ProfileHeatmap';
 
 // The activity of these tests is in UTC, so today is the UTC day.
 const today = new Date().toISOString().slice(0, 10);
-const activity = (data?: TypingActivity) => ({ data }) as UseQueryResult<TypingActivity>;
+/** The activity as the server sends it: its averages are Vietnamese unless the test says otherwise (SCRUM-219). */
+const activity = (data?: Omit<TypingActivity, 'language'> & Partial<Pick<TypingActivity, 'language'>>) =>
+  ({ data: data && { language: 'vi', ...data } }) as UseQueryResult<TypingActivity>;
 const year = new Date().getUTCFullYear();
 
 /** The cell of a day, and the tooltip shown when the mouse is over it. */

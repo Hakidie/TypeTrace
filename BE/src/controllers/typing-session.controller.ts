@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as replayService from '../services/session-replay.service';
 import * as sessionService from '../services/typing-session.service';
+import type { LanguageQuery } from '../validators/common.validator';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
 
 // `authGuard` runs first, so `req.user` is always set here.
@@ -17,7 +18,7 @@ export const listSessions = async (req: Request, res: Response) => {
 };
 
 export const getActivity = async (req: Request, res: Response) => {
-  res.json(await sessionService.getOwnActivity(userIdOf(req)));
+  res.json(await sessionService.getOwnActivity(userIdOf(req), (req.query as LanguageQuery).language));
 };
 
 export const getSession = async (req: Request, res: Response) => {

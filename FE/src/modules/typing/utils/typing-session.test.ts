@@ -39,6 +39,32 @@ describe('summarizeErrors and accuracyOf', () => {
   });
 });
 
+describe('the English rules (SCRUM-219)', () => {
+  const results = checkWords(['The', 'cat,', 'sat'], ['the', 'cat', 'sta'], 'en');
+
+  it('checks the words of an English session by the English set', () => {
+    expect(results.map((result) => result.errors)).toEqual([['CASE_WRONG'], ['PUNCTUATION_WRONG'], ['LETTERS_SWAPPED']]);
+    // The Vietnamese set would call all of them a wrong letter.
+    expect(checkWords(['The'], ['the']).map((result) => result.errors)).toEqual([['BASE_LETTER']]);
+  });
+
+  it('counts the English types against their chances, never the Vietnamese ones', () => {
+    const stats = Object.fromEntries(summarizeErrors(results, 'en').map((s) => [s.type, s]));
+    expect(stats.CASE_WRONG).toMatchObject({ count: 1, chances: 3 });
+    expect(stats.PUNCTUATION_WRONG).toMatchObject({ count: 1, chances: 1 });
+    expect(stats.LETTERS_SWAPPED).toMatchObject({ count: 1, chances: 3 });
+    expect(stats.TONE_WRONG).toBeUndefined();
+  });
+
+  it('reads the counts of an English session, which has no Vietnamese keys', () => {
+    expect(statsFromCounts({ CASE_WRONG: 1, LETTER_EXTRA: 0 }, { CASE_WRONG: 3, LETTER_EXTRA: 3, LETTER_WRONG: 3 }, 'en')).toEqual([
+      { type: 'LETTER_WRONG', count: 0, chances: 3 },
+      { type: 'LETTER_EXTRA', count: 0, chances: 3 },
+      { type: 'CASE_WRONG', count: 1, chances: 3 },
+    ]);
+  });
+});
+
 describe('formatDuration', () => {
   it('shows minutes and padded seconds', () => {
     expect(formatDuration(5)).toBe('0:05');

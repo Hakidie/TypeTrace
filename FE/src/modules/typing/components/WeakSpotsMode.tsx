@@ -24,10 +24,11 @@ interface WeakSpotsModeProps {
  * learner's highest error rates among the types with enough data, weak or not, from their error profile, as the server picks
  * them) and their rates, or says that a random passage comes while the profile has no type with enough data; on the right the
  * five error types (SCRUM-74), the cards of the Profile's error profile, each starting a lesson of its own type, also before it
- * has enough data. On phones the auto lesson is on top.
+ * has enough data. On phones the auto lesson is on top. Always the Vietnamese profile (SCRUM-219), whatever the learner types
+ * in Practice: the lessons are made of the Vietnamese word bank, so its types are Vietnamese ones.
  */
 export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
-  const errorProfile = useErrorProfile();
+  const errorProfile = useErrorProfile('vi');
   if (errorProfile.isPending) return <LoadingState rows={3} />;
   if (errorProfile.isError) return <ErrorState error={errorProfile.error} onRetry={() => void errorProfile.refetch()} />;
 
@@ -81,7 +82,7 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
       <section aria-label="Error types" className={cn(frame, 'px-6 py-3')}>
         <ul className="flex flex-col">
           {profile.types.map((item) => (
-            <ErrorTypeCard key={item.type} item={item} profile={profile} locked={locked} onSelect={() => onPick(item.type)} />
+            <ErrorTypeCard key={item.type} item={item} profile={profile} locked={locked} onSelect={() => onPick(item.type as WordErrorType)} />
           ))}
         </ul>
       </section>

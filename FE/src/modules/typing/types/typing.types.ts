@@ -1,3 +1,4 @@
+import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 
 /**
@@ -7,16 +8,16 @@ import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 export type SessionMode = 'practice' | 'placement' | 'daily' | 'targeted';
 export type SessionStatus = 'in_progress' | 'completed' | 'abandoned';
 
-/** How many times each error type happened (or could have happened). */
-export type ErrorCounts = Record<WordErrorType, number>;
+/** How many times each error type happened (or could have happened): the types of the session's language only (SCRUM-219). */
+export type ErrorCounts = Partial<Record<SessionErrorType, number>>;
 
 /** One graded word. Mirrors `SessionWord` in `BE/src/models/typing-session.model.ts`. */
 export interface SessionWord {
   index: number;
   target: string;
   typed: string;
-  /** Empty when the word is correct. */
-  errorTypes: WordErrorType[];
+  /** Empty when the word is correct. The types of the session's language. */
+  errorTypes: SessionErrorType[];
   /** Milliseconds from the first key to the end of this word; missing on sessions from before it was stored. */
   typedAtMs?: number;
 }
@@ -26,6 +27,11 @@ export interface TypingSession {
   _id: string;
   owner: string;
   mode: SessionMode;
+  /**
+   * What the learner typed in (SCRUM-219): their Practice language, always `vi` in the placement test and in Weak spots. It
+   * picks the error set.
+   */
+  language?: TypingLanguage;
   /** Missing on a Weak spots lesson, which types words of the word bank, not a passage. */
   passageId?: string;
   /** Title of the passage (or of the Weak spots lesson); missing on sessions from before it was stored. */
@@ -65,7 +71,7 @@ export interface SessionStats {
   /** Share of wrong words, 0-100. */
   wrongRate: number;
   /** Types that never had a chance in the passage are left out. */
-  errorTypes: { type: WordErrorType; errors: number; opportunities: number; rate: number }[];
+  errorTypes: { type: SessionErrorType; errors: number; opportunities: number; rate: number }[];
   isCounted: boolean;
   /** The time the learner chose, in seconds: the end of the time axis of the speed chart. */
   timeLimitSeconds: number;

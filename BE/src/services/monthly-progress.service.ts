@@ -4,6 +4,7 @@ import { TypingSessionModel } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
 import { notFound } from '../utils/app-error';
 import { addDays, localDateKey } from '../utils/local-date';
+import { sessionsIn, type TypingLanguage } from '../utils/typing-language';
 import { usableTimeZone } from './daily-progress.service';
 
 /**
@@ -157,28 +158,36 @@ export const figuresByKey = (range: ChartRange, days: ReadonlyMap<string, DayTot
 const mongoTimeZone = (timeZone: string) => new Intl.DateTimeFormat('en-US', { timeZone }).resolvedOptions().timeZone;
 
 /**
- * `GET /api/profile/monthly-progress?range=year|month|week&date=`: the average WPM and accuracy of each point of the
- * range, cut in the learner's time zone. Only counted sessions. The figures start in the period of the learner's first counted
- * placement session (every counted session counts from then on, whatever its mode). The token of a deleted account passes
+ * `GET /api/profile/monthly-progress?range=year|month|week&date=&language=`: the average WPM and accuracy of each point of
+ * the range, cut in the learner's time zone, of their counted sessions in one typing language (SCRUM-219: their Practice
+ * language when missing; WPM of Vietnamese and English do not mix). Vietnamese figures start in the period of the learner's
+ * first counted placement session (every counted Vietnamese session counts from then on, whatever its mode); English ones,
+ * which have no placement test, in the period of their first counted English session. The token of a deleted account passes
  * `authGuard`: it answers 404, like the other profile endpoints.
  */
-export const getMonthlyProgress = async (userId: string, range: ChartRange = 'year', date?: string) => {
-  const user = await UserModel.findById(userId).select('settings.timezone').lean();
+export const getMonthlyProgress = async (userId: string, range: ChartRange = 'year', date?: string, language?: TypingLanguage) => {
+  const user = await UserModel.findById(userId).select('settings.timezone settings.typingLanguage').lean();
   if (!user) throw notFound('User not found');
+  const shown = language ?? user.settings?.typingLanguage ?? 'vi';
   const timeZone = usableTimeZone(user.settings?.timezone);
   const today = localDateKey(new Date(), timeZone);
   const keys = chartKeys(range, today, date);
 
-  const firstPlacement = await TypingSessionModel.findOne({ owner: userId, mode: 'placement', isCounted: true })
+  const first = await TypingSessionModel.findOne({
+    owner: userId,
+    isCounted: true,
+    ...(shown === 'vi' ? { mode: 'placement' } : {}),
+    ...sessionsIn(shown)
+  })
     .sort({ completedAt: 1 })
     .select('completedAt')
     .lean();
-  if (!firstPlacement?.completedAt) return { range, points: buildPoints(keys, null, new Map(), today) };
-  const startKey = keyOfDay(range, localDateKey(firstPlacement.completedAt, timeZone));
+  if (!first?.completedAt) return { range, language: shown, points: buildPoints(keys, null, new Map(), today) };
+  const startKey = keyOfDay(range, localDateKey(first.completedAt, timeZone));
 
   // One row per local day with counted sessions: the periods are built from them, a block of days or a month is not a group of its own.
   const rows = await TypingSessionModel.aggregate<DayTotals & { _id: string }>([
-    { $match: { owner: user._id, isCounted: true, completedAt: { $exists: true } } },
+    { $match: { owner: user._id, isCounted: true, completedAt: { $exists: true }, ...sessionsIn(shown) } },
     {
       $group: {
         _id: { $dateToString: { format: '%Y-%m-%d', date: '$completedAt', timezone: mongoTimeZone(timeZone) } },
@@ -191,5 +200,5 @@ export const getMonthlyProgress = async (userId: string, range: ChartRange = 'ye
   ]);
 
   const days = new Map<string, DayTotals>(rows.map((row) => [row._id, row]));
-  return { range, points: buildPoints(keys, startKey, figuresByKey(range, days, startKey), today) };
+  return { range, language: shown, points: buildPoints(keys, startKey, figuresByKey(range, days, startKey), today) };
 };

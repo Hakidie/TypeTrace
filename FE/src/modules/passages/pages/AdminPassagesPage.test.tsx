@@ -370,7 +370,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
     expect(urlParams().get('q')).toBe('hà nội');
     expect(urlParams().get('page')).toBeNull();
 
-    // Filters: the status, and the placement passages or the regular ones.
+    // Filters: the status, and the placement, ranked or practice passages.
     await pick(user, /Filter/, 'Archived');
     await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ q: 'hà nội', status: 'archived' })));
     await pick(user, /Filter/, 'Placement');
@@ -378,8 +378,12 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
     expect(within(bankToolbar()).getByLabelText('2 active')).toBeInTheDocument();
     expect(urlParams().get('status')).toBe('archived');
     expect(urlParams().get('type')).toBe('placement');
-    await pick(user, /Filter/, 'Regular');
-    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived', isPlacement: false })));
+    await pick(user, /Filter/, 'Ranked');
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived', isPlacement: false, isRanked: true })));
+    expect(urlParams().get('type')).toBe('ranked');
+    await pick(user, /Filter/, 'Practice');
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived', isPlacement: false, isRanked: false })));
+    expect(urlParams().get('type')).toBe('practice');
     // "All" takes a filter off again.
     await user.click(within(bankToolbar()).getByRole('button', { name: /Filter/ }));
     await user.click(within(await screen.findByRole('group', { name: 'Status' })).getByRole('menuitemradio', { name: 'All' }));
@@ -413,6 +417,7 @@ describe('AdminPassagesPage: search, filters, sort and hard delete of the passag
       q: 'biển',
       status: 'archived',
       isPlacement: true,
+      isRanked: false,
       visibility: 'public',
     });
     expect(screen.getByLabelText('Search passages')).toHaveValue('biển');

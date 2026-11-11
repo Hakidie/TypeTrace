@@ -4,6 +4,7 @@ import { UserModel } from '../models/user.model';
 import { notFound } from '../utils/app-error';
 import { hashPassword } from '../utils/hash';
 import { generateOtp } from '../utils/otp';
+import type { UpdateSettingsInput } from '../validators/profile.validator';
 import { sendOtpEmail, sendResetTokenEmail } from './email.service';
 
 const otpExpiry = () => new Date(Date.now() + env.otpExpiresMinutes * 60 * 1000);
@@ -52,13 +53,18 @@ export const issueResetToken = async (email: string) => {
 };
 
 /**
- * Saves the learner's time zone (SCRUM-31): their days, streak and daily mission follow it from now on. The dotted
- * `$set` leaves the other settings (mode and themes) as they are.
+ * Saves the settings sent: the learner's time zone (SCRUM-31: their days, streak and daily mission follow it from now on)
+ * and the language they type in Practice (SCRUM-219). The dotted `$set` leaves the other settings (mode and themes) as they are.
  */
-export const updateTimeZone = async (userId: string, timezone: string) => {
+export const updateSettings = async (userId: string, { timezone, typingLanguage }: UpdateSettingsInput) => {
   const user = await UserModel.findByIdAndUpdate(
     userId,
-    { $set: { 'settings.timezone': timezone } },
+    {
+      $set: {
+        ...(timezone !== undefined && { 'settings.timezone': timezone }),
+        ...(typingLanguage !== undefined && { 'settings.typingLanguage': typingLanguage })
+      }
+    },
     { returnDocument: 'after' }
   );
   if (!user) throw notFound('User not found');

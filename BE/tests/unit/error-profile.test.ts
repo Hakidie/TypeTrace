@@ -71,6 +71,7 @@ describe('trendOf', () => {
 describe('computeErrorProfile', () => {
   it('gives a learner without a session every type without data, with the thresholds', () => {
     expect(computeErrorProfile([])).toEqual({
+      language: 'vi',
       window: PROFILE_WINDOW,
       minOpportunities: MIN_PROFILE_OPPORTUNITIES,
       weakRate: WEAK_RATE,

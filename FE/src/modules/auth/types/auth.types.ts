@@ -1,5 +1,6 @@
 import type { TutorialState } from '@/modules/tutorial/types/tutorial.types';
 import type { AvatarLook } from '@/modules/avatar/types/avatar.types';
+import type { TypingLanguage } from '@/shared/lib/typing-language';
 
 export interface AuthPayload {
   email: string;
@@ -26,8 +27,11 @@ export interface CurrentUser {
   coins?: number;
   /** Bought or won avatar items, as `slot:item`. */
   ownedItems?: string[];
-  /** Only what the frontend reads: the IANA time zone the learner's days are counted in (`Asia/Ho_Chi_Minh` until the browser sends its own). */
-  settings?: { timezone?: string };
+  /**
+   * Only what the frontend reads: the IANA time zone the learner's days are counted in (`Asia/Ho_Chi_Minh` until the browser
+   * sends its own), and the language they type in Practice (SCRUM-219; missing on old data: Vietnamese, `useTypingLanguage`).
+   */
+  settings?: { timezone?: string; typingLanguage?: TypingLanguage };
   /** Ping's tutorial (`modules/tutorial`): missing on accounts from before it, which are never shown one. */
   tutorial?: TutorialState;
   createdAt: string;

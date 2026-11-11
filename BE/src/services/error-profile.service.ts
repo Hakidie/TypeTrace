@@ -1,12 +1,13 @@
-// A learner's error profile (SCRUM-27): for each Vietnamese error type, the error rate of their last counted sessions, a
-// level (weak or ok, once there is enough data) and a trend against the sessions before them. It is worked out from the
-// sessions each time it is read and never stored: it is up to date right after a session, needs no rebuild when a rule
-// changes, and leaves nothing to delete with the user. Only models are imported, so no service cycle can start here.
+// A learner's error profile (SCRUM-27): for each error type of one typing language (SCRUM-219: Vietnamese, or English with
+// its own error set), the error rate of their last counted sessions in that language, a level (weak or ok, once there is
+// enough data) and a trend against the sessions before them. It is worked out from the sessions each time it is read and
+// never stored: it is up to date right after a session, needs no rebuild when a rule changes, and leaves nothing to delete
+// with the user. Only models and `typing-language.service` (models only) are imported, so no service cycle can start here.
 import type { Types } from 'mongoose';
-import { ErrorCounts, TypingSessionModel } from '../models/typing-session.model';
-import { UserModel } from '../models/user.model';
-import { notFound } from '../utils/app-error';
-import { WordError, WordErrorType } from '../utils/vietnamese-errors';
+import { SessionCounts, TypingSessionModel } from '../models/typing-session.model';
+import { errorTypesOf, type SessionErrorType, sessionsIn, type TypingLanguage } from '../utils/typing-language';
+import { WordErrorType } from '../utils/vietnamese-errors';
+import { typingLanguageOf } from './typing-language.service';
 
 /** The current window is the learner's last `PROFILE_WINDOW` counted sessions, the previous one the `PROFILE_WINDOW` before them. */
 export const PROFILE_WINDOW = 10;
@@ -22,8 +23,8 @@ export type ErrorTrend = 'insufficient_data' | 'improved' | 'worse' | 'unchanged
 
 /** What the profile reads of a session: its errors and chances of each type (a missing count is 0). */
 export interface ProfileSession {
-  errorCounts?: Partial<ErrorCounts>;
-  opportunityCounts?: Partial<ErrorCounts>;
+  errorCounts?: SessionCounts;
+  opportunityCounts?: SessionCounts;
 }
 
 /** Errors and chances of one error type in some sessions. */
@@ -33,7 +34,7 @@ export interface ErrorTotals {
 }
 
 export interface ErrorTypeProfile extends ErrorTotals {
-  type: WordErrorType;
+  type: SessionErrorType;
   /** Errors / chances of the current window in %, one decimal (as the session stats); 0 without a chance, at most 100. */
   rate: number;
   level: ErrorLevel;
@@ -44,27 +45,29 @@ export interface ErrorTypeProfile extends ErrorTotals {
 
 /** `GET /api/profile/error-profile`. The thresholds come along so the frontend never writes them. */
 export interface ErrorProfile {
+  /** The typing language of the sessions read, whose error set `types` lists (SCRUM-219). */
+  language: TypingLanguage;
   window: number;
   minOpportunities: number;
   weakRate: number;
   /** Sessions in the current window: 0 to `PROFILE_WINDOW`. */
   sessionsUsed: number;
-  /** One per error type, in the order of `WordError`. */
+  /** One per error type of the language, in the order of its set (`WordError` or `EnglishError`). */
   types: ErrorTypeProfile[];
-  /** The weak types, highest error rate first (a tie goes to more errors, then to the order of `WordError`). */
-  weakTypes: WordErrorType[];
+  /** The weak types, highest error rate first (a tie goes to more errors, then to the order of the set). */
+  weakTypes: SessionErrorType[];
   /**
-   * Every type with enough data for a level, weak or ok, in the same order, so the weak ones come first: what a Weak spots
-   * lesson trains when the learner picks no type (US3.2).
+   * Every type with enough data for a level, weak or ok, in the same order, so the weak ones come first: in the Vietnamese
+   * profile, what a Weak spots lesson trains when the learner picks no type (US3.2).
    */
-  rankedTypes: WordErrorType[];
+  rankedTypes: SessionErrorType[];
 }
 
 type OwnerId = string | Types.ObjectId;
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
-const totalsOf = (sessions: readonly ProfileSession[], type: WordErrorType): ErrorTotals => ({
+const totalsOf = (sessions: readonly ProfileSession[], type: SessionErrorType): ErrorTotals => ({
   errors: sessions.reduce((sum, session) => sum + (session.errorCounts?.[type] ?? 0), 0),
   opportunities: sessions.reduce((sum, session) => sum + (session.opportunityCounts?.[type] ?? 0), 0)
 });
@@ -105,23 +108,24 @@ export const trendOf = (current: ErrorTotals, previous: ErrorTotals): ErrorTrend
 };
 
 /**
- * The profile of up to `2 × PROFILE_WINDOW` counted sessions given newest first (pure, for the tests): the first
- * `PROFILE_WINDOW` are the current window, the next ones the previous window.
+ * The profile of up to `2 × PROFILE_WINDOW` counted sessions of `language` given newest first (pure, for the tests): the
+ * first `PROFILE_WINDOW` are the current window, the next ones the previous window.
  */
-export const computeErrorProfile = (sessions: readonly ProfileSession[]): ErrorProfile => {
+export const computeErrorProfile = (sessions: readonly ProfileSession[], language: TypingLanguage = 'vi'): ErrorProfile => {
   const current = sessions.slice(0, PROFILE_WINDOW);
   const previous = sessions.slice(PROFILE_WINDOW, PROFILE_WINDOW * 2);
-  const types = Object.values(WordError).map((type): ErrorTypeProfile => {
+  const types = errorTypesOf(language).map((type): ErrorTypeProfile => {
     const now = totalsOf(current, type);
     const before = totalsOf(previous, type);
     return { type, ...now, rate: rateOf(now), level: levelOf(now), previousRate: rateOf(before), trend: trendOf(now, before) };
   });
   // A type with a level has at least MIN_PROFILE_OPPORTUNITIES chances, so no division by 0; the sort is stable, so the order
-  // of WordError settles what is left of a tie. A weak type has a higher rate than an ok one, so the weak ones lead.
+  // of the error set settles what is left of a tie. A weak type has a higher rate than an ok one, so the weak ones lead.
   const ranked = types
     .filter((profile) => profile.level !== 'insufficient_data')
     .sort((a, b) => b.errors / b.opportunities - a.errors / a.opportunities || b.errors - a.errors);
   return {
+    language,
     window: PROFILE_WINDOW,
     minOpportunities: MIN_PROFILE_OPPORTUNITIES,
     weakRate: WEAK_RATE,
@@ -133,29 +137,37 @@ export const computeErrorProfile = (sessions: readonly ProfileSession[]): ErrorP
 };
 
 /**
- * The learner's last counted sessions that have chances (sessions saved before the chances were counted have none), newest
- * first, two windows of them, through the index `{ owner: 1, completedAt: -1 }` of TypingSession.
+ * The learner's last counted sessions of `language` that have chances (sessions saved before the chances were counted have
+ * none), newest first, two windows of them, through the index `{ owner: 1, completedAt: -1 }` of TypingSession.
  */
-const profileSessionsOf = (owner: OwnerId): Promise<ProfileSession[]> =>
-  TypingSessionModel.find({ owner, status: 'completed', isCounted: true, opportunityCounts: { $exists: true } })
+const profileSessionsOf = (owner: OwnerId, language: TypingLanguage): Promise<ProfileSession[]> =>
+  TypingSessionModel.find({ owner, status: 'completed', isCounted: true, opportunityCounts: { $exists: true }, ...sessionsIn(language) })
     .sort({ completedAt: -1 })
     .limit(PROFILE_WINDOW * 2)
     .select('errorCounts opportunityCounts')
     .lean();
 
-/** The signed-in learner's error profile; the token of a deleted account answers 404, like the other profile endpoints. */
-export const getErrorProfile = async (userId: string) => {
-  if (!(await UserModel.exists({ _id: userId }))) throw notFound('User not found');
-  return computeErrorProfile(await profileSessionsOf(userId));
+/**
+ * The signed-in learner's error profile in `language` (their Practice language when missing, SCRUM-219); the token of a
+ * deleted account answers 404, like the other profile endpoints.
+ */
+export const getErrorProfile = async (userId: string, language?: TypingLanguage) => {
+  const typingLanguage = await typingLanguageOf(userId);
+  const shown = language ?? typingLanguage;
+  return computeErrorProfile(await profileSessionsOf(userId, shown), shown);
 };
 
-/** The learner's weak error types, highest error rate first, at most `limit`. */
+/**
+ * The learner's weak Vietnamese error types, highest error rate first, at most `limit`. Only their Vietnamese sessions, as
+ * every feature built on the word bank, which is Vietnamese.
+ */
 export const getWeakErrorTypes = async (userId: OwnerId, limit = 2) =>
-  computeErrorProfile(await profileSessionsOf(userId)).weakTypes.slice(0, limit);
+  computeErrorProfile(await profileSessionsOf(userId, 'vi'), 'vi').weakTypes.slice(0, limit) as WordErrorType[];
 
 /**
- * The learner's error types with enough data, weak or not, highest error rate first, at most `limit`: what a Weak spots lesson
- * trains when the learner picks no type (US3.2). Empty only before their error profile has a type with enough data.
+ * The learner's Vietnamese error types with enough data, weak or not, highest error rate first, at most `limit`: what a Weak
+ * spots lesson trains when the learner picks no type (US3.2). Only their Vietnamese sessions, whatever language they type
+ * in Practice: the word bank and its lessons are Vietnamese. Empty only before that profile has a type with enough data.
  */
 export const getTopErrorTypes = async (userId: OwnerId, limit = 2) =>
-  computeErrorProfile(await profileSessionsOf(userId)).rankedTypes.slice(0, limit);
+  computeErrorProfile(await profileSessionsOf(userId, 'vi'), 'vi').rankedTypes.slice(0, limit) as WordErrorType[];

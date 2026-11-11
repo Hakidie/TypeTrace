@@ -12,6 +12,7 @@
     "import:words": "tsx src/scripts/import-words.ts",
     "import:passages": "tsx src/scripts/import-passages.ts",
     "import:passages:en": "tsx src/scripts/import-passages-en.ts",
+    "import:passages:en-practice": "tsx src/scripts/import-passages-en-practice.ts",
     "import:themes": "tsx src/scripts/import-themes.ts",
     "rebuild:progress": "tsx src/scripts/rebuild-progress.ts",
     "rebuild:tag-counts": "tsx src/scripts/rebuild-tag-counts.ts",

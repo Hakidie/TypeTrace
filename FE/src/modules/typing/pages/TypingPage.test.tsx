@@ -1,11 +1,15 @@
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor, within } from '@testing-library/react';
 import { Link, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
 import { resetMinigameLang } from '@/shared/hooks/use-minigame-lang';
-import { renderWithProviders } from '@/test/render-with-providers';
+import { createTestQueryClient, renderWithProviders } from '@/test/render-with-providers';
 import { decodeReplay, replayTextAt } from '../utils/session-replay';
 import { TypingPage } from './TypingPage';
+
+vi.mock('sonner', () => ({ toast: { info: vi.fn(), dismiss: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
 const start = vi.fn();
 const begin = vi.fn();
@@ -18,9 +22,38 @@ vi.mock('../api/typing.api', () => ({
     begin: (id: string) => begin(id),
     complete: (id: string, typedWords: string[], typedAtMs: number[], timeLimitSeconds: number, replay?: unknown) =>
       complete(id, typedWords, typedAtMs, timeLimitSeconds, replay),
-    passages: (mode: string) => passages(mode),
+    passages: (mode: string, language?: string) => passages(mode, language),
   },
 }));
+
+// The language switch saves the typing language (SCRUM-219); the Weak spots cards read the learner's error profile (US3.2, SCRUM-74).
+const updateSettings = vi.fn();
+const getErrorProfile = vi.fn();
+vi.mock('@/modules/profile/api/profile.api', () => ({
+  profileApi: {
+    updateSettings: (input: unknown) => updateSettings(input),
+    getErrorProfile: (language?: string) => getErrorProfile(language),
+  },
+}));
+
+/** A signed-in learner who types `typingLanguage` in Practice (SCRUM-219), as `PATCH /api/profile/settings` answers it. */
+const learner = (typingLanguage: 'vi' | 'en') => ({
+  _id: 'u1',
+  email: 'lan@example.com',
+  role: 'user',
+  isEmailVerified: true,
+  loginOtpEnabled: false,
+  settings: { timezone: 'Asia/Ho_Chi_Minh', typingLanguage },
+  createdAt: '2026-01-15T12:00:00.000Z',
+  updatedAt: '2026-01-15T12:00:00.000Z',
+});
+
+/** A client that already has the signed-in learner, who types `typingLanguage`. */
+const clientFor = (typingLanguage: 'vi' | 'en') => {
+  const queryClient = createTestQueryClient();
+  queryClient.setQueryData(currentUserKey, learner(typingLanguage));
+  return queryClient;
+};
 
 vi.mock('@/modules/ranked/api/ranked.api', () => ({
   rankedApi: {
@@ -59,12 +92,6 @@ const ERROR_PROFILE = {
   rankedTypes: ['HOI_NGA_CONFUSION', 'D_MISSING', 'MARK_WRONG', 'BASE_LETTER'],
 };
 
-// The Weak spots cards read the learner's error profile (US3.2, SCRUM-74).
-const getErrorProfile = vi.fn();
-vi.mock('@/modules/profile/api/profile.api', () => ({
-  profileApi: { getErrorProfile: () => getErrorProfile() },
-}));
-
 const startTutorial = vi.fn();
 vi.mock('@/modules/tutorial/api/tutorial.api', () => ({
   tutorialApi: { start: () => startTutorial(), update: vi.fn(), reset: vi.fn(), coach: vi.fn() },
@@ -94,6 +121,8 @@ const renderPage = () =>
 const UrlSearch = () => <p aria-label="URL search">{useLocation().search}</p>;
 
 beforeEach(() => {
+  vi.mocked(toast.info).mockClear();
+  vi.mocked(toast.dismiss).mockClear();
   startTutorial.mockReset();
   sessionStorage.clear();
   getPlan.mockReset().mockResolvedValue(FREE_PLAN);
@@ -105,6 +134,8 @@ beforeEach(() => {
     { _id: 'p1', title: 'Hà Nội vào thu', wordCount: 40 },
     { _id: 'p2', title: 'Bữa cơm gia đình', wordCount: 35 },
   ]);
+  // The account answered with the language that was sent.
+  updateSettings.mockReset().mockImplementation(({ typingLanguage }: { typingLanguage: 'vi' | 'en' }) => Promise.resolve(learner(typingLanguage)));
 });
 
 describe('TypingPage', () => {
@@ -507,7 +538,7 @@ describe('TypingPage', () => {
 
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 60 }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
-    expect(passages).toHaveBeenCalledWith('practice');
+    expect(passages).toHaveBeenCalledWith('practice', 'vi');
 
     // Still Random back in practice: the pick is gone, so Restart types a random passage too.
     await user.click(screen.getByRole('radio', { name: 'Practice' }));
@@ -634,7 +665,7 @@ describe('TypingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Choose passage' }));
     await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
 
-    expect(passages).toHaveBeenCalledWith('practice');
+    expect(passages).toHaveBeenCalledWith('practice', 'vi');
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p1' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveTextContent('Hà Nội vào thu'));
     expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveClass('text-primary');
@@ -686,7 +717,7 @@ describe('TypingPage', () => {
         <TypingPage />
         <UrlSearch />
       </>,
-      { route: '/typing?passage=p2' },
+      { route: '/typing?passage=p2', queryClient: clientFor('vi') },
     );
 
     expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
@@ -912,6 +943,127 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
 
     expect(await screen.findByRole('button', { name: 'Practice your weak spots (Premium)' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
+  });
+});
+
+describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
+  // One button: it shows the language being typed and switches to the other one.
+  const switcher = () => screen.getByRole('button', { name: /^Typing language:/ });
+  const imeHint = 'Turn off Vietnamese input (Unikey, EVKey) to type English.';
+
+  it('switches Practice to English with the language button: saved first, then a new passage of that language', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TypingPage />, { route: '/typing', queryClient: clientFor('vi') });
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(switcher()).toHaveTextContent('Vietnamese');
+    expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
+    expect(toast.info).not.toHaveBeenCalledWith(imeHint, expect.anything());
+
+    await user.click(switcher());
+
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'en' });
+    // The server starts a session in the saved language: the save comes first.
+    expect(updateSettings.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[1]);
+    expect(start).toHaveBeenLastCalledWith({ mode: 'practice' });
+    expect(switcher()).toHaveTextContent('English');
+    expect(toast.info).toHaveBeenCalledWith(imeHint, expect.objectContaining({ id: 'ime-hint' }));
+    // The placement test is Vietnamese only: its tab is hidden while the learner types English.
+    expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
+
+    // The menu lists the English passages.
+    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await waitFor(() => expect(passages).toHaveBeenCalledWith('practice', 'en'));
+  });
+
+  it('opens an English learner on English, without the Placement tab, and switches back to Vietnamese', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TypingPage />, { route: '/typing', queryClient: clientFor('en') });
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(switcher()).toHaveTextContent('English');
+    expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
+    expect(toast.info).toHaveBeenCalledWith(imeHint, expect.objectContaining({ id: 'ime-hint' }));
+
+    await user.click(switcher());
+
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' });
+    expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
+    // Back on Vietnamese the notification is taken back.
+    expect(toast.dismiss).toHaveBeenCalledWith('ime-hint');
+  });
+
+  it('switches an English learner back to Vietnamese when the placement test opens (the tab, the tour or a link)', async () => {
+    start.mockResolvedValue({ ...session, mode: 'placement' });
+    renderWithProviders(<TypingPage />, { route: '/typing?mode=placement', queryClient: clientFor('en') });
+
+    expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
+    expect(updateSettings).toHaveBeenCalledOnce();
+    expect(start).toHaveBeenCalledWith({ mode: 'placement', timeLimitSeconds: 60 });
+    // No language switch in Placement, and its tab is there (and on) once the learner types Vietnamese again.
+    expect(screen.queryByRole('button', { name: /^Typing language:/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('switches an English learner back to Vietnamese before the passage of the Passages page', async () => {
+    renderWithProviders(<TypingPage />, { route: '/typing?passage=p2', queryClient: clientFor('en') });
+
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' });
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith({ mode: 'practice', passageId: 'p2' });
+    expect(updateSettings.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[0]);
+    expect(switcher()).toHaveTextContent('Vietnamese');
+  });
+
+  it('types a random English passage when the switch back to Vietnamese cannot be saved', async () => {
+    updateSettings.mockRejectedValue({ response: { status: 500, data: { message: 'Database offline' } } });
+    renderWithProviders(<TypingPage />, { route: '/typing?passage=p2', queryClient: clientFor('en') });
+
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith({ mode: 'practice' });
+    expect(switcher()).toHaveTextContent('English');
+  });
+
+  it('keeps the Weak spots tab in English, switches back to Vietnamese when it opens and shows the Vietnamese error profile', async () => {
+    const user = userEvent.setup();
+    getPlan.mockResolvedValue({ ...FREE_PLAN, plan: 'premium', canUsePublicPassages: true, canCreateErrorPractice: true });
+    renderWithProviders(
+      <>
+        <UrlSearch />
+        <TypingPage />
+      </>,
+      { route: '/typing', queryClient: clientFor('en') },
+    );
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    // Placement leaves the tabs while the learner types English; Weak spots stays, so it is always found.
+    expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'Weak spots' }));
+
+    expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    // The lessons are Vietnamese: the cards read the Vietnamese profile, and the language switch is Practice only.
+    expect(getErrorProfile).toHaveBeenCalledWith('vi');
+    expect(getErrorProfile).not.toHaveBeenCalledWith(undefined);
+    expect(screen.queryByRole('button', { name: /^Typing language:/ })).not.toBeInTheDocument();
+    // Back in Vietnamese: Placement is in the tabs again.
+    expect(await screen.findByRole('radio', { name: 'Placement' })).toBeInTheDocument();
+  });
+
+  it('switches back to Vietnamese when a link opens a Weak spots lesson for a learner who types English', async () => {
+    getPlan.mockResolvedValue({ ...FREE_PLAN, plan: 'premium', canUsePublicPassages: true, canCreateErrorPractice: true });
+    start.mockResolvedValue({ ...session, mode: 'targeted', language: 'vi', passageTitle: 'Weak spots: đ', focusErrorTypes: ['D_MISSING'] });
+    renderWithProviders(<TypingPage />, { route: '/typing?mode=targeted&focus=D_MISSING', queryClient: clientFor('en') });
+
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    expect(start).toHaveBeenCalledWith({ mode: 'targeted', errorType: 'D_MISSING' });
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
+    expect(updateSettings).toHaveBeenCalledTimes(1);
   });
 });
 

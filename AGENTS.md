@@ -39,6 +39,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run import:words` | Add the starter word list (`BE/src/data/words.ts`) to the word bank with error tags; safe to run many times |
 | `npm run import:passages` | Add the starter passages (`BE/src/data/passages.ts`, source recorded, owner TypeTrace) to the passage bank as published passages; safe to run many times |
 | `npm run import:passages:en` | Add the English starter passages (`BE/src/data/passages-en.ts`, marked `isRanked`, for ranked duels; never offered in Practice or Placement) as published passages; safe to run many times |
+| `npm run import:passages:en-practice` | Add the English practice passages (`BE/src/data/passages-en-practice.ts`, owner TypeTrace, not `isRanked`) as published passages: Practice offers them to learners who type English (SCRUM-219); safe to run many times |
 | `npm run import:themes` | Add the starter themes (`BE/src/data/themes.ts`, owner TypeTrace) as published themes; safe to run many times |
 | `npm run rebuild:progress` | Rebuild every learner's days (`DailyProgress`: streak, daily mission, profile heatmap) from their counted sessions, in each learner's own time zone. Run it once after deploying SCRUM-31 (older sessions have no day yet) and after changing `DAILY_MISSION_SESSIONS`, while nobody is typing; safe to run many times |
 | `npm run rebuild:tag-counts` | Count the words and error tags (`tagCounts`) of every passage again from its text and language. Run it once after deploying SCRUM-218 (English passages saved before have no English tags yet) and after changing `tagWord` or `tagEnglishWord`; safe to run many times |
@@ -138,8 +139,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   the document adds `$inc: { coins }` to the user. Only the server pays, a read pays nothing, and a failed payment is only
   logged. The daily task list shows `coins` and `rewarded` (Profile, Progress page, admin page).
 - A learner's error profile (SCRUM-27) is never stored: `getErrorProfile` (`services/error-profile.service.ts`) works it out
-  when it is read from their last 20 counted sessions that have chances (the current window is the 10 newest, the previous
-  one the 10 before them), with the pure `computeErrorProfile`: per error type the rate in %, the level (`weak` from
+  when it is read from their last 20 counted sessions of one typing language (SCRUM-219, below) that have chances (the
+  current window is the 10 newest, the previous one the 10 before them), with the pure `computeErrorProfile`: per error type the rate in %, the level (`weak` from
   `WEAK_RATE`, compared in whole numbers, never with a sum of decimals) and the trend (a two-proportion z-test between the
   windows). Nothing is written in `completeSession`, there is nothing to rebuild or to delete with the user. The thresholds
   are sent with `GET /api/profile/error-profile`: never write them in the frontend. A feature that needs the learner's weak
@@ -149,8 +150,9 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   page): `POST /api/sessions { mode: 'targeted', errorType? }` types a lesson aimed at the learner's errors instead of a
   passage, built by `lessonFor` (`services/targeted-practice.service.ts`). The pure `buildLesson` picks 30 to 50 words of
   the bank (`lessonWords`), 60 to 70 % of them training the focus (the type chosen, else the 2 types with the highest error
-  rates among those with enough data, weak or not: `getTopErrorTypes`, so an error profile is enough; taking turns), only active words (`isActive`), none of the learner's last 3 lessons' picked words
-  while the bank has others, repeats once it runs short. `TONE_WRONG` and `BASE_LETTER` are on every word (`tagWord` counts
+  rates among those with enough data, weak or not: `getTopErrorTypes`, so an error profile is enough; taking turns), only
+  active words (`isActive`), none of the learner's last 3 lessons' picked words while the bank has others, repeats once it
+  runs short. `TONE_WRONG` and `BASE_LETTER` are on every word (`tagWord` counts
   chances), so `trainsErrorType` takes a word with a tone mark for the tone and any word for the letters. Then Gemini writes
   a passage that makes sense from them (`generateText`, prompt and limits in `config/weak-spots-ai.ts`); the pure
   `checkAiPassage` keeps it with 20 to 200 words that use at least 60 % of the practice words (not 60 % of the passage: natural
@@ -159,9 +161,12 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   error, and `lessonSource` (`ai`, `words`, `passage`) records which. The passage lives only in the session (`targetWords`),
   never in the passage bank. The session has no `passageId` and keeps `focusErrorTypes`; with nothing to aim at (no type with
   enough data yet, or no word for it) it types a random practice passage with `focusErrorTypes: []`, which the page explains.
-  On the Typing page the Weak spots tab opens its cards from anywhere, also from a lesson, and a lesson's other way back is
-  the "All weak spots" button under the passage, left of Restart. The passage
-  menu and `GET /api/passages` take `passageModes` (practice, placement), never `targeted`.
+  Weak spots is Vietnamese only (SCRUM-219): its session is always `language: 'vi'` (its random passage too), its focus comes
+  from the Vietnamese sessions and its cards show the Vietnamese error profile, whatever the learner types in Practice. On the
+  Typing page the Weak spots tab opens its cards from anywhere, also from a lesson (it stays shown while the learner types
+  English, and opening it switches them back to Vietnamese), and a lesson's other way back is the "All weak spots" button
+  under the passage, left of Restart. The passage menu and `GET /api/passages` take `passageModes` (practice, placement),
+  never `targeted`.
 - A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
   which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen
   (`createReplayRecorder`, `FE/src/modules/typing/utils/session-replay.ts`), the page sends them as `replay` with
@@ -195,10 +200,33 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `/preview`: how many users and passages a change would newly lock) and `POST|DELETE /api/admin/users/:id/premium` and `POST` `.../premium/cancel`
   (1 to 36 calendar months, Vietnam time) are the admin side. `npm run migrate:subscriptions` gives old accounts a row.
 - Word errors have one set per passage language, each a pure file with an identical frontend copy in `FE/src/shared/lib/`
-  (keep each pair identical): Vietnamese `utils/vietnamese-errors.ts` (`WordError`, `classifyWord`, `tagWord`) for everything
-  learners practice, English `utils/english-errors.ts` (`EnglishError`, `classifyEnglishWord`, `tagEnglishWord`, SCRUM-218)
-  for the English passages of ranked duels. Never mix the two: a passage's `tagCounts` counts the set of its `language`
-  (`computePassageStats`). After changing a `tag…` function, run `npm run rebuild:tag-counts`.
+  (keep each pair identical): Vietnamese `utils/vietnamese-errors.ts` (`WordError`, `classifyWord`, `tagWord`) for the
+  Vietnamese passages (Practice in Vietnamese, the placement test, word rain), English `utils/english-errors.ts`
+  (`EnglishError`, `classifyEnglishWord`, `tagEnglishWord`, SCRUM-218) for the English passages (Practice in English and
+  ranked duels). Never mix the two: a passage's `tagCounts` counts the set of its `language` (`computePassageStats`), a
+  session the set of its own (`classifyIn`, `tagIn`, `errorTypesOf` in `utils/typing-language.ts`, with a frontend copy).
+  After changing a `tag…` function, run `npm run rebuild:tag-counts`.
+- Typing language (SCRUM-219): a learner types Practice in Vietnamese or English, `settings.typingLanguage` (`vi` by default,
+  saved with `PATCH /api/profile/settings`, which takes a time zone, a typing language or both). A session keeps its
+  `language`, set by the server when it starts (Practice: the learner's language then, `typingLanguageOf`; the placement test
+  and Weak spots: always `vi`), and is graded and counted in its set only (its `errorCounts` / `opportunityCounts` hold the keys of that set).
+  A session without `language` (from before) is Vietnamese: filter with `sessionsIn(language)` (`{ language: { $ne: 'en' } }`
+  for `vi`), never `{ language: 'vi' }`; there is no migration. Practice picks among the passages of the learner's language
+  (`practiceLanguageFilter`: English = `language: 'en'` and not `isRanked`, so the passages of ranked duels never come up), a
+  `passageId` of the other language answers 400, and `GET /api/passages` takes `language` (`vi` when missing: the Passages
+  page; the Typing page's Practice menu sends the learner's). The error profile, the averages of `GET /api/sessions/activity`
+  and `GET /api/profile/monthly-progress` are the ones of one language (`?language=`, the learner's when missing; the answer
+  says which, as `language`; the English chart starts at the first counted English session). Both languages count for the
+  days (streak, daily mission, heatmap) and for the sessions, minutes, WPM and accuracy of the daily tasks; word rain's focus,
+  `getWeakErrorTypes`, `getTopErrorTypes` (Weak spots), the daily tasks of an error type and the admin user list's averages
+  read Vietnamese sessions only. Frontend: the language button sits at the top center of the passage, in Practice only
+  (`TypingPage`, `TypingArea`'s `header`: it shows the language being typed and a click switches to the other one): it saves
+  the language (`useSaveTypingLanguage`, which empties the per-language profile queries) and then starts a random passage of
+  it; in English a notification says to turn off Vietnamese input, and the Placement tab is hidden (the Weak spots tab stays).
+  Every way into the placement test (the tab, Ping's tour, `?mode=placement`) or into Weak spots (its tab, a `?mode=targeted`
+  link) and a `?passage=` link of the Passages page (a Vietnamese passage) switch back to Vietnamese and save it. `TypingArea`, the replay and the result page check and name errors with the session's `language`; the session cards of
+  the profile say VI or EN. The minigames keep their own language (`useMinigameLang`), and the word bank (`word.model.ts`) is
+  Vietnamese only.
 - Payments (VNPay, `/api/payments`, `services/payment.service.ts`): what can be bought and its price live in `config/payment.ts`
   (`PAYMENT_PRODUCTS`, today only `pro`); the client sends a product id, never an amount. `POST /vnpay` saves a pending `Payment`
   (its `_id` is `vnp_TxnRef`) and returns `paymentUrl`; VNPay sends the learner back to `${CLIENT_URL}/payments/vnpay/return`

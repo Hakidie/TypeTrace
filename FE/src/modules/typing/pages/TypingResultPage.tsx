@@ -35,6 +35,8 @@ export const TypingResultPage = () => {
   }
 
   const results: WordResult[] = session.words.map((word) => ({ ...word, errors: word.errorTypes }));
+  // Sessions from before SCRUM-219 have no language: they were all Vietnamese.
+  const language = session.language ?? 'vi';
   const boardNote = placementBoardNote(session, minAccuracy);
 
   return (
@@ -67,6 +69,7 @@ export const TypingResultPage = () => {
           <SessionInfoPanel
             passageTitle={session.passageTitle}
             mode={session.mode}
+            language={language}
             timeLimitSeconds={stats.data.timeLimitSeconds}
           />
           <SpeedErrorChart
@@ -81,7 +84,7 @@ export const TypingResultPage = () => {
       {/* PANEL Typed passage, or its replay */}
       <Panel bare>
         {replayOpen ? (
-          <ReplayPanel sessionId={session._id} targetWords={session.targetWords} />
+          <ReplayPanel sessionId={session._id} targetWords={session.targetWords} language={language} />
         ) : (
           <PassageView words={session.targetWords} results={results} />
         )}
@@ -98,7 +101,7 @@ export const TypingResultPage = () => {
       {detailOpen && (
         <>
           {stats.data && <ErrorTypeChart stats={stats.data} />}
-          <ResultsPanel results={results} stats={statsFromCounts(session.errorCounts, session.opportunityCounts)} />
+          <ResultsPanel results={results} stats={statsFromCounts(session.errorCounts, session.opportunityCounts, language)} />
         </>
       )}
     </div>

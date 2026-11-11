@@ -1,3 +1,4 @@
+import { languageNames } from '@/modules/typing/typing.config';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Panel } from '@/shared/components/panel';
 import { Skeleton } from '@/shared/components/ui/skeleton';
@@ -14,13 +15,16 @@ const BLANK_TYPES = 3;
 
 /**
  * The learner's error profile (SCRUM-27), under the heatmap and without a frame: each error type of their last counted
- * sessions with its error rate, its level (weak, OK, or what it needs first) and its trend against the sessions before,
- * as the backend works them out (`useErrorProfile`); the thresholds come with the answer. While it loads, blank items hold
- * their place; when it fails, the reason and a retry on one line; before the first counted session, one muted line.
+ * sessions of their typing language (SCRUM-219: the set of that language, which the texts name) with its error rate, its
+ * level (weak, OK, or what it needs first) and its trend against the sessions before, as the backend works them out
+ * (`useErrorProfile`); the thresholds come with the answer. While it loads, blank items hold their place; when it fails,
+ * the reason and a retry on one line; before the first counted session, one muted line.
  */
 export const ProfileErrorProfile = () => {
   const errorProfile = useErrorProfile();
   const used = errorProfile.data?.sessionsUsed ?? 0;
+  // The profile is the one of the learner's typing language (SCRUM-219): "English sessions".
+  const language = languageNames[errorProfile.data?.language ?? 'vi'];
 
   const renderBody = () => {
     if (errorProfile.isPending) {
@@ -43,7 +47,7 @@ export const ProfileErrorProfile = () => {
       );
     }
     if (errorProfile.data.sessionsUsed === 0) {
-      return <p className="text-base text-muted-foreground">No counted sessions yet: your error profile starts with your first one.</p>;
+      return <p className="text-base text-muted-foreground">No counted {language} sessions yet: your error profile starts with your first one.</p>;
     }
     return (
       <ul className={gridClass}>
@@ -61,12 +65,12 @@ export const ProfileErrorProfile = () => {
         title="Error profile"
         titleTip={
           errorProfile.data &&
-          `Your last ${errorProfile.data.window} counted sessions: a type is weak from ${errorProfile.data.weakRate}% wrong, and its trend compares them with the ${errorProfile.data.window} sessions before.`
+          `Your last ${errorProfile.data.window} counted ${language} sessions: a type is weak from ${errorProfile.data.weakRate}% wrong, and its trend compares them with the ${errorProfile.data.window} sessions before. Switch VI / EN in Practice to see the other language.`
         }
         bare
         titleClassName={sectionTitleClass}
         className="space-y-4"
-        actions={used > 0 && <p className="text-base text-muted-foreground">Last {used} counted {used === 1 ? 'session' : 'sessions'}</p>}
+        actions={used > 0 && <p className="text-base text-muted-foreground">Last {used} counted {language} {used === 1 ? 'session' : 'sessions'}</p>}
       >
         {renderBody()}
       </Panel>

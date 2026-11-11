@@ -124,6 +124,19 @@ describe('TypingArea typed text', () => {
     expect(typed.className).toContain('text-foreground');
   });
 
+  it('checks the words by the rules of the language of the session (SCRUM-219)', async () => {
+    const user = userEvent.setup();
+    // In Vietnamese where the tone sits does not matter: "Thuỷ" is "Thủy". In English the letters are compared one by one.
+    const { unmount } = render(<TypingArea targetWords={['Thủy', 'tinh']} onFinish={vi.fn()} />);
+    await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'Thuỷ ');
+    expect(wordAt(0).className).toContain('text-foreground');
+    unmount();
+
+    render(<TypingArea targetWords={['Thủy', 'tinh']} language="en" onFinish={vi.fn()} />);
+    await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'Thuỷ ');
+    expect(wordAt(0).className).toContain('text-destructive');
+  });
+
   it('colours nothing red until the word is finished', async () => {
     const user = userEvent.setup();
     const { area } = renderArea();

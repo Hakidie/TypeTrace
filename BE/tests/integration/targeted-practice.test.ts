@@ -6,6 +6,7 @@ import { WORD_LIST } from '../../src/data/words';
 import { PassageModel } from '../../src/models/passage.model';
 import { SubscriptionModel } from '../../src/models/subscription.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
+import { UserModel } from '../../src/models/user.model';
 import { WordModel } from '../../src/models/word.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { LESSON_MAX_WORDS, LESSON_MIN_WORDS, trainsErrorType } from '../../src/services/targeted-practice.service';
@@ -145,6 +146,39 @@ describe('POST /api/sessions in Weak spots (targeted, US3.2)', () => {
       passageTitle: 'Weak spots: hỏi / ngã, vowel marks'
     });
     expect(response.body).not.toHaveProperty('passageId');
+  });
+
+  it('types a Vietnamese lesson from the Vietnamese sessions for a learner who types English in Practice (SCRUM-219)', async () => {
+    const learner = await premiumLearner();
+    await makeWeak(learner);
+    await UserModel.updateOne({ _id: learner._id }, { 'settings.typingLanguage': 'en' });
+    // A newer English session: its letters never take the place of the Vietnamese types.
+    await TypingSessionModel.create({
+      owner: learner._id,
+      language: 'en',
+      passageId: 'p2',
+      targetWords: ['a'],
+      status: 'completed',
+      isCounted: true,
+      completedAt: new Date(),
+      durationMs: 60_000,
+      wpm: 50,
+      accuracy: 80,
+      errorCounts: { LETTER_WRONG: 20 },
+      opportunityCounts: { LETTER_WRONG: 40 }
+    });
+
+    const lesson = await startLesson(learner);
+    // Nothing to aim at: the random passage is a Vietnamese one too (no English practice passage is loaded here).
+    const other = await premiumLearner('other@example.com');
+    await UserModel.updateOne({ _id: other._id }, { 'settings.typingLanguage': 'en' });
+    const fallback = await startLesson(other);
+
+    expect(lesson.status).toBe(201);
+    expect(lesson.body).toMatchObject({ language: 'vi', focusErrorTypes: ['HOI_NGA_CONFUSION', 'D_MISSING'] });
+    expect(fallback.status).toBe(201);
+    expect(fallback.body).toMatchObject({ language: 'vi', focusErrorTypes: [], lessonSource: 'passage' });
+    expect(await PassageModel.findById(fallback.body.passageId)).toMatchObject({ language: 'vi' });
   });
 
   it('practices the one error type the learner chose, weak or not', async () => {
