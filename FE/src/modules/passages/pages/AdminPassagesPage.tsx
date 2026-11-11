@@ -37,16 +37,18 @@ const STATUS_OPTIONS = [
   { value: 'archived', label: 'Archived' },
 ];
 
-// `?language=vi|en` in the URL: English passages are only used in ranked duels.
+// `?language=vi|en` in the URL.
 const LANGUAGE_OPTIONS = [
   { value: 'vi', label: 'Vietnamese' },
   { value: 'en', label: 'English' },
 ];
 
-// `?type=placement|regular` in the URL, sent as `isPlacement=true|false`.
+// `?type=placement|practice|ranked` in the URL, like the Rank / Placement / Practice kinds of the cards: Placement is
+// `isPlacement`, Ranked is `isRanked`, Practice is neither (what the Practice tab offers).
 const TYPE_OPTIONS = [
   { value: 'placement', label: 'Placement' },
-  { value: 'regular', label: 'Regular' },
+  { value: 'practice', label: 'Practice' },
+  { value: 'ranked', label: 'Ranked' },
 ];
 
 /** The second panel is the passage bank or the review queue, switched by the button before its search (`?view=pending`). */
@@ -74,6 +76,7 @@ const PassageBank = ({ view, onSwitchView }: { view: View; onSwitchView: () => v
     q: list.q || undefined,
     status: status || undefined,
     isPlacement: type ? type === 'placement' : undefined,
+    isRanked: type ? type === 'ranked' : undefined,
     language: language || undefined,
     visibility: 'public',
   });
