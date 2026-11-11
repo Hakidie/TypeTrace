@@ -38,6 +38,9 @@ export const errorChartLabels: Record<WordErrorType, string> = {
   HOI_NGA_CONFUSION: 'Nhầm hỏi/ngã',
 };
 
+/** The Weak spots auto lesson trains the learner's weakest error types, at most this many (`LESSON_FOCUS_TYPES` in the backend). */
+export const WEAK_SPOTS_FOCUS_TYPES = 2;
+
 /** A session lasts at most 3 minutes (the server enforces it too: `MAX_SESSION_MS` in the backend). */
 export const SESSION_TIME_LIMIT_SECONDS = 180;
 

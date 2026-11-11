@@ -162,7 +162,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `admin` (`grantPremium` queues the months as a new term that starts when the last one ends, so every term keeps its own dates; `cancelPremium` lets the paid time run out, `revokePremium` stops it at once; `changedBy` is the admin), `auto`, `migration`. What a
   plan gives (`priceVnd`, `maxPassages`, `canCreateErrorPractice`, `canUsePublicPassages`) is `AppSettings.plans`
   (`getPlanConfig`, defaults `DEFAULT_PLANS`: Free 9 passages, Premium 90): Weak spots (US3.2) checks `canCreateErrorPractice`
-  (`assertCanPracticeWeakSpots`, 403; the Typing page shows its tab locked and opens `PlanDialog`).
+  (`assertCanPracticeWeakSpots`, 403; the Weak spots cards of the Typing page show a lock and open `PlanDialog`).
   `MAX_USER_PASSAGES` is gone: `passage-lock.service.ts` counts every passage the learner made (draft, private, pending,
   rejected, public; not archived, placement, ranked or English ones, never an admin's or a deleted account's) and locks, when they have more than their plan's
   `maxPassages`, all but the newest ones (`getLockedPassageIds`, worked out on every read, nothing stored: buying Premium,
