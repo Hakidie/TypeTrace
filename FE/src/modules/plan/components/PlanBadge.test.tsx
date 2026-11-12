@@ -1,6 +1,5 @@
 import userEvent from '@testing-library/user-event';
 import { screen, within } from '@testing-library/react';
-import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
 import type { PlanInfo } from '../types/plan.types';
@@ -62,14 +61,15 @@ describe('PlanBadge', () => {
     expect(within(premiumCard).getByRole('img', { name: 'Avatar of the Premium plan' })).toBeInTheDocument();
   });
 
-  it('says payment is not available yet when Buy now is pressed', async () => {
+  it('opens the Store when Buy now is pressed', async () => {
     getPlan.mockResolvedValue(free);
-    renderWithProviders(<PlanBadge />);
+    renderWithProviders(<PlanBadge />, { otherRoutes: { '/store': <p>Store page</p> } });
     await userEvent.click(await screen.findByRole('button', { name: 'Free' }));
 
     await userEvent.click(await screen.findByRole('button', { name: 'Buy now' }));
 
-    expect(toast.info).toHaveBeenCalledWith('Payment is not available yet.');
+    expect(await screen.findByText('Store page')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('shows Premium with its card outlined and Owned, and no button on the Free card', async () => {

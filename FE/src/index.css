@@ -687,6 +687,35 @@ body {
 }
 
 /*
+ * An item with two frames (`animatedItems`, the Pro dragon wings and baby dragon): AvatarSprite stacks both and these classes show one
+ * at a time, a wing flap. Less motion: only the first frame, still.
+ */
+@keyframes avatar-flap {
+  0%,
+  49.9% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.avatar-flap-b {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .avatar-flap-a,
+  .avatar-flap-b {
+    animation: avatar-flap 0.8s infinite;
+  }
+  .avatar-flap-b {
+    animation-delay: -0.4s;
+  }
+}
+
+/*
  * Ping, the tutorial mascot (modules/tutorial, `Ping`): a strip of 4 frames played with steps(4); `--ping-strip` is the
  * width of the strip. For reduced motion it stands on its first frame.
  */

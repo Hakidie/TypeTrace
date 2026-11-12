@@ -37,6 +37,10 @@
     "fx": "fx/{pose}.png (not for idle)"
   },
   "hairWithBack": [],
+  "animatedItems": [
+    "back/dragon-wings",
+    "effect/baby-dragon"
+  ],
   "slots": {
     "skin": [
       "peach",
@@ -287,7 +291,8 @@
       "party-hat",
       "sunglasses",
       "flower-crown",
-      "star-pin"
+      "star-pin",
+      "dragon-horns"
     ],
     "accessory": [
       "scarf-red",
@@ -301,14 +306,16 @@
       "medal-gold",
       "suspenders-red",
       "name-tag",
-      "heart-locket"
+      "heart-locket",
+      "dragon-scarf"
     ],
     "back": [
       "angel-wings",
       "bat-wings",
       "fairy-wings",
       "cape-red",
-      "cape-purple"
+      "cape-purple",
+      "dragon-wings"
     ],
     "effect": [
       "hearts",
@@ -317,7 +324,8 @@
       "snow",
       "bubbles",
       "flames",
-      "leaves"
+      "leaves",
+      "baby-dragon"
     ]
   },
   "presets": {
@@ -458,6 +466,17 @@
       "headwear": "flower-crown",
       "back": "fairy-wings",
       "effect": "leaves"
+    },
+    "dragon": {
+      "skin": "peach",
+      "hair": "short-brown",
+      "top": "jacket-navy",
+      "bottom": "jeans-black",
+      "shoes": "sneakers-black",
+      "headwear": "dragon-horns",
+      "accessory": "dragon-scarf",
+      "back": "dragon-wings",
+      "effect": "baby-dragon"
     },
     "max": {
       "skin": "umber",

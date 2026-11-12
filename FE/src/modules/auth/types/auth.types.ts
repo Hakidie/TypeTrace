@@ -27,6 +27,8 @@ export interface CurrentUser {
   coins?: number;
   /** Bought or won avatar items, as `slot:item`. */
   ownedItems?: string[];
+  /** Whether the learner is on Premium (US11.1) and until when (an ISO date), sent by `GET /api/auth/me`. */
+  premium?: { active: boolean; until: string | null };
   /**
    * Only what the frontend reads: the IANA time zone the learner's days are counted in (`Asia/Ho_Chi_Minh` until the browser
    * sends its own), and the language they type in Practice (SCRUM-219; missing on old data: Vietnamese, `useTypingLanguage`).

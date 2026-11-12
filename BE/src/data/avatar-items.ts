@@ -250,7 +250,8 @@ export const AVATAR_SLOTS = {
     "party-hat",
     "sunglasses",
     "flower-crown",
-    "star-pin"
+    "star-pin",
+    "dragon-horns"
   ],
   "accessory": [
     "scarf-red",
@@ -264,14 +265,16 @@ export const AVATAR_SLOTS = {
     "medal-gold",
     "suspenders-red",
     "name-tag",
-    "heart-locket"
+    "heart-locket",
+    "dragon-scarf"
   ],
   "back": [
     "angel-wings",
     "bat-wings",
     "fairy-wings",
     "cape-red",
-    "cape-purple"
+    "cape-purple",
+    "dragon-wings"
   ],
   "effect": [
     "hearts",
@@ -280,6 +283,7 @@ export const AVATAR_SLOTS = {
     "snow",
     "bubbles",
     "flames",
-    "leaves"
+    "leaves",
+    "baby-dragon"
   ]
 } as const;

@@ -39,7 +39,17 @@ const envSchema = z
     // Optional. VNPay payment gateway (sandbox: https://sandbox.vnpayment.vn/merchantv2/). Without them, payments answer 503.
     VNP_TMN_CODE: optionalString,
     VNP_HASH_SECRET: optionalString,
-    VNP_URL: z.string().trim().min(1).default('https://sandbox.vnpayment.vn/paymentv2/vpcpay.html')
+    VNP_URL: z.string().trim().min(1).default('https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
+    // Optional. MoMo payment gateway (sandbox: https://developers.momo.vn). Without the three keys, MoMo payments answer 503.
+    // MOMO_IPN_URL must be a public address (ngrok in development): MoMo's server calls it.
+    MOMO_PARTNER_CODE: optionalString,
+    MOMO_ACCESS_KEY: optionalString,
+    MOMO_SECRET_KEY: optionalString,
+    MOMO_URL: z.string().trim().min(1).default('https://test-payment.momo.vn/v2/gateway/api/create'),
+    MOMO_IPN_URL: optionalString,
+    // Development only: `true` makes the MoMo button pay at once, without calling MoMo (a mock that always succeeds).
+    // Refused in production, where it would hand out Pro and coins for free.
+    MOMO_MOCK: z.string().optional().transform((value) => value === 'true')
   })
   .superRefine((value, ctx) => {
     const weakSecret = value.JWT_SECRET === PLACEHOLDER_JWT_SECRET || value.JWT_SECRET.length < 32;
@@ -49,6 +59,9 @@ const envSchema = z
         path: ['JWT_SECRET'],
         message: 'must be at least 32 characters and not the example value in production'
       });
+    }
+    if (value.NODE_ENV === 'production' && value.MOMO_MOCK) {
+      ctx.addIssue({ code: 'custom', path: ['MOMO_MOCK'], message: 'the mock MoMo payment is for development only' });
     }
   });
 
@@ -87,7 +100,13 @@ export const parseEnv = (raw: RawEnv) => {
     geminiModel: v.GEMINI_MODEL,
     vnpTmnCode: v.VNP_TMN_CODE,
     vnpHashSecret: v.VNP_HASH_SECRET,
-    vnpUrl: v.VNP_URL
+    vnpUrl: v.VNP_URL,
+    momoPartnerCode: v.MOMO_PARTNER_CODE,
+    momoAccessKey: v.MOMO_ACCESS_KEY,
+    momoSecretKey: v.MOMO_SECRET_KEY,
+    momoUrl: v.MOMO_URL,
+    momoIpnUrl: v.MOMO_IPN_URL ?? `http://localhost:${v.PORT}/api/payments/momo/ipn`,
+    momoMock: v.MOMO_MOCK
   };
 };
 

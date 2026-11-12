@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { UserModel } from '../models/user.model';
+import { dropExpiredPremiumItems } from '../services/avatar.service';
 import { forbidden } from '../utils/app-error';
 import { comparePassword, hashPassword } from '../utils/hash';
 import { signToken } from '../utils/jwt';
@@ -99,7 +100,9 @@ export const getMe = async (req: Request, res: Response) => {
   const userId = req.user?.sub;
   const user = await UserModel.findById(userId);
   if (!user) return res.status(404).json({ message: 'User not found' });
-  return res.json(user);
+  // Whether the learner is on Premium and until when (US11.1), for the badge beside their name.
+  const premium = await dropExpiredPremiumItems(user);
+  return res.json({ ...user.toJSON(), premium });
 };
 
 export const googleLogin = async (req: Request, res: Response) => {

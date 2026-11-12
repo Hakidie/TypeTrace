@@ -6,6 +6,7 @@ import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { shownPictureUrl } from '@/modules/auth/utils/avatar-picture';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
+import { PremiumBadge } from '@/shared/components/premium-badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { useThemeMode } from '@/modules/settings/hooks/use-theme-mode';
@@ -46,6 +47,7 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
         </Avatar>
         {/* Narrow screens keep only the avatar: the nav links need the room. */}
         {name && <span className="hidden max-w-36 truncate xl:inline">{name}</span>}
+        {user?.premium?.active && <PremiumBadge className="hidden xl:inline-flex" />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuItem onClick={() => navigate('/wardrobe')} className="gap-2">

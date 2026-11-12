@@ -25,7 +25,19 @@ export const DEFAULT_AVATAR = {
 /** The tiers that give an item, lowest first. */
 export const REWARD_TIERS = ['gold', 'platinum', 'diamond', 'legend'] as const;
 export type Tier = (typeof REWARD_TIERS)[number];
-export type Unlock = { kind: 'free' } | { kind: 'shop'; price: number } | { kind: 'tier'; tier: Tier } | { kind: 'season' };
+export type Unlock =
+  | { kind: 'free' }
+  | { kind: 'shop'; price: number }
+  | { kind: 'tier'; tier: Tier }
+  | { kind: 'season' }
+  | { kind: 'premium' };
+
+/**
+ * The Dragon set: worn while the learner is on Premium (US11.1; never stored in `ownedItems`, so the end of Premium locks it
+ * and a renewal opens it). Optional slots only (a required slot cannot be emptied when Premium ends). An item that is not in
+ * `avatar-items.ts` yet is ignored by `unlockOf`; the sprites come from `minigame-sprites/build-layers.mjs`.
+ */
+export const PREMIUM_ITEMS: string[] = ['headwear:dragon-horns', 'accessory:dragon-scarf', 'back:dragon-wings', 'effect:baby-dragon'];
 
 /** The items only a season tier gives (never sold). */
 export const TIER_REWARDS: Record<string, Tier> = {
@@ -85,6 +97,7 @@ const isFree = (slot: AvatarSlot, item: string) => {
 export const unlockOf = (slot: AvatarSlot, item: string): Unlock | undefined => {
   if (!(AVATAR_SLOTS[slot] as readonly string[]).includes(item)) return undefined;
   if (isFree(slot, item)) return { kind: 'free' };
+  if (PREMIUM_ITEMS.includes(itemKey(slot, item))) return { kind: 'premium' };
   const tier = TIER_REWARDS[itemKey(slot, item)];
   if (tier) return { kind: 'tier', tier };
   if (SEASON_ITEMS.includes(itemKey(slot, item))) return { kind: 'season' };

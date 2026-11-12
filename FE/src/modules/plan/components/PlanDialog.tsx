@@ -1,4 +1,4 @@
-import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Button } from '@/shared/components/ui/button';
@@ -14,9 +14,11 @@ interface PlanDialogProps {
 
 /**
  * The two plans side by side, as the admin sees them (`PlanOfferCard`), the learner's own outlined, and in each card, at the bottom, its button: "Buy now" on Premium, "Owned" (disabled) on the card of the plan the learner has (Free has no button
- * for a learner on Premium). Opened from the badge on the profile and from a passage locked by the plan. Paying comes with US11.2 and US11.3: until then Buy only says so.
+ * for a learner on Premium). Opened from the badge on the profile and from a passage locked by the plan. "Buy now" closes it and opens the Store,
+ * where Premium is paid with VNPay or MoMo (`modules/payments`).
  */
 export const PlanDialog = ({ open, onOpenChange }: PlanDialogProps) => {
+  const navigate = useNavigate();
   const query = usePlan();
   const plan = query.data;
 
@@ -35,7 +37,15 @@ export const PlanDialog = ({ open, onOpenChange }: PlanDialogProps) => {
               // The Free card shows a button only to the learner who is on it: Free is not sold.
               const action =
                 key === 'free' && !owned ? undefined : (
-                  <Button type="button" className="w-full" disabled={owned} onClick={() => toast.info('Payment is not available yet.')}>
+                  <Button
+                    type="button"
+                    className="w-full"
+                    disabled={owned}
+                    onClick={() => {
+                      onOpenChange(false);
+                      navigate('/store');
+                    }}
+                  >
                     {owned ? 'Owned' : 'Buy now'}
                   </Button>
                 );
