@@ -7,7 +7,8 @@ import { useStartTutorial } from '@/modules/tutorial/hooks/use-tutorial';
 import { RankMode } from '@/modules/ranked/components/RankMode';
 import { PlanDialog } from '@/modules/plan/components/PlanDialog';
 import { usePlan } from '@/modules/plan/hooks/use-plan';
-import { useSaveTypingLanguage, useTypingLanguage } from '@/modules/profile/hooks/use-profile';
+import { missingWords } from '@/modules/profile/lib/chance-words';
+import { useErrorProfile, useSaveTypingLanguage, useTypingLanguage } from '@/modules/profile/hooks/use-profile';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -114,20 +115,34 @@ const PassageMenu = ({
 const focusOf = (value: string | null): WeakSpotsFocus | undefined =>
   value === 'auto' || (Object.values(WordError) as string[]).includes(value ?? '') ? (value as WeakSpotsFocus) : undefined;
 
-/** What Weak spots says above the lesson: the error types it trains, or why a random passage came instead (US3.2). */
-const FocusNote = ({ focus, chosen }: { focus: WordErrorType[]; chosen?: WordErrorType }) => (
-  <p role="status" className="text-center text-muted-foreground">
-    {focus.length ? (
-      <>
-        Training: <span className="text-primary">{focus.map((type) => errorLabels[type]).join(' · ')}</span>
-      </>
-    ) : chosen ? (
-      `There are no words for ${errorLabels[chosen]} yet, so here is a random passage.`
-    ) : (
-      'Your error profile does not have enough data yet, so here is a random passage. Train aims at your errors once your counted sessions give it some.'
-    )}
-  </p>
-);
+/**
+ * What Train says above the lesson: the error types it trains, or why a random passage came instead (US3.2). The lesson of an
+ * error type picked before it has enough data (SCRUM-74, SCRUM-274) says so too, with what the error profile still needs: the
+ * Vietnamese one, as the cards of the tab, since the lessons are Vietnamese.
+ */
+const FocusNote = ({ focus, chosen }: { focus: WordErrorType[]; chosen?: WordErrorType }) => {
+  const { data: profile } = useErrorProfile('vi');
+  const item = chosen && focus.length ? profile?.types.find((type) => type.type === chosen) : undefined;
+  return (
+    <p role="status" className="text-center text-muted-foreground">
+      {focus.length ? (
+        <>
+          Training: <span className="text-primary">{focus.map((type) => errorLabels[type]).join(' · ')}</span>
+          {profile && item?.level === 'insufficient_data' && (
+            <span className="block">
+              Not enough data on {errorLabels[item.type]} yet: your error profile needs{' '}
+              {missingWords(item.type, profile.minOpportunities - item.opportunities)} to rate it.
+            </span>
+          )}
+        </>
+      ) : chosen ? (
+        `There are no words for ${errorLabels[chosen]} yet, so here is a random passage.`
+      ) : (
+        'Your error profile does not have enough data yet, so here is a random passage. Train aims at your errors once your counted sessions give it some.'
+      )}
+    </p>
+  );
+};
 
 /**
  * The placement leaderboard ranks only the time the session was started with (US10.1), so a placement session carries it. A

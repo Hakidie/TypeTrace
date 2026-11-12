@@ -837,6 +837,32 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'TONE_WRONG' }));
   });
 
+  it('says in the lesson of an error type without enough data yet what its data lacks, as the Profile link opens it (SCRUM-274)', async () => {
+    start.mockResolvedValue({ ...lesson, focusErrorTypes: ['TONE_WRONG'] });
+    // "Practice this error" of the Profile links straight to the lesson of its type.
+    renderAt('/typing?mode=targeted&focus=TONE_WRONG');
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'TONE_WRONG' }));
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    const note = screen.getByRole('status');
+    expect(note).toHaveTextContent('Training: Wrong tone');
+    // The tone has 5 of the 20 chances a level needs: what the error profile still needs, as its card says.
+    expect(await within(note).findByText('Not enough data on Wrong tone yet: your error profile needs 15 more words to rate it.')).toBeInTheDocument();
+  });
+
+  it('says nothing about the data in the lesson of an error type that has a level', async () => {
+    const user = userEvent.setup();
+    start.mockResolvedValue({ ...lesson, focusErrorTypes: ['MARK_WRONG'] });
+    renderAt('/typing?mode=targeted');
+
+    // The cards show once the error profile is in, so the lesson has it from its first render.
+    await user.click(await screen.findByRole('button', { name: 'Practice Wrong vowel mark (â ê ô ă ơ ư)' }));
+
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(screen.getByRole('status')).toHaveTextContent('Training: Wrong vowel mark (â ê ô ă ơ ư)');
+    expect(screen.queryByText(/Not enough data/)).not.toBeInTheDocument();
+  });
+
   it('names on the auto card the two highest error rates when no type is weak: an error profile is enough', async () => {
     const user = userEvent.setup();
     getErrorProfile.mockResolvedValue({
