@@ -1,11 +1,10 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { CircleCheck, Lock, Minus, TrendingDown, TrendingUp, TriangleAlert, type LucideIcon } from 'lucide-react';
-import { ERROR_CHANCE_WORDS } from '@/modules/daily-tasks/daily-tasks.config';
 import { errorLabels } from '@/modules/typing/typing.config';
 import { LabeledTag } from '@/shared/components/labeled-tag';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import type { SessionErrorType } from '@/shared/lib/typing-language';
 import { cn } from '@/shared/lib/utils';
+import { chanceWords, missingWords } from '../lib/chance-words';
 import type { ErrorProfile, ErrorTrend, ErrorTypeProfile } from '../types/profile.types';
 
 // The focus ring of the hints reached with the keyboard, as on the tags.
@@ -17,28 +16,6 @@ const TREND_INFO: Record<Exclude<ErrorTrend, 'insufficient_data'>, { label: stri
   worse: { label: 'Getting worse', icon: TrendingUp, className: 'text-destructive' },
   unchanged: { label: 'Steady', icon: Minus, className: 'text-muted-foreground' },
 };
-
-/**
- * The words that give a chance of an error type (`tagWord`, `tagEnglishWord`): "words with đ", or `null` where every word
- * does. In English (SCRUM-219) every word can get a letter too many, and every word with letters one wrong, left out or
- * in the wrong case; a swap needs two different letters side by side, a punctuation error a mark in the word.
- */
-const CHANCE_WORDS: Record<SessionErrorType, string | null> = {
-  ...ERROR_CHANCE_WORDS,
-  LETTER_WRONG: null,
-  LETTER_MISSING: null,
-  LETTER_EXTRA: null,
-  LETTERS_SWAPPED: 'words of two letters or more',
-  CASE_WRONG: null,
-  PUNCTUATION_WRONG: 'words with punctuation',
-};
-
-/** The words that give a chance of an error type: "words with đ", or "words" where every word does. */
-const chanceWords = (type: SessionErrorType) => CHANCE_WORDS[type] ?? 'words';
-
-/** "12 more words with đ", "1 more word": what a type still needs for a level. */
-const missingWords = (type: SessionErrorType, missing: number) =>
-  `${missing} more ${missing === 1 ? chanceWords(type).replace(/^words/, 'word') : chanceWords(type)}`;
 
 /** A hint on hover or keyboard focus, in the shared tooltip. */
 const Hint = ({ text, children }: { text: string; children: ReactElement }) => (
@@ -99,21 +76,23 @@ interface ErrorTypeCardProps extends ItemProps {
   onSelect?: () => void;
   /** The learner's plan cannot practice it: a lock by the rate, and the click opens the plan. */
   locked?: boolean;
+  /** A button floating at the center of the card while it is hovered: the Profile's "Practice this error" (SCRUM-274). */
+  action?: ReactNode;
 }
 
 /**
  * One error type of the error profile (SCRUM-27): its name and error rate (a dash before it has a level), a bar of the rate
- * that runs to twice the weak line, so the line (the mark) is in its middle, then the level and the trend. The bar and the
- * line under it are pushed to the bottom of the card, so the bars of a row line up when a long name takes two lines. It is
- * an item of a list: the Profile's error profile, and the cards of the Weak spots tab, where `onSelect` makes it a button
- * (one laid over the card, under its hints, so the tooltips still open).
+ * that runs to twice the weak line, so the line (the mark) is in its middle, then the level and the trend, and the `action` floating
+ * if any. The bar and what is under it are pushed to the bottom of the card, so the bars of a row line up when a long name
+ * takes two lines. It is an item of a list: the Profile's error profile, whose `action` practices the type, and the cards of
+ * the Weak spots tab, where `onSelect` makes it a button (one laid over the card, under its hints, so the tooltips still open).
  */
-export const ErrorTypeCard = ({ item, profile, onSelect, locked = false }: ErrorTypeCardProps) => {
+export const ErrorTypeCard = ({ item, profile, onSelect, locked = false, action }: ErrorTypeCardProps) => {
   const hasLevel = item.level !== 'insufficient_data';
   const filled = hasLevel ? Math.min(item.rate / (profile.weakRate * 2), 1) * 100 : 0;
 
   return (
-    <li className={cn('relative -mr-3 -ml-4 flex flex-col gap-3 py-3 pr-3 pl-4 transition-colors hover:bg-primary/15', onSelect && 'cursor-pointer')}>
+    <li className={cn('group relative -mr-3 -ml-4 flex flex-col gap-3 py-3 pr-3 pl-4 transition-colors hover:bg-primary/15', onSelect && 'cursor-pointer')}>
       {onSelect && (
         <button
           type="button"
@@ -143,6 +122,13 @@ export const ErrorTypeCard = ({ item, profile, onSelect, locked = false }: Error
           </span>
         </div>
       </div>
+      {action && (
+        // Floats at the center of the card, shown while it is hovered or holds the focus (always on screens without hover).
+        // The layer lets clicks through to the hints under it; only the button takes them.
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:hover)]:opacity-0">
+          <div className="pointer-events-auto">{action}</div>
+        </div>
+      )}
     </li>
   );
 };

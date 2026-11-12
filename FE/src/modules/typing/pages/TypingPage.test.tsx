@@ -837,6 +837,32 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'TONE_WRONG' }));
   });
 
+  it('says in the lesson of an error type without enough data yet what its data lacks, as the Profile link opens it (SCRUM-274)', async () => {
+    start.mockResolvedValue({ ...lesson, focusErrorTypes: ['TONE_WRONG'] });
+    // "Practice this error" of the Profile links straight to the lesson of its type.
+    renderAt('/typing?mode=targeted&focus=TONE_WRONG');
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'TONE_WRONG' }));
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    const note = screen.getByRole('status');
+    expect(note).toHaveTextContent('Training: Wrong tone');
+    // The tone has 5 of the 20 chances a level needs: what the error profile still needs, as its card says.
+    expect(await within(note).findByText('Not enough data on Wrong tone yet: your error profile needs 15 more words to rate it.')).toBeInTheDocument();
+  });
+
+  it('says nothing about the data in the lesson of an error type that has a level', async () => {
+    const user = userEvent.setup();
+    start.mockResolvedValue({ ...lesson, focusErrorTypes: ['MARK_WRONG'] });
+    renderAt('/typing?mode=targeted');
+
+    // The cards show once the error profile is in, so the lesson has it from its first render.
+    await user.click(await screen.findByRole('button', { name: 'Practice Wrong vowel mark (â ê ô ă ơ ư)' }));
+
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(screen.getByRole('status')).toHaveTextContent('Training: Wrong vowel mark (â ê ô ă ơ ư)');
+    expect(screen.queryByText(/Not enough data/)).not.toBeInTheDocument();
+  });
+
   it('names on the auto card the two highest error rates when no type is weak: an error profile is enough', async () => {
     const user = userEvent.setup();
     getErrorProfile.mockResolvedValue({
@@ -875,15 +901,18 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Your error profile does not have enough data yet, so here is a random passage.');
   });
 
-  it('goes back to the cards from a lesson with the Weak spots tab, and with the button left of Restart', async () => {
+  it('goes back to the cards from a lesson with the Weak spots tab, and with the button in the row of the timer', async () => {
     const user = userEvent.setup();
     renderAt('/typing?mode=targeted&focus=MARK_WRONG');
     await screen.findByRole('textbox', { name: 'Typing area' });
 
-    // The way back sits under the passage, before Restart; the name of the lesson above has no button of its own.
+    // The way back sits in the bottom row, between the word count and the timer, not under the passage with Restart.
     const back = screen.getByRole('button', { name: 'All weak spots' });
     const restartButton = screen.getByRole('button', { name: /restart/i });
-    expect(back.compareDocumentPosition(restartButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const status = back.closest('[data-tutorial="typing-stats"]');
+    expect(status).not.toBeNull();
+    expect(status).toContainElement(screen.getByLabelText('Elapsed time'));
+    expect(status).not.toContainElement(restartButton);
     expect(screen.getAllByRole('button', { name: 'All weak spots' })).toHaveLength(1);
 
     await user.click(screen.getByRole('radio', { name: 'Train' }));
@@ -939,7 +968,9 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     getPlan.mockResolvedValue(FREE_PLAN);
     renderAt('/typing?mode=targeted&focus=auto');
 
-    await user.click(await screen.findByRole('button', { name: 'All weak spots' }));
+    // The way back is also in the bottom row while the plan loads: wait for what the plan lacks, then go back.
+    await screen.findByText(/Your plan does not include it/);
+    await user.click(screen.getByRole('button', { name: 'All weak spots' }));
 
     expect(await screen.findByRole('button', { name: 'Practice your weak spots (Premium)' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');

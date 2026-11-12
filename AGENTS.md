@@ -165,8 +165,10 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   from the Vietnamese sessions and its cards show the Vietnamese error profile, whatever the learner types in Practice. On the
   Typing page the Train tab opens its cards from anywhere, also from a lesson (it stays shown while the learner types
   English, and opening it switches them back to Vietnamese), and a lesson's other way back is the "All weak spots" button
-  under the passage, left of Restart. The passage menu and `GET /api/passages` take `passageModes` (practice, placement),
-  never `targeted`.
+  in the bottom row, between the word count and the timer (`TypingArea`'s `statusCenter`), while Restart stays under the passage. A lesson of one type also opens from the Profile: every error type of its Vietnamese
+  error profile has a "Practice this error" button (SCRUM-274; none in the English one), a link to
+  `/typing?mode=targeted&focus=<type>`, also for a type without enough data yet, whose lesson says what the profile still
+  needs. The passage menu and `GET /api/passages` take `passageModes` (practice, placement), never `targeted`.
 - A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
   which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen
   (`createReplayRecorder`, `FE/src/modules/typing/utils/session-replay.ts`), the page sends them as `replay` with
@@ -189,7 +191,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `admin` (`grantPremium` queues the months as a new term that starts when the last one ends, so every term keeps its own dates; `cancelPremium` lets the paid time run out, `revokePremium` stops it at once; `changedBy` is the admin), `auto`, `migration`. What a
   plan gives (`priceVnd`, `maxPassages`, `canCreateErrorPractice`, `canUsePublicPassages`) is `AppSettings.plans`
   (`getPlanConfig`, defaults `DEFAULT_PLANS`: Free 9 passages, Premium 90): Weak spots (US3.2) checks `canCreateErrorPractice`
-  (`assertCanPracticeWeakSpots`, 403; the Train cards of the Typing page show a lock and open `PlanDialog`).
+  (`assertCanPracticeWeakSpots`, 403; the Train cards of the Typing page and the "Practice this error" buttons of the
+  Profile show a lock and open `PlanDialog`).
   `MAX_USER_PASSAGES` is gone: `passage-lock.service.ts` counts every passage the learner made (draft, private, pending,
   rejected, public; not archived, placement, ranked or English ones, never an admin's or a deleted account's) and locks, when they have more than their plan's
   `maxPassages`, all but the newest ones (`getLockedPassageIds`, worked out on every read, nothing stored: buying Premium,
