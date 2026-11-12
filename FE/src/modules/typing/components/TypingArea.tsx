@@ -44,6 +44,8 @@ interface TypingAreaProps {
   header?: ReactNode;
   /** Shown under the card, at its bottom center, e.g. a Restart button. */
   actions?: ReactNode;
+  /** Shown in the row of the words and the timer, between the two, e.g. a Weak spots lesson's way back to its cards. */
+  statusCenter?: ReactNode;
   /** Called each time one more word is finished (a ranked duel sends it to the server), never after the end. */
   onProgress?: (typedWords: string[], typedAtMs: number[]) => void;
   /** Words already finished (a ranked race after a reload): typing goes on after them, with later word times. */
@@ -64,20 +66,23 @@ interface TypingStatusProps {
   total: number;
   seconds: number;
   finished: boolean;
+  /** Between the words and the timer. */
+  center?: ReactNode;
 }
 
-/** Bottom of the page: words typed on the left, the timer on the right. Full screen width, not the card's. The page shows it with zeros while the next session loads, so it never disappears. */
-export const TypingStatus = ({ typed, total, seconds, finished }: TypingStatusProps) => (
-  <div data-tutorial="typing-stats" className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-2 items-center px-4 text-[1.125rem] md:px-8">
+/** Bottom of the page: words typed on the left, the timer on the right, and `center` between them. Full screen width, not the card's. The page shows it with zeros while the next session loads, so it never disappears. */
+export const TypingStatus = ({ typed, total, seconds, finished, center }: TypingStatusProps) => (
+  <div data-tutorial="typing-stats" className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-[1fr_auto_1fr] items-center px-4 text-[1.125rem] md:px-8">
     <span className={`${statusFrame} justify-self-start`}>
       Words {Math.min(typed, total)} / {total}
     </span>
+    <div className="col-start-2">{center}</div>
     {finished ? (
-      <span className={`${statusFrame} flex items-center gap-2 justify-self-end font-medium`}>
+      <span className={`${statusFrame} col-start-3 flex items-center gap-2 justify-self-end font-medium`}>
         <CheckCircle2 className="size-5" /> Finished
       </span>
     ) : (
-      <span aria-label="Elapsed time" className={`${statusFrame} justify-self-end`}>{formatDuration(seconds)}</span>
+      <span aria-label="Elapsed time" className={`${statusFrame} col-start-3 justify-self-end`}>{formatDuration(seconds)}</span>
     )}
   </div>
 );
@@ -92,6 +97,7 @@ export const TypingArea = ({
   timeLimitSeconds = SESSION_TIME_LIMIT_SECONDS,
   header,
   actions,
+  statusCenter,
   onProgress,
   initialTyped,
 }: TypingAreaProps) => {
@@ -223,7 +229,13 @@ export const TypingArea = ({
         {actions && <div className="flex justify-center">{actions}</div>}
       </div>
 
-      <TypingStatus typed={results.length} total={targetWords.length} seconds={Math.min(seconds, timeLimitSeconds)} finished={isFinished} />
+      <TypingStatus
+        typed={results.length}
+        total={targetWords.length}
+        seconds={Math.min(seconds, timeLimitSeconds)}
+        finished={isFinished}
+        center={statusCenter}
+      />
     </>
   );
 };

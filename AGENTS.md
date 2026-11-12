@@ -165,7 +165,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   from the Vietnamese sessions and its cards show the Vietnamese error profile, whatever the learner types in Practice. On the
   Typing page the Train tab opens its cards from anywhere, also from a lesson (it stays shown while the learner types
   English, and opening it switches them back to Vietnamese), and a lesson's other way back is the "All weak spots" button
-  under the passage, left of Restart. A lesson of one type also opens from the Profile: every error type of its Vietnamese
+  in the bottom row, between the word count and the timer (`TypingArea`'s `statusCenter`), while Restart stays under the passage. A lesson of one type also opens from the Profile: every error type of its Vietnamese
   error profile has a "Practice this error" button (SCRUM-274; none in the English one), a link to
   `/typing?mode=targeted&focus=<type>`, also for a type without enough data yet, whose lesson says what the profile still
   needs. The passage menu and `GET /api/passages` take `passageModes` (practice, placement), never `targeted`.

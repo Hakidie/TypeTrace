@@ -76,13 +76,13 @@ interface ErrorTypeCardProps extends ItemProps {
   onSelect?: () => void;
   /** The learner's plan cannot practice it: a lock by the rate, and the click opens the plan. */
   locked?: boolean;
-  /** A button under the level and the trend: the Profile's "Practice this error" (SCRUM-274). */
+  /** A button floating at the center of the card while it is hovered: the Profile's "Practice this error" (SCRUM-274). */
   action?: ReactNode;
 }
 
 /**
  * One error type of the error profile (SCRUM-27): its name and error rate (a dash before it has a level), a bar of the rate
- * that runs to twice the weak line, so the line (the mark) is in its middle, then the level and the trend, and the `action`
+ * that runs to twice the weak line, so the line (the mark) is in its middle, then the level and the trend, and the `action` floating
  * if any. The bar and what is under it are pushed to the bottom of the card, so the bars of a row line up when a long name
  * takes two lines. It is an item of a list: the Profile's error profile, whose `action` practices the type, and the cards of
  * the Weak spots tab, where `onSelect` makes it a button (one laid over the card, under its hints, so the tooltips still open).
@@ -92,7 +92,7 @@ export const ErrorTypeCard = ({ item, profile, onSelect, locked = false, action 
   const filled = hasLevel ? Math.min(item.rate / (profile.weakRate * 2), 1) * 100 : 0;
 
   return (
-    <li className={cn('relative -mr-3 -ml-4 flex flex-col gap-3 py-3 pr-3 pl-4 transition-colors hover:bg-primary/15', onSelect && 'cursor-pointer')}>
+    <li className={cn('group relative -mr-3 -ml-4 flex flex-col gap-3 py-3 pr-3 pl-4 transition-colors hover:bg-primary/15', onSelect && 'cursor-pointer')}>
       {onSelect && (
         <button
           type="button"
@@ -121,8 +121,14 @@ export const ErrorTypeCard = ({ item, profile, onSelect, locked = false, action 
             <TrendMark item={item} profile={profile} />
           </span>
         </div>
-        {action && <div>{action}</div>}
       </div>
+      {action && (
+        // Floats at the center of the card, shown while it is hovered or holds the focus (always on screens without hover).
+        // The layer lets clicks through to the hints under it; only the button takes them.
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:hover)]:opacity-0">
+          <div className="pointer-events-auto">{action}</div>
+        </div>
+      )}
     </li>
   );
 };

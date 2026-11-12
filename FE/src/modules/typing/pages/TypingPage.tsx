@@ -26,7 +26,7 @@ import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession
 import type { ReplayEvent, SessionMode, StartSessionInput } from '../types/typing.types';
 import { errorLabels, languageNames, modeIcons, modeLabels, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 
-// The buttons around the passage: the language switch, Restart, and in a Weak spots lesson the way back to its cards.
+// The buttons around the passage: the language switch, Restart, and in a Weak spots lesson the way back to its cards (bottom row).
 const actionClass = 'h-auto gap-2 px-4 py-2 text-[1.125rem] text-muted-foreground';
 
 // Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
@@ -518,18 +518,17 @@ export const TypingPage = () => {
           timeLimitSeconds={timeSeconds}
           onTimeUp={restart}
           actions={
-            // A Weak spots lesson has its way back to the cards left of Restart, the two centered under the passage like the
-            // Minigames' way back under a game.
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              {targeted && (
-                <Button variant="ghost" className={actionClass} onClick={backToWeakSpots} disabled={complete.isPending}>
-                  <ArrowLeft className="size-5" aria-hidden /> All weak spots
-                </Button>
-              )}
-              <Button variant="ghost" className={actionClass} onClick={restart} disabled={start.isPending || complete.isPending}>
-                <RotateCcw className="size-5" /> Restart
+            <Button variant="ghost" className={actionClass} onClick={restart} disabled={start.isPending || complete.isPending}>
+              <RotateCcw className="size-5" /> Restart
+            </Button>
+          }
+          // A Weak spots lesson has its way back to the cards in the bottom row, between the word count and the timer.
+          statusCenter={
+            targeted && (
+              <Button variant="ghost" className={actionClass} onClick={backToWeakSpots} disabled={complete.isPending}>
+                <ArrowLeft className="size-5" aria-hidden /> All weak spots
               </Button>
-            </div>
+            )
           }
         />
       ) : (
@@ -551,7 +550,19 @@ export const TypingPage = () => {
             )}
           </div>
           {/* The words and the clock stay while the next session loads. */}
-          <TypingStatus typed={0} total={0} seconds={0} finished={false} />
+          <TypingStatus
+            typed={0}
+            total={0}
+            seconds={0}
+            finished={false}
+            center={
+              targeted && (
+                <Button variant="ghost" className={actionClass} onClick={backToWeakSpots}>
+                  <ArrowLeft className="size-5" aria-hidden /> All weak spots
+                </Button>
+              )
+            }
+          />
         </>
       )}
     </div>

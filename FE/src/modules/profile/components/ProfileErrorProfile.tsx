@@ -25,6 +25,9 @@ const BLANK_TYPES = 3;
 // The icon of the Train tab, whose lesson the button opens.
 const TrainIcon = modeIcons.targeted;
 
+// Solid red with a shadow, as it floats over the card's text: the theme tokens only.
+const practiceButtonClass = 'border-primary bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:text-primary-foreground';
+
 interface PracticeButtonProps {
   type: WordErrorType;
   /** The learner's plan has no Train (`canCreateErrorPractice`): a lock, and a click opens the plan. */
@@ -40,13 +43,13 @@ const PracticeButton = ({ type, locked, onLocked }: PracticeButtonProps) => {
   const name = `Practice this error: ${errorLabels[type]}${locked ? ' (Premium)' : ''}`;
   if (locked) {
     return (
-      <Button variant="outline" size="sm" aria-label={name} onClick={onLocked}>
+      <Button variant="outline" size="sm" className={practiceButtonClass} aria-label={name} onClick={onLocked}>
         <Lock className="size-4" aria-hidden /> Practice this error
       </Button>
     );
   }
   return (
-    <Button asChild variant="outline" size="sm">
+    <Button asChild variant="outline" size="sm" className={practiceButtonClass}>
       <Link to={`/typing?mode=targeted&focus=${type}`} aria-label={name}>
         <TrainIcon className="size-4" aria-hidden /> Practice this error
       </Link>
