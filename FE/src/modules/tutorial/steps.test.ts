@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MODE_SEARCH, MODE_STEPS, nextTourMode, openModeOf, pendingGuide, TOUR_ORDER } from './steps';
 
 describe('tutorial steps', () => {
-  it('finds Rain and Daily as games of the Minigames tab, and the old links too', () => {
+  it('finds Rain as a game of the Minigames tab, and the old link too', () => {
     const open = (search: string) => openModeOf(new URLSearchParams(search));
     for (const mode of TOUR_ORDER) expect(open(MODE_SEARCH[mode])).toBe(mode);
     expect(open('mode=rain')).toBe('rain');
@@ -11,6 +11,8 @@ describe('tutorial steps', () => {
     // The Bot duel is not a mode of the tour: Ping waits there as on the cards.
     expect(open('mode=minigames&game=bot')).toBeUndefined();
     expect(open('mode=minigames&game=chain')).toBeUndefined();
+    // Weak spots (US3.2) is not a mode of the tour either: the Practice guide does not run there.
+    expect(open('mode=targeted')).toBeUndefined();
   });
 
   it('never guides an account from before the tutorial', () => {
@@ -24,7 +26,7 @@ describe('tutorial steps', () => {
   });
 
   it('walks the tour in order while it is active', () => {
-    expect(TOUR_ORDER).toEqual(['practice', 'placement', 'rain', 'daily', 'rank']);
+    expect(TOUR_ORDER).toEqual(['practice', 'placement', 'rain', 'rank']);
     expect(nextTourMode({ tour: 'active', modes: {} })).toBe('practice');
     expect(nextTourMode({ tour: 'active', modes: { practice: 'done', placement: 'skipped' } })).toBe('rain');
     expect(nextTourMode({ tour: 'skipped', modes: {} })).toBeUndefined();

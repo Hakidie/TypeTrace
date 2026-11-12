@@ -34,11 +34,11 @@ describe('tutorial state', () => {
     await start(auth);
 
     await patch(auth, { mode: 'practice', status: 'done' });
-    const response = await patch(auth, { mode: 'daily', status: 'skipped' });
+    const response = await patch(auth, { mode: 'rain', status: 'skipped' });
 
     expect(response.status).toBe(200);
-    expect(response.body.tutorial.modes).toEqual({ practice: 'done', daily: 'skipped' });
-    expect((await me(auth)).body.tutorial.modes).toEqual({ practice: 'done', daily: 'skipped' });
+    expect(response.body.tutorial.modes).toEqual({ practice: 'done', rain: 'skipped' });
+    expect((await me(auth)).body.tutorial.modes).toEqual({ practice: 'done', rain: 'skipped' });
   });
 
   it('ends the tour', async () => {

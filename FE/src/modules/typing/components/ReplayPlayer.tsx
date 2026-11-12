@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
+import type { TypingLanguage } from '@/shared/lib/typing-language';
 import type { ReplayEvent } from '../types/typing.types';
 import { decodeReplay, findHesitations, replayTextAt } from '../utils/session-replay';
 import { checkWords, formatDuration, splitTyped } from '../utils/typing-session';
@@ -22,6 +23,8 @@ const formatPause = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 interface ReplayPlayerProps {
   /** The passage of the session. */
   targetWords: string[];
+  /** The language of the session (SCRUM-219): its words are checked by its rules, Vietnamese by default. */
+  language?: TypingLanguage;
   events: ReplayEvent[];
   /** When the server deletes the replay, shown at the right of the line under the bar. */
   expiresAt?: string;
@@ -33,7 +36,7 @@ interface ReplayPlayerProps {
  * the speed. A mark on the bar is a place where the learner hesitated (`findHesitations`): hovering it tells how long and
  * on which word, clicking it goes there.
  */
-export const ReplayPlayer = ({ targetWords, events, expiresAt }: ReplayPlayerProps) => {
+export const ReplayPlayer = ({ targetWords, language = 'vi', events, expiresAt }: ReplayPlayerProps) => {
   const replay = useMemo(() => decodeReplay(events), [events]);
   const { thresholdMs, hesitations } = useMemo(() => findHesitations(replay), [replay]);
   const [positionMs, setPositionMs] = useState(0);
@@ -57,7 +60,7 @@ export const ReplayPlayer = ({ targetWords, events, expiresAt }: ReplayPlayerPro
 
   const { shown, committed } = useMemo(() => replayTextAt(replay, positionMs), [replay, positionMs]);
   // Graded again only when what is committed changes, not at every tick.
-  const results = useMemo(() => checkWords(targetWords, splitTyped(committed).done), [targetWords, committed]);
+  const results = useMemo(() => checkWords(targetWords, splitTyped(committed).done, language), [targetWords, committed, language]);
 
   // Play at the end starts again from the beginning.
   const togglePlay = () => {

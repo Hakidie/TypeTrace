@@ -3,6 +3,8 @@ import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
+import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -30,7 +32,7 @@ const statColumn = ['lg:col-start-3', 'lg:col-start-4', 'lg:col-start-5'];
 const statLabelClass = 'self-baseline pr-3 text-right text-[1.5rem] leading-none text-primary/70 lg:row-start-1 lg:pl-14';
 const statValueClass = 'self-start pr-3 text-right text-[2rem] leading-none text-primary lg:row-start-2 lg:pl-14';
 // The small labels over the name and the email (the role is the label of the name).
-const fieldLabelClass = 'self-baseline px-3 text-[1.5rem] leading-normal text-primary/70';
+const fieldLabelClass = 'self-baseline px-0 text-[1.5rem] leading-normal text-primary/70';
 
 // A switch button: highlighted when on, muted when off (as "Placement passage" in the passage form).
 const switchClass = (on: boolean) =>
@@ -107,28 +109,36 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
 
   const role = useWatch({ control, name: 'role' });
   const statList = [
-    { label: 'Words per minute', value: stats ? String(Math.round(stats.wpm)) : '0000' },
+    { label: 'Wpm', value: stats ? String(Math.round(stats.wpm)) : '0000' },
     { label: 'Accuracy', value: stats ? `${Math.round(stats.accuracy)}%` : '000%' },
     { label: 'Streak', value: sessions ? `${String(currentStreak(sessions)).padStart(3, '0')}D` : user ? '—' : '000D' },
   ];
 
   return (
     <TooltipProvider delayDuration={200}>
-      <form className="flex flex-col gap-4" onSubmit={(event) => void save(event).catch(() => undefined)}>
+      <div className="flex gap-6">
+      {/* The user's avatar on the left, as tall as the form: the uploaded picture (unless the account chose its pixel avatar) fills the column, else the pixel avatar, centered. */}
+      <div className="hidden w-40 shrink-0 items-center justify-center self-stretch overflow-hidden lg:flex" aria-hidden={user ? undefined : true}>
+        {user?.avatarUrl && user.avatarSource !== 'pixel' ? (
+          <img src={user.avatarUrl} alt={`Avatar of ${user.displayName}`} className="size-full object-cover" />
+        ) : (
+          <AvatarSprite look={user?.avatar ?? DEFAULT_AVATAR} scale={3.25} label={`Avatar of ${user?.displayName ?? 'the user'}`} />
+        )}
+      </div>
+      <form className="flex min-w-0 flex-1 flex-col gap-4" onSubmit={(event) => void save(event).catch(() => undefined)}>
         {/* The look of the profile header: the role as a small label over the name, the email and the
             description under it, the numbers on the right (labels on the line of the role, values on the line of the name).
             The grid takes the height left on the screen: the description grows with it. */}
         <section
           aria-label="User info"
-          className="grid grid-cols-3 content-start gap-y-3 text-primary lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_auto_auto] lg:gap-y-0"
+          className="grid grid-cols-3 content-start gap-y-3 text-primary lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_auto_auto_auto] lg:gap-y-0"
         >
           <p className={cn(fieldLabelClass, 'col-span-3 lg:col-span-1 lg:col-start-1 lg:row-start-1')}>{!user ? 'Role' : role === 'admin' ? 'Admin' : 'User'}</p>
-          <p className={cn(fieldLabelClass, 'col-span-3 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:ml-12')}>Email</p>
 
-          {/* `pb`: the gap under the name and the email is the one of the passage form (its 1rem gap + 0.375rem under the title). */}
-          <div className="col-span-3 min-w-0 lg:col-span-1 lg:col-start-1 lg:row-start-2 lg:pb-[1.375rem]">
+          {/* The email is under the name; `pb` on the email is the gap of the passage form (its 1rem gap + 0.375rem under the title). */}
+          <div className="col-span-3 min-w-0 lg:col-span-1 lg:col-start-1 lg:row-start-2">
             <Input
-              className="h-auto w-full min-w-0 border-0 bg-transparent px-3 py-0 text-[2rem] leading-snug text-primary placeholder:text-primary focus-visible:ring-0 lg:field-sizing-content lg:w-auto lg:max-w-full"
+              className="h-auto w-full min-w-0 border-0 bg-transparent px-0 py-0 text-[2rem] leading-snug text-primary placeholder:text-primary focus-visible:ring-0 lg:field-sizing-content lg:w-auto lg:max-w-full"
               aria-label="Display name"
               placeholder="Display name"
               disabled={!user}
@@ -143,18 +153,18 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
 
           {/* The email is read only (the backend does not let an admin change it), in the look of the name. */}
           <p
-            className="col-span-3 min-w-0 truncate self-start px-3 pb-[1.375rem] text-[2rem] leading-snug text-primary lg:col-span-1 lg:col-start-2 lg:row-start-2 lg:ml-12"
+            className="col-span-3 min-w-0 truncate self-start px-0 text-[1.25rem] leading-snug text-primary/70 lg:col-span-2 lg:col-start-1 lg:row-start-3 lg:pb-[1.375rem]"
             aria-label="Email address"
           >
             {user?.email ?? 'name@example.com'}
           </p>
 
           {/* The description (bio), 200 characters at most. One line (cut with the text it hides) until it is focused: then it grows to show all of it. */}
-          <div className="col-span-3 min-w-0 lg:col-span-5 lg:col-start-1 lg:row-start-3">
+          <div className="col-span-3 min-w-0 lg:col-span-5 lg:col-start-1 lg:row-start-4">
             <Textarea
               rows={1}
               className={cn(
-                'resize-none border-0 bg-transparent px-3 text-[1.5rem] leading-snug text-muted-foreground placeholder:text-muted-foreground/70 focus-visible:ring-0',
+                'resize-none border-0 bg-transparent px-0 text-[1.5rem] leading-snug text-muted-foreground placeholder:text-muted-foreground/70 focus-visible:ring-0',
                 // 3.0625rem = one line of 1.5rem text (leading-snug) and the padding.
                 'min-h-0 h-[3.0625rem] overflow-hidden focus:h-auto focus:max-h-[60vh] focus:overflow-auto focus:[field-sizing:content]',
               )}
@@ -165,7 +175,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
               {...register('bio')}
             />
             {errors.bio && (
-              <p role="alert" className="px-3 text-base text-destructive">
+              <p role="alert" className="px-0 text-base text-destructive">
                 {errors.bio.message}
               </p>
             )}
@@ -185,7 +195,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
 
         {/* As in the passage form: the date on the left, the switches and the buttons on the right (on a second line when the row is too narrow). */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-3 py-1.5 text-[1.125rem] text-primary">
+          <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
             Joined {user ? new Date(user.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '00 Mon 0000'}
           </p>
 
@@ -254,6 +264,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
           </div>
         </div>
       </form>
+      </div>
     </TooltipProvider>
   );
 };

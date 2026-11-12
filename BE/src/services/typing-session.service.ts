@@ -1,18 +1,20 @@
 import { QueryFilter, Types } from 'mongoose';
 import { DEFAULT_PLACEMENT_MIN_ACCURACY } from '../models/app-setting.model';
-import { notEnglish, PassageModel, splitWords } from '../models/passage.model';
-import { ErrorCounts, SessionWord, TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
+import { notEnglish, PassageModel, practiceLanguageFilter, splitWords } from '../models/passage.model';
+import { SessionWord, TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
 import { titleSearchPattern } from '../utils/passage-text';
-import { classifyWord, tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
+import { classifyIn, errorTypesOf, type SessionErrorType, sessionsIn, tagIn, type TypingLanguage } from '../utils/typing-language';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
-import { recordTry } from './daily.service';
 import { getAppSettings } from './app-setting.service';
 import { placementBoardChanged } from './placement-board-cache';
 import { recentProgressOf, recordCountedSession } from './daily-progress.service';
+import { assertCanPractice, getAdminIds, getLockedPassageIds, getPlanOf } from './passage-lock.service';
 import { learnerPassageFilter, samplePassage } from './passage.service';
 import { saveSessionReplay } from './session-replay.service';
+import { lessonFor } from './targeted-practice.service';
+import { typingLanguageOf } from './typing-language.service';
 import { recordDailyTaskProgress, taskCountsSince } from './user-daily-tasks.service';
 
 /** Sessions with fewer words, or faster than this, are saved but kept out of the error profile (ASSUMPTION). */
@@ -28,28 +30,37 @@ export const PLACEMENT_BOARD_LIMIT_SECONDS = MAX_SESSION_MS / 1000;
 /** A session belongs to one learner: another user's session answers 404, even for admins. */
 const ownedBy = (userId: string, id?: string) => ({ ...(id ? { _id: id } : {}), owner: userId });
 
-const emptyCounts = (): ErrorCounts =>
-  Object.fromEntries(Object.values(WordError).map((type) => [type, 0])) as ErrorCounts;
+/** A count of 0 for every error type of `language`, none for the other language's (SCRUM-219). */
+const emptyCounts = (language: TypingLanguage): Record<SessionErrorType, number> =>
+  Object.fromEntries(errorTypesOf(language).map((type) => [type, 0])) as Record<SessionErrorType, number>;
 
 const round1 = (value: number) => Math.round(value * 10) / 10;
 
-/** Grades typed words against the target words at the same position. Extra words are rejected by the caller. */
-export const gradeWords = (targetWords: string[], typedWords: string[], typedAtMs?: number[]): SessionWord[] =>
+/**
+ * Grades typed words against the target words at the same position, with the error set of `language` (SCRUM-219). Extra
+ * words are rejected by the caller.
+ */
+export const gradeWords = (
+  targetWords: string[],
+  typedWords: string[],
+  typedAtMs?: number[],
+  language: TypingLanguage = 'vi'
+): SessionWord[] =>
   typedWords.map((typed, index) => ({
     index,
     target: targetWords[index],
     typed,
-    errorTypes: classifyWord(targetWords[index], typed),
+    errorTypes: classifyIn(language, targetWords[index], typed),
     ...(typedAtMs && { typedAtMs: typedAtMs[index] })
   }));
 
-/** Counts how often each error happened and how often it could have happened. */
-export const countErrors = (words: SessionWord[]) => {
-  const errorCounts = emptyCounts();
-  const opportunityCounts = emptyCounts();
+/** Counts how often each error of `language` happened and how often it could have happened. */
+export const countErrors = (words: SessionWord[], language: TypingLanguage = 'vi') => {
+  const errorCounts = emptyCounts(language);
+  const opportunityCounts = emptyCounts(language);
   for (const word of words) {
-    word.errorTypes.forEach((type: WordErrorType) => (errorCounts[type] += 1));
-    tagWord(word.target).forEach((type) => (opportunityCounts[type] += 1));
+    word.errorTypes.forEach((type) => (errorCounts[type] += 1));
+    tagIn(language, word.target).forEach((type) => (opportunityCounts[type] += 1));
   }
   return { errorCounts, opportunityCounts };
 };
@@ -128,16 +139,25 @@ export const rebuildPlacementBoardFlags = async () => {
 };
 
 /**
- * The passage a session types. With a `passageId` it is that passage, if it belongs to the mode (see `learnerPassageFilter`); for the placement test it is a random
- * placement passage; otherwise it is a random public practice passage. Only published passages are used.
+ * The passage a session types. With a `passageId` it is that passage, if it belongs to the mode and, in Practice, to the
+ * learner's typing language (see `learnerPassageFilter`; another language's answers 400, SCRUM-219); for the placement test it
+ * is a random placement passage (Vietnamese); otherwise it is a random public practice passage of `language`. Only published
+ * passages are used.
  */
 type PickedPassage = { _id: Types.ObjectId; title: string; content: string };
 const pickedFields = { title: 1, content: 1 } as const;
 
-const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInput) => {
+const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInput, language: TypingLanguage) => {
+  // Passages past their owner's limit are never picked (US11.1); the placement test is not tied to plans.
   if (passageId) {
-    const passage = await PassageModel.findOne({ _id: passageId, ...learnerPassageFilter(userId, mode) });
+    const passage = await PassageModel.findOne({ $and: [{ _id: passageId }, learnerPassageFilter(userId, mode, [], language)] });
     if (!passage) throw badRequest('Unknown passage');
+    if (mode !== 'placement') {
+      // Only the owner of this passage matters: no need to work out every owner's locks.
+      const locked = passage.owner ? await getLockedPassageIds({ ownerId: String(passage.owner) }) : [];
+      if (locked.some((lockedId) => String(lockedId) === String(passage._id))) throw badRequest('Unknown passage');
+      await assertCanPractice(userId, passage);
+    }
     return passage;
   }
   if (mode === 'placement') {
@@ -145,24 +165,64 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
     if (!placement) throw notFound('No placement passage');
     return placement;
   }
-  const random = await samplePassage<PickedPassage>({ visibility: 'public', isPlacement: false, ...notEnglish }, pickedFields);
+  // A plan without `canUsePublicPassages` practices only the system passages (no owner, or an admin's).
+  const onlySystem = (await getPlanOf(userId)).config.canUsePublicPassages
+    ? {}
+    : { $or: [{ owner: { $exists: false } }, { owner: { $in: await getAdminIds() } }] };
+  const locked = await getLockedPassageIds();
+  const random = await samplePassage<PickedPassage>(
+    {
+      visibility: 'public',
+      isPlacement: false,
+      ...practiceLanguageFilter(language),
+      ...(locked.length ? { _id: { $nin: locked } } : {}),
+      ...onlySystem
+    },
+    pickedFields
+  );
   if (!random) throw notFound('No passage available');
   return random;
 };
 
-/** Starts a session. A session the learner left in progress becomes `abandoned`. */
-export const startSession = async (userId: string, input: CreateSessionInput) => {
-  const passage = await pickPassage(userId, input);
+/** What a session typing `passage` stores of it. */
+const passageContent = (passage: { _id: unknown; title: string; content: string }) => ({
+  passageId: String(passage._id),
+  passageTitle: passage.title,
+  targetWords: splitWords(passage.content)
+});
+
+/**
+ * What a new session types: a passage of `language`, or in Weak spots (`targeted`, US3.2) a lesson aimed at the learner's
+ * errors (the AI's passage written from words of the bank, or those words; `aiAllowed` is false past the learner's AI limit).
+ * With nothing to aim at (no type with enough data in the error profile yet, or no word for it), Weak spots types a random
+ * Vietnamese passage, as Random in Practice, with no focus: the page tells the learner why.
+ */
+const contentOf = async (userId: string, input: CreateSessionInput, language: TypingLanguage, aiAllowed: boolean) => {
+  if (input.mode !== 'targeted') return passageContent(await pickPassage(userId, input, language));
+  const lesson = await lessonFor(userId, input.errorType, { aiAllowed });
+  if (lesson) {
+    return {
+      passageTitle: lesson.title,
+      targetWords: lesson.targetWords,
+      focusErrorTypes: lesson.focus,
+      lessonWords: lesson.lessonWords,
+      lessonSource: lesson.source
+    };
+  }
+  return { ...passageContent(await pickPassage(userId, { mode: 'practice' }, language)), focusErrorTypes: [], lessonSource: 'passage' as const };
+};
+
+/**
+ * Starts a session in its typing language (SCRUM-219), which picks its passage and grades it: the learner's
+ * `settings.typingLanguage` in Practice, always Vietnamese in the placement test and in Weak spots, whose word bank and
+ * lessons are Vietnamese. A session the learner left in progress becomes `abandoned`.
+ */
+export const startSession = async (userId: string, input: CreateSessionInput, { aiAllowed = true }: { aiAllowed?: boolean } = {}) => {
+  const language: TypingLanguage = input.mode === 'practice' ? await typingLanguageOf(userId) : 'vi';
+  const content = await contentOf(userId, input, language, aiAllowed);
 
   await TypingSessionModel.updateMany({ owner: userId, status: 'in_progress' }, { status: 'abandoned' });
-  return TypingSessionModel.create({
-    owner: userId,
-    mode: input.mode,
-    passageId: String(passage._id),
-    passageTitle: passage.title,
-    targetWords: splitWords(passage.content),
-    chosenLimitSeconds: input.timeLimitSeconds
-  });
+  return TypingSessionModel.create({ owner: userId, mode: input.mode, language, ...content, chosenLimitSeconds: input.timeLimitSeconds });
 };
 
 export const getSession = async (userId: string, id: string) => {
@@ -172,7 +232,7 @@ export const getSession = async (userId: string, id: string) => {
 };
 
 /** What a card of the history shows. `words` is read only to draw the speed line; it is not sent (`targetWords` is not read at all). */
-const LIST_FIELDS = 'mode passageTitle status wpm accuracy durationMs timeLimitSeconds isCounted startedAt completedAt createdAt words';
+const LIST_FIELDS = 'mode language passageTitle status wpm accuracy durationMs timeLimitSeconds isCounted startedAt completedAt createdAt words';
 
 /** The learner's sessions, each with its speed `timeline` (as in the stats) instead of its words. */
 export const listSessions = async (userId: string, { status, q, mode, timeLimitSeconds, ...pagination }: ListSessionsQuery) => {
@@ -230,10 +290,10 @@ export const completeSession = async (
   // Within the grace the learner finished on time (the request was only slow): the clock stops at the limit.
   const durationMs = elapsedMs <= MAX_SESSION_MS + SESSION_GRACE_MS ? Math.min(elapsedMs, MAX_SESSION_MS) : elapsedMs;
   if (typedAtMs) assertValidTimes(typedAtMs, durationMs);
-  const words = gradeWords(session.targetWords, typedWords, typedAtMs);
+  const words = gradeWords(session.targetWords, typedWords, typedAtMs, session.language);
   const correctWords = words.filter((word) => word.errorTypes.length === 0);
   const wpm = computeWpm(countWpmChars(correctWords.map((word) => word.target)), durationMs);
-  const { errorCounts, opportunityCounts } = countErrors(words);
+  const { errorCounts, opportunityCounts } = countErrors(words, session.language);
   const accuracy = round1((correctWords.length / words.length) * 100);
   const isCounted = isSessionCounted(words.length, wpm, elapsedMs);
   // Only a placement session can be on the board: the other modes do not read the settings.
@@ -298,8 +358,6 @@ export const completeSession = async (
       console.error('Daily tasks not updated, the next counted session of the day adds this one:', error)
     );
   }
-  // A try of the daily challenge also updates the learner's day: best score, streak and coins.
-  if (completed.mode === 'daily') await recordTry(completed);
   return completed;
 };
 
@@ -353,14 +411,14 @@ export const getSessionStats = async (userId: string, id: string) => {
 
   const totalWords = session.words.length;
   const wrongWords = session.words.filter((word) => word.errorTypes.length > 0).length;
-  const { errorCounts, opportunityCounts } = countErrors(session.words);
+  const { errorCounts, opportunityCounts } = countErrors(session.words, session.language);
   return {
     totalWords,
     correctWords: totalWords - wrongWords,
     wrongWords,
     wrongRate: totalWords === 0 ? 0 : round1((wrongWords / totalWords) * 100),
-    /** Types that never had a chance in this passage are left out. */
-    errorTypes: Object.values(WordError)
+    /** The types of the session's language (SCRUM-219); those that never had a chance in this passage are left out. */
+    errorTypes: errorTypesOf(session.language)
       .filter((type) => opportunityCounts[type] > 0)
       .map((type) => ({
         type,
@@ -401,12 +459,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const HEATMAP_DAYS = 371;
 
 /**
- * The average speed and accuracy of the completed sessions of each of `owners`, in one query for all of them. Returns
- * the stats of one owner, `undefined` until they complete a session.
+ * The average speed and accuracy of the completed sessions in `language` of each of `owners`, in one query for all of them
+ * (SCRUM-219: Vietnamese and English speeds do not mix). Returns the stats of one owner, `undefined` until they complete a
+ * session in that language.
  */
-const averageStatsOf = async (owners: unknown[]) => {
+const averageStatsOf = async (owners: unknown[], language: TypingLanguage) => {
   const averages = await TypingSessionModel.aggregate<{ _id: unknown; wpm: number; accuracy: number }>([
-    { $match: { owner: { $in: owners }, status: 'completed', wpm: { $exists: true } } },
+    { $match: { owner: { $in: owners }, status: 'completed', wpm: { $exists: true }, ...sessionsIn(language) } },
     { $group: { _id: '$owner', wpm: { $avg: '$wpm' }, accuracy: { $avg: '$accuracy' } } }
   ]);
   return (owner: unknown) => {
@@ -417,14 +476,15 @@ const averageStatsOf = async (owners: unknown[]) => {
 
 /**
  * Typing activity of each of `owners` for the admin user list, in two queries for all of them: `stats`, the average
- * speed and accuracy of their completed sessions (absent until one is completed), and `sessions`, their completed
- * sessions per UTC day of the last `HEATMAP_DAYS` days, counted or not. The profile page reads DailyProgress instead
- * (`getOwnActivity`), so its numbers can differ. Returns the activity of one owner.
+ * speed and accuracy of their completed Vietnamese sessions (absent until one is completed; English ones, SCRUM-219, do not
+ * mix in), and `sessions`, their completed sessions per UTC day of the last `HEATMAP_DAYS` days, counted or not, in both
+ * languages. The profile page reads DailyProgress instead (`getOwnActivity`), so its numbers can differ. Returns the
+ * activity of one owner.
  */
 export const typingActivityOf = async (owners: unknown[]) => {
   const since = new Date(Date.now() - HEATMAP_DAYS * DAY_MS);
   const [statsOf, days] = await Promise.all([
-    averageStatsOf(owners),
+    averageStatsOf(owners, 'vi'),
     TypingSessionModel.aggregate<{ _id: { owner: unknown; date: string }; sessions: number }>([
       { $match: { owner: { $in: owners }, status: 'completed', completedAt: { $gte: since } } },
       {
@@ -446,19 +506,21 @@ export const typingActivityOf = async (owners: unknown[]) => {
 };
 
 /**
- * The learner's own typing activity, for their profile page (SCRUM-157): `stats` as in the admin user list, and from
- * DailyProgress (SCRUM-31) their counted sessions per day of the last `HEATMAP_DAYS` days, in their own time zone
- * (`timezone`), each with how many daily tasks (SCRUM-112) the day had and how many were completed (`tasksTotal` and
- * `tasksDone`, left out on a day without tasks).
+ * The learner's own typing activity, for their profile page (SCRUM-157): `stats` as in the admin user list but of one typing
+ * language (SCRUM-219: `language`, their Practice language when missing), and from DailyProgress (SCRUM-31) their counted
+ * sessions per day of the last `HEATMAP_DAYS` days, in both languages, in their own time zone (`timezone`), each with how many
+ * daily tasks (SCRUM-112) the day had and how many were completed (`tasksTotal` and `tasksDone`, left out on a day without tasks).
  */
-export const getOwnActivity = async (userId: string) => {
+export const getOwnActivity = async (userId: string, language?: TypingLanguage) => {
   const owner = new Types.ObjectId(userId);
-  const [statsOf, progress] = await Promise.all([averageStatsOf([owner]), recentProgressOf(owner, HEATMAP_DAYS)]);
+  const shown = language ?? (await typingLanguageOf(userId));
+  const [statsOf, progress] = await Promise.all([averageStatsOf([owner], shown), recentProgressOf(owner, HEATMAP_DAYS)]);
   const stats = statsOf(owner);
   // The days of the heatmap are the days with a counted session: their tasks are read from the first of them on.
   const taskCounts = progress.sessions.length > 0 ? await taskCountsSince(owner, progress.sessions[0].date) : new Map();
   return {
     ...(stats && { stats }),
+    language: shown,
     timezone: progress.timezone,
     sessions: progress.sessions.map((day) => ({ ...day, ...taskCounts.get(day.date) }))
   };

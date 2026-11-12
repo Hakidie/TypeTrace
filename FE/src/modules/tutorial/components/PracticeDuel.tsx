@@ -1,9 +1,10 @@
-import { Heart } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Heart } from 'lucide-react';
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { RainStage } from '@/modules/rain/components/RainStage';
 import { Button } from '@/shared/components/ui/button';
+import { useMinigameLang } from '@/shared/hooks/use-minigame-lang';
 import { cn } from '@/shared/lib/utils';
 import { BOT_LEVELS, practiceReducer, PRACTICE_PACE, startPractice, type BotLevel, type PracticeSide, type PracticeState } from '../lib/practice-duel';
 import type { CoachStats } from '../types/tutorial.types';
@@ -17,8 +18,39 @@ const clock = (ms: number) => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };
 
-const Lives = ({ who, lives }: { who: string; lives: number }) => (
-  <div role="img" aria-label={`${who}: ${lives} ${lives === 1 ? 'life' : 'lives'} left`} className="flex gap-0.5 text-primary">
+/** The texts of the duel's screen: the Bot duel in the minigames' language, the tutorial's duel as it always was. */
+const DUEL_TEXT = {
+  en: {
+    you: 'You',
+    words: 'words',
+    yourField: 'Your field',
+    field: (name: string) => `${name}'s field`,
+    threw: (name: string, text: string) => `${name} threw: ${text}`,
+    incoming: 'Watch out, a word is coming!',
+    typeWord: 'Type a falling word',
+    timeLeft: 'Time left',
+    lives: (who: string, n: number) => `${who}: ${n} ${n === 1 ? 'life' : 'lives'} left`,
+    moveLeft: "Move the bot's field to the left",
+    moveRight: "Move the bot's field to the right",
+  },
+  vi: {
+    you: 'Bạn',
+    words: 'từ',
+    yourField: 'Màn của bạn',
+    field: (name: string) => `Màn của ${name}`,
+    threw: (name: string, text: string) => `${name} ném: ${text}`,
+    incoming: 'Coi chừng, có chữ bay tới!',
+    typeWord: 'Gõ chữ đang rơi',
+    timeLeft: 'Thời gian còn lại',
+    lives: (who: string, n: number) => `${who}: còn ${n} mạng`,
+    moveLeft: 'Chuyển màn của bot sang trái',
+    moveRight: 'Chuyển màn của bot sang phải',
+  },
+} as const;
+const TUTORIAL_TEXT = { ...DUEL_TEXT.en, incoming: 'Ối, chữ bay tới kìa!' };
+
+const Lives = ({ who, lives, label }: { who: string; lives: number; label: (who: string, n: number) => string }) => (
+  <div role="img" aria-label={label(who, lives)} className="flex gap-0.5 text-primary">
     {Array.from({ length: PRACTICE_PACE.lives }, (_, index) => (
       <Heart key={index} aria-hidden="true" className={cn('size-4', index < lives ? 'fill-current' : 'opacity-40')} />
     ))}
@@ -59,15 +91,18 @@ interface PracticeDuelProps {
 
 /**
  * The practice rain duel against a bot (Ping in the tutorial, a level's bot in the Bot duel), in the layout of the ranked
- * rain duel: my field large with the box under it, the bot's small beside it (a strip above it on a phone), always tagged
- * as unrated. It runs only in the browser (`practice-duel.ts`).
+ * rain duel: my field large with the box under it, the bot's small beside it (a strip above it on a phone). It runs only in the browser (`practice-duel.ts`).
  */
 export const PracticeDuel = ({ words, onDone, onSkip, level, skipLabel = 'Bỏ qua' }: PracticeDuelProps) => {
   const [state, dispatch] = useReducer(practiceReducer, words, (list) => startPractice(shuffled(list), Math.random, level));
+  const { lang } = useMinigameLang();
+  const t = level ? DUEL_TEXT[lang] : TUTORIAL_TEXT;
   const botName = level ? BOT_LEVELS[level].name : 'Ping';
   const tier = level ? BOT_LEVELS[level].tier : 'Bronze';
   const move = pingMove(state);
   const [box, setBox] = useState('');
+  /** Which side of my field the bot's field is on (from `lg` up; on a phone it is a strip above). */
+  const [botSide, setBotSide] = useState<'left' | 'right'>('right');
   const input = useRef<HTMLInputElement>(null);
   const { data: me } = useCurrentUser();
   const over = state.result !== null;
@@ -106,41 +141,58 @@ export const PracticeDuel = ({ words, onDone, onSkip, level, skipLabel = 'Bỏ q
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span className="border border-primary/50 px-2 py-0.5 text-primary">Đấu tập · không tính điểm</span>
-        <span className="flex items-center gap-3 text-muted-foreground">
-          {tier}
-          <span aria-label="Time left" className="font-semibold tabular-nums text-foreground">
-            {clock(PRACTICE_PACE.durationMs - state.elapsed)}
-          </span>
-          <Button variant="ghost" size="sm" onClick={onSkip}>
-            {skipLabel}
-          </Button>
-        </span>
-      </div>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)]">
-        <section aria-label="Your field" className="order-2 flex min-w-0 flex-col gap-2 lg:order-1">
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span className="flex shrink-0 items-center gap-2 font-semibold text-foreground">
-              You <Lives who="You" lives={state.me.lives} />
+      <div className={cn('grid gap-3', botSide === 'right' ? 'lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]')}>
+        <section aria-label={t.yourField} className={cn('order-2 flex min-w-0 flex-col gap-2', botSide === 'right' ? 'lg:order-1' : 'lg:order-2')}>
+          <div className="flex h-9 items-center gap-3 text-[1.125rem] text-muted-foreground">
+            <span className="flex shrink-0 items-center gap-2 font-semibold text-primary">
+              {t.you} <Lives who={t.you} lives={state.me.lives} label={t.lives} />
             </span>
             <p role="status" className="min-w-0 flex-1 truncate text-center">
               {thrownAtMe && (
                 <span key={thrownAtMe.at} className="rain-banner bg-primary/80 px-2 py-0.5 font-semibold text-primary-foreground">
-                  {botName} threw: {thrownAtMe.text}
+                  {t.threw(botName, thrownAtMe.text)}
                 </span>
               )}
             </p>
-            <span className="shrink-0 tabular-nums">{state.me.hits} words</span>
-          </div>
-          <RainStage drops={state.me.drops} avatar={me?.avatar ?? DEFAULT_AVATAR} phase="playing" paused={over} />
-        </section>
-        <section aria-label={`${botName}'s field`} className="relative order-1 flex min-w-0 flex-col gap-2 lg:order-2">
-          <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2 font-semibold text-foreground">
-              {botName} <Lives who={botName} lives={state.bot.lives} />
+            <span className="shrink-0 tabular-nums">
+              <span className="font-semibold text-primary">{state.me.hits}</span> {t.words}
             </span>
-            <span className="tabular-nums">{state.bot.hits} words</span>
+            {/* the tutorial's duel has a way out; the Bot duel has its own button under it */}
+            {!level && (
+              <Button variant="ghost" size="sm" onClick={onSkip}>
+                {skipLabel}
+              </Button>
+            )}
+          </div>
+          <div className="relative">
+            <RainStage drops={state.me.drops} avatar={me?.avatar ?? DEFAULT_AVATAR} phase="playing" paused={over} />
+            {/* a button to put the bot's field on the other side of mine, in the bottom left corner */}
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label={botSide === 'right' ? t.moveLeft : t.moveRight}
+              onClick={() => setBotSide(botSide === 'right' ? 'left' : 'right')}
+              className="absolute bottom-1 left-2 z-10 hidden size-9 p-0 text-primary hover:bg-primary hover:text-primary-foreground lg:inline-flex"
+            >
+              {botSide === 'right' ? <ArrowRight className="size-5" aria-hidden="true" /> : <ArrowLeft className="size-5" aria-hidden="true" />}
+            </Button>
+            {/* the level and the clock, in the bottom right corner of my field */}
+            <span className="pointer-events-none absolute right-3 bottom-2 z-10 flex items-center gap-2 text-[1.125rem] text-muted-foreground">
+              {tier}
+              <span aria-label={t.timeLeft} className="text-xl font-semibold tabular-nums text-primary">
+                {clock(PRACTICE_PACE.durationMs - state.elapsed)}
+              </span>
+            </span>
+          </div>
+        </section>
+        <section aria-label={t.field(botName)} className={cn('relative order-1 flex min-w-0 flex-col gap-2', botSide === 'right' ? 'lg:order-2' : 'lg:order-1')}>
+          <div className="flex h-9 items-center justify-between gap-3 text-[1.125rem] text-muted-foreground">
+            <span className="flex items-center gap-2 font-semibold text-primary">
+              {botName} <Lives who={botName} lives={state.bot.lives} label={t.lives} />
+            </span>
+            <span className="tabular-nums">
+              <span className="font-semibold text-primary">{state.bot.hits}</span> {t.words}
+            </span>
           </div>
           <RainStage
             drops={state.bot.drops}
@@ -151,12 +203,12 @@ export const PracticeDuel = ({ words, onDone, onSkip, level, skipLabel = 'Bỏ q
             compact
             className="h-28 lg:h-[60vh] lg:min-h-80"
           />
-          {thrownAtPing && <p className="absolute inset-x-2 top-8 z-10 border bg-background/85 px-2 py-1 text-xs backdrop-blur-sm">Ối, chữ bay tới kìa!</p>}
+          {thrownAtPing && <p className="absolute inset-x-2 top-8 z-10 border bg-background/85 px-2 py-1 text-xs backdrop-blur-sm">{t.incoming}</p>}
         </section>
       </div>
       <input
         ref={input}
-        aria-label="Type a falling word"
+        aria-label={t.typeWord}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
@@ -170,7 +222,7 @@ export const PracticeDuel = ({ words, onDone, onSkip, level, skipLabel = 'Bỏ q
           setBox('');
           dispatch({ type: 'input', text: '' });
         }}
-        className="h-14 w-full border border-foreground/15 bg-background/60 px-4 text-center font-mono text-2xl backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="h-14 w-full border border-foreground/15 bg-background/60 px-4 text-center font-mono text-2xl backdrop-blur-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       />
     </div>
   );

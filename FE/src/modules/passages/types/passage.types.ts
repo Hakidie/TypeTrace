@@ -84,8 +84,10 @@ export interface PassageListParams {
   status?: PassageStatus;
   /** `public` = the passage bank, without the learners' private passages. */
   visibility?: PassageVisibility;
-  /** `true` = only the placement passages, `false` = only the regular ones. */
+  /** `true` = only the placement passages, `false` = none of them. */
   isPlacement?: boolean;
+  /** `true` = only the passages of ranked duels, `false` = none of them (both `false` = the Practice passages). */
+  isRanked?: boolean;
   language?: PassageLanguage;
   /** With `status: 'pending'`: `true` = only learners' edits of public passages, `false` = only requests to make a passage public. */
   edited?: boolean;
@@ -111,15 +113,20 @@ export interface LearnerPassage {
   visibility: PassageVisibility;
   /**
    * `pending`: the learner asked for it to become public and an admin has not decided yet; `rejected`: an admin turned
-   * the request down (the reason is in `reviewNote`) (SCRUM-176).
+   * the request down (the reason is in `reviewNote`) (SCRUM-176); `archived`: an admin archived it, only the owner's own
+   * list still shows it (dimmed, nothing to do with it).
    */
-  status: 'published' | 'pending' | 'rejected';
+  status: 'published' | 'pending' | 'rejected' | 'archived';
   /** Only on the learner's own passages: why an admin turned the request to make it public down. */
   reviewNote?: string;
   /** One of the signed-in learner's passages: private, or public once an admin approved it. */
   isOwn: boolean;
   /** Only on the learner's own public passages: an edit of it waits for an admin, the approved text stays public meanwhile. */
   editPending?: boolean;
+  /** Past the limit of the owner's plan (US11.1): shown dimmed to its owner, who can only delete it. */
+  locked?: boolean;
+  /** Another learner's public passage on a plan that may not practice it (US11.1): shown, but locked. */
+  lockedByPlan?: boolean;
   createdAt: string;
   /** Only in the list asked with `mine: true`. */
   content?: string;

@@ -11,6 +11,7 @@ import { generateRoomCode, pickRainWords, pickRankedPassage, toPublicMatch } fro
 import { EndRainDuel, hitRainWord, sendRainSnapshot, startRainDuel, stopRainDuel, wasStartedHere } from './rain-duel.service';
 import { rainDuelSettings } from './rain-duel-rules';
 import { getMyRanking } from './ranked.service';
+import { recordMatchMinigames } from './minigame-play.service';
 import { rateMatch } from './rating.service';
 import { tierFor } from './season.service';
 import { computeWpm, countWpmChars, gradeWords, MAX_COUNTED_WPM, MIN_COUNTED_WORDS, SESSION_GRACE_MS } from './typing-session.service';
@@ -292,6 +293,8 @@ const finishByCorrectWords = (match: MatchDocument) => {
 
 /** Sends the end of the match to everyone. */
 const announceResult = (match: MatchDocument) => {
+  // The daily task `minigames` counts the duel for each player it counts for (SCRUM-300); it never throws.
+  void recordMatchMinigames(match);
   const view = toPublicMatch(match);
   publish(match.code, 'result', view);
   publish(match.code, 'state', view);

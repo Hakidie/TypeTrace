@@ -1,4 +1,4 @@
-import { Gauge, Keyboard, Target, Timer, type LucideIcon } from 'lucide-react';
+import { Gamepad2, Gauge, Keyboard, Target, Timer, type LucideIcon } from 'lucide-react';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 import type { DailyTask, DailyTaskType } from './types/daily-task.types';
 
@@ -17,6 +17,7 @@ export const DAILY_TASK_TYPE_INFO: Record<DailyTaskType, DailyTaskTypeInfo> = {
   minutes: { label: 'Minutes', stat: 'MINUTES', max: 120, icon: Timer },
   wpm: { label: 'Speed', stat: 'WPM', max: 200, icon: Gauge },
   accuracy: { label: 'Accuracy', stat: 'ACC', max: 100, icon: Target },
+  minigames: { label: 'Minigames', stat: 'GAMES', max: 10, icon: Gamepad2 },
 };
 
 /** The most tasks a learner may get a day (`MAX_DAILY_TASK_COUNT` in BE/src/models/app-setting.model.ts). */
@@ -73,8 +74,13 @@ export const goalOf = ({ type, target, errorType }: Pick<DailyTask, 'type' | 'ta
       const session = chanceWords ? `a session with at least ${MIN_FOCUS_CHANCES} ${chanceWords}` : 'one session';
       return `Reach ${target}% accuracy on ${ERROR_FOCUS_LABELS[errorType]} in ${session}`;
     }
+    case 'minigames':
+      return `Finish ${plural(target, 'minigame')}`;
   }
 };
+
+/** The most coins one task can give (`DAILY_TASK_COINS_MAX` in BE/src/models/daily-task.model.ts: keep the two the same). */
+export const DAILY_TASK_COINS_MAX = 100;
 
 /** The target as the row shows it: `95%` for accuracy, the number otherwise. */
 export const formatTarget = ({ type, target }: Pick<DailyTask, 'type' | 'target'>) =>

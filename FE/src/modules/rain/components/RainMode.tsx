@@ -2,6 +2,7 @@ import { CloudRain, Heart, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
+import { useMinigamePlay } from '@/modules/daily-tasks/hooks/use-minigame-play';
 import { tutorialStore, useTutorialHold } from '@/modules/tutorial/lib/tutorial-store';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -29,7 +30,7 @@ const clock = (ms: number) => {
 /** A glass card over the stage, for the start, pause and result screens. */
 const Overlay = ({ children }: { children: ReactNode }) => (
   <div className="absolute inset-0 z-20 grid place-items-center bg-background/30 p-4">
-    <div className="duel-pop flex w-full max-w-sm flex-col items-center gap-4 border border-primary/30 bg-card/85 p-6 text-center backdrop-blur-md">
+    <div className="duel-pop flex w-full max-w-sm flex-col items-center gap-4 border border-border bg-background/75 p-6 text-center backdrop-blur-xs transition-colors hover:border-destructive/40">
       {children}
     </div>
   </div>
@@ -47,6 +48,12 @@ export const RainMode = () => {
   const hold = useTutorialHold() === 'rain-word';
   const [heldId, setHeldId] = useState<string | null>(null);
   const { state, paused, start, input, land, togglePause } = useRainGame(hold && heldId !== null);
+  // A round that runs to its end counts for the daily task `minigames` (SCRUM-300).
+  const { begin: beginPlay, finish: finishPlay } = useMinigamePlay('rain');
+  const ended = state.phase === 'won' || state.phase === 'lost';
+  useEffect(() => {
+    if (ended) finishPlay();
+  }, [ended, finishPlay]);
   const box = useRef<HTMLInputElement>(null);
   const list = useMemo(() => words.data?.words ?? [], [words.data]);
   const playing = state.phase === 'playing';
@@ -59,7 +66,10 @@ export const RainMode = () => {
     if (heldTyped) tutorialStore.completeHold();
   }, [heldTyped]);
 
-  const begin = useCallback(() => start(shuffled(list), laneCount()), [start, list]);
+  const begin = useCallback(() => {
+    beginPlay();
+    start(shuffled(list), laneCount());
+  }, [beginPlay, start, list]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -166,7 +176,7 @@ export const RainMode = () => {
           // Enter sends the word like space does. While a Vietnamese keyboard is still composing, its Enter only confirms the letters.
           onKeyDown={(event) => event.key === 'Enter' && !event.nativeEvent.isComposing && input(`${event.currentTarget.value}\n`)}
           className={cn(
-            'h-14 w-full border bg-background/60 px-4 text-center font-mono text-2xl backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'h-14 w-full border bg-background/60 px-4 text-center font-mono text-2xl backdrop-blur-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             missing ? 'border-primary text-primary' : 'border-foreground/15',
           )}
         />

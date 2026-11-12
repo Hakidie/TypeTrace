@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ClipboardCheck, CloudRain, Swords, Trophy } from 'lucide-react';
+import { ClipboardCheck, CloudRain, Gamepad2, Swords, Trophy } from 'lucide-react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
+import { WordChainPageBoard } from '@/modules/word-chain/components/WordChainPageBoard';
 import { usePassageOptions } from '@/modules/typing/hooks/use-typing';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -17,7 +18,7 @@ import type { MatchKind, PlacementRange } from '../types/ranked.types';
 
 const PAGE_SIZE = 20;
 
-type LeaderboardTab = 'placement' | 'rank';
+type LeaderboardTab = 'placement' | 'rank' | 'minigames';
 
 const RANGE_TABS = [
   { value: 'week', label: 'This week' },
@@ -36,7 +37,8 @@ export const LeaderboardPage = () => {
   const kind: MatchKind = list.get('kind') === 'rain' ? 'rain' : 'race';
   const board = useLeaderboard({ page: list.page, limit: PAGE_SIZE, kind });
   const { data: me } = useCurrentUser();
-  const [tab, setTab] = useState<LeaderboardTab>('rank');
+  // `?tab=minigames` opens the Minigames tab (the link of the Nối từ leaderboard modal); Rank otherwise.
+  const [tab, setTab] = useState<LeaderboardTab>(() => (list.get('tab') === 'minigames' ? 'minigames' : 'rank'));
   // Placement (US10.1): the passage and the range are in the URL (`?passage=<id>&range=all`); without a passage of the URL the board opens on a
   // random one (the dice is rolled once, when the page opens: the pick does not change while the learner stays here).
   const passages = usePassageOptions('placement', { enabled: tab === 'placement' });
@@ -48,6 +50,7 @@ export const LeaderboardPage = () => {
   const tabs = [
     { value: 'placement', label: 'Placement', icon: ClipboardCheck },
     { value: 'rank', label: board.data ? `Rank S${board.data.season.number}` : 'Rank', icon: Trophy },
+    { value: 'minigames', label: 'Minigames', icon: Gamepad2 },
   ];
 
   const renderList = () => {
@@ -96,21 +99,32 @@ export const LeaderboardPage = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="w-full space-y-6">
       {/* Same tabs as the mode tabs of the Typing page, in the center of the page; on the Placement tab the passage is on their left and the range on their right. */}
       <div className="flex flex-col items-center gap-2 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-x-2">
         <div className="flex min-w-0 max-w-full md:justify-self-end">
           {tab === 'placement' && <PlacementPassageMenu passages={passageList} selectedId={passage?._id} onSelect={(id) => list.set('passage', id)} />}
+          {/* ponytail: a fixed label while Nối từ is the only minigame with a board; make it a game menu like the passage one when another gets its own. */}
+          {tab === 'minigames' && (
+            <div className="flex min-w-0 max-w-full outline outline-1 -outline-offset-1 outline-border">
+              <span aria-label="Minigame" className="block max-w-64 min-w-0 truncate px-3 py-1.5 text-[1.125rem] text-primary">
+                Word chain
+              </span>
+            </div>
+          )}
         </div>
         <TabGroup label="Leaderboard" tabs={tabs} value={tab} onChange={(value) => setTab(value as LeaderboardTab)} />
         <div className="md:justify-self-start">
-          {tab === 'placement' && (
+          {(tab === 'placement' || tab === 'minigames') && (
             <TabGroup label="Time range" tabs={RANGE_TABS} value={range} onChange={(value) => list.set('range', value === 'all' ? 'all' : '')} />
           )}
         </div>
       </div>
-      <div role="tabpanel" aria-label={tab === 'rank' ? 'Rank' : 'Placement'}>
-        {tab === 'rank' ? (
+      <div role="tabpanel" aria-label={tab === 'rank' ? 'Rank' : tab === 'minigames' ? 'Minigames' : 'Placement'}>
+        {tab === 'minigames' ? (
+          // ponytail: Nối từ is the only minigame with a board; add a game picker here when another one gets its own.
+          <WordChainPageBoard range={range} />
+        ) : tab === 'rank' ? (
           <div className="space-y-4">
             <div className="flex justify-center">
               <TabGroup

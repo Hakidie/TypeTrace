@@ -13,8 +13,31 @@ import {
 } from '../../src/scripts/seed';
 import { getErrorProfile } from '../../src/services/error-profile.service';
 import { getMonthlyProgress } from '../../src/services/monthly-progress.service';
+import { getCurrentSubscription } from '../../src/services/subscription.service';
 import { comparePassword } from '../../src/utils/hash';
 import { WordError } from '../../src/utils/vietnamese-errors';
+
+describe('seedDemoAccounts plans', () => {
+  it('makes student01 premium for a month and everyone else free', async () => {
+    await seedDemoAccounts();
+
+    const premium = await getCurrentSubscription(String((await UserModel.findOne({ email: 'student01@example.com' }))!._id));
+    expect(premium.plan).toBe('premium');
+    expect(premium.expiresAt!.getTime()).toBeGreaterThan(Date.now());
+    for (const email of ['demo@example.com', 'admin@example.com', 'student02@example.com']) {
+      expect((await getCurrentSubscription(String((await UserModel.findOne({ email }))!._id))).plan).toBe('free');
+    }
+  });
+
+  it('does not give premium again when the accounts already exist', async () => {
+    await seedDemoAccounts();
+    await seedDemoAccounts();
+
+    const student = (await UserModel.findOne({ email: 'student01@example.com' }))!;
+    const { SubscriptionModel } = await import('../../src/models/subscription.model');
+    expect(await SubscriptionModel.countDocuments({ user: student._id, plan: 'premium' })).toBe(1);
+  });
+});
 
 describe('seedDemoAccounts', () => {
   it('creates verified demo accounts with the documented passwords', async () => {

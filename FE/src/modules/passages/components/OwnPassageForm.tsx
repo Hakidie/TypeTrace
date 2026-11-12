@@ -10,7 +10,6 @@ import { useAddOwnPassage, useUpdateOwnPassage } from '../hooks/use-learner-pass
 import { cleanPassageText } from '../lib/passage-text';
 import {
   countWords,
-  MAX_OWN_PASSAGES,
   MAX_PASSAGE_WORDS,
   MIN_OWN_PASSAGE_WORDS,
   PASSAGE_CONTENT_MAX,
@@ -42,8 +41,8 @@ const emptyValues: FormValues = { title: '', source: '', content: '' };
 
 // The same as the admin passage form (`PassageForm`): no borders, Title and Source in the red tint of the typing status
 // bar, as wide as their text (`field-sizing-content`), Title on the left and Source on the right.
-const fieldClass = 'border-0 text-[1.125rem] focus-visible:ring-0';
-const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-3 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
+const fieldClass = 'border-0 px-0 text-[1.125rem] focus-visible:ring-0';
+const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-0 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
 
 /** No visible labels: the placeholders say what each field is, `aria-label` serves screen readers. */
 const FieldError = ({ message }: { message?: string }) =>
@@ -54,8 +53,9 @@ const FieldError = ({ message }: { message?: string }) =>
   ) : null;
 
 interface OwnPassageFormProps {
-  /** How many passages of their own the learner has (unknown while loading); adding stops at `MAX_OWN_PASSAGES`. */
+  /** How many passages of their own the learner has and how many their plan allows (unknown while loading); adding stops at the limit. */
   ownCount?: number;
+  maxCount?: number;
   /** The passage to edit, with its text. Without it the form adds a new passage. */
   passage?: OwnPassage;
   /** Edit mode: called after a successful update and by the Cancel button. */
@@ -66,7 +66,7 @@ interface OwnPassageFormProps {
  * Where a learner pastes (or types) a text of their own to practice. It is saved private and can be typed at once. With
  * `passage` it edits that passage instead, like the admin `PassageForm`; remount it (`key`) to switch passage.
  */
-export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProps) => {
+export const OwnPassageForm = ({ ownCount, maxCount, passage, onDone }: OwnPassageFormProps) => {
   const addPassage = useAddOwnPassage();
   const updatePassage = useUpdateOwnPassage();
   const isPending = addPassage.isPending || updatePassage.isPending;
@@ -76,7 +76,7 @@ export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProp
   });
   // Counted as it will be saved.
   const content = cleanPassageText(useWatch({ control, name: 'content' }));
-  const full = !passage && ownCount !== undefined && ownCount >= MAX_OWN_PASSAGES;
+  const full = !passage && ownCount !== undefined && maxCount !== undefined && ownCount >= maxCount;
 
   const submit = handleSubmit((input) => {
     if (passage) {
@@ -95,7 +95,8 @@ export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProp
         </div>
         {/* `ml-auto` keeps Source on the right, also when the two fields are stacked on a phone. */}
         <div className="ml-auto min-w-0 max-w-full space-y-2 md:max-w-[calc(50%-0.5rem)]">
-          <Input className={cn(fieldClass, metaFieldClass)} aria-label="Source" placeholder="Source" {...register('source')} />
+          {/* `text-right`: the field is at least 6rem wide, so a short text would stop short of the right edge */}
+          <Input className={cn(fieldClass, metaFieldClass, 'text-right')} aria-label="Source" placeholder="Source" {...register('source')} />
           <FieldError message={errors.source?.message} />
         </div>
       </div>
@@ -118,14 +119,14 @@ export const OwnPassageForm = ({ ownCount, passage, onDone }: OwnPassageFormProp
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Bottom left: the same look as the status bar of the typing page. */}
-        <p className="w-fit bg-transparent px-3 py-1.5 text-[1.125rem] text-primary">
+        <p className="w-fit bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
           {countWords(content)}/{MAX_PASSAGE_WORDS} words
         </p>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          {!passage && ownCount !== undefined && (
+          {!passage && ownCount !== undefined && maxCount !== undefined && (
             <p className="text-base text-muted-foreground">
-              Your passages: {ownCount}/{MAX_OWN_PASSAGES}
+              Your passages: {ownCount}/{maxCount}
               {full && '. Delete one to add another.'}
             </p>
           )}

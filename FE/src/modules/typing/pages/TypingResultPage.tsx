@@ -11,6 +11,7 @@ import { SessionInfoPanel } from '../components/SessionInfoPanel';
 import { SpeedErrorChart } from '../components/SpeedErrorChart';
 import { ResultActions } from '../components/ResultActions';
 import { ResultsPanel } from '../components/ResultsPanel';
+import { StreakRewardDialog } from '@/modules/profile/components/StreakRewardDialog';
 import { usePlacementMinAccuracy } from '@/modules/ranked/hooks/use-ranked';
 import { useSession, useSessionStats } from '../hooks/use-typing';
 import { placementBoardNote, statsFromCounts, type WordResult } from '../utils/typing-session';
@@ -34,10 +35,14 @@ export const TypingResultPage = () => {
   }
 
   const results: WordResult[] = session.words.map((word) => ({ ...word, errors: word.errorTypes }));
+  // Sessions from before SCRUM-219 have no language: they were all Vietnamese.
+  const language = session.language ?? 'vi';
   const boardNote = placementBoardNote(session, minAccuracy);
 
   return (
     <div className="space-y-12">
+      {/* The day's streak reward, once today has a counted session (this one or an earlier one). */}
+      <StreakRewardDialog />
       {boardNote && (
         <p role="status" className={boardNote.onBoard ? 'text-primary' : 'text-muted-foreground'}>
           {boardNote.text}
@@ -64,6 +69,7 @@ export const TypingResultPage = () => {
           <SessionInfoPanel
             passageTitle={session.passageTitle}
             mode={session.mode}
+            language={language}
             timeLimitSeconds={stats.data.timeLimitSeconds}
           />
           <SpeedErrorChart
@@ -78,13 +84,14 @@ export const TypingResultPage = () => {
       {/* PANEL Typed passage, or its replay */}
       <Panel bare>
         {replayOpen ? (
-          <ReplayPanel sessionId={session._id} targetWords={session.targetWords} />
+          <ReplayPanel sessionId={session._id} targetWords={session.targetWords} language={language} />
         ) : (
           <PassageView words={session.targetWords} results={results} />
         )}
       </Panel>
 
       <ResultActions
+        mode={session.mode}
         detailOpen={detailOpen}
         onToggleDetail={() => setDetailOpen((open) => !open)}
         replayOpen={replayOpen}
@@ -94,7 +101,7 @@ export const TypingResultPage = () => {
       {detailOpen && (
         <>
           {stats.data && <ErrorTypeChart stats={stats.data} />}
-          <ResultsPanel results={results} stats={statsFromCounts(session.errorCounts, session.opportunityCounts)} />
+          <ResultsPanel results={results} stats={statsFromCounts(session.errorCounts, session.opportunityCounts, language)} />
         </>
       )}
     </div>

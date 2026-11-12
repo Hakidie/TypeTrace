@@ -14,6 +14,10 @@ vi.mock('@/modules/profile/api/profile.api', () => ({
   profileApi: { updateProfile: (input: unknown) => updateProfile(input), uploadAvatar: vi.fn() },
 }));
 
+vi.mock('@/modules/plan/api/plan.api', () => ({
+  planApi: { get: () => new Promise(() => {}) },
+}));
+
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
@@ -30,15 +34,17 @@ const user: CurrentUser = {
   updatedAt: '2026-01-15T12:00:00.000Z',
 };
 
-const activity = (data?: TypingActivity) => ({ data }) as UseQueryResult<TypingActivity>;
+/** The activity as the server sends it, without `language`: its averages are Vietnamese unless the test says otherwise (SCRUM-219). */
+type ActivityData = Omit<TypingActivity, 'language'> & Partial<Pick<TypingActivity, 'language'>>;
+const activity = (data?: ActivityData) => ({ data: data && { language: 'vi', ...data } }) as UseQueryResult<TypingActivity>;
 const streakQuery = (data?: Streak) => ({ data }) as UseQueryResult<Streak>;
 const streakOf = (current: number, longest: number): Streak => ({
   current,
   longest,
-  today: { date: '2026-10-27', sessions: 0, missionGoal: 1, missionCompleted: false },
+  today: { date: '2026-10-27', sessions: 0, missionGoal: 1, missionCompleted: false, reward: { coins: 20, claimed: false } },
 });
 
-const renderHeader = (account: CurrentUser = user, data?: TypingActivity, streak = streakQuery(streakOf(5, 12))) =>
+const renderHeader = (account: CurrentUser = user, data?: ActivityData, streak = streakQuery(streakOf(5, 12))) =>
   renderWithProviders(<ProfileHeader user={account} activity={activity(data)} streak={streak} onAvatarChange={vi.fn()} />);
 
 beforeEach(() => {
@@ -71,6 +77,18 @@ describe('ProfileHeader (SCRUM-157)', () => {
 
     await userEvent.setup().hover(screen.getByText('STREAK'));
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Longest streak: 031D');
+  });
+
+  it('names the language of the averages in a tooltip on WPM and ACC (SCRUM-219)', async () => {
+    const user = userEvent.setup();
+    renderHeader(undefined, { stats: { wpm: 52, accuracy: 94 }, language: 'en', timezone: 'Asia/Ho_Chi_Minh', sessions: [] });
+
+    await user.hover(screen.getByText('WPM'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Average of your English sessions');
+    await user.unhover(screen.getByText('WPM'));
+
+    await user.hover(screen.getByText('94%'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Average of your English sessions');
   });
 
   it('shows a dash for the streak while it loads and when it could not load (SCRUM-31)', () => {

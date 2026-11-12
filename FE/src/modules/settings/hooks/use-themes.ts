@@ -56,11 +56,12 @@ export const useDeleteTheme = () => {
 export const useChooseTheme = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ mode, theme }: { mode: ThemeMode; theme: Theme | null }) =>
-      themesApi.updateActive(mode === 'dark' ? { darkTheme: theme?._id ?? null } : { lightTheme: theme?._id ?? null }),
-    onMutate: async ({ mode, theme }) => {
+    // `useMode` also puts the page in that mode, so the theme chosen is the one shown.
+    mutationFn: ({ mode, theme, useMode }: { mode: ThemeMode; theme: Theme | null; useMode?: boolean }) =>
+      themesApi.updateActive({ ...(useMode ? { mode } : {}), ...(mode === 'dark' ? { darkTheme: theme?._id ?? null } : { lightTheme: theme?._id ?? null }) }),
+    onMutate: async ({ mode, theme, useMode }) => {
       await queryClient.cancelQueries({ queryKey: themeKeys.active });
-      queryClient.setQueryData<ActiveThemes>(themeKeys.active, (active) => active && { ...active, [mode]: theme });
+      queryClient.setQueryData<ActiveThemes>(themeKeys.active, (active) => active && { ...active, ...(useMode ? { mode } : {}), [mode]: theme });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: themeKeys.active }),
   });

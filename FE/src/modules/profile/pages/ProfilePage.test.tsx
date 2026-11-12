@@ -7,9 +7,9 @@ import { ProfilePage } from './ProfilePage';
 
 const getMe = vi.fn();
 const getActivity = vi.fn();
-const getSessions = vi.fn();
 const getStreak = vi.fn();
 const getMonthlyProgress = vi.fn();
+const getDailyTasks = vi.fn();
 const getErrorProfile = vi.fn();
 
 vi.mock('@/modules/auth/api/auth.api', () => ({
@@ -19,9 +19,9 @@ vi.mock('@/modules/auth/api/auth.api', () => ({
 vi.mock('@/modules/profile/api/profile.api', () => ({
   profileApi: {
     getActivity: () => getActivity(),
-    getSessions: (params: unknown) => getSessions(params),
     getStreak: () => getStreak(),
     getMonthlyProgress: (range: string) => getMonthlyProgress(range),
+    getDailyTasks: () => getDailyTasks(),
     getErrorProfile: () => getErrorProfile(),
     updateSecurity: vi.fn(),
     uploadAvatar: vi.fn(),
@@ -42,24 +42,6 @@ const profile = {
   updatedAt: '2026-01-15T12:00:00.000Z',
 };
 
-const session = (overrides = {}) => ({
-  _id: 's1',
-  mode: 'practice',
-  passageTitle: 'Tiếng Việt rất đẹp',
-  status: 'completed',
-  wpm: 41.6,
-  accuracy: 97.2,
-  durationMs: 30000,
-  timeLimitSeconds: 30,
-  isCounted: true,
-  timeline: { status: 'ok', points: [{ second: 1, wpm: 30, errors: 0 }, { second: 2, wpm: 45, errors: 1 }] },
-  startedAt: '2026-03-02T10:00:00.000Z',
-  completedAt: '2026-03-02T10:00:35.000Z',
-  createdAt: '2026-03-02T10:00:00.000Z',
-  ...overrides,
-});
-const page = (items: unknown[], overrides = {}) => ({ items, page: 1, limit: 3, total: items.length, totalPages: 1, ...overrides });
-
 // The activity of these tests is in UTC (unless a test says otherwise), so today is the UTC day.
 const today = new Date().toISOString().slice(0, 10);
 
@@ -79,7 +61,6 @@ const hoverDay = (date: string) => fireEvent.mouseOver(document.querySelector(`[
 beforeEach(() => {
   tokenStore.set('jwt-value');
   getMe.mockReset().mockResolvedValue(profile);
-  getSessions.mockReset().mockResolvedValue(page([session()]));
   getActivity.mockReset().mockResolvedValue({
     stats: { wpm: 66.3, accuracy: 96.3 },
     timezone: 'UTC',
@@ -92,6 +73,10 @@ beforeEach(() => {
       points: Array.from({ length: 12 }, (_, i) => ({ key: `2025-${String(i + 1).padStart(2, '0')}`, avgWpm: null, avgAccuracy: null, carriedOver: false })),
     }),
   );
+  getDailyTasks.mockReset().mockResolvedValue({
+    date: '2026-03-10',
+    tasks: [{ id: 't1', title: 'Warm-up', description: '', type: 'sessions', target: 3, progress: 2, completed: false }],
+  });
   getErrorProfile.mockReset().mockResolvedValue({
     window: 10,
     minOpportunities: 20,
@@ -152,7 +137,7 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` })).toBeInTheDocument();
     // The mission is done in these fixtures, so there is no line of today.
     expect(screen.queryByRole('region', { name: 'Today' })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual(['Daily Progress', 'Error profile', 'My Sessions']);
+    expect(screen.getAllByRole('heading').map((heading) => heading.textContent)).toEqual(['Daily Progress', 'Daily tasks']);
     expect(screen.queryByRole('switch', { name: 'Email code at login' })).not.toBeInTheDocument();
   });
 
@@ -175,7 +160,7 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     expect(getMe).toHaveBeenCalledOnce();
   });
 
-  it('has no TODAY or daily mission line, shows the legend in the title row, and no daily tasks (they are on the Progress page)', async () => {
+  it('has no TODAY or daily mission line, shows the legend in the title row, and the daily tasks under the heatmap', async () => {
     renderPage();
 
     const title = await screen.findByRole('heading', { name: 'Daily Progress' });
@@ -183,34 +168,39 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
     // The legend is on the right of the title.
     expect(within(title.parentElement?.parentElement as HTMLElement).getByText('Less')).toBeInTheDocument();
     expect(screen.queryByText('Daily mission done')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Daily tasks' })).toBeInTheDocument();
+  });
+
+  it('shows the daily tasks under the heatmap', async () => {
+    renderPage();
+
+    const heatmap = await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` });
+    const tasks = screen.getByRole('region', { name: 'Daily tasks' });
+    expect(await within(tasks).findByRole('progressbar', { name: 'Warm-up' })).toHaveAttribute('aria-valuenow', '2');
+    expect(heatmap.compareDocumentPosition(tasks)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(getDailyTasks).toHaveBeenCalledOnce();
+    expect(getErrorProfile).not.toHaveBeenCalled();
+  });
+
+  it('switches between the daily tasks and the error profile with the button next to the title', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Switch to Error profile' }));
+    const errorProfile = await screen.findByRole('region', { name: 'Error profile' });
     expect(screen.queryByRole('region', { name: 'Daily tasks' })).not.toBeInTheDocument();
-  });
-
-  it('shows the heatmap above the sessions, with no daily tasks (they moved to the Progress page)', async () => {
-    renderPage();
-
-    const heatmap = await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` });
-    expect(screen.queryByRole('heading', { name: 'Daily tasks' })).not.toBeInTheDocument();
-    expect(heatmap.compareDocumentPosition(screen.getByRole('region', { name: 'My sessions' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-  });
-
-  it('shows the error profile between the heatmap and the sessions (SCRUM-27)', async () => {
-    renderPage();
-
-    const heatmap = await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` });
-    const errorProfile = screen.getByRole('region', { name: 'Error profile' });
     expect(await within(errorProfile).findAllByRole('listitem')).toHaveLength(5);
     expect(within(errorProfile).getByText('Weak')).toBeInTheDocument();
-    expect(heatmap.compareDocumentPosition(errorProfile)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(errorProfile.compareDocumentPosition(screen.getByRole('region', { name: 'My sessions' }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(getErrorProfile).toHaveBeenCalledOnce();
+
+    await user.click(within(errorProfile).getByRole('button', { name: 'Switch to Daily tasks' }));
+    expect(await screen.findByRole('region', { name: 'Daily tasks' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Error profile' })).not.toBeInTheDocument();
   });
 
   it('shows zeros to a new learner, and asks for a display name instead of the email twice', async () => {
     getMe.mockResolvedValue({ ...profile, displayName: undefined, bio: undefined });
     getActivity.mockResolvedValue({ timezone: 'UTC', sessions: [] });
     getStreak.mockResolvedValue(streakOf(0, 0, { sessions: 0, missionCompleted: false }));
-    getSessions.mockResolvedValue(page([]));
     renderPage();
 
     const card = await screen.findByRole('region', { name: 'Profile header' });
@@ -237,96 +227,6 @@ describe('ProfilePage (SCRUM-157, SCRUM-31, SCRUM-112)', () => {
 
     expect(await screen.findByRole('img', { name: `Counted sessions in ${year}: 2 on 1 day, 1 daily task done` })).toBeInTheDocument();
     expect(screen.queryByText('Database offline')).not.toBeInTheDocument();
-  });
-
-  it('lists the finished sessions as cards under the heatmap, each one linking to its result page', async () => {
-    getSessions.mockResolvedValue(
-      page([session(), session({ _id: 's2', passageTitle: undefined, mode: 'placement', timeLimitSeconds: 120, isCounted: false, wpm: 20, accuracy: 80, timeline: { status: 'no_data', points: [] } })]),
-    );
-    renderPage();
-
-    const cards = await screen.findAllByRole('article');
-    expect(cards).toHaveLength(2);
-    expect(within(cards[0]).getByText('Tiếng Việt rất đẹp')).toBeInTheDocument();
-    expect(within(cards[0]).getByText('42')).toBeInTheDocument();
-    expect(within(cards[0]).getByText('97.2%')).toBeInTheDocument();
-    expect(within(cards[0]).getByText('02 Mar 2026')).toBeInTheDocument();
-    expect(within(cards[0]).getByText('30s')).toBeInTheDocument();
-    expect(within(cards[0]).queryByText('Practice', { exact: false })).not.toBeInTheDocument(); // the mode is only the icon
-    expect(within(cards[0]).getByRole('img', { name: /Speed over time/  })).toBeInTheDocument();
-    expect(screen.getByText('Sessions').parentElement).toHaveTextContent('2Sessions');
-    expect(getSessions).toHaveBeenCalledWith({ page: 1, limit: 3, sort: '-createdAt', status: 'completed' });
-
-    expect(within(cards[1]).getByText('Untitled passage')).toBeInTheDocument();
-    expect(within(cards[1]).getByText('02 Mar 2026')).toBeInTheDocument();
-    expect(within(cards[1]).getByText('2m')).toBeInTheDocument();
-    expect(screen.queryByText('Not counted')).not.toBeInTheDocument(); // an uncounted session looks like the others
-    expect(within(cards[1]).getByText('No time data for this session')).toBeInTheDocument();
-    expect(within(cards[1]).queryByRole('img', { name: /Speed over time/  })).not.toBeInTheDocument();
-
-    const links = screen.getAllByRole('link', { name: /Open the result of/ });
-    expect(links[0]).toHaveAttribute('href', '/typing/result/s1');
-    expect(links[1]).toHaveAttribute('href', '/typing/result/s2');
-  });
-
-  it('sorts the sessions and goes to the next page', async () => {
-    getSessions.mockResolvedValue(page([session()], { total: 8, totalPages: 2 }));
-    const user = userEvent.setup();
-    renderPage();
-
-    await screen.findByRole('article');
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    await waitFor(() => expect(getSessions).toHaveBeenLastCalledWith({ page: 2, limit: 3, sort: '-createdAt', status: 'completed' }));
-
-    await user.click(screen.getByRole('button', { name: /Sort/ }));
-    await user.click(await screen.findByRole('menuitemradio', { name: 'Fastest' }));
-    await waitFor(() => expect(getSessions).toHaveBeenLastCalledWith({ page: 1, limit: 3, sort: '-wpm', status: 'completed' }));
-  });
-
-  it('searches the sessions by passage name and filters them by mode and time', async () => {
-    const user = userEvent.setup();
-    renderPage();
-    await screen.findByRole('article');
-
-    await user.click(screen.getByRole('button', { name: 'Search sessions' }));
-    await user.type(screen.getByRole('textbox', { name: 'Search sessions' }), 'thu{Enter}');
-    await waitFor(() => expect(getSessions).toHaveBeenLastCalledWith({ page: 1, limit: 3, sort: '-createdAt', status: 'completed', q: 'thu' }));
-
-    await user.click(screen.getByRole('button', { name: /Filter/ }));
-    await user.click(within(await screen.findByRole('group', { name: 'Mode' })).getByRole('menuitemradio', { name: 'Placement' }));
-    await waitFor(() => expect(getSessions).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'thu', mode: 'placement' })));
-
-    await user.click(screen.getByRole('button', { name: /Filter/ }));
-    await user.click(within(await screen.findByRole('group', { name: 'Time' })).getByRole('menuitemradio', { name: '2m' }));
-    await waitFor(() =>
-      expect(getSessions).toHaveBeenLastCalledWith({ page: 1, limit: 3, sort: '-createdAt', status: 'completed', q: 'thu', mode: 'placement', timeLimitSeconds: 120 }),
-    );
-  });
-
-  it('says that nothing matches, not that there is no session, when a search or filter finds none', async () => {
-    getSessions.mockResolvedValue(page([]));
-    const user = userEvent.setup();
-    renderPage();
-    expect(await screen.findByText('No sessions yet')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Search sessions' }));
-    await user.type(screen.getByRole('textbox', { name: 'Search sessions' }), 'zzz{Enter}');
-    expect(await screen.findByText('No matching sessions')).toBeInTheDocument();
-  });
-
-  it('says so when there is no session yet, and shows an error with a retry when the list cannot load', async () => {
-    getSessions.mockResolvedValueOnce(page([]));
-    const first = renderPage();
-    expect(await screen.findByText('No sessions yet')).toBeInTheDocument();
-    first.unmount();
-
-    getSessions.mockRejectedValueOnce({ response: { status: 500, data: { message: 'Sessions offline' } } });
-    const user = userEvent.setup();
-    renderPage();
-    expect(await screen.findByText('Sessions offline')).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Profile header' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByRole('article')).toBeInTheDocument();
   });
 
   it('shows a dash in the header while the streak loads', async () => {

@@ -1,7 +1,8 @@
+import type { ChartRange } from '@/modules/profile/types/profile.types';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 
 /** The kinds of task, in the order the form and the filter offer them (`DAILY_TASK_TYPES` in BE/src/models/daily-task.model.ts). */
-export const DAILY_TASK_TYPES = ['sessions', 'minutes', 'wpm', 'accuracy'] as const;
+export const DAILY_TASK_TYPES = ['sessions', 'minutes', 'wpm', 'accuracy', 'minigames'] as const;
 
 export type DailyTaskType = (typeof DAILY_TASK_TYPES)[number];
 
@@ -18,6 +19,8 @@ export interface DailyTask {
    * weakest at it get the task first. Absent, or `null`, when the task has none.
    */
   errorType?: WordErrorType | null;
+  /** The coins a learner gets for completing it (SCRUM-301), 0 to `DAILY_TASK_COINS_MAX`; 0 = no reward. */
+  coins: number;
   /** Only active tasks are given to learners. */
   isActive: boolean;
   createdAt: string;
@@ -51,6 +54,7 @@ export interface DailyTaskInput {
   target: number;
   /** Only an accuracy task may have one; `null` takes it away. */
   errorType?: WordErrorType | null;
+  coins: number;
   isActive: boolean;
 }
 
@@ -68,4 +72,25 @@ export interface DailyTaskListParams {
 export interface DailyTaskSettings {
   /** How many of the active tasks each learner gets a day. */
   dailyTaskCount: number;
+}
+
+/** The minigames of the Minigames tab that count for the daily task `minigames` (`MINIGAMES` in BE/src/models/minigame-play.model.ts). */
+export type MinigameKind = 'chain' | 'rain' | 'bot';
+
+/** The learners who completed tasks in a period (`GET /api/admin/daily-tasks/completions-over-time`). `key` is 'YYYY-MM' (year), the first day of a block of 7 days (month) or a day (week), as in the Progress chart. */
+export interface TaskCompletionsPoint {
+  key: string;
+  /** The learners who completed at least one task in the period, each once. */
+  learners: number;
+  /** The tasks completed in it, one for each learner and day. */
+  tasks: number;
+  /** The learners who completed each task in the period, each once (only the tasks somebody completed). */
+  byTask: { taskId: string; learners: number }[];
+}
+
+export interface TaskCompletionsChartData {
+  range: ChartRange;
+  /** The tasks the bars stand for, the one with the most learners first. */
+  tasks: { taskId: string; title: string }[];
+  points: TaskCompletionsPoint[];
 }

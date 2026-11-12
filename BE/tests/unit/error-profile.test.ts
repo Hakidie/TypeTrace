@@ -71,6 +71,7 @@ describe('trendOf', () => {
 describe('computeErrorProfile', () => {
   it('gives a learner without a session every type without data, with the thresholds', () => {
     expect(computeErrorProfile([])).toEqual({
+      language: 'vi',
       window: PROFILE_WINDOW,
       minOpportunities: MIN_PROFILE_OPPORTUNITIES,
       weakRate: WEAK_RATE,
@@ -84,7 +85,8 @@ describe('computeErrorProfile', () => {
         previousRate: 0,
         trend: 'insufficient_data'
       })),
-      weakTypes: []
+      weakTypes: [],
+      rankedTypes: []
     });
   });
 
@@ -153,5 +155,35 @@ describe('computeErrorProfile', () => {
     expect(typeOf(profile, 'HOI_NGA_CONFUSION').level).toBe('ok');
     expect(typeOf(profile, 'D_MISSING').level).toBe('insufficient_data');
     expect(profile.weakTypes).toEqual([]);
+    // Ok but with enough data: a Weak spots lesson still aims at it.
+    expect(profile.rankedTypes).toEqual(['HOI_NGA_CONFUSION']);
+  });
+
+  it('ranks every type with enough data, weak or ok, by error rate, and leaves out the types without data', () => {
+    const profile = computeErrorProfile([
+      session({
+        TONE_WRONG: [2, 40], // 5 %, ok
+        HOI_NGA_CONFUSION: [8, 40], // 20 %, weak
+        BASE_LETTER: [0, 80], // 0 %, ok
+        MARK_WRONG: [3, 30], // 10 %, ok
+        D_MISSING: [5, 10] // 50 %, but too few chances for a level
+      })
+    ]);
+
+    expect(profile.weakTypes).toEqual(['HOI_NGA_CONFUSION']);
+    expect(profile.rankedTypes).toEqual(['HOI_NGA_CONFUSION', 'MARK_WRONG', 'TONE_WRONG', 'BASE_LETTER']);
+  });
+
+  it('breaks a tie of the ranked types by errors, then by the order of WordError, as the weak ones', () => {
+    const profile = computeErrorProfile([
+      session({
+        HOI_NGA_CONFUSION: [2, 40], // 5 %, 2 errors
+        BASE_LETTER: [4, 80], // 5 %, 4 errors
+        TONE_WRONG: [0, 40], // 0 %
+        D_MISSING: [0, 20] // 0 %, before TONE_WRONG in WordError
+      })
+    ]);
+
+    expect(profile.rankedTypes).toEqual(['BASE_LETTER', 'HOI_NGA_CONFUSION', 'D_MISSING', 'TONE_WRONG']);
   });
 });

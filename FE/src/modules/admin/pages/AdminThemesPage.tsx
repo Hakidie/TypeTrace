@@ -3,11 +3,12 @@ import { useRef, useState } from 'react';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
-import { ListToolbar } from '@/shared/components/list-toolbar';
+import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { fallbackThemes, type ThemeMode } from '@/shared/lib/theme';
 import { ThemeEditor } from '@/modules/settings/components/ThemeEditor';
 import { ThemeGrid, type ThemeOption } from '@/modules/settings/components/ThemeGrid';
@@ -98,7 +99,7 @@ export const AdminThemesPage = () => {
           onEdit={startEditing}
           onDelete={setDeleting}
         />
-        <Pagination page={themes.data.page} totalPages={themes.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent />
+        <Pagination page={themes.data.page} totalPages={themes.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
       </>
     );
   };
@@ -146,11 +147,14 @@ export const AdminThemesPage = () => {
       </div>
 
       {/* PANEL Themes */}
-      <Panel bare>
-        <h2 className="sr-only">Themes</h2>
-        <div className="flex flex-col gap-3">
-          <ListToolbar
-            title="Themes"
+      <Panel
+        title="Themes"
+        bare
+        titleClassName={sectionTitleClass}
+        className="flex flex-col gap-3"
+        actions={
+          <CompactToolbar
+            showWords
             search={{
               label: 'Search themes',
               placeholder: 'Search name…',
@@ -158,11 +162,12 @@ export const AdminThemesPage = () => {
               onSearch: (value) => list.set('q', value),
             }}
             sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-            summary={themes.data ? `${themes.data.total} themes in total` : 'Loading themes…'}
             filters={[{ label: 'Mode', value: isDark ?? '', options: MODE_OPTIONS, onChange: (value) => list.set('isDark', value) }]}
+            count={{ icon: Palette, value: themes.data?.total ?? '…', label: 'Themes' }}
           />
-          {renderList()}
-        </div>
+        }
+      >
+        {renderList()}
       </Panel>
 
       <ConfirmDialog

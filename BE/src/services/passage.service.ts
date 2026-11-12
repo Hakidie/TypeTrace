@@ -1,17 +1,19 @@
 import type { QueryFilter, Types } from 'mongoose';
 import {
   computePassageStats,
-  MAX_USER_PASSAGES,
   notEnglish,
   ownerFieldsFor,
   PassageDocument,
+  type PassageLanguage,
   PassageModel,
+  practiceLanguageFilter,
   publicOwnerName
 } from '../models/passage.model';
 import type { SessionMode } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
+import { countCountedPassages, getLearnerOwnerIds, getLockedByOwner, getLockedPassageIds, getPlanOf } from './passage-lock.service';
 import { titleSearchPattern } from '../utils/passage-text';
 import { CreatePassageInput, ListPassagesQuery, UpdatePassageInput } from '../validators/passage.validator';
 
@@ -60,19 +62,30 @@ const OWN_TYPEABLE_STATUSES = ['published', 'pending', 'rejected'] as const;
 const OWN_EDITABLE_STATUSES = ['published', 'rejected'] as const;
 
 /**
- * What a learner may pick for a `mode`: placement passages for the test, practice ones otherwise. Public passages must be
- * published. The owner exception: in practice the learner's own passages come on top, published, waiting for review
- * (`pending`) or turned down (`rejected`). Drafts, archived passages and other people's private passages never match.
+ * What a learner may pick for a `mode`: placement passages for the test (always Vietnamese), practice ones of `language`
+ * otherwise (SCRUM-219: Vietnamese, or the English ones that are not the ranked duels', see `practiceLanguageFilter`). Public
+ * passages must be published. The owner exception: in practice the learner's own passages come on top, published, waiting
+ * for review (`pending`) or turned down (`rejected`). Drafts, archived passages and other people's private passages never
+ * match. `lockedIds` (`getLockedPassageIds`) never match either. `includeArchived` (the learner's own list, `mine=true`) also
+ * shows their own archived passages, which they can no longer practice, edit or delete.
  */
-export const learnerPassageFilter = (userId: string, mode: SessionMode) =>
+export const learnerPassageFilter = (
+  userId: string,
+  mode: SessionMode,
+  lockedIds: Types.ObjectId[] = [],
+  language: PassageLanguage = 'vi',
+  includeArchived = false
+) =>
   mode === 'placement'
     ? { status: 'published' as const, isPlacement: true, visibility: 'public' as const, ...notEnglish }
     : {
         isPlacement: false,
-        ...notEnglish,
+        ...practiceLanguageFilter(language),
+        // Passages past their owner's limit (US11.1): the caller says which ones.
+        ...(lockedIds.length ? { _id: { $nin: lockedIds } } : {}),
         $or: [
           { status: 'published' as const, visibility: 'public' as const },
-          { owner: userId, status: { $in: [...OWN_TYPEABLE_STATUSES] } }
+          { owner: userId, status: { $in: includeArchived ? [...OWN_TYPEABLE_STATUSES, 'archived' as const] : [...OWN_TYPEABLE_STATUSES] } }
         ]
       };
 
@@ -81,8 +94,16 @@ export const learnerPassageFilter = (userId: string, mode: SessionMode) =>
 // `pendingEdit.title` only tells that an edit waits (`editPending`); its text is read when the learner opens the passage.
 const listFields = 'title source wordCount ownerName visibility status reviewNote pendingEdit.title createdAt owner';
 
+/** What the list needs to know about the learner's plan (US11.1): their locked passages, the admins, and the plan's permission. */
+interface ListPlan {
+  lockedIds: Set<string>;
+  /** The owners on the page that are learner accounts: the passages of an admin or of a deleted account are system passages. */
+  learnerOwnerIds: Set<string>;
+  canUsePublicPassages: boolean;
+}
+
 /** One passage of the learner list. `reviewNote` (why a request was turned down) only goes to the owner. */
-const toListItem = (userId: string, withContent = false) => (passage: PassageDocument) => {
+const toListItem = (userId: string, withContent = false, plan?: ListPlan) => (passage: PassageDocument) => {
   const isOwn = String(passage.owner) === userId;
   return {
     _id: passage._id,
@@ -96,6 +117,12 @@ const toListItem = (userId: string, withContent = false) => (passage: PassageDoc
     // An edit of this public passage waits for an admin (the approved text stays public meanwhile).
     ...(isOwn && passage.pendingEdit ? { editPending: true } : {}),
     ...(isOwn && passage.reviewNote ? { reviewNote: passage.reviewNote } : {}),
+    // Past the owner's limit (US11.1): the owner sees it dimmed; nobody else gets it at all.
+    ...(plan?.lockedIds.has(String(passage._id)) ? { locked: true } : {}),
+    // Another learner's public passage on a plan that may not practice it: shown, but locked.
+    ...(plan && !plan.canUsePublicPassages && !isOwn && passage.visibility === 'public' && passage.owner && plan.learnerOwnerIds.has(String(passage.owner))
+      ? { lockedByPlan: true }
+      : {}),
     isOwn,
     createdAt: passage.createdAt
   };
@@ -104,14 +131,8 @@ const toListItem = (userId: string, withContent = false) => (passage: PassageDoc
 /** The learner's own private passages: the only ones they may change. Another user's passage, or a public one, answers 404. */
 const ownedBy = (userId: string, id?: string) => ({ ...(id ? { _id: id } : {}), owner: userId, visibility: 'private' as const });
 
-/**
- * How many own private passages the learner can type (the list with `visibility=private`), waiting for review, turned
- * down or not: the ones the limit counts. One an admin archived, or made public, does not take a place.
- */
-const countUsableOwnPassages = (userId: string) =>
-  PassageModel.countDocuments({ ...ownedBy(userId), status: { $in: [...OWN_TYPEABLE_STATUSES] }, isPlacement: false });
-
-const tooManyPassages = () => badRequest(`You can have at most ${MAX_USER_PASSAGES} passages`);
+/** The limit comes from the learner's plan (`getPlanOf`); `countCountedPassages` says how much of it is used. */
+const tooManyPassages = (limit: number) => badRequest(`You can have at most ${limit} passages`);
 
 /**
  * The passages a learner can choose from for `mode` (`learnerPassageFilter`), one page at a time. `q` searches the
@@ -120,8 +141,12 @@ const tooManyPassages = () => badRequest(`You can have at most ${MAX_USER_PASSAG
  * own passages (`true`, private or approved: the Passages page, whose cards also show the text) or only the others
  * (`false`). Titles sort in Vietnamese order.
  */
-export const listPassages = async (userId: string, { mode, q, visibility, mine, ...pagination }: ListPassagesQuery) => {
-  const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode)];
+export const listPassages = async (userId: string, { mode, language, q, visibility, mine, ...pagination }: ListPassagesQuery) => {
+  // A locked passage is hidden from everyone but its owner, who sees it dimmed (US11.1).
+  const [lockedByOwner, { config }] = await Promise.all([getLockedByOwner(), getPlanOf(userId)]);
+  const ownLocked = lockedByOwner.get(userId) ?? [];
+  const hidden = [...lockedByOwner].filter(([owner]) => owner !== userId).flatMap(([, lockedIds]) => lockedIds);
+  const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode, hidden, language, mine === true)];
   if (visibility) conditions.push({ visibility });
   if (mine !== undefined) conditions.push(mine ? { owner: userId } : { owner: { $ne: userId } });
   if (q) conditions.push({ title: titleSearchPattern(q) });
@@ -129,7 +154,15 @@ export const listPassages = async (userId: string, { mode, q, visibility, mine, 
   const withContent = mine === true;
   const select = withContent ? `${listFields} content` : listFields;
   const page = await paginate(PassageModel, { $and: conditions }, pagination, { select, collation: { locale: 'vi' } });
-  return { ...page, items: page.items.map(toListItem(userId, withContent)) };
+  const plan: ListPlan | undefined =
+    mode === 'placement'
+      ? undefined
+      : {
+          lockedIds: new Set(ownLocked.map(String)),
+          learnerOwnerIds: await getLearnerOwnerIds(page.items.flatMap((item) => (item.owner ? [item.owner] : []))),
+          canUsePublicPassages: config.canUsePublicPassages
+        };
+  return { ...page, items: page.items.map(toListItem(userId, withContent, plan)) };
 };
 
 /**
@@ -155,7 +188,9 @@ const oneAtATime = <T>(userId: string, task: () => Promise<T>) => {
 const saveOwnPassage = async (userId: string, { title, source, content }: CreatePassageInput) => {
   const author = await UserModel.findById(userId).select('role displayName email');
   if (!author) throw notFound('User not found');
-  if ((await countUsableOwnPassages(userId)) >= MAX_USER_PASSAGES) throw tooManyPassages();
+  // An admin's passages are system passages: no limit.
+  const limit = author.role === 'admin' ? Infinity : (await getPlanOf(userId)).config.maxPassages;
+  if ((await countCountedPassages(userId)) >= limit) throw tooManyPassages(limit);
 
   // create() runs the model hook that counts the words and the error tags.
   const passage = await PassageModel.create({
@@ -170,16 +205,16 @@ const saveOwnPassage = async (userId: string, { title, source, content }: Create
   });
   // `oneAtATime` only covers this server: when several servers run, requests sent at the same time can all pass the
   // check above. Count again, and take this one back if it went over.
-  if ((await countUsableOwnPassages(userId)) > MAX_USER_PASSAGES) {
+  if ((await countCountedPassages(userId)) > limit) {
     await passage.deleteOne();
-    throw tooManyPassages();
+    throw tooManyPassages(limit);
   }
   return toListItem(userId)(passage);
 };
 
 /**
  * Saves a passage the learner pasted (already cleaned by the validator): private, so only they (and admins) see it,
- * published at once so it can be typed, never a placement passage. At most `MAX_USER_PASSAGES` per learner, saved one
+ * published at once so it can be typed, never a placement passage. At most the limit of the learner's plan, saved one
  * at a time per learner.
  */
 export const createPassage = (userId: string, input: CreatePassageInput) =>
@@ -200,7 +235,15 @@ const refusal = async (userId: string, id: string, message: (passage: { visibili
  */
 export const deletePassage = async (userId: string, id: string) => {
   const passage = await PassageModel.findOneAndDelete(ownedBy(userId, id));
-  if (!passage) throw await refusal(userId, id, () => 'This passage is public now: only an admin can remove it');
+  if (passage) return;
+  // A passage past the limit (US11.1) may always go, also when it is public, unless ranked duels play it.
+  const isLocked = (await getLockedPassageIds({ ownerId: userId })).some((lockedId) => String(lockedId) === id);
+  if (isLocked) {
+    const { deletedCount } = await PassageModel.deleteOne({ _id: id, owner: userId, isRanked: false });
+    if (deletedCount) return;
+    throw conflict('This passage is used in ranked duels: only an admin can remove it');
+  }
+  throw await refusal(userId, id, () => 'This passage is public now: only an admin can remove it');
 };
 
 /** One of the learner's own passages with its text and source, to edit it. Another user's passage, or an archived one: 404. */

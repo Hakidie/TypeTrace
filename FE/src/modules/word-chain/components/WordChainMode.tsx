@@ -1,39 +1,72 @@
-import { Lightbulb, Link2, SkipForward, Timer } from 'lucide-react';
+import { Languages, Lightbulb, Link2, SkipForward, Timer, Trophy } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR, type AvatarPose } from '@/modules/avatar/types/avatar.types';
 import { BotSprite, type BotMove } from '@/modules/tutorial/components/BotSprite';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
+import { useMinigamePlay } from '@/modules/daily-tasks/hooks/use-minigame-play';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Lottie } from '@/shared/components/lottie';
 import { Button } from '@/shared/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/shared/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
 import { useSaveWordChainScore, useWordBank } from '../hooks/use-word-chain';
 import { useWordChainGame, type ChainLink } from '../hooks/use-word-chain-game';
 import { WordChainBoard } from './WordChainBoard';
 import { BONUS_TIERS, HINT_COST_MS, SKIP_COST_MS, START_MS } from '../lib/word-chain';
+import { useWordChainLang, type WordChainText } from '../lib/word-chain-text';
 
 const seconds = (ms: number) => Math.ceil(ms / 1000);
+
+/** The trophy beside the score: opens the leaderboard in a modal, with a link to the Minigames tab of the Leaderboard page. */
+const BoardButton = ({ text }: { text: WordChainText }) => (
+  <Dialog>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DialogTrigger asChild>
+            <Button type="button" variant="ghost" aria-label={text.leaderboard} className="mb-[3px] size-8 p-0 text-primary hover:bg-primary hover:text-primary-foreground">
+              <Trophy className="size-6" aria-hidden="true" />
+            </Button>
+          </DialogTrigger>
+        </TooltipTrigger>
+        <TooltipContent>{text.leaderboard}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+    <DialogContent className="max-w-md gap-4 border-border bg-background/75 backdrop-blur-xs transition-colors hover:border-destructive/40">
+      <DialogHeader>
+        <DialogTitle>{text.leaderboardTitle}</DialogTitle>
+        <DialogDescription>{text.leaderboardHint}</DialogDescription>
+      </DialogHeader>
+      <WordChainBoard text={text} className="border-0 bg-transparent backdrop-blur-none" />
+      <Button asChild variant="outline">
+        <RouterLink to="/leaderboard?tab=minigames">{text.openLeaderboardPage}</RouterLink>
+      </Button>
+    </DialogContent>
+  </Dialog>
+);
 
 /** A glass card over the board, for the start and result screens (as in Rain). */
 const Overlay = ({ children }: { children: ReactNode }) => (
   <div className="absolute inset-0 z-20 grid place-items-center bg-background/40 p-4 backdrop-blur-[2px]">
-    <div className="duel-pop flex w-full max-w-sm flex-col items-center gap-4 border border-primary/30 bg-card/90 p-6 text-center backdrop-blur-md">
+    <div className="duel-pop flex w-full max-w-sm flex-col items-center gap-4 border border-border bg-background/75 p-6 text-center backdrop-blur-xs transition-colors hover:border-destructive/40">
       {children}
     </div>
   </div>
 );
 
 /** One word of the chain: the bot's on the left, yours on the right, the syllable to chain from in red. */
-const Link = ({ link, latest }: { link: ChainLink; latest: boolean }) => {
+const Link = ({ link, latest, text }: { link: ChainLink; latest: boolean; text: WordChainText }) => {
   const [first, second] = link.word.split(' ');
   const mine = link.by === 'me';
   return (
     <li
       className={cn('chain-in flex items-center gap-2', mine ? 'justify-end [--chain-from:0.75rem]' : 'justify-start')}
-      aria-label={`${mine ? 'Bạn' : 'Bot'}: ${link.word}`}
+      aria-label={`${mine ? text.you : 'Bot'}: ${link.word}`}
     >
       {!mine && <span className="w-7 text-xs uppercase tracking-wider text-muted-foreground">Bot</span>}
       <span
@@ -66,14 +99,18 @@ export const WordChainMode = () => {
   const { data: me } = useCurrentUser();
   const save = useSaveWordChainScore();
   const { mutate: saveScore } = save;
+  // every game that runs to its end counts for the daily task `minigames`, with or without a point (SCRUM-300)
+  const { begin: beginPlay, finish: finishPlay } = useMinigamePlay('chain');
   // a finished game with points goes to the leaderboard (the server works the score out again)
   const onOver = useCallback(
     (chain: ChainLink[], score: number) => {
+      finishPlay();
       if (score > 0) saveScore(chain.map(({ by, word }) => ({ by, word })));
     },
-    [saveScore],
+    [saveScore, finishPlay],
   );
-  const game = useWordChainGame(bank.data, me?._id ?? 'guest', onOver);
+  const { text: t, toggle: toggleLang } = useWordChainLang();
+  const game = useWordChainGame(bank.data, me?._id ?? 'guest', onOver, t);
   /** How the avatar and the bot react to the last answer, for a moment. */
   const [reaction, setReaction] = useState<'good' | 'bad' | null>(null);
   const reactionTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -100,7 +137,7 @@ export const WordChainMode = () => {
   if (bank.isLoading) return <LoadingState rows={3} />;
   if (bank.isError) return <ErrorState error={bank.error} onRetry={() => bank.refetch()} />;
   if (!bank.data?.botWords.length)
-    return <EmptyState icon={Link2} title="Chưa có danh sách từ" description="Chạy minigame-words/build-noi-tu.mjs để tạo FE/public/noi-tu/words.txt." />;
+    return <EmptyState icon={Link2} title={t.noWordList} description={t.noWordListHint} />;
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -115,6 +152,7 @@ export const WordChainMode = () => {
   };
   const startGame = () => {
     setText('');
+    beginPlay();
     game.start();
   };
   const urgent = playing && game.leftMs <= 10_000;
@@ -124,26 +162,27 @@ export const WordChainMode = () => {
   const botMove: BotMove = reaction === 'good' ? 'lose' : reaction === 'bad' ? 'win' : playing && !text ? 'typing' : 'idle';
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-      <section aria-label="Nối từ" className="flex w-full flex-col gap-4 lg:px-20">
+    <div className="mx-auto w-full max-w-6xl">
+      <section aria-label={t.title} className="flex w-full flex-col gap-4 lg:px-24">
         {/* the clock, the time bar and the score */}
         <div className="flex items-end justify-between gap-4">
-          <div className={cn('flex items-center gap-2 tabular-nums', urgent ? 'text-destructive' : 'text-foreground')}>
+          <div className={cn('flex items-center gap-2 tabular-nums', urgent ? 'text-destructive' : 'text-primary')}>
             <Timer className="size-5" aria-hidden="true" />
-            <span role="timer" aria-label="Thời gian còn lại" className={cn('inline-block text-3xl font-bold', urgent && 'chain-urgent')}>
+            <span role="timer" aria-label={t.timeLeft} className={cn('inline-block text-3xl font-bold', urgent && 'chain-urgent')}>
               {seconds(game.leftMs)}s
             </span>
           </div>
-          <dl className="flex gap-5 text-sm text-muted-foreground">
+          <dl className="ml-auto flex gap-5 text-sm text-muted-foreground">
             <div className="flex items-baseline gap-1.5">
-              <dt>Điểm</dt>
-              <dd className="text-2xl font-bold tabular-nums text-foreground">{game.score}</dd>
+              <dt>{t.score}</dt>
+              <dd className="text-2xl font-semibold tabular-nums text-primary">{game.score}</dd>
             </div>
             <div className="flex items-baseline gap-1.5">
-              <dt>Kỷ lục</dt>
-              <dd className="text-2xl font-bold tabular-nums text-foreground">{game.best}</dd>
+              <dt>{t.best}</dt>
+              <dd className="text-2xl font-semibold tabular-nums text-primary">{game.best}</dd>
             </div>
           </dl>
+          <BoardButton text={t} />
         </div>
         <div className="h-1.5 bg-muted" aria-hidden="true">
           <div
@@ -153,7 +192,7 @@ export const WordChainMode = () => {
         </div>
 
         {/* the board: the chain, then what to type */}
-        <div className="relative flex min-h-[22rem] flex-col border border-primary/20 bg-background/30 backdrop-blur-sm">
+        <div className="relative flex min-h-[30rem] flex-col border border-primary/20 bg-background/30 backdrop-blur-sm">
           {/* the bot leans on the left side of the board, the player's avatar on the right (decorative: the chain says it all) */}
           <div aria-hidden="true" className="pointer-events-none absolute -left-[4.5rem] bottom-6 hidden lg:block">
             <BotSprite level="medium" move={botMove} />
@@ -161,29 +200,29 @@ export const WordChainMode = () => {
           <div aria-hidden="true" className="pointer-events-none absolute -right-[5.5rem] bottom-4 hidden -scale-x-100 lg:block">
             <AvatarSprite look={me?.avatar ?? DEFAULT_AVATAR} pose={myPose} scale={1.25} eager />
           </div>
-          <ol ref={list} className="flex max-h-72 flex-1 flex-col gap-2.5 overflow-y-auto p-4" aria-label="Chuỗi từ">
+          <ol ref={list} className="flex max-h-96 flex-1 flex-col gap-2.5 overflow-y-auto p-4" aria-label={t.chainList}>
             {game.chain.map((link, i) => (
-              <Link key={link.id} link={link} latest={i === game.chain.length - 1} />
+              <Link key={link.id} link={link} latest={i === game.chain.length - 1} text={t} />
             ))}
           </ol>
           <div className="border-t border-primary/15 p-4">
             <p className="mb-3 text-center text-sm text-muted-foreground">
-              Nối tiếp bằng <span className="ml-1 text-3xl font-bold text-primary">{game.prompt || '...'}</span>
+              {t.chainFrom} <span className="ml-1 text-3xl font-bold text-primary">{game.prompt || '...'}</span>
             </p>
             <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
               {/* the linking syllable is typed for the player: a fixed part of the box, in red, before what they type */}
-              <div className="flex h-12 min-w-0 flex-1 border border-input bg-background/60 focus-within:border-primary focus-within:ring-2 focus-within:ring-ring">
+              <div className="flex h-12 min-w-0 flex-1 border border-input bg-background/60 focus-within:border-primary focus-within:ring-1 focus-within:ring-ring">
                 {game.prompt && (
                   <span
                     aria-hidden="true"
                     className="flex shrink-0 items-center gap-1.5 border-r border-primary/25 bg-primary/10 px-3 text-lg font-semibold text-primary"
                   >
                     {game.prompt}
-                    <span className="text-[10px] font-normal uppercase tracking-wider text-primary/70">có sẵn</span>
+                    <span className="text-[10px] font-normal uppercase tracking-wider text-primary/70">{t.given}</span>
                   </span>
                 )}
                 <label htmlFor="word-chain-box" className="sr-only">
-                  {game.prompt ? `Tiếng thứ hai (tiếng "${game.prompt}" đã có sẵn)` : 'Từ nối tiếp'}
+                  {t.secondSyllable(game.prompt)}
                 </label>
                 <input
                   id="word-chain-box"
@@ -195,16 +234,16 @@ export const WordChainMode = () => {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  placeholder={game.prompt ? 'gõ tiếng thứ hai' : ''}
+                  placeholder={game.prompt ? t.typeSecond : ''}
                   className="h-full min-w-0 flex-1 bg-transparent px-3 text-lg outline-none disabled:opacity-60"
                 />
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" className="h-12 flex-1 gap-1.5 sm:flex-none" onClick={game.hint} disabled={!playing}>
-                  <Lightbulb className="size-4" aria-hidden="true" /> Gợi ý <span className="text-xs text-muted-foreground">−{HINT_COST_MS / 1000}s</span>
+                  <Lightbulb className="size-4" aria-hidden="true" /> {t.hint} <span className="text-xs text-muted-foreground">−{HINT_COST_MS / 1000}s</span>
                 </Button>
                 <Button type="button" variant="outline" className="h-12 flex-1 gap-1.5 sm:flex-none" onClick={game.skip} disabled={!playing}>
-                  <SkipForward className="size-4" aria-hidden="true" /> Bỏ qua <span className="text-xs text-muted-foreground">−{SKIP_COST_MS / 1000}s</span>
+                  <SkipForward className="size-4" aria-hidden="true" /> {t.skip} <span className="text-xs text-muted-foreground">−{SKIP_COST_MS / 1000}s</span>
                 </Button>
               </div>
             </form>
@@ -224,21 +263,19 @@ export const WordChainMode = () => {
 
           {game.phase === 'ready' && (
             <Overlay>
-              <Link2 className="size-10 text-primary" aria-hidden="true" />
-              <h2 className="text-2xl font-bold">Nối từ</h2>
-              <p className="text-sm text-muted-foreground">
-                Gõ một từ hai tiếng bắt đầu bằng tiếng cuối của từ bot đưa. Bạn có {START_MS / 1000} giây, mỗi từ đúng được 1 điểm và thêm giờ: gõ càng nhanh
-                thêm càng nhiều.
-              </p>
-              <ul className="grid w-full grid-cols-2 gap-1.5 text-xs text-muted-foreground">
+              <h2 className="flex items-center gap-3 text-2xl font-bold text-primary">
+                <Link2 className="size-8" aria-hidden="true" /> {t.title}
+              </h2>
+              <p className="text-base text-muted-foreground">{t.rules(START_MS / 1000)}</p>
+              <ul className="grid w-full grid-cols-2 gap-1.5 text-base text-muted-foreground">
                 {BONUS_TIERS.map((tier) => (
                   <li key={tier.ms} className="border border-primary/20 px-2 py-1">
-                    {tier.minWpm ? `≥ ${tier.minWpm} WPM` : 'Chậm hơn'}: <span className="font-semibold text-primary">+{tier.ms / 1000}s</span>
+                    {tier.minWpm ? `≥ ${tier.minWpm} WPM` : t.slower}: <span className="font-semibold text-primary">+{tier.ms / 1000}s</span>
                   </li>
                 ))}
               </ul>
               <Button className="w-full" onClick={startGame} autoFocus>
-                Bắt đầu
+                {t.start}
               </Button>
             </Overlay>
           )}
@@ -251,19 +288,24 @@ export const WordChainMode = () => {
                   <Lottie name="trophy" className="size-20" />
                 </div>
               )}
-              <h2 className="text-2xl font-bold">{game.newBest ? 'Kỷ lục mới!' : 'Hết giờ'}</h2>
+              <h2 className="text-2xl font-bold">{game.newBest ? t.newBest : t.timesUp}</h2>
               <p className="text-muted-foreground">
-                Bạn được <span className="text-3xl font-bold tabular-nums text-foreground">{game.score}</span> điểm. Kỷ lục:{' '}
+                {t.scored} <span className="text-3xl font-bold tabular-nums text-foreground">{game.score}</span> {t.scoredPoints}{' '}
                 <span className="font-semibold text-foreground">{game.best}</span>.
               </p>
               <Button className="w-full" onClick={startGame} autoFocus>
-                Chơi lại
+                {t.playAgain}
               </Button>
             </Overlay>
           )}
         </div>
+        {/* the language of the game's texts, under the board */}
+        <div className="flex justify-center">
+          <Button type="button" variant="ghost" onClick={toggleLang} className="h-8 gap-1.5 px-2 text-sm text-muted-foreground hover:bg-primary hover:text-primary-foreground">
+            <Languages className="size-4" aria-hidden="true" /> {t.switchTo}
+          </Button>
+        </div>
       </section>
-      <WordChainBoard />
     </div>
   );
 };

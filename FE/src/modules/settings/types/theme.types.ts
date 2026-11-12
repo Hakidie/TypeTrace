@@ -14,6 +14,8 @@ export interface Theme {
 export interface ThemeInput {
   name: string;
   colors: ThemeColors;
+  /** The mode the theme is made for; the mode in use when missing. */
+  mode?: ThemeMode;
 }
 
 /** The mode in use and the theme chosen for each mode (`null` = the built-in palette of that mode). */

@@ -5,8 +5,9 @@ import * as dailyProgressService from '../services/daily-progress.service';
 import * as errorProfileService from '../services/error-profile.service';
 import * as monthlyProgressService from '../services/monthly-progress.service';
 import * as userDailyTasksService from '../services/user-daily-tasks.service';
-import { updateTimeZone } from '../services/user.service';
+import { updateSettings as saveSettings } from '../services/user.service';
 import { badRequest, notFound } from '../utils/app-error';
+import type { LanguageQuery } from '../validators/common.validator';
 import {
   MonthlyProgressQuery,
   UpdateAvatarSourceInput,
@@ -54,26 +55,37 @@ export const getStreak = async (req: Request, res: Response) => {
   res.json(await dailyProgressService.getStreak(req.user!.sub));
 };
 
+/** Claims today's streak reward: `{ coins, totalCoins }`; 400 without a counted session today, 409 once claimed. */
+export const claimStreakReward = async (req: Request, res: Response) => {
+  res.json(await dailyProgressService.claimStreakReward(req.user!.sub));
+};
+
 /** The learner's daily tasks of today, each with its progress (SCRUM-112). */
 export const getDailyTasks = async (req: Request, res: Response) => {
   res.json(await userDailyTasksService.getTodayDailyTasks(req.user!.sub));
 };
 
-/** The learner's error profile: rate, level and trend of each error type in their last counted sessions (SCRUM-27). */
+/**
+ * The learner's error profile: rate, level and trend of each error type in their last counted sessions (SCRUM-27), of one
+ * typing language (`?language=`, their Practice language when missing, SCRUM-219).
+ */
 export const getErrorProfile = async (req: Request, res: Response) => {
-  res.json(await errorProfileService.getErrorProfile(req.user!.sub));
+  const { language } = req.query as LanguageQuery;
+  res.json(await errorProfileService.getErrorProfile(req.user!.sub, language));
 };
 
-/** The learner's WPM and errors of each point of the profile chart: months, weeks or days, by `range` (SCRUM-240). */
+/** The learner's WPM and errors of each point of the profile chart: months, weeks or days, by `range` (SCRUM-240), of one typing language. */
 export const getMonthlyProgress = async (req: Request, res: Response) => {
-  const { range, date } = req.query as unknown as MonthlyProgressQuery;
-  res.json(await monthlyProgressService.getMonthlyProgress(req.user!.sub, range, date));
+  const { range, date, language } = req.query as unknown as MonthlyProgressQuery;
+  res.json(await monthlyProgressService.getMonthlyProgress(req.user!.sub, range, date, language));
 };
 
-/** Saves the learner's time zone, which the page sends from the browser (SCRUM-31). Answers the user, like `updateProfile`. */
+/**
+ * Saves the learner's time zone, which the page sends from the browser (SCRUM-31), and the language they type in Practice
+ * (SCRUM-219). Answers the user, like `updateProfile`.
+ */
 export const updateSettings = async (req: Request, res: Response) => {
-  const { timezone } = req.body as UpdateSettingsInput;
-  res.json(await updateTimeZone(req.user!.sub, timezone));
+  res.json(await saveSettings(req.user!.sub, req.body as UpdateSettingsInput));
 };
 
 export const uploadAvatar = async (req: Request, res: Response) => {

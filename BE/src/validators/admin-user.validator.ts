@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PLAN_IDS } from '../models/subscription.model';
 import { USER_ROLES, USER_STATUSES } from '../models/user.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { optionalBooleanQuerySchema } from './common.validator';
@@ -9,6 +10,8 @@ export const listUsersQuerySchema = paginationQuerySchema.extend({
   role: z.enum(USER_ROLES).optional(),
   verified: optionalBooleanQuerySchema,
   status: z.enum(USER_STATUSES).optional(),
+  /** The plan the account is on now. */
+  plan: z.enum(PLAN_IDS).optional(),
   sort: sortSchema(['createdAt', 'email', 'displayName', 'role'])
 });
 

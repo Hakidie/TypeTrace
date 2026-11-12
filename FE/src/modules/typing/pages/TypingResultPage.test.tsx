@@ -13,6 +13,10 @@ vi.mock('@/modules/ranked/api/ranked.api', () => ({
   rankedApi: { placementSettings: () => placementSettings() },
 }));
 
+vi.mock('@/modules/profile/api/profile.api', () => ({
+  profileApi: { getStreak: () => new Promise(() => {}) },
+}));
+
 vi.mock('../api/typing.api', () => ({
   typingApi: { get: (id: string) => get(id), stats: (id: string) => stats(id), replay: (id: string) => replay(id) },
 }));
@@ -244,13 +248,42 @@ describe('TypingResultPage', () => {
     expect(list).toHaveTextContent('ACC50%');
   });
 
-  it('shows the passage name, the typing mode and the time chosen under the speed chart', async () => {
+  it('shows the passage name, the typing mode, the language and the time chosen under the speed chart', async () => {
     get.mockResolvedValue(completed);
     renderPage();
 
     expect(await screen.findByText('Tiếng Việt rất đẹp')).toBeInTheDocument();
     expect(screen.getByText('Practice')).toBeInTheDocument();
+    // A session from before SCRUM-219 has no language: it was Vietnamese.
+    expect(screen.getByText('Vietnamese')).toBeInTheDocument();
     expect(screen.getByText('30s')).toBeInTheDocument(); // timeLimitSeconds of the stats
+  });
+
+  it('shows an English session with the English error types (SCRUM-219)', async () => {
+    get.mockResolvedValue({
+      ...completed,
+      language: 'en',
+      passageTitle: 'Watering the Plants',
+      targetWords: ['Every', 'evening'],
+      words: [
+        { index: 0, target: 'Every', typed: 'every', errorTypes: ['CASE_WRONG'] },
+        { index: 1, target: 'evening', typed: 'evenign', errorTypes: ['LETTERS_SWAPPED'] },
+      ],
+      // Only the types of the session's language are stored.
+      errorCounts: { LETTER_WRONG: 0, LETTER_MISSING: 0, LETTER_EXTRA: 0, LETTERS_SWAPPED: 1, CASE_WRONG: 1, PUNCTUATION_WRONG: 0 },
+      opportunityCounts: { LETTER_WRONG: 2, LETTER_MISSING: 2, LETTER_EXTRA: 2, LETTERS_SWAPPED: 2, CASE_WRONG: 2, PUNCTUATION_WRONG: 0 },
+    });
+    stats.mockResolvedValue(sessionStats({ wrongWords: 2, errorTypes: [{ type: 'CASE_WRONG', errors: 1, opportunities: 2, rate: 50 }] }));
+    renderPage();
+
+    expect(await screen.findByText('English')).toBeInTheDocument();
+    await openErrorDetail();
+    expect(screen.getByText('Wrong case', { selector: 'td' })).toBeInTheDocument();
+    expect(screen.getByText('Swapped letters', { selector: 'td' })).toBeInTheDocument();
+    // The rates list the English types that had a chance, never the Vietnamese ones.
+    expect(screen.getByText('Extra letter')).toBeInTheDocument();
+    expect(screen.queryByText('Wrong tone')).not.toBeInTheDocument();
+    expect(screen.queryByText('Wrong punctuation')).not.toBeInTheDocument();
   });
 
   it('shows a dash for a session saved before the passage name was stored, and the placement mode', async () => {
@@ -290,6 +323,15 @@ describe('TypingResultPage', () => {
     expect(await screen.findByRole('button', { name: 'Replay' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('link', { name: 'Type again' })).toHaveAttribute('href', '/typing');
     expect(replay).not.toHaveBeenCalled(); // loaded only when asked for
+  });
+
+  it('goes back to Weak spots with Type again after a Weak spots lesson, and names the mode (US3.2)', async () => {
+    get.mockResolvedValue({ ...completed, mode: 'targeted', passageTitle: 'Weak spots: hỏi / ngã, đ', focusErrorTypes: ['HOI_NGA_CONFUSION', 'D_MISSING'] });
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: 'Type again' })).toHaveAttribute('href', '/typing?mode=targeted');
+    expect(await screen.findByText('Weak spots: hỏi / ngã, đ')).toBeInTheDocument();
+    expect(screen.getByText('Train')).toBeInTheDocument();
   });
 
   it('plays the replay in place of the typed passage on Replay, and shows the passage again on a second press (SCRUM-35)', async () => {

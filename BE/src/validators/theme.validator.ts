@@ -23,7 +23,9 @@ export const themeColorsSchema = z.object(colorsShape).superRefine((colors, ctx)
 
 export const createThemeSchema = z.object({
   name: nameSchema,
-  colors: themeColorsSchema
+  colors: themeColorsSchema,
+  /** The mode the theme is made for; the mode in use when missing. The background must fit it. */
+  mode: z.enum(THEME_MODES).optional()
 });
 
 export const updateThemeSchema = z

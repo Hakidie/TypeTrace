@@ -1,13 +1,16 @@
 import { Request, Response } from 'express';
 import * as replayService from '../services/session-replay.service';
 import * as sessionService from '../services/typing-session.service';
+import type { LanguageQuery } from '../validators/common.validator';
 import { CompleteSessionInput, CreateSessionInput, ListSessionsQuery } from '../validators/typing-session.validator';
 
 // `authGuard` runs first, so `req.user` is always set here.
 const userIdOf = (req: Request) => req.user!.sub;
 
+/** Past the learner's AI limit (`lessonAiLimiter` sets `res.locals.aiLimited`), a Weak spots lesson is the word list. */
 export const createSession = async (req: Request, res: Response) => {
-  res.status(201).json(await sessionService.startSession(userIdOf(req), req.body as CreateSessionInput));
+  const aiAllowed = !res.locals.aiLimited;
+  res.status(201).json(await sessionService.startSession(userIdOf(req), req.body as CreateSessionInput, { aiAllowed }));
 };
 
 export const listSessions = async (req: Request, res: Response) => {
@@ -15,7 +18,7 @@ export const listSessions = async (req: Request, res: Response) => {
 };
 
 export const getActivity = async (req: Request, res: Response) => {
-  res.json(await sessionService.getOwnActivity(userIdOf(req)));
+  res.json(await sessionService.getOwnActivity(userIdOf(req), (req.query as LanguageQuery).language));
 };
 
 export const getSession = async (req: Request, res: Response) => {

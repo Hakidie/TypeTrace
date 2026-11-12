@@ -1,5 +1,6 @@
 import userEvent from '@testing-library/user-event';
 import { screen, within } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
 import type { ErrorProfile, ErrorTypeProfile } from '../types/profile.types';
@@ -8,8 +9,21 @@ import { ProfileErrorProfile } from './ProfileErrorProfile';
 const getErrorProfile = vi.fn();
 
 vi.mock('@/modules/profile/api/profile.api', () => ({
-  profileApi: { getErrorProfile: () => getErrorProfile() },
+  profileApi: { getErrorProfile: (language?: string) => getErrorProfile(language) },
 }));
+
+// The plan says whether the learner can practice an error type (Weak spots, `canCreateErrorPractice`).
+const PLANS = { free: { priceVnd: 0, maxPassages: 9, canCreateErrorPractice: false, canUsePublicPassages: false }, premium: { priceVnd: 99000, maxPassages: 90, canCreateErrorPractice: true, canUsePublicPassages: true } };
+const FREE_PLAN = { plan: 'free', expiresAt: null, maxPassages: 9, usedPassages: 2, canUsePublicPassages: false, canCreateErrorPractice: false, plans: PLANS };
+const PREMIUM_PLAN = { ...FREE_PLAN, plan: 'premium', maxPassages: 90, canUsePublicPassages: true, canCreateErrorPractice: true };
+const getPlan = vi.fn();
+
+vi.mock('@/modules/plan/api/plan.api', () => ({
+  planApi: { get: () => getPlan() },
+}));
+
+/** The page a link opened, with its query string. */
+const UrlSearch = () => <p aria-label="URL search">{useLocation().search}</p>;
 
 /** One error type: OK and steady on 400 chances unless the test says otherwise. */
 const item = (type: ErrorTypeProfile['type'], extra: Partial<ErrorTypeProfile> = {}): ErrorTypeProfile => ({
@@ -24,12 +38,14 @@ const item = (type: ErrorTypeProfile['type'], extra: Partial<ErrorTypeProfile> =
 });
 
 const profileOf = (types: ErrorTypeProfile[], extra: Partial<ErrorProfile> = {}): ErrorProfile => ({
+  language: 'vi',
   window: 10,
   minOpportunities: 20,
   weakRate: 15,
   sessionsUsed: 10,
   types,
   weakTypes: types.filter((type) => type.level === 'weak').map((type) => type.type),
+  rankedTypes: types.filter((type) => type.level !== 'insufficient_data').map((type) => type.type),
   ...extra,
 });
 
@@ -48,6 +64,7 @@ const itemOf = (name: string) => within(region()).getByText(name).closest('li') 
 
 beforeEach(() => {
   getErrorProfile.mockReset();
+  getPlan.mockReset().mockResolvedValue(PREMIUM_PLAN);
 });
 
 describe('ProfileErrorProfile (SCRUM-27)', () => {
@@ -58,7 +75,7 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
     expect(await within(region()).findAllByRole('listitem')).toHaveLength(5);
     expect(region()).toHaveAttribute('aria-busy', 'false');
     expect(within(region()).getByRole('heading', { name: 'Error profile' })).toBeInTheDocument();
-    expect(within(region()).getByText('Last 10 counted sessions')).toBeInTheDocument();
+    expect(within(region()).getByRole('button', { name: /Error profile language: Vietnamese/ })).toBeInTheDocument();
 
     const hoiNga = itemOf('Hỏi / ngã confusion');
     expect(within(hoiNga).getByText('15%')).toBeInTheDocument();
@@ -143,8 +160,28 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
     await user.hover(within(region()).getByText('Error profile'));
 
     expect(
-      (await screen.findAllByText('Your last 10 counted sessions: a type is weak from 15% wrong, and its trend compares them with the 10 sessions before.'))[0],
+      (
+        await screen.findAllByText(
+          'Your last 10 counted Vietnamese sessions: a type is weak from 15% wrong, and its trend compares them with the 10 sessions before. Use the language button to see the other language.',
+        )
+      )[0],
     ).toBeInTheDocument();
+  });
+
+  it('switches the profile between Vietnamese and English with the button on the right of the title, without saving the language', async () => {
+    const user = userEvent.setup();
+    getErrorProfile.mockImplementation((language?: string) =>
+      Promise.resolve(language === 'en' ? profileOf([item('LETTER_WRONG')], { language: 'en', sessionsUsed: 4 }) : profile),
+    );
+    renderWithProviders(<ProfileErrorProfile />);
+    await within(region()).findAllByRole('listitem');
+    expect(getErrorProfile).toHaveBeenLastCalledWith(undefined);
+
+    await user.click(within(region()).getByRole('button', { name: /Switch to English/ }));
+
+    expect(await within(region()).findByRole('button', { name: /Error profile language: English. Switch to Vietnamese/ })).toBeInTheDocument();
+    expect(getErrorProfile).toHaveBeenLastCalledWith('en');
+    expect(await within(region()).findAllByRole('listitem')).toHaveLength(1);
   });
 
   it('says so before the first counted session', async () => {
@@ -156,9 +193,42 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
     );
     renderWithProviders(<ProfileErrorProfile />);
 
-    expect(await screen.findByText('No counted sessions yet: your error profile starts with your first one.')).toBeInTheDocument();
+    expect(await screen.findByText('No counted Vietnamese sessions yet: your error profile starts with your first one.')).toBeInTheDocument();
     expect(within(region()).queryByRole('list')).not.toBeInTheDocument();
-    expect(within(region()).queryByText(/^Last \d+ counted/)).not.toBeInTheDocument();
+  });
+
+  it('shows the English error types and names the language of a learner who types English (SCRUM-219)', async () => {
+    const user = userEvent.setup();
+    getErrorProfile.mockResolvedValue(
+      profileOf(
+        [
+          item('LETTER_WRONG', { errors: 12, opportunities: 400, rate: 3 }),
+          item('LETTER_MISSING'),
+          item('LETTER_EXTRA'),
+          item('LETTERS_SWAPPED', { errors: 9, opportunities: 50, rate: 18, level: 'weak', previousRate: 18 }),
+          item('CASE_WRONG'),
+          item('PUNCTUATION_WRONG', { opportunities: 14, level: 'insufficient_data', trend: 'insufficient_data' }),
+        ],
+        { language: 'en', sessionsUsed: 4 },
+      ),
+    );
+    renderWithProviders(<ProfileErrorProfile />);
+
+    const items = await within(region()).findAllByRole('listitem');
+    expect(items.map((li) => li.querySelector('p')?.textContent)).toEqual([
+      'Wrong letter',
+      'Missing letter',
+      'Extra letter',
+      'Swapped letters',
+      'Wrong case',
+      'Wrong punctuation',
+    ]);
+    expect(within(region()).getByRole('button', { name: /Error profile language: English/ })).toBeInTheDocument();
+    // What a type needs is said in the words that give a chance of it in English.
+    expect(within(itemOf('Wrong punctuation')).getByText('Needs 6 more words with punctuation')).toBeInTheDocument();
+
+    await user.hover(within(itemOf('Swapped letters')).getByText('Weak'));
+    expect((await screen.findAllByText('Wrong in 15% or more of the words of two letters or more'))[0]).toBeInTheDocument();
   });
 
   it('holds its place while it loads, then shows why it failed with a retry', async () => {
@@ -177,5 +247,70 @@ describe('ProfileErrorProfile (SCRUM-27)', () => {
     await user.click(within(alert).getByRole('button', { name: 'Try again' }));
     expect(await within(region()).findAllByRole('listitem')).toHaveLength(5);
     expect(getErrorProfile).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('ProfileErrorProfile: Practice this error (SCRUM-274)', () => {
+  it('links every error type to the Train lesson of that type, also one without enough data yet', async () => {
+    const user = userEvent.setup();
+    getErrorProfile.mockResolvedValue(profile);
+    renderWithProviders(<ProfileErrorProfile />, { route: '/profile', otherRoutes: { '/typing': <UrlSearch /> } });
+
+    await within(region()).findAllByRole('listitem');
+    const links = within(region()).getAllByRole('link', { name: /^Practice this error: / });
+    expect(links).toHaveLength(5);
+    links.forEach((link) => expect(link).toHaveTextContent('Practice this error'));
+    // Too few words with đ: the button stays, and its lesson says what the profile still needs (TypingPage tests).
+    expect(within(itemOf('Missing stroke on đ')).getByRole('link', { name: 'Practice this error: Missing stroke on đ' })).toHaveAttribute(
+      'href',
+      '/typing?mode=targeted&focus=D_MISSING',
+    );
+
+    await user.click(within(itemOf('Wrong tone')).getByRole('link', { name: 'Practice this error: Wrong tone' }));
+
+    expect(await screen.findByLabelText('URL search')).toHaveTextContent('?mode=targeted&focus=TONE_WRONG');
+  });
+
+  it('shows a lock on a plan without Train, and the button opens the plan instead of a lesson', async () => {
+    const user = userEvent.setup();
+    getPlan.mockResolvedValue(FREE_PLAN);
+    getErrorProfile.mockResolvedValue(profile);
+    renderWithProviders(<ProfileErrorProfile />, { route: '/profile', otherRoutes: { '/typing': <UrlSearch /> } });
+
+    const tone = await within(region()).findByRole('button', { name: 'Practice this error: Wrong tone (Premium)' });
+    expect(within(region()).getAllByRole('button', { name: /^Practice this error: .+ \(Premium\)$/ })).toHaveLength(5);
+    expect(within(region()).queryByRole('link', { name: /^Practice this error/ })).not.toBeInTheDocument();
+
+    await user.click(tone);
+
+    expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('URL search')).not.toBeInTheDocument();
+  });
+
+  it('has no button before the first counted session', async () => {
+    getErrorProfile.mockResolvedValue(profileOf([], { sessionsUsed: 0 }));
+    renderWithProviders(<ProfileErrorProfile />);
+
+    expect(await screen.findByText('No counted Vietnamese sessions yet: your error profile starts with your first one.')).toBeInTheDocument();
+    expect(within(region()).queryByRole('link', { name: /^Practice this error/ })).not.toBeInTheDocument();
+  });
+
+  it('has no button on the English error types, which Train cannot practice, and shows them again in Vietnamese', async () => {
+    const user = userEvent.setup();
+    const english = profileOf(
+      [item('LETTER_WRONG', { errors: 12, rate: 3 }), item('LETTERS_SWAPPED', { errors: 9, opportunities: 50, rate: 18, level: 'weak' })],
+      { language: 'en', sessionsUsed: 4 },
+    );
+    // A learner who types English: their own profile is the English one, the button of the panel shows the Vietnamese one.
+    getErrorProfile.mockImplementation((language?: string) => Promise.resolve(language === 'vi' ? profile : english));
+    renderWithProviders(<ProfileErrorProfile />);
+
+    expect(await within(region()).findAllByRole('listitem')).toHaveLength(2);
+    expect(within(region()).queryByRole('link', { name: /^Practice this error/ })).not.toBeInTheDocument();
+    expect(within(region()).queryByRole('button', { name: /^Practice this error/ })).not.toBeInTheDocument();
+
+    await user.click(within(region()).getByRole('button', { name: /Switch to Vietnamese/ }));
+
+    expect(await within(region()).findAllByRole('link', { name: /^Practice this error: / })).toHaveLength(5);
   });
 });

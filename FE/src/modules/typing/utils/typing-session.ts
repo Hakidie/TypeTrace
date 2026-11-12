@@ -1,4 +1,4 @@
-import { classifyWord, tagWord, WordError, type WordErrorType } from '@/shared/lib/vietnamese-errors';
+import { classifyIn, errorTypesOf, type SessionErrorType, tagIn, type TypingLanguage } from '@/shared/lib/typing-language';
 import { SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 import type { ErrorCounts } from '../types/typing.types';
 
@@ -8,12 +8,12 @@ export interface WordResult {
   index: number;
   target: string;
   typed: string;
-  /** Empty when the word is correct. */
-  errors: WordErrorType[];
+  /** Empty when the word is correct. The types of the session's language (SCRUM-219). */
+  errors: SessionErrorType[];
 }
 
 export interface ErrorStat {
-  type: WordErrorType;
+  type: SessionErrorType;
   /** Times this error happened. */
   count: number;
   /** Times it could have happened (error opportunities of the typed words). */
@@ -29,22 +29,22 @@ export const splitTyped = (text: string): { done: string[]; current: string } =>
   return { done: words.slice(0, -1), current: words[words.length - 1] };
 };
 
-/** Compares each finished word with the target word at the same position. Extra words are ignored. */
-export const checkWords = (targetWords: string[], typedWords: string[]): WordResult[] =>
+/** Compares each finished word with the target word at the same position, by the rules of `language` (SCRUM-219). Extra words are ignored. */
+export const checkWords = (targetWords: string[], typedWords: string[], language: TypingLanguage = 'vi'): WordResult[] =>
   typedWords.slice(0, targetWords.length).map((typed, index) => ({
     index,
     target: targetWords[index],
     typed,
-    errors: classifyWord(targetWords[index], typed),
+    errors: classifyIn(language, targetWords[index], typed),
   }));
 
-/** Per error type: how often it happened against how often it could have. Types that never had a chance are left out. */
-export const summarizeErrors = (results: WordResult[]): ErrorStat[] =>
-  Object.values(WordError)
+/** Per error type of `language`: how often it happened against how often it could have. Types that never had a chance are left out. */
+export const summarizeErrors = (results: WordResult[], language: TypingLanguage = 'vi'): ErrorStat[] =>
+  errorTypesOf(language)
     .map((type) => ({
       type,
       count: results.filter((result) => result.errors.includes(type)).length,
-      chances: results.filter((result) => tagWord(result.target).includes(type)).length,
+      chances: results.filter((result) => tagIn(language, result.target).includes(type)).length,
     }))
     .filter((stat) => stat.chances > 0);
 
@@ -56,10 +56,13 @@ export const accuracyOf = (results: WordResult[]): number =>
 export const formatDuration = (totalSeconds: number) =>
   `${Math.floor(totalSeconds / 60)}:${String(Math.floor(totalSeconds % 60)).padStart(2, '0')}`;
 
-/** Turns the counts saved by the server into the rows of the error-rate list. Types that never had a chance are left out. */
-export const statsFromCounts = (errorCounts: ErrorCounts, opportunityCounts: ErrorCounts): ErrorStat[] =>
-  Object.values(WordError)
-    .map((type) => ({ type, count: errorCounts[type], chances: opportunityCounts[type] }))
+/**
+ * Turns the counts saved by the server into the rows of the error-rate list, for the error set of the session's `language`
+ * (SCRUM-219: a session stores the counts of its own language only). Types that never had a chance are left out.
+ */
+export const statsFromCounts = (errorCounts: ErrorCounts, opportunityCounts: ErrorCounts, language: TypingLanguage = 'vi'): ErrorStat[] =>
+  errorTypesOf(language)
+    .map((type) => ({ type, count: errorCounts[type] ?? 0, chances: opportunityCounts[type] ?? 0 }))
     .filter((stat) => stat.chances > 0);
 
 /** What a placement session tells about the placement leaderboard (US10.1), or `null` for another mode. Mirrors `isSessionOnPlacementBoard` of the backend. */

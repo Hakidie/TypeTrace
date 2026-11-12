@@ -1,5 +1,7 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import { AvatarLook, DEFAULT_AVATAR } from '../data/avatar-catalog';
+import { type TypingLanguage, typingLanguages } from '../utils/typing-language';
+import { SubscriptionModel } from './subscription.model';
 
 export const USER_ROLES = ['user', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -10,7 +12,7 @@ export const ANONYMOUS_PLAYER_NAME = 'Anonymous player';
 export type UserStatus = (typeof USER_STATUSES)[number];
 
 /** The modes Ping guides through, in the order of the tour after sign-up (Ping tutorial design). */
-export const TUTORIAL_MODES = ['practice', 'placement', 'rain', 'daily', 'rank'] as const;
+export const TUTORIAL_MODES = ['practice', 'placement', 'rain', 'rank'] as const;
 export type TutorialMode = (typeof TUTORIAL_MODES)[number];
 export type TutorialStatus = 'done' | 'skipped';
 export const TUTORIAL_TOURS = ['active', 'done', 'skipped'] as const;
@@ -54,6 +56,11 @@ export interface UserDocument extends mongoose.Document {
     lightTheme: Types.ObjectId | null;
     /** IANA time zone of the learner's days: streak, daily mission and profile heatmap (SCRUM-31). Sent by the browser. */
     timezone: string;
+    /**
+     * The language the learner types in Practice (SCRUM-219, US2.7), `vi` until they switch: it picks the passages and the
+     * error set of their practice sessions and of the stats they see. The placement test is always Vietnamese.
+     */
+    typingLanguage: TypingLanguage;
   };
   /** The pixel avatar the user wears (ranked duel design, section 7). Missing on accounts saved before: `DEFAULT_AVATAR`. */
   avatar: AvatarLook;
@@ -68,6 +75,8 @@ export interface UserDocument extends mongoose.Document {
    * from before the tutorial (they know how to play): nothing is shown to them.
    */
   tutorial?: TutorialState;
+  /** Set by the timestamps option of the schema. */
+  createdAt: Date;
 }
 
 /** Fields that must never leave the server. Stripped from every JSON response. */
@@ -106,7 +115,8 @@ const userSchema = new Schema<UserDocument>(
           darkTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null },
           lightTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null },
           // Checked by `PATCH /api/profile/settings`, not here: a zone unknown to a later server must not block a save.
-          timezone: { type: String, default: DEFAULT_TIMEZONE }
+          timezone: { type: String, default: DEFAULT_TIMEZONE },
+          typingLanguage: { type: String, enum: typingLanguages, default: 'vi' }
         },
         { _id: false }
       ),
@@ -167,5 +177,15 @@ const userSchema = new Schema<UserDocument>(
     }
   }
 );
+
+// Every new account starts on the Free plan (US11.1). A hook on the model, so every way of making an account gets it.
+userSchema.pre('save', function () {
+  this.$locals.wasNew = this.isNew;
+});
+userSchema.post('save', async function () {
+  if (!this.$locals.wasNew) return;
+  this.$locals.wasNew = false;
+  await SubscriptionModel.create({ user: this._id, plan: 'free', startsAt: this.get('createdAt') as Date, source: 'signup', changedBy: null });
+});
 
 export const UserModel = mongoose.model<UserDocument>('User', userSchema);

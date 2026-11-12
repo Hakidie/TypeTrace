@@ -13,6 +13,7 @@ const update = vi.fn();
 const remove = vi.fn();
 const requestPublic = vi.fn();
 const withdrawRequest = vi.fn();
+const getPlan = vi.fn();
 
 vi.mock('../api/learner-passages.api', () => ({
   learnerPassagesApi: {
@@ -25,6 +26,8 @@ vi.mock('../api/learner-passages.api', () => ({
     withdrawRequest: (id: string) => withdrawRequest(id),
   },
 }));
+
+vi.mock('@/modules/plan/api/plan.api', () => ({ planApi: { get: () => getPlan() } }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -54,15 +57,23 @@ const mine = {
   createdAt: '2026-10-02T00:00:00.000Z',
 };
 
-const page = (items: unknown[], total = items.length) => ({ items, page: 1, limit: 6, total, totalPages: 1 });
+const page = (items: unknown[], total = items.length) => ({ items, page: 1, limit: 9, total, totalPages: 1 });
 
-/** The page asks twice: for the list itself, and for the number of the learner's own passages (`limit: 1`). */
-const answer = ({ items = [mine, approvedMine], own = 1 }: { items?: unknown[]; own?: number } = {}) =>
-  list.mockImplementation(async (params: { limit?: number }) => (params.limit === 1 ? page([mine], own) : page(items)));
+/** The list itself, and the plan (US11.1) that says how many own passages there are and how many may be added. */
+const answer = ({ items = [mine, approvedMine], own = 1, max = 9 }: { items?: unknown[]; own?: number; max?: number } = {}) => {
+  list.mockImplementation(async () => page(items));
+  getPlan.mockResolvedValue({ plan: 'free', expiresAt: null, maxPassages: max, usedPassages: own, canUsePublicPassages: false, canCreateErrorPractice: false, plans: { free: { priceVnd: 0, maxPassages: 9, canCreateErrorPractice: false, canUsePublicPassages: false }, premium: { priceVnd: 99000, maxPassages: 90, canCreateErrorPractice: true, canUsePublicPassages: true } } });
+};
 
 const twentyWords = Array.from({ length: 20 }, (_, index) => `chữ${index}`).join(' ');
 
 const renderPage = () => renderWithProviders(<PassagesPage />, { route: '/passages' });
+/** The page with My Passages shown: the form is first, and its switch button shows the list. */
+const renderListPage = async (route = '/passages', queryClient = createTestQueryClient()) => {
+  const view = renderWithProviders(<PassagesPage />, { route, queryClient });
+  await userEvent.setup().click(await screen.findByRole('button', { name: 'Switch to My Passages' }));
+  return view;
+};
 
 beforeEach(() => {
   list.mockReset();
@@ -72,6 +83,7 @@ beforeEach(() => {
   remove.mockReset();
   requestPublic.mockReset();
   withdrawRequest.mockReset();
+  getPlan.mockReset();
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
   answer();
@@ -79,13 +91,14 @@ beforeEach(() => {
 
 describe('PassagesPage', () => {
   it('lists only the learner own passages, newest first, one card each like the admin passage bank', async () => {
-    renderPage();
+    await renderListPage();
 
-    expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'My passages' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'My Passages' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'New passage' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Switch to New passage' })).toBeInTheDocument();
     expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
-    expect(list).toHaveBeenCalledWith({ page: 1, limit: 6, sort: '-createdAt', q: undefined, visibility: undefined, mine: true });
-    expect(screen.getByText('2 passages')).toBeInTheDocument();
+    expect(list).toHaveBeenCalledWith({ page: 1, limit: 9, sort: '-createdAt', q: undefined, visibility: undefined, mine: true });
+    expect(screen.getByText('Passages').parentElement).toHaveTextContent('2Passages');
 
     // One card per passage like the admin's: title and the icon buttons on top, the text, the word count and where it stands.
     const row = screen.getByRole('heading', { name: 'Hà Nội vào thu' }).closest<HTMLElement>('[role="article"]')!;
@@ -105,12 +118,27 @@ describe('PassagesPage', () => {
     expect(screen.queryByRole('button', { name: 'Delete Hà Nội vào thu' })).not.toBeInTheDocument();
   });
 
-  it('searches the titles and keeps only the own private passages with the Private filter', async () => {
+  it('shows the form first and switches between it and My Passages with the button of each panel', async () => {
     const user = userEvent.setup();
     renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'My Passages' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Switch to My Passages' }));
+    expect(await screen.findByRole('heading', { name: 'My Passages' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'New passage' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Switch to New passage' }));
+    expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+  });
+
+  it('searches the titles and keeps only the own private passages with the Private filter', async () => {
+    const user = userEvent.setup();
+    await renderListPage();
     await screen.findByText('Hà Nội vào thu');
 
-    list.mockImplementation(async (params: { limit?: number }) => (params.limit === 1 ? page([mine], 1) : page([])));
+    list.mockImplementation(async () => page([]));
     await user.type(screen.getByLabelText('Search passages'), 'thu{Enter}');
     await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, q: 'thu', visibility: undefined, mine: true })));
     expect(await screen.findByText('No matching passages')).toBeInTheDocument();
@@ -122,19 +150,18 @@ describe('PassagesPage', () => {
 
   it('shows an empty state when there is no passage at all', async () => {
     answer({ items: [], own: 0 });
-    renderPage();
+    await renderListPage();
 
     expect(await screen.findByText('No passages yet')).toBeInTheDocument();
   });
 
   it('shows the backend error with a retry button', async () => {
     let fail = true;
-    list.mockImplementation(async (params: { limit?: number }) => {
-      if (params.limit === 1) return page([mine], 1);
+    list.mockImplementation(async () => {
       if (fail) throw { response: { status: 500, data: { message: 'Database offline' } } };
       return page([approvedMine]);
     });
-    renderPage();
+    await renderListPage();
 
     expect(await screen.findByText('Database offline')).toBeInTheDocument();
     fail = false;
@@ -145,7 +172,7 @@ describe('PassagesPage', () => {
   it('adds a passage with its title, source and text, then clears the form', async () => {
     create.mockResolvedValue({ ...mine, _id: 'p3' });
     renderPage();
-    await screen.findByText('Hà Nội vào thu');
+    await screen.findByRole('button', { name: 'Add passage' });
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Bài mới' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'Tự viết' } });
@@ -162,7 +189,7 @@ describe('PassagesPage', () => {
 
   it('does not send a passage without a title, also when it is only spaces or tags', async () => {
     renderPage();
-    await screen.findByText('Hà Nội vào thu');
+    await screen.findByRole('button', { name: 'Add passage' });
 
     fireEvent.change(screen.getByLabelText('Content'), { target: { value: twentyWords } });
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
@@ -178,7 +205,7 @@ describe('PassagesPage', () => {
 
   it('adds a passage without a source: the source is optional, also when it is only tags', async () => {
     renderPage();
-    await screen.findByText('Hà Nội vào thu');
+    await screen.findByRole('button', { name: 'Add passage' });
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Không nguồn' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: '<b></b>' } });
@@ -191,7 +218,7 @@ describe('PassagesPage', () => {
   it('counts and checks the text as it will be saved: cleaned like the backend does', async () => {
     create.mockResolvedValue({ ...mine, _id: 'p3' });
     renderPage();
-    await screen.findByText('Hà Nội vào thu');
+    await screen.findByRole('button', { name: 'Add passage' });
 
     // HTML tags are not words, and `…` becomes `...`, so this title is 122 characters once cleaned.
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: `${'a'.repeat(119)}…` } });
@@ -210,7 +237,7 @@ describe('PassagesPage', () => {
 
   it('does not send a text over 200 words, and says why', async () => {
     renderPage();
-    await screen.findByText('Hà Nội vào thu');
+    await screen.findByRole('button', { name: 'Add passage' });
 
     fireEvent.change(screen.getByLabelText('Content'), { target: { value: Array(201).fill('từ').join(' ') } });
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
@@ -221,7 +248,7 @@ describe('PassagesPage', () => {
 
   it('does not send a text under 20 words, and says why', async () => {
     renderPage();
-    await screen.findByText('Hà Nội vào thu');
+    await screen.findByRole('button', { name: 'Add passage' });
 
     fireEvent.change(screen.getByLabelText('Content'), { target: { value: 'một hai ba' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
@@ -235,7 +262,7 @@ describe('PassagesPage', () => {
       response: { status: 400, data: { message: 'Validation failed', errors: [{ field: 'content', message: 'At least 20 words' }] } },
     });
     renderPage();
-    await screen.findByText('Hà Nội vào thu');
+    await screen.findByRole('button', { name: 'Add passage' });
 
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Bài mới' } });
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'Tự viết' } });
@@ -246,23 +273,56 @@ describe('PassagesPage', () => {
     expect(screen.getByLabelText('Content')).toHaveValue(twentyWords);
   });
 
-  it('counts the own passages and stops adding at 20', async () => {
+  it('counts the own passages and stops adding at the limit of the plan', async () => {
     answer({ own: 3 });
     const { unmount } = renderPage();
-    expect(await screen.findByText('Your passages: 3/20')).toBeInTheDocument();
+    expect(await screen.findByText('Your passages: 3/9')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add passage' })).toBeEnabled();
     unmount();
 
-    answer({ own: 20 });
+    answer({ own: 9 });
     renderPage();
-    expect(await screen.findByText('Your passages: 20/20. Delete one to add another.')).toBeInTheDocument();
+    expect(await screen.findByText('Your passages: 9/9. Delete one to add another.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add passage' })).toBeDisabled();
+  });
+
+  it('shows the limit of the plan, not a fixed number', async () => {
+    answer({ own: 12, max: 90 });
+    renderPage();
+
+    expect(await screen.findByText('Your passages: 12/90')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add passage' })).toBeEnabled();
+  });
+
+  it('dims a locked own passage, labels it and still lets the learner delete it, even when it is public', async () => {
+    answer({ items: [{ ...approvedMine, locked: true }, mine] });
+    await renderListPage();
+
+    const card = (await screen.findByRole('heading', { name: 'Hà Nội vào thu' })).closest<HTMLElement>('[role="article"]')!;
+    expect(within(card).getByText('Locked')).toBeInTheDocument();
+    expect(card).toHaveClass('opacity-60');
+    expect(screen.queryByRole('link', { name: 'Practice Hà Nội vào thu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit Hà Nội vào thu' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete Hà Nội vào thu' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Practice Bài của tôi' })).toBeInTheDocument();
+  });
+
+  it('shows a passage an admin archived dimmed and labelled, with nothing to do but read it', async () => {
+    answer({ items: [{ ...approvedMine, status: 'archived' }, mine] });
+    await renderListPage();
+
+    const card = (await screen.findByRole('heading', { name: 'Hà Nội vào thu' })).closest<HTMLElement>('[role="article"]')!;
+    expect(within(card).getByText('Archived')).toBeInTheDocument();
+    expect(card).toHaveClass('opacity-60');
+    expect(screen.queryByRole('link', { name: 'Practice Hà Nội vào thu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit Hà Nội vào thu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete Hà Nội vào thu' })).not.toBeInTheDocument();
   });
 
   it('deletes an own passage after confirmation', async () => {
     const user = userEvent.setup();
     remove.mockResolvedValue(undefined);
-    renderPage();
+    await renderListPage();
 
     await user.click(await screen.findByRole('button', { name: 'Delete Bài của tôi' }));
     const dialog = await screen.findByRole('dialog');
@@ -280,43 +340,46 @@ describe('PassagesPage', () => {
     remove.mockImplementation(async () => {
       deleted = true;
     });
-    // 7 passages: page 2 holds only `mine`. Once it is deleted, 6 are left and all fit on page 1.
+    // 10 passages: page 2 holds only `mine`. Once it is deleted, 9 are left and all fit on page 1.
     list.mockImplementation(async (params: { limit?: number; page?: number }) => {
-      if (params.limit === 1) return page([mine], deleted ? 0 : 1);
-      const total = deleted ? 6 : 7;
-      const totalPages = Math.ceil(total / 6);
-      if (params.page === 2) return { items: deleted ? [] : [mine], page: 2, limit: 6, total, totalPages };
-      return { items: [approvedMine], page: 1, limit: 6, total, totalPages };
+      const total = deleted ? 9 : 10;
+      const totalPages = Math.ceil(total / 9);
+      if (params.page === 2) return { items: deleted ? [] : [mine], page: 2, limit: 9, total, totalPages };
+      return { items: [approvedMine], page: 1, limit: 9, total, totalPages };
     });
-    renderWithProviders(<PassagesPage />, { route: '/passages?page=2' });
+    await renderListPage('/passages?page=2');
 
     await user.click(await screen.findByRole('button', { name: 'Delete Bài của tôi' }));
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
 
     expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
-    expect(screen.getByText('6 passages')).toBeInTheDocument();
+    expect(screen.getByText('Passages').parentElement).toHaveTextContent('9Passages');
     expect(screen.queryByText('No passages yet')).not.toBeInTheDocument();
   });
 
-  it('pages through the own passages 6 at a time, with the pages at the bottom right', async () => {
+  it('pages through the own passages 9 at a time, with the pages at the bottom right', async () => {
     const user = userEvent.setup();
-    list.mockImplementation(async (params: { limit?: number; page?: number }) =>
-      params.limit === 1 ? page([mine], 1) : { items: [params.page === 2 ? approvedMine : mine], page: params.page ?? 1, limit: 6, total: 7, totalPages: 2 },
-    );
-    renderPage();
+    list.mockImplementation(async (params: { limit?: number; page?: number }) => ({
+      items: [params.page === 2 ? approvedMine : mine],
+      page: params.page ?? 1,
+      limit: 9,
+      total: 10,
+      totalPages: 2,
+    }));
+    await renderListPage();
 
     const pages = await screen.findByRole('navigation', { name: 'Pagination' });
     expect(pages).toHaveClass('justify-end');
-    expect(within(pages).getByText('Page 1 of 2')).toBeInTheDocument();
+    expect(within(pages).getByText('1 of 2')).toBeInTheDocument();
     await user.click(within(pages).getByRole('button', { name: /Next/ }));
 
-    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 2, limit: 6, mine: true })));
+    await waitFor(() => expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 2, limit: 9, mine: true })));
     expect(await screen.findByText('Hà Nội vào thu')).toBeInTheDocument();
-    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+    expect(screen.getByText('2 of 2')).toBeInTheDocument();
   });
 
   it('shows the actions as icon buttons at the top right of each card', async () => {
-    renderPage();
+    await renderListPage();
 
     const row = (await screen.findByRole('heading', { name: 'Bài của tôi' })).closest<HTMLElement>('[role="article"]')!;
     const actions = [
@@ -331,11 +394,11 @@ describe('PassagesPage', () => {
   });
 
   describe('editing an own passage', () => {
-    it('opens it in the top panel, saves it with Update passage, then goes back to New passage', async () => {
+    it('opens it in the form, saves it with Update passage, then goes back to My Passages', async () => {
       const user = userEvent.setup();
       get.mockResolvedValue({ ...mine, source: 'Tự viết', content: twentyWords });
       update.mockResolvedValue({ ...mine, title: 'Bài đã sửa' });
-      renderPage();
+      await renderListPage();
 
       await user.click(await screen.findByRole('button', { name: 'Edit Bài của tôi' }));
 
@@ -352,21 +415,28 @@ describe('PassagesPage', () => {
       await user.click(screen.getByRole('button', { name: 'Update passage' }));
 
       await waitFor(() => expect(update).toHaveBeenCalledWith('p2', { title: 'Bài đã sửa', source: 'Tự viết', content: twentyWords }));
+      expect(await screen.findByRole('heading', { name: 'My Passages' })).toBeInTheDocument();
+      expect(screen.queryByLabelText('Content')).not.toBeInTheDocument();
+      expect(toast.success).toHaveBeenCalledWith('Passage updated.');
+
+      // The form is New passage again.
+      await user.click(screen.getByRole('button', { name: 'Switch to New passage' }));
       expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
       expect(screen.getByLabelText('Content')).toHaveValue('');
-      expect(toast.success).toHaveBeenCalledWith('Passage updated.');
     });
 
     it('cancels without saving', async () => {
       const user = userEvent.setup();
       get.mockResolvedValue({ ...mine, source: 'Tự viết', content: twentyWords });
-      renderPage();
+      await renderListPage();
 
       await user.click(await screen.findByRole('button', { name: 'Edit Bài của tôi' }));
       await screen.findByDisplayValue(twentyWords);
       await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
-      expect(screen.getByRole('heading', { name: 'New passage' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'My Passages' })).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Switch to New passage' }));
+      expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Add passage' })).toBeInTheDocument();
       expect(update).not.toHaveBeenCalled();
     });
@@ -375,13 +445,16 @@ describe('PassagesPage', () => {
       const user = userEvent.setup();
       get.mockResolvedValue({ ...mine, source: 'Tự viết', content: twentyWords });
       remove.mockResolvedValue(undefined);
-      renderPage();
+      await renderListPage();
 
       await user.click(await screen.findByRole('button', { name: 'Edit Bài của tôi' }));
       await screen.findByDisplayValue(twentyWords);
-      await user.click(screen.getByRole('button', { name: 'Delete Bài của tôi' }));
+      await user.click(screen.getByRole('button', { name: 'Switch to My Passages' }));
+      await user.click(await screen.findByRole('button', { name: 'Delete Bài của tôi' }));
       await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }));
 
+      // Its button names the form New passage again, not Edit passage.
+      await user.click(await screen.findByRole('button', { name: 'Switch to New passage' }));
       expect(await screen.findByRole('heading', { name: 'New passage' })).toBeInTheDocument();
     });
   });
@@ -394,7 +467,7 @@ describe('PassagesPage', () => {
     it('opens the reason of a refusal when the Rejected badge is clicked', async () => {
       const user = userEvent.setup();
       answer({ items: [waiting, refused, approved] });
-      renderPage();
+      await renderListPage();
 
       // Only the turned-down passage has a badge to click.
       expect(screen.queryByRole('button', { name: 'Show reason Đang chờ' })).not.toBeInTheDocument();
@@ -407,7 +480,7 @@ describe('PassagesPage', () => {
 
     it('shows where each own passage stands, and why a request was turned down', async () => {
       answer({ items: [waiting, refused, approved] });
-      renderPage();
+      await renderListPage();
 
       expect(await screen.findByText('Pending')).toBeInTheDocument();
       expect(screen.getByText('Rejected')).toBeInTheDocument();
@@ -438,7 +511,7 @@ describe('PassagesPage', () => {
       it('shows an edit waiting as Pending and a refused one as Rejected, with its reason', async () => {
         const user = userEvent.setup();
         answer({ items: [approved, editWaiting, editRefused] });
-        renderPage();
+        await renderListPage();
 
         expect(await screen.findByText('Published')).toBeInTheDocument();
         expect(screen.getByText('Pending')).toBeInTheDocument();
@@ -452,7 +525,7 @@ describe('PassagesPage', () => {
         const user = userEvent.setup();
         withdrawRequest.mockResolvedValue(approved);
         answer({ items: [approved, editWaiting] });
-        renderPage();
+        await renderListPage();
 
         expect(await screen.findByRole('button', { name: 'Edit Sửa đang chờ' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Withdraw request Đã công khai' })).not.toBeInTheDocument();
@@ -466,7 +539,7 @@ describe('PassagesPage', () => {
         answer({ items: [approved] });
         get.mockResolvedValue({ ...approved, content: twentyWords });
         update.mockResolvedValue({ ...approved, editPending: true });
-        renderPage();
+        await renderListPage();
 
         await user.click(await screen.findByRole('button', { name: 'Edit Đã công khai' }));
         expect(await screen.findByText(/An admin reads your changes first/)).toBeInTheDocument();
@@ -480,7 +553,7 @@ describe('PassagesPage', () => {
     it('sends the request after a confirmation', async () => {
       const user = userEvent.setup();
       requestPublic.mockResolvedValue({ ...mine, status: 'pending' });
-      renderPage();
+      await renderListPage();
 
       await user.click(await screen.findByRole('button', { name: 'Request public Bài của tôi' }));
       const dialog = await screen.findByRole('dialog');
@@ -502,7 +575,7 @@ describe('PassagesPage', () => {
       for (const [displayName, shownAs] of cases) {
         const queryClient = createTestQueryClient();
         queryClient.setQueryData(currentUserKey, { _id: 'u1', email: 'lan@example.com', displayName, role: 'user' });
-        renderWithProviders(<PassagesPage />, { route: '/passages', queryClient });
+        await renderListPage('/passages', queryClient);
 
         await user.click(await screen.findByRole('button', { name: 'Request public Bài của tôi' }));
         const dialog = await screen.findByRole('dialog');
@@ -514,7 +587,7 @@ describe('PassagesPage', () => {
 
     it('does not send the request when the confirmation is cancelled', async () => {
       const user = userEvent.setup();
-      renderPage();
+      await renderListPage();
 
       await user.click(await screen.findByRole('button', { name: 'Request public Bài của tôi' }));
       await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
@@ -527,7 +600,7 @@ describe('PassagesPage', () => {
       const user = userEvent.setup();
       answer({ items: [waiting] });
       withdrawRequest.mockResolvedValue({ ...waiting, status: 'published' });
-      renderPage();
+      await renderListPage();
 
       await user.click(await screen.findByRole('button', { name: 'Withdraw request Đang chờ' }));
 

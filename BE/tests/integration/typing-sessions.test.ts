@@ -639,6 +639,7 @@ describe('GET /api/sessions/activity (the profile page, SCRUM-157 and SCRUM-31)'
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       stats: { wpm: 66.3, accuracy: 96.3 },
+      language: 'vi',
       timezone: 'Asia/Ho_Chi_Minh',
       sessions: [
         { date: '2026-03-07', sessions: 4 },
@@ -696,7 +697,7 @@ describe('GET /api/sessions/activity (the profile page, SCRUM-157 and SCRUM-31)'
     const response = await activityOf(await createUser({}));
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ timezone: 'Asia/Ho_Chi_Minh', sessions: [] });
+    expect(response.body).toEqual({ language: 'vi', timezone: 'Asia/Ho_Chi_Minh', sessions: [] });
     expect((await api().get('/api/sessions/activity')).status).toBe(401);
   });
 });

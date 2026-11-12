@@ -18,7 +18,7 @@ import { PracticeResult } from './PracticeResult';
 import { Spotlight } from './Spotlight';
 import { TutorialBubble } from './TutorialBubble';
 
-const MODE_LABELS: Record<TutorialMode, string> = { practice: 'Practice', placement: 'Placement', rain: 'Mưa chữ', daily: 'Daily', rank: 'Rank' };
+const MODE_LABELS: Record<TutorialMode, string> = { practice: 'Practice', placement: 'Placement', rain: 'Mưa chữ', rank: 'Rank' };
 
 /** The words of the practice duel: the word rain words, with the usual loading and error states. */
 const PracticeArena = ({ onDone, onSkip }: { onDone: (stats: CoachStats) => void; onSkip: () => void }) => {

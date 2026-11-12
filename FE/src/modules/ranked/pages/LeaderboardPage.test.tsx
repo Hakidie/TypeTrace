@@ -9,6 +9,11 @@ const leaderboard = vi.fn();
 const placementBoard = vi.fn();
 const passages = vi.fn();
 const placementSettings = vi.fn();
+const wordChainBoard = vi.fn();
+
+vi.mock('@/modules/word-chain/api/word-chain.api', () => ({
+  wordChainApi: { board: (range: string) => wordChainBoard(range) },
+}));
 
 vi.mock('../api/ranked.api', () => ({
   rankedApi: { leaderboard: (params: unknown) => leaderboard(params), placementBoard: (params: unknown) => placementBoard(params), placementSettings: () => placementSettings() },
@@ -102,6 +107,40 @@ describe('LeaderboardPage (ranked duel, phase 5)', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: /^Rank/ }));
     expect(await screen.findByText('Minh')).toBeInTheDocument();
+  });
+});
+
+describe('LeaderboardPage minigames tab', () => {
+  it('shows the Nối từ board beside Rank, and opens on it from ?tab=minigames', async () => {
+    leaderboard.mockResolvedValue(board([row(1, 'u1', 'Minh', 1420, 'Platinum', 0.75)]));
+    wordChainBoard.mockResolvedValue({ range: 'week', items: [{ rank: 1, displayName: 'Lan', avatar, score: 12, isMe: false }], me: null });
+    renderPage('/leaderboard?tab=minigames');
+    expect(screen.getByRole('radio', { name: 'Minigames' })).toBeChecked();
+    const panel = screen.getByRole('tabpanel', { name: 'Minigames' });
+    expect(await within(panel).findByText('Lan')).toBeInTheDocument();
+    expect(wordChainBoard).toHaveBeenCalledWith('week');
+
+    fireEvent.click(screen.getByRole('radio', { name: /^Rank/ }));
+    expect(await screen.findByText('Minh')).toBeInTheDocument();
+  });
+});
+
+describe('LeaderboardPage minigames tab look', () => {
+  it('lists plain rows with a score, switches the range and shows the own place', async () => {
+    wordChainBoard.mockResolvedValue({
+      range: 'week',
+      items: [{ rank: 1, displayName: 'Lan', avatar, score: 12, isMe: false }],
+      me: { rank: 7, score: 3 },
+    });
+    renderPage('/leaderboard?tab=minigames');
+    const panel = screen.getByRole('tabpanel', { name: 'Minigames' });
+    expect(await within(panel).findByText('Lan')).toBeInTheDocument();
+    expect(within(panel).getAllByText('SCORE').length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('Minigame')).toHaveTextContent('Word chain');
+    expect(within(panel).getByRole('region', { name: 'Your place' })).toHaveTextContent('#7');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'All time' }));
+    await waitFor(() => expect(wordChainBoard).toHaveBeenLastCalledWith('all'));
   });
 });
 

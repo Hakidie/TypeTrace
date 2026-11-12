@@ -1,6 +1,6 @@
-import { ArrowLeft, Keyboard, LogOut } from 'lucide-react';
+import { ArrowLeft, Keyboard, LogOut, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import type { NavItem } from '@/app/module.types';
 import { useCurrentUser, useLogout } from '@/modules/auth/hooks/use-current-user';
 import { shownPictureUrl } from '@/modules/auth/utils/avatar-picture';
@@ -37,12 +37,53 @@ const CompactTip = ({ compact, label, className, children }: { compact: boolean;
   );
 
 /**
+ * Compact sidebar, for a tab: while it is hovered a flyout opens over the page from the icon,
+ * with the same icon in the same place and the name of the tab beside it, so the icon does not move and the sidebar keeps
+ * its width. Otherwise the child as it is. The flyout is only for the eye (`aria-hidden`): the link keeps its name.
+ */
+const CompactFlyout = ({
+  compact,
+  label,
+  icon: Icon,
+  active,
+  className,
+  children,
+}: {
+  compact: boolean;
+  label: string;
+  icon: LucideIcon;
+  /** The tab of the page being shown keeps its tint in the flyout. */
+  active?: boolean;
+  className?: string;
+  children: ReactNode;
+}) =>
+  compact ? (
+    <div className={cn('group/tab relative flex flex-col', className)}>
+      {children}
+      {/* 9px + the 1px border = the 10px that centers the icon in the 40px wide tab, so it stays where it was. */}
+      <span
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute left-0 top-0 z-50 hidden h-full items-center gap-2 whitespace-nowrap border bg-background px-[9px] pr-4 text-base shadow-md group-hover/tab:flex',
+          active ? 'text-primary' : 'text-foreground',
+        )}
+      >
+        <Icon className="size-5 shrink-0" />
+        {label}
+      </span>
+    </div>
+  ) : (
+    <>{children}</>
+  );
+
+/**
  * The admin area's navigation. Header: the TypeTrace logo (same size as BrandHeader).
  * Footer: the signed-in admin and Logout.
  */
 export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSidebarProps) => {
   const { data: user } = useCurrentUser();
   const handleLogout = useLogout();
+  const { pathname } = useLocation();
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? '??';
   // Compact: the icon is centered and the text only stays for screen readers.
   const itemClass = cn('flex items-center gap-2 px-3 py-2 text-base', compact && 'justify-center');
@@ -65,7 +106,7 @@ export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSid
 
       <div className="flex flex-1 flex-col gap-1 p-3">
         {navItems.map((item) => (
-          <CompactTip key={item.to} compact={compact} label={item.label}>
+          <CompactFlyout key={item.to} compact={compact} label={item.label} icon={item.icon} active={pathname === item.to || (item.to !== ADMIN_HOME && pathname.startsWith(`${item.to}/`))}>
             <NavLink
               to={item.to}
               // The admin home would otherwise stay highlighted on every admin page.
@@ -82,14 +123,14 @@ export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSid
               <item.icon className={iconClass} />
               <span className={labelClass}>{item.label}</span>
             </NavLink>
-          </CompactTip>
+          </CompactFlyout>
         ))}
-        <CompactTip compact={compact} label="Back to app" className="mt-auto">
+        <CompactFlyout compact={compact} label="Back to app" icon={ArrowLeft} className="mt-auto">
           <Link to="/" onClick={onNavigate} className={cn(itemClass, 'mt-auto text-muted-foreground hover:bg-muted hover:text-foreground')}>
             <ArrowLeft className={iconClass} />
             <span className={labelClass}>Back to app</span>
           </Link>
-        </CompactTip>
+        </CompactFlyout>
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 border-t p-3">

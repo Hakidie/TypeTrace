@@ -1,5 +1,5 @@
 /** Mirrors `TutorialState` of the backend (`BE/src/models/user.model.ts`): missing on accounts from before the tutorial. */
-export type TutorialMode = 'practice' | 'placement' | 'rain' | 'daily' | 'rank';
+export type TutorialMode = 'practice' | 'placement' | 'rain' | 'rank';
 export type TutorialStatus = 'done' | 'skipped';
 export interface TutorialState {
   tour: 'active' | 'done' | 'skipped';

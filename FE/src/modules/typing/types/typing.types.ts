@@ -1,19 +1,23 @@
+import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 
-/** `daily` sessions are tries of the daily challenge (started from the Daily tab, `modules/daily`). */
-export type SessionMode = 'practice' | 'placement' | 'daily';
+/**
+ * `daily` sessions are old tries of the removed daily challenge: they still show in the history. `targeted` is Weak spots
+ * (SCRUM-28, US3.2): a lesson of words picked by the server for the learner's errors.
+ */
+export type SessionMode = 'practice' | 'placement' | 'daily' | 'targeted';
 export type SessionStatus = 'in_progress' | 'completed' | 'abandoned';
 
-/** How many times each error type happened (or could have happened). */
-export type ErrorCounts = Record<WordErrorType, number>;
+/** How many times each error type happened (or could have happened): the types of the session's language only (SCRUM-219). */
+export type ErrorCounts = Partial<Record<SessionErrorType, number>>;
 
 /** One graded word. Mirrors `SessionWord` in `BE/src/models/typing-session.model.ts`. */
 export interface SessionWord {
   index: number;
   target: string;
   typed: string;
-  /** Empty when the word is correct. */
-  errorTypes: WordErrorType[];
+  /** Empty when the word is correct. The types of the session's language. */
+  errorTypes: SessionErrorType[];
   /** Milliseconds from the first key to the end of this word; missing on sessions from before it was stored. */
   typedAtMs?: number;
 }
@@ -23,10 +27,22 @@ export interface TypingSession {
   _id: string;
   owner: string;
   mode: SessionMode;
-  passageId: string;
-  /** Title of the passage; missing on sessions from before it was stored. */
+  /**
+   * What the learner typed in (SCRUM-219): their Practice language, always `vi` in the placement test and in Weak spots. It
+   * picks the error set.
+   */
+  language?: TypingLanguage;
+  /** Missing on a Weak spots lesson, which types words of the word bank, not a passage. */
+  passageId?: string;
+  /** Title of the passage (or of the Weak spots lesson); missing on sessions from before it was stored. */
   passageTitle?: string;
   targetWords: string[];
+  /**
+   * Weak spots only: the error types the lesson trains, the highest error rate first. Empty when there was nothing to aim at
+   * (no type with enough data in the error profile yet, or no word for the type chosen) and the session types a random passage
+   * instead.
+   */
+  focusErrorTypes?: WordErrorType[];
   status: SessionStatus;
   words: SessionWord[];
   startedAt: string;
@@ -55,7 +71,7 @@ export interface SessionStats {
   /** Share of wrong words, 0-100. */
   wrongRate: number;
   /** Types that never had a chance in the passage are left out. */
-  errorTypes: { type: WordErrorType; errors: number; opportunities: number; rate: number }[];
+  errorTypes: { type: SessionErrorType; errors: number; opportunities: number; rate: number }[];
   isCounted: boolean;
   /** The time the learner chose, in seconds: the end of the time axis of the speed chart. */
   timeLimitSeconds: number;
@@ -91,6 +107,8 @@ export interface StartSessionInput {
   passageId?: string;
   /** The time the learner chose; a placement session needs it to be ranked (US10.1). */
   timeLimitSeconds?: number;
+  /** Weak spots only: the one error type to practice. Missing = the learner's types with the highest error rates. */
+  errorType?: WordErrorType;
 }
 
 /** One entry of the passage dropdown (`GET /api/passages`): no text. */
@@ -98,4 +116,8 @@ export interface PassageOption {
   _id: string;
   title: string;
   wordCount: number;
+  /** One of the learner's own passages past the limit of their plan (US11.1): shown, but it cannot be picked. */
+  locked?: boolean;
+  /** Another learner's public passage on a plan that may not practice it (US11.1): picking it opens the plan. */
+  lockedByPlan?: boolean;
 }

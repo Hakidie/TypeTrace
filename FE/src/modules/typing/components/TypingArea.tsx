@@ -2,6 +2,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, CompositionEvent, KeyboardEvent, ReactNode } from 'react';
 import { Card, CardContent } from '@/shared/components/ui/card';
+import type { TypingLanguage } from '@/shared/lib/typing-language';
 import { useElapsedSeconds } from '../hooks/use-elapsed';
 import type { ReplayEvent } from '../types/typing.types';
 import { SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
@@ -24,6 +25,8 @@ const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'Ca
 
 interface TypingAreaProps {
   targetWords: string[];
+  /** The rules the words are checked by while they are typed (SCRUM-219): the language of the session, Vietnamese by default. */
+  language?: TypingLanguage;
   /** Stops typing, e.g. while the result is being saved. */
   disabled?: boolean;
   /** Called once, when the first key is pressed: the timer starts then. */
@@ -37,8 +40,12 @@ interface TypingAreaProps {
   timeLimitSeconds?: number;
   /** Called once when time runs out and no word was finished, so there is nothing to grade. */
   onTimeUp?: () => void;
-  /** Shown under the card, at its right, e.g. a Restart button. */
+  /** Shown above the passage, at its top center, e.g. the language switch. */
+  header?: ReactNode;
+  /** Shown under the card, at its bottom center, e.g. a Restart button. */
   actions?: ReactNode;
+  /** Shown in the row of the words and the timer, between the two, e.g. a Weak spots lesson's way back to its cards. */
+  statusCenter?: ReactNode;
   /** Called each time one more word is finished (a ranked duel sends it to the server), never after the end. */
   onProgress?: (typedWords: string[], typedAtMs: number[]) => void;
   /** Words already finished (a ranked race after a reload): typing goes on after them, with later word times. */
@@ -59,32 +66,38 @@ interface TypingStatusProps {
   total: number;
   seconds: number;
   finished: boolean;
+  /** Between the words and the timer. */
+  center?: ReactNode;
 }
 
-/** Bottom of the page: words typed on the left, the timer on the right. Full screen width, not the card's. The page shows it with zeros while the next session loads, so it never disappears. */
-export const TypingStatus = ({ typed, total, seconds, finished }: TypingStatusProps) => (
-  <div data-tutorial="typing-stats" className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-2 items-center px-4 text-[1.125rem] md:px-8">
+/** Bottom of the page: words typed on the left, the timer on the right, and `center` between them. Full screen width, not the card's. The page shows it with zeros while the next session loads, so it never disappears. */
+export const TypingStatus = ({ typed, total, seconds, finished, center }: TypingStatusProps) => (
+  <div data-tutorial="typing-stats" className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-[1fr_auto_1fr] items-center px-4 text-[1.125rem] md:px-8">
     <span className={`${statusFrame} justify-self-start`}>
       Words {Math.min(typed, total)} / {total}
     </span>
+    <div className="col-start-2">{center}</div>
     {finished ? (
-      <span className={`${statusFrame} flex items-center gap-2 justify-self-end font-medium`}>
+      <span className={`${statusFrame} col-start-3 flex items-center gap-2 justify-self-end font-medium`}>
         <CheckCircle2 className="size-5" /> Finished
       </span>
     ) : (
-      <span aria-label="Elapsed time" className={`${statusFrame} justify-self-end`}>{formatDuration(seconds)}</span>
+      <span aria-label="Elapsed time" className={`${statusFrame} col-start-3 justify-self-end`}>{formatDuration(seconds)}</span>
     )}
   </div>
 );
 
 export const TypingArea = ({
   targetWords,
+  language = 'vi',
   disabled = false,
   onStart,
   onFinish,
   onTimeUp,
   timeLimitSeconds = SESSION_TIME_LIMIT_SECONDS,
+  header,
   actions,
+  statusCenter,
   onProgress,
   initialTyped,
 }: TypingAreaProps) => {
@@ -118,7 +131,7 @@ export const TypingArea = ({
   };
 
   const { done } = useMemo(() => splitTyped(committed), [committed]);
-  const results = useMemo(() => checkWords(targetWords, done), [targetWords, done]);
+  const results = useMemo(() => checkWords(targetWords, done, language), [targetWords, done, language]);
 
   // When the time limit is reached (3:00 at most) the session ends with the words finished so far (the server enforces the same limit).
   useEffect(() => {
@@ -184,9 +197,12 @@ export const TypingArea = ({
 
   return (
     <>
-      <div className="mx-auto my-auto w-full max-w-7xl space-y-4">
+      {/* Centered between the tabs and the words / clock row. From `xl` (one row of tabs) the tabs and the page padding above it are
+          taller than that row, so `pb-11` lifts the passage by 22px, to the middle of the page under the header. */}
+      <div className="mx-auto my-auto w-full max-w-7xl space-y-4 xl:pb-11">
         <Card className="border-transparent bg-transparent shadow-none">
           <CardContent className="space-y-4 pt-6">
+            {header && <div className="flex justify-center">{header}</div>}
             {/* The real input is an invisible textarea laid over the passage: clicks focus it, and what is typed shows in the passage. */}
             <div className="relative" data-tutorial="typing-passage">
               <PassageView words={targetWords} results={results} current={isFinished ? undefined : current} maxRows={3} />
@@ -209,11 +225,17 @@ export const TypingArea = ({
             </div>
           </CardContent>
         </Card>
-        {/* Outside the card, at its bottom right. */}
-        {actions && <div className="flex justify-end">{actions}</div>}
+        {/* Outside the card, at its bottom center. */}
+        {actions && <div className="flex justify-center">{actions}</div>}
       </div>
 
-      <TypingStatus typed={results.length} total={targetWords.length} seconds={Math.min(seconds, timeLimitSeconds)} finished={isFinished} />
+      <TypingStatus
+        typed={results.length}
+        total={targetWords.length}
+        seconds={Math.min(seconds, timeLimitSeconds)}
+        finished={isFinished}
+        center={statusCenter}
+      />
     </>
   );
 };

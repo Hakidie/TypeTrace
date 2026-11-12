@@ -7,29 +7,29 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { cn } from '@/shared/lib/utils';
 import type { BoardRange } from '../api/word-chain.api';
 import { useWordChainBoard } from '../hooks/use-word-chain';
-
-const RANGES: { id: BoardRange; label: string }[] = [
-  { id: 'week', label: 'Tuần này' },
-  { id: 'all', label: 'Mọi lúc' },
-];
+import { TEXT, type WordChainText } from '../lib/word-chain-text';
 
 /**
- * The Nối từ leaderboard beside the game: this week (from Monday 0:00 in Vietnam) or all the time, one line per player
+ * The Nối từ leaderboard (in the game's modal and on the Minigames tab of the Leaderboard page): this week (from Monday 0:00 in Vietnam) or all the time, one line per player
  * (rank, avatar head, name, best score), the player's line tinted, and their own place under the list when they are further down.
  */
-export const WordChainBoard = () => {
+export const WordChainBoard = ({ text = TEXT.en, className }: { text?: WordChainText; className?: string }) => {
   const [range, setRange] = useState<BoardRange>('week');
+  const ranges: { id: BoardRange; label: string }[] = [
+    { id: 'week', label: text.thisWeek },
+    { id: 'all', label: text.allTime },
+  ];
   const board = useWordChainBoard(range);
   const meShown = board.data?.items.some((row) => row.isMe);
 
   return (
-    <section aria-label="Bảng xếp hạng Nối từ" className="flex flex-col border border-primary/20 bg-background/30 backdrop-blur-sm">
+    <section aria-label={text.boardLabel} className={cn('flex flex-col border border-primary/20 bg-background/30 backdrop-blur-sm', className)}>
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <Trophy className="size-4 text-primary" aria-hidden="true" /> Xếp hạng
+          <Trophy className="size-4 text-primary" aria-hidden="true" /> {text.leaderboard}
         </h2>
-        <div role="tablist" aria-label="Khoảng thời gian" className="flex border border-primary/20">
-          {RANGES.map(({ id, label }) => (
+        <div role="tablist" aria-label={text.timeRange} className="flex border border-primary/20">
+          {ranges.map(({ id, label }) => (
             <button
               key={id}
               type="button"
@@ -51,7 +51,7 @@ export const WordChainBoard = () => {
       ) : board.isError ? (
         <ErrorState error={board.error} onRetry={() => board.refetch()} />
       ) : !board.data?.items.length ? (
-        <EmptyState title="Chưa có ai" description="Chơi một ván để lên bảng." />
+        <EmptyState title={text.noOne} description={text.noOneHint} />
       ) : (
         <ol className="max-h-[26rem] overflow-y-auto">
           {board.data.items.map((row) => (
@@ -64,7 +64,7 @@ export const WordChainBoard = () => {
               )}
             >
               <span className={cn('font-black tabular-nums', row.rank <= 3 ? 'text-primary' : 'text-muted-foreground')}>{row.rank}</span>
-              <AvatarSprite look={row.avatar} crop="head" scale={0.8} label={`Avatar của ${row.displayName}`} />
+              <AvatarSprite look={row.avatar} crop="head" scale={0.8} label={`${row.displayName}'s avatar`} />
               <span className="truncate">{row.displayName}</span>
               <span className="font-semibold tabular-nums">{row.score}</span>
             </li>
@@ -73,7 +73,7 @@ export const WordChainBoard = () => {
       )}
       {board.data?.me && !meShown && (
         <p className="border-t border-foreground/10 px-4 py-3 text-sm text-muted-foreground">
-          Bạn đứng thứ <span className="font-semibold text-foreground">{board.data.me.rank}</span> với {board.data.me.score} điểm.
+          {text.yourPlace(board.data.me.rank, board.data.me.score)}
         </p>
       )}
     </section>

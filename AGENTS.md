@@ -35,10 +35,11 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 |---|---|
 | `npm run setup` | Install all dependencies, create `BE/.env` and `FE/.env` from the examples |
 | `docker compose up -d` | Start a local MongoDB on port 27017 |
-| `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234`; and typing sessions for `demo@example.com` (a counted placement test 8 months ago, practice sessions since, two months without any, sessions on the last days, each with errors and chances of every error type) so the charts and the error profile of the profile have data; made once (demo sessions seeded before the error profile get its counts on the next run) |
+| `npm run seed` | Demo accounts `demo@example.com / demo1234`, `admin@example.com / admin1234`, 12 students `student01..12@example.com / student1234` (`student01` is on Premium for a month, given by the demo admin); and typing sessions for `demo@example.com` (a counted placement test 8 months ago, practice sessions since, two months without any, sessions on the last days, each with errors and chances of every error type) so the charts and the error profile of the profile have data; made once (demo sessions seeded before the error profile get its counts on the next run) |
 | `npm run import:words` | Add the starter word list (`BE/src/data/words.ts`) to the word bank with error tags; safe to run many times |
 | `npm run import:passages` | Add the starter passages (`BE/src/data/passages.ts`, source recorded, owner TypeTrace) to the passage bank as published passages; safe to run many times |
 | `npm run import:passages:en` | Add the English starter passages (`BE/src/data/passages-en.ts`, marked `isRanked`, for ranked duels; never offered in Practice or Placement) as published passages; safe to run many times |
+| `npm run import:passages:en-practice` | Add the English practice passages (`BE/src/data/passages-en-practice.ts`, owner TypeTrace, not `isRanked`) as published passages: Practice offers them to learners who type English (SCRUM-219); safe to run many times |
 | `npm run import:themes` | Add the starter themes (`BE/src/data/themes.ts`, owner TypeTrace) as published themes; safe to run many times |
 | `npm run rebuild:progress` | Rebuild every learner's days (`DailyProgress`: streak, daily mission, profile heatmap) from their counted sessions, in each learner's own time zone. Run it once after deploying SCRUM-31 (older sessions have no day yet) and after changing `DAILY_MISSION_SESSIONS`, while nobody is typing; safe to run many times |
 | `npm run rebuild:tag-counts` | Count the words and error tags (`tagCounts`) of every passage again from its text and language. Run it once after deploying SCRUM-218 (English passages saved before have no English tags yet) and after changing `tagWord` or `tagEnglishWord`; safe to run many times |
@@ -46,6 +47,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run migrate:user-status` | Give `active` to the accounts saved before the `status` field existed (they have none, and the placement leaderboard lists only `active` accounts); locked accounts keep theirs. Run it once; safe to run many times |
 | `npm run migrate:placement-board` | Set `isOnPlacementBoard` again, from the rules and the minimum accuracy saved, on every completed placement session (fixes flags saved wrong; saving the minimum in the admin Settings page does the same). Run it after deploying the minimum accuracy setting; safe to run many times |
 | `npm run migrate:ranked-passages` | Mark the published public English passages already in the bank as `isRanked`: ranked duels (races and word rain) play only those. Run it once after deploying US6.4; safe to run many times |
+| `npm run migrate:subscriptions` | Give a Free `migration` subscription row to the accounts saved before subscriptions existed (a missing row already reads as Free; this only gives them a history; it also closes the rows written by the first version of US11.1). Run it once after deploying this version of US11.1; safe to run many times |
 | `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together |
 | `npm test` | Run backend and frontend tests |
 | `npm run lint` | Lint the frontend |
@@ -54,7 +56,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run gen:module -- <name> --remove` | Delete a generated feature again |
 
 Optional services: without SMTP, emails (OTP and reset codes) are printed in the backend terminal in development and
-answer 503 in production; without Cloudinary, image upload answers 503; without `OPENAI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden; without `VNP_TMN_CODE` / `VNP_HASH_SECRET` (BE, `VNP_URL` defaults to the VNPay sandbox), VNPay payments answer 503; without `MOMO_PARTNER_CODE` / `MOMO_ACCESS_KEY` / `MOMO_SECRET_KEY` (BE, or `MOMO_MOCK=true` in development to pay without MoMo, `MOMO_URL` defaults to the MoMo sandbox, `MOMO_IPN_URL` must be a public address such as ngrok), MoMo payments answer 503.
+answer 503 in production; without Cloudinary, image upload answers 503; without `GEMINI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden; without `VNP_TMN_CODE` / `VNP_HASH_SECRET` (BE, `VNP_URL` defaults to the VNPay sandbox), VNPay payments answer 503; without `MOMO_PARTNER_CODE` / `MOMO_ACCESS_KEY` / `MOMO_SECRET_KEY` (BE, or `MOMO_MOCK=true` in development to pay without MoMo, `MOMO_URL` defaults to the MoMo sandbox, `MOMO_IPN_URL` must be a public address such as ngrok), MoMo payments answer 503.
 Everything else keeps working. `npm run seed` refuses `NODE_ENV=production`. Behind a proxy set `TRUST_PROXY=1`.
 Tests never read `BE/.env`: their variables are in `BE/vitest.config.mts`.
 
@@ -101,11 +103,15 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   skip `toJSON`: with them, `.select()` the public fields explicitly.
 - A learner's days (streak, daily mission, profile heatmap) are calendar days in their `settings.timezone` (`DEFAULT_TIMEZONE`
   when it is missing or unknown): cut them with `localDateKey(date, zone)` and count them with `addDays` (`utils/local-date.ts`),
-  never with `toISOString().slice(0, 10)`. They live in `DailyProgress`, which only `completeSession` writes, through
+  never with `toISOString().slice(0, 10)`. They live in `DailyProgress`, which only `completeSession` (and `claimStreakReward`) writes, through
   `recordCountedSession`. The mission goal is `DAILY_MISSION_SESSIONS` (`services/daily-progress.service.ts`), sent to the
   frontend as `missionGoal`. The admin user list keeps its own UTC days from `TypingSession`.
+- The streak reward replaced the daily challenge (its `/api/daily`, card and board are gone; old data stays unread): today's
+  first counted session makes it claimable, once, with `POST /api/profile/streak/reward` (`claimStreakReward`: one conditional
+  update sets `rewardClaimedAt` and `rewardCoins` on today's `DailyProgress` row, so two claims pay once; coins
+  `streakRewardCoins` = 20 + 5 per streak day before today, at most 50). The result page asks with `StreakRewardDialog`.
 - A learner's daily tasks (SCRUM-112) live in `UserDailyTasks` (`models/user-daily-tasks.model.ts`): one document per learner
-  and local day, made by the day's first `GET /api/profile/daily-tasks` or counted session, with a snapshot of `dailyTaskCount`
+  and local day, made by the day's first `GET /api/profile/daily-tasks`, counted session, finished minigame or finished duel, with a snapshot of `dailyTaskCount`
   active `DailyTask` templates (weak error types first) and the numbers of the sessions already counted that day, cut in the
   zone it keeps as `timeZone`. It is stored once (an upsert with `$setOnInsert`) and its `tasks` are never edited afterwards:
   template edits and a new count apply from the next day. After that upsert, its `progress` is written only by
@@ -113,13 +119,56 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   sessions: with `$max` after each counted session (`completeSession`, through `recordDailyTaskProgress`), so recording a
   session twice changes nothing, and replaced once, with the new `timeZone`, by the day's next counted session or `GET`
   after the learner's zone changed.
+- The daily task type `minigames` (SCRUM-300) asks the learner to finish `target` (at most 10) minigames or ranked duels in their
+  day, from `DayNumbers.minigames`, which `dayNumbersOf(sessions, minigames)` takes next to the counted sessions (a stored day
+  without it reads as 0). Two sources, read together by `minigameFinishTimes` (`services/minigame-times.service.ts`, models only,
+  so `user-daily-tasks.service.ts` can import it): the finished `MinigamePlay` rows (`models/minigame-play.model.ts`: Nối từ
+  `chain`, `rain`, `bot` of the Minigames tab) and the finished `Match` rows of ranked duels. The server opens a play with
+  `POST /api/minigames/plays { game }` and closes it with `POST /api/minigames/plays/:id/finish` (`services/minigame-play.service.ts`);
+  a finish counts only after `MIN_PLAY_MS[game]` (`config/minigames.ts`, 8 s: a Rain round or a Bot duel can be lost in about 10 s) by the server's clock, otherwise `{ counted: false }` and
+  the play stays open, and a finished play cannot be finished again (409); open plays nobody finished are deleted after a day.
+  A duel counts for a player (`countsAsPlayed`) when it is finished, not `flagged`, the player won, lost or drew (not a forfeit), and
+  its `unratedReason` is not one of `UNPLAYED_DUEL_REASONS` (`not-started`, `interrupted`, `abandoned`); `announceResult` in
+  `match.service.ts` tells the daily tasks (`recordMatchMinigames`) after each finished duel is saved. A minigame belongs to the
+  day it ended, in the learner's zone; `completedAtOf(task, sessions, minigameTimes)` gives a `minigames` task the time of its
+  `target`th minigame for the admin completions chart. Counting never fails a finish or a duel: a failed write is only logged.
+- Coins for completed daily tasks (SCRUM-301): a `DailyTask` template has `coins` (0 to `DAILY_TASK_COINS_MAX` = 100, default 0 =
+  no reward), copied into the learner's day with the rest of the snapshot (a change applies from the next day; a day stored
+  before it reads 0 and pays nothing). `payCompletedTasks` (`user-daily-tasks.service.ts`, called by `updateDayNumbers`) pays
+  each completed task once: one conditional update adds its `taskId` to `rewardedTaskIds`, and only the request that changed
+  the document adds `$inc: { coins }` to the user. Only the server pays, a read pays nothing, and a failed payment is only
+  logged. The daily task list shows `coins` and `rewarded` (Profile, Progress page, admin page).
 - A learner's error profile (SCRUM-27) is never stored: `getErrorProfile` (`services/error-profile.service.ts`) works it out
-  when it is read from their last 20 counted sessions that have chances (the current window is the 10 newest, the previous
-  one the 10 before them), with the pure `computeErrorProfile`: per error type the rate in %, the level (`weak` from
+  when it is read from their last 20 counted sessions of one typing language (SCRUM-219, below) that have chances (the
+  current window is the 10 newest, the previous one the 10 before them), with the pure `computeErrorProfile`: per error type the rate in %, the level (`weak` from
   `WEAK_RATE`, compared in whole numbers, never with a sum of decimals) and the trend (a two-proportion z-test between the
   windows). Nothing is written in `completeSession`, there is nothing to rebuild or to delete with the user. The thresholds
   are sent with `GET /api/profile/error-profile`: never write them in the frontend. A feature that needs the learner's weak
-  error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way).
+  error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way); Weak spots reads
+  `getTopErrorTypes` (every type with enough data, weak or not, highest rate first: `rankedTypes` of the answer).
+- Weak spots (SCRUM-28, US3.2; one error type: SCRUM-74) is the session mode `targeted` (the Train tab, called Weak spots before, of the Typing
+  page): `POST /api/sessions { mode: 'targeted', errorType? }` types a lesson aimed at the learner's errors instead of a
+  passage, built by `lessonFor` (`services/targeted-practice.service.ts`). The pure `buildLesson` picks 30 to 50 words of
+  the bank (`lessonWords`), 60 to 70 % of them training the focus (the type chosen, else the 2 types with the highest error
+  rates among those with enough data, weak or not: `getTopErrorTypes`, so an error profile is enough; taking turns), only
+  active words (`isActive`), none of the learner's last 3 lessons' picked words while the bank has others, repeats once it
+  runs short. `TONE_WRONG` and `BASE_LETTER` are on every word (`tagWord` counts
+  chances), so `trainsErrorType` takes a word with a tone mark for the tone and any word for the letters. Then Gemini writes
+  a passage that makes sense from them (`generateText`, prompt and limits in `config/weak-spots-ai.ts`); the pure
+  `checkAiPassage` keeps it with 20 to 200 words that use at least 60 % of the practice words (not 60 % of the passage: natural
+  text has 11 % words with đ). No key, a timeout, any Gemini error, a refused passage or more than 5 AI lessons a minute for
+  the learner (`lessonAiLimiter`, which never answers 429) leave the picked words as the lesson: the learner never sees an AI
+  error, and `lessonSource` (`ai`, `words`, `passage`) records which. The passage lives only in the session (`targetWords`),
+  never in the passage bank. The session has no `passageId` and keeps `focusErrorTypes`; with nothing to aim at (no type with
+  enough data yet, or no word for it) it types a random practice passage with `focusErrorTypes: []`, which the page explains.
+  Weak spots is Vietnamese only (SCRUM-219): its session is always `language: 'vi'` (its random passage too), its focus comes
+  from the Vietnamese sessions and its cards show the Vietnamese error profile, whatever the learner types in Practice. On the
+  Typing page the Train tab opens its cards from anywhere, also from a lesson (it stays shown while the learner types
+  English, and opening it switches them back to Vietnamese), and a lesson's other way back is the "All weak spots" button
+  in the bottom row, between the word count and the timer (`TypingArea`'s `statusCenter`), while Restart stays under the passage. A lesson of one type also opens from the Profile: every error type of its Vietnamese
+  error profile has a "Practice this error" button (SCRUM-274; none in the English one), a link to
+  `/typing?mode=targeted&focus=<type>`, also for a type without enough data yet, whose lesson says what the profile still
+  needs. The passage menu and `GET /api/passages` take `passageModes` (practice, placement), never `targeted`.
 - A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
   which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen
   (`createReplayRecorder`, `FE/src/modules/typing/utils/session-replay.ts`), the page sends them as `replay` with
@@ -131,11 +180,56 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   the 3 minutes or typed the whole passage). The time the learner chose comes with `POST /api/sessions` (`timeLimitSeconds`, kept as `chosenLimitSeconds`; changing the time in Placement starts a new session (the passage is chosen again), and an abandoned session is deleted 24 hours later by a partial TTL index on `updatedAt`, `ABANDONED_TTL_MS`);
   the `timeLimitSeconds` of `complete` is only for the chart and is never read for ranking. It is not `Passage.isRanked` (the passages of ranked duels).
   The week starts on Monday 0:00 in `Asia/Ho_Chi_Minh` (`placementWeekStart`). The ranking of each board is kept in memory (`placement-board-cache.ts`): built again after an hour, and only if something changed (`placementBoardChanged`); call it whenever a change can alter a board. Names and avatars only, never an email.
+- Plans and passage limits (US11.1): a learner is on `free` or `premium`. Their plan is the newest `Subscription` row in
+  effect (`models/subscription.model.ts`, `services/subscription.service.ts`: `getCurrentSubscription`): a row is one term
+  with its own dates (`startsAt`, `expiresAt`; it may start in the future); no row means Free, and a Premium term past its end reads
+  as Free (nothing runs in the background: the first read writes the one `auto` Free row, the unique partial index keeps it to
+  one). Rows are only added; the only edits are `endedAt` (a Free row when Premium starts, a Premium term cut short) and
+  `cancelledAt`. Each row has a status worked out when it is read (`subscriptionStatus`, and `statusFilter` for the list):
+  `upcoming`, `active`, `cancelled` (also while it runs to its end) or `ended`. Every new account gets a Free `signup` row from a hook on the `User` model
+  (never from the OTP functions). A row says who made it: `signup`, `payment` (`recordPaidMonth`, for US11.2 and US11.3),
+  `admin` (`grantPremium` queues the months as a new term that starts when the last one ends, so every term keeps its own dates; `cancelPremium` lets the paid time run out, `revokePremium` stops it at once; `changedBy` is the admin), `auto`, `migration`. What a
+  plan gives (`priceVnd`, `maxPassages`, `canCreateErrorPractice`, `canUsePublicPassages`) is `AppSettings.plans`
+  (`getPlanConfig`, defaults `DEFAULT_PLANS`: Free 9 passages, Premium 90): Weak spots (US3.2) checks `canCreateErrorPractice`
+  (`assertCanPracticeWeakSpots`, 403; the Train cards of the Typing page and the "Practice this error" buttons of the
+  Profile show a lock and open `PlanDialog`).
+  `MAX_USER_PASSAGES` is gone: `passage-lock.service.ts` counts every passage the learner made (draft, private, pending,
+  rejected, public; not archived, placement, ranked or English ones, never an admin's or a deleted account's) and locks, when they have more than their plan's
+  `maxPassages`, all but the newest ones (`getLockedPassageIds`, worked out on every read, nothing stored: buying Premium,
+  a new limit or deleting a passage opens the older ones again). A locked passage cannot be practiced or picked and other
+  learners never see it; its owner sees it dimmed (`locked: true`) and may delete it (also when public). Free practices only system passages (no owner, or an admin's) and its own: another learner's public
+  passage is listed with `lockedByPlan: true` and starting a session with it answers 403 (`assertCanPractice`).
+  Placement and ranked ignore plans. The passages of an account that was deleted (the subscription rows go with it) are system passages. `GET /api/plan` is the learner's own plan, `/api/admin/plans` (GET, PUT, POST
+  `/preview`: how many users and passages a change would newly lock) and `POST|DELETE /api/admin/users/:id/premium` and `POST` `.../premium/cancel`
+  (1 to 36 calendar months, Vietnam time) are the admin side. `npm run migrate:subscriptions` gives old accounts a row.
 - Word errors have one set per passage language, each a pure file with an identical frontend copy in `FE/src/shared/lib/`
-  (keep each pair identical): Vietnamese `utils/vietnamese-errors.ts` (`WordError`, `classifyWord`, `tagWord`) for everything
-  learners practice, English `utils/english-errors.ts` (`EnglishError`, `classifyEnglishWord`, `tagEnglishWord`, SCRUM-218)
-  for the English passages of ranked duels. Never mix the two: a passage's `tagCounts` counts the set of its `language`
-  (`computePassageStats`). After changing a `tag…` function, run `npm run rebuild:tag-counts`.
+  (keep each pair identical): Vietnamese `utils/vietnamese-errors.ts` (`WordError`, `classifyWord`, `tagWord`) for the
+  Vietnamese passages (Practice in Vietnamese, the placement test, word rain), English `utils/english-errors.ts`
+  (`EnglishError`, `classifyEnglishWord`, `tagEnglishWord`, SCRUM-218) for the English passages (Practice in English and
+  ranked duels). Never mix the two: a passage's `tagCounts` counts the set of its `language` (`computePassageStats`), a
+  session the set of its own (`classifyIn`, `tagIn`, `errorTypesOf` in `utils/typing-language.ts`, with a frontend copy).
+  After changing a `tag…` function, run `npm run rebuild:tag-counts`.
+- Typing language (SCRUM-219): a learner types Practice in Vietnamese or English, `settings.typingLanguage` (`vi` by default,
+  saved with `PATCH /api/profile/settings`, which takes a time zone, a typing language or both). A session keeps its
+  `language`, set by the server when it starts (Practice: the learner's language then, `typingLanguageOf`; the placement test
+  and Weak spots: always `vi`), and is graded and counted in its set only (its `errorCounts` / `opportunityCounts` hold the keys of that set).
+  A session without `language` (from before) is Vietnamese: filter with `sessionsIn(language)` (`{ language: { $ne: 'en' } }`
+  for `vi`), never `{ language: 'vi' }`; there is no migration. Practice picks among the passages of the learner's language
+  (`practiceLanguageFilter`: English = `language: 'en'` and not `isRanked`, so the passages of ranked duels never come up), a
+  `passageId` of the other language answers 400, and `GET /api/passages` takes `language` (`vi` when missing: the Passages
+  page; the Typing page's Practice menu sends the learner's). The error profile, the averages of `GET /api/sessions/activity`
+  and `GET /api/profile/monthly-progress` are the ones of one language (`?language=`, the learner's when missing; the answer
+  says which, as `language`; the English chart starts at the first counted English session). Both languages count for the
+  days (streak, daily mission, heatmap) and for the sessions, minutes, WPM and accuracy of the daily tasks; word rain's focus,
+  `getWeakErrorTypes`, `getTopErrorTypes` (Weak spots), the daily tasks of an error type and the admin user list's averages
+  read Vietnamese sessions only. Frontend: the language button sits at the top center of the passage, in Practice only
+  (`TypingPage`, `TypingArea`'s `header`: it shows the language being typed and a click switches to the other one): it saves
+  the language (`useSaveTypingLanguage`, which empties the per-language profile queries) and then starts a random passage of
+  it; in English a notification says to turn off Vietnamese input, and the Placement tab is hidden (the Weak spots tab stays).
+  Every way into the placement test (the tab, Ping's tour, `?mode=placement`) or into Weak spots (its tab, a `?mode=targeted`
+  link) and a `?passage=` link of the Passages page (a Vietnamese passage) switch back to Vietnamese and save it. `TypingArea`, the replay and the result page check and name errors with the session's `language`; the session cards of
+  the profile say VI or EN. The minigames keep their own language (`useMinigameLang`), and the word bank (`word.model.ts`) is
+  Vietnamese only.
 - Payments (VNPay and MoMo side by side, `/api/payments`, `services/payment.service.ts`): what can be bought and its price live in `config/payment.ts`
   (`PAYMENT_PRODUCTS`: Pro plans of 1, 6 and 12 months and three coin packs, each with its `amount` and its `grant`); the client
   sends a product id, never an amount or a duration, and the frontend reads the prices from `GET /api/payments/products`. `POST /vnpay`
@@ -176,7 +270,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Forms: React Hook Form + `zodResolver`, laid out with `FormField` (`shared/components/form-field.tsx`). Mirror the backend schema.
 - Every data view handles loading, error and empty states (`LoadingState`, `ErrorState`, `EmptyState`).
 - Reuse shared UI before writing new: `PageHeader`, `EmptyState`, `ErrorState`, `LoadingState`, `ConfirmDialog` (`children` for an extra field such as a reason, `confirmDisabled` until it is filled, `cancelLabel` to rename Cancel), `Pagination`,
-  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; its tags are `LabeledTag`s and badges, as on the passage cards; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap` (always one tooltip for the hovered day; a learner's own days: `timeZone`, `unit`, `legend`, see `ProfileHeatmap`), `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons, `menus` of its own in their look for a setting of the list such as `3 a day`, + actions above a list) (`shared/components/`), `CompactToolbar` (Search, Sort, Filter and a total as icons whose word shows on hover, no background: for a list under a title, see `ProfileSessions`; `menus` add pickers of their own that always show their choice, an `adder` (a "+" in front of them, whose menu of groups opens a second menu of options to add beside it) and `tags` (what was added, on the left of the "+", each with an x shown on hover): the Progress page), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
+  `StatCard`, `Panel`, `ListRow` + `ListRowMenu` + `ListRowStat` (a two-tier red list item with slots, see `UserRow`; its tags are `LabeledTag`s and badges, as on the passage cards; icon buttons instead of the kebab menu: `PassageCard`), `ActivityHeatmap` (always one tooltip for the hovered day; a learner's own days: `timeZone`, `unit`, `legend`, see `ProfileHeatmap`), `ListToolbar` (an optional `title` island, search + Sort and Filter menu buttons, `menus` of its own in their look for a setting of the list such as `3 a day`, + actions above a list), `TabGroup` (a row of switch buttons; `iconsOnPhones` shows on phones only the icons of the tabs not selected, for a row too long for a phone such as the Typing page's modes) (`shared/components/`), `CompactToolbar` (Search, Sort, Filter and a total as icons whose word shows on hover, no background: for a list under a title, see `ProfileSessions`; `menus` add pickers of their own that always show their choice, an `adder` (a "+" in front of them, whose menu of groups opens a second menu of options to add beside it) and `tags` (what was added, on the left of the "+", each with an x shown on hover): the Progress page), `DataTable`, `SearchInput`, `FilterSelect`, `TableToolbar` (`shared/components/data-table`),
   shadcn primitives (`shared/components/ui/`), hooks `useDebounce`, `usePagination`, `useListParams`, `useFitLines` (`shared/hooks/`),
   date helpers in `shared/lib/local-date.ts` (a learner's today is `dateKeyIn(new Date(), timezone)`, never `toISOString()`).
   The daily mission goal is the backend's `missionGoal`: never write the number in the frontend.
@@ -195,6 +289,15 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   Decorative motion that CSS cannot draw (a flame, confetti, a trophy) uses `Lottie` (`shared/components/lottie.tsx`, the one
   animation library, `@lottiefiles/dotlottie-react`) with files in `FE/public/lottie/` (source and author in its `CREDITS.md`);
   they keep their own colors like the avatar sprites, never carry information on their own, and stay still for reduced motion.
+- Minigames and the daily task `minigames` (SCRUM-300): a minigame of the Minigames tab tells the server when it starts and ends with
+  `useMinigamePlay(game)` (`modules/daily-tasks/hooks/use-minigame-play.ts`: `begin()` when the game starts, `finish()` when it runs to its
+  end; Nối từ, Rain and the Bot duel use it, never the tutorial's own duel). Both calls swallow their errors without a toast: counting
+  never gets in a game's way. Ranked duels need nothing here, the server counts them from the match.
+- Plans (US11.1, `modules/plan`): `PlanBadge` (a button with the word FREE or PREMIUM between the name and the pencil on the Profile: muted on Free, red on Premium, with a tooltip) opens `PlanDialog` (both plans side by side as read-only cards
+  (`PlanOfferCard`: its own one-column design, not the two-column card of the admin Plans page), the learner's own outlined, and in each card, at the bottom, its button: "Buy now" on Premium,
+  "Owned" on the learner's own card, none on Free for a learner on Premium; Buy now does nothing but say so until US11.2/US11.3) with `usePlan` (`GET /api/plan`, which also sends both plans with their price); the same dialog opens from a passage the plan
+  locks in the Typing menu. Never write a limit in the frontend: the Passages page reads `maxPassages` and `usedPassages` from the
+  plan. `AdminPlansPage` (`/admin/plans`) has bare panels with a title each (no padding, border or background): first `PlanUsersChart` (titled Subscriptions, as tall as the screen leaves it, so with the Plans panel it fills one screen: a double bar chart of the users on each plan, two bars a period: Premium and Free, with the Week/Month/Year menus of the Progress page and a Lines button (All, Premium, Free) next to Year, which a click on a plan card also sets (the card shows its line alone, a second click shows both; a click on a field or a switch does not); `GET /api/admin/plans/users-over-time`, counted at the end of each period), then, one at a time under it (the plan cards first; a `PanelTitleSwitch` with `showLabel` under each reads "Subscription list" / "Plans", kept in the URL as `?show=list`; the chart stays above both; the cards stay mounted, hidden, while the list shows; the list has 3 rows a page), the two plan cards (under the title Plans, with Save on its row, in two columns that share the whole width), which edit both plans and ask the server what a save would lock before saving, and `SubscriptionList` under them (titled Subscription list, a `CompactToolbar showWords`, plain rows without a background), every term of every user built like My Sessions of the Profile (`GET /api/admin/subscriptions`; its SOURCE is the payment method, `None` for every change that was not a payment, each card starts with the user's avatar (picture or pixel face, as on the admin Users page) with their email under the name, its period (start → end, `Now` while it has no end; the admin who made the change under it) is in the middle and its STATUS is Upcoming, Active, Cancelled or Ended, each a filter; BY filters an admin or the system).
 - Login, register and forgot-password pages (`modules/auth`): `AuthLayout` puts `AuthBrandPanel` (the default avatar typing, big (scale 5) and centered above `TypingDemo`; the avatar's hair is level with the top of the form's title (the sprite frame has empty rows above it, so the avatar is pulled up by `AVATAR_TOP_GAP_PX`):  the Typing page's `PassageView` typing a fixed passage by itself, with a wrong word and a slip that is deleted; no keys, no API; the final state for reduced motion) on the left from `lg` up and the form on the right, with no background (no card, border or blur), both columns level at the top and together centered vertically between the header and the footer (as wide as the other pages, `max-w-7xl`), under the header of the signed-in pages (`BrandHeader` with `GuestMenu`: the default avatar's head, "Guest", and a menu with Mode, Login and Register, every tab without a role, `NavLinks`, which send a guest back to Login) and text 2px bigger than the shared components (`AuthLayout` overrides `text-2xl`, `text-base`, `text-sm`). Fields are `FormField hideLabel` (the label stays for screen readers, the placeholder names the field: "Email", "Password"; 12px between fields, 24px before the submit button, between the buttons, before the icon buttons, between those and before "Forgot password?": `mt-6` on the element, not an extra margin, because neighbouring vertical margins collapse to the larger one) + `AuthInput` (no border, line or background of its own, even focused, red text on `aria-invalid`, text 20px, show/hide button for passwords, shown only while the field is hovered or focused (always on touch screens)); the title is 32px and centered, the primary button is 48px high; the other page's link is an outline button under the submit button ("Log in to your account", "Create a new account"); `SocialButtons` (a row of three equal icon buttons that fill the width: Google, which really works, and Facebook and GitHub, placeholders that say "not available yet") sits under the form of Login and Register (after the button to the other page, on Login before "Forgot password?"); Google's own button cannot be resized, so `GoogleSignInButton` renders it scaled up and invisible over its square cell; Login's "Forgot password?" link is a right-aligned line under them; the title ("Login" / "Register") has no description and 24px below it, like the gaps between the buttons; Register also checks the email while it is typed (`useEmailExists`: a valid email, 500ms after the last key, `GET /api/auth/email-exists?email=` answers `{ exists }` and nothing else, under the auth rate limit; a red icon on the right of the field, with "This email already has an account. Log in instead." in a tooltip (`AuthInput`'s `warning`)) and shows `PasswordStrengthMeter` under the password (`passwordStrength` in `modules/auth/utils`, 0-4 from length, case, digit, symbol: a hint only, the server checks the length alone); a failed submit calls `useFormShake`. Their motion (`auth-enter`, `auth-shake`, the typing demo) is skipped for reduced motion.
 - The Store (`modules/payments`, `/store`, "Store" in the account menu): the coins and Pro status in the page header; Pro is one
   bordered stage (the learner's avatar on a pixel floor wearing the Pro items the catalog lists, `unlock.kind === 'pro'`, each item a
@@ -213,9 +316,9 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 ## Admin area
 
 `/admin` has its own sidebar layout (`FE/src/shared/components/layout/AdminLayout.tsx`): no BrandHeader/BrandFooter, the sidebar (`AdminSidebar.tsx`) has the logo on top and the user + Logout at the bottom. The reference admin page is user
-management: `FE/src/modules/admin/pages/AdminUsersPage.tsx` (a `ListToolbar` with search, sort and filters, a list of `UserRow` cards with an edit/disable/delete kebab menu,
-pagination, the `UserForm` panel above the list (edit only: empty and disabled until Edit picks a user), delete with confirmation) backed by `BE/src/routes/admin.route.ts`. For a review queue with
-cards chosen by a click and bulk decisions, see the Pending review panel under the Passages panel of `FE/src/modules/passages/pages/AdminPassagesPage.tsx`
+management: `FE/src/modules/admin/pages/AdminUsersPage.tsx` (a bare `Panel` titled User list whose `actions` are a `CompactToolbar` with search, sort, filters and the count, a list of `UserRow` cards (`ListRow plain flat`: no background, no lines between the tiers) with an edit/disable/delete kebab menu (shown while the row is hovered) that a right click on the row opens too (`RowContextMenu`, `shared/components/row-context-menu.tsx`; also the menu key or Shift + F10 on the focused row; a click chooses the row),
+pagination, a `UsersChart` panel above it (titled Total users, a line chart of the users over time, Week/Month/Year, from `GET /api/admin/plans/users-over-time`: Free + Premium) and the `UserForm` in a modal (edit only: Edit opens it), delete with confirmation) backed by `BE/src/routes/admin.route.ts`. For a review queue with
+cards chosen by a click and bulk decisions, see the Pending review panel under the Passage list panel of `FE/src/modules/passages/pages/AdminPassagesPage.tsx`
 (`PendingPassagesPanel`: learners ask for their own passages to become public, admins approve them or turn them down with a
 reason, which makes them `rejected`, SCRUM-176). Two lists on one page keep their URL params apart with `useListParams({ sort, prefix })`.
 
@@ -239,10 +342,11 @@ To add an admin page for a feature module:
 
 The mascot Ping guides new learners (`docs/superpowers/specs/2026-10-30-ping-tutorial-design.md`):
 
-- State: `user.tutorial = { tour: 'active' | 'done' | 'skipped', modes: { practice?, placement?, rain?, daily?, rank?: 'done' | 'skipped' } }`.
+- State: `user.tutorial = { tour: 'active' | 'done' | 'skipped', modes: { practice?, placement?, rain?, rank?: 'done' | 'skipped' } }`
+  (the Daily mode left with the daily challenge; an old stored `modes.daily` is ignored).
   **Missing = an account from before the tutorial: nothing is shown.** Never give it a default. `/api/tutorial`
   (`routes/tutorial.route.ts`): `POST /start` (after sign-up, keeps an existing state), `PATCH /` (`{ mode, status }` and/or
-  `{ tour }`, 400 without a state), `POST /reset` (Settings "Xem lại hướng dẫn"), `POST /coach` (Ping's tip after the practice
+  `{ tour }`, 400 without a state), `POST /reset` (Settings "Replay tutorial"), `POST /coach` (Ping's tip after the practice
   duel: `generateChatReply` with `config/ping-coach.ts`, a written tip when the AI cannot answer; shares the chat limiter).
 - Frontend: `modules/tutorial` (a widget, `TutorialGuide`, on /typing only). The steps of each mode are in `steps.ts`
   (`MODE_STEPS`, Vietnamese, Ping's voice); the tour chains them in `TOUR_ORDER`. A step frames `[data-tutorial="<id>"]` with
@@ -256,13 +360,13 @@ The mascot Ping guides new learners (`docs/superpowers/specs/2026-10-30-ping-tut
 - The Nối từ minigame (`?mode=minigames&game=chain`, `WordChainMode`, `modules/word-chain`) is a Vietnamese word chain against a
   friendly bot, played in the browser: a 60 s clock, the linking syllable is typed for the player (`composeAnswer`), a right word
   adds time by its WPM (`BONUS_TIERS` in `lib/word-chain.ts`), a refused word, a hint or a skip costs time. A finished game goes to
-  its leaderboard (`/api/word-chain`, `services/word-chain.service.ts`, this week from Monday 0:00 in Vietnam and all the time): the
+  its leaderboard (a modal from the game, and the Minigames tab of the Leaderboard page, `?tab=minigames`; `/api/word-chain`, `services/word-chain.service.ts`, this week from Monday 0:00 in Vietnam and all the time): the
   server works the score out again from the chain (`scoreChain`, `utils/word-chain-rules.ts`, against `data/noi-tu-words.ts`), never
   takes it from the client. Its word list `FE/public/noi-tu/words.txt` (`*` = the bot may
   play it; sources and licences, GPL-2.0 and CC BY, in its `CREDITS.md`) and its server copy `BE/src/data/noi-tu-words.ts` are
   generated by `minigame-words/build-noi-tu.mjs` (see its README), never edited by hand.
 
-## AI chat bot (OpenAI)
+## AI chat bot (Gemini)
 
 A sample chat bot to customize, not a finished product:
 
@@ -272,15 +376,17 @@ A sample chat bot to customize, not a finished product:
 - Backend: `POST /api/chat` with `{ messages: [{ role: 'user' | 'model', text }] }` → `{ reply }`. Stateless: the client sends
   the conversation each time. Signed-in users only, 10 messages per minute per user.
 - Personality: `BE/src/config/chatbot.ts` (system prompt, longest reply in tokens, history length).
-  OpenAI calls: `BE/src/services/ai.service.ts`, Chat Completions with plain `fetch` (no SDK); `model` messages are sent as `assistant`.
-- Config: `OPENAI_API_KEY` (https://platform.openai.com/api-keys, paid per token) and `OPENAI_MODEL` (default `gpt-4.1-mini`)
+  Gemini calls: `BE/src/services/ai.service.ts`, `generateContent` with plain `fetch` (no SDK); the key goes in the `x-goog-api-key` header, the system prompt in `systemInstruction`, and `model` messages keep their `model` role.
+  `generateChatReply` is the chat (and Ping's coach); `generateText` is one prompt with an optional timeout (504), used by the
+  Weak spots lessons, which fall back to their word list on any failure.
+- Config: `GEMINI_API_KEY` (https://aistudio.google.com/apikey, free tier with limits) and `GEMINI_MODEL` (default `gemini-2.5-flash`)
   in `BE/.env`. Quota errors answer 429, a bad key or model 503. Never put the key in frontend code.
 
 ## Testing rules
 
 - Backend integration tests use `api()` from `BE/tests/helpers/api.ts` (not `request(app)`), `createUser` / `bearerFor`
   from `tests/helpers/user-factory.ts`, and an in-memory MongoDB. External services are mocked in
-  `tests/setup/mock-external-services.ts`; inspect them with `email-outbox.ts`, `cloudinary-recorder.ts`, `openai-recorder.ts` (OpenAI is answered by a stubbed `fetch`).
+  `tests/setup/mock-external-services.ts`; inspect them with `email-outbox.ts`, `cloudinary-recorder.ts`, `gemini-recorder.ts` (Gemini is answered by a stubbed `fetch`).
 - Frontend tests mock the feature's `api` module and render with `renderWithProviders` from `FE/src/test/render-with-providers.tsx` (`state` for the history state of the starting URL, `otherRoutes` with an element instead of a text to read the location after a redirect).
   Assert what the user sees (`getByRole`, `findByText`).
 - Days and time zones: fix the clock by faking `Date` only (`vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(...)`,

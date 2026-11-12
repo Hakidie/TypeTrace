@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { z } from 'zod';
 
 // Tests get their variables from vitest.config.mts only, so a developer's own
-// BE/.env (real SMTP, OpenAI key, ...) never changes how the tests behave.
+// BE/.env (real SMTP, Gemini key, ...) never changes how the tests behave.
 if (process.env.NODE_ENV !== 'test') dotenv.config({ quiet: true });
 
 const PLACEHOLDER_JWT_SECRET = 'change_this_secret';
@@ -31,11 +31,11 @@ const envSchema = z
     CLOUDINARY_CLOUD_NAME: optionalString,
     CLOUDINARY_API_KEY: optionalString,
     CLOUDINARY_API_SECRET: optionalString,
-    // Key: https://platform.openai.com/api-keys
-    OPENAI_API_KEY: optionalString,
+    // Optional. AI chat bot (Gemini). Key: https://aistudio.google.com/apikey
+    GEMINI_API_KEY: optionalString,
     // Optional. OAuth client ID for "Login with Google" (https://console.cloud.google.com/apis/credentials).
     GOOGLE_CLIENT_ID: optionalString,
-    OPENAI_MODEL: z.string().trim().min(1).default('gpt-4.1-mini'),
+    GEMINI_MODEL: z.string().trim().min(1).default('gemini-2.5-flash'),
     // Optional. VNPay payment gateway (sandbox: https://sandbox.vnpayment.vn/merchantv2/). Without them, payments answer 503.
     VNP_TMN_CODE: optionalString,
     VNP_HASH_SECRET: optionalString,
@@ -95,9 +95,9 @@ export const parseEnv = (raw: RawEnv) => {
     cloudinaryCloudName: v.CLOUDINARY_CLOUD_NAME,
     cloudinaryApiKey: v.CLOUDINARY_API_KEY,
     cloudinaryApiSecret: v.CLOUDINARY_API_SECRET,
-    openaiApiKey: v.OPENAI_API_KEY,
+    geminiApiKey: v.GEMINI_API_KEY,
     googleClientId: v.GOOGLE_CLIENT_ID,
-    openaiModel: v.OPENAI_MODEL,
+    geminiModel: v.GEMINI_MODEL,
     vnpTmnCode: v.VNP_TMN_CODE,
     vnpHashSecret: v.VNP_HASH_SECRET,
     vnpUrl: v.VNP_URL,

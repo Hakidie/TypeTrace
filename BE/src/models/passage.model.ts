@@ -1,12 +1,16 @@
 // A passage a learner can type. Typing sessions pick one of these (SCRUM-33, US6.2).
 import mongoose, { Schema, Types } from 'mongoose';
 import { EnglishError, EnglishErrorType, tagEnglishWord } from '../utils/english-errors';
+import { typingLanguages } from '../utils/typing-language';
 import { tagWord, WordError, WordErrorType } from '../utils/vietnamese-errors';
 
 export const passageVisibilities = ['public', 'private'] as const;
 export const passageStatuses = ['draft', 'published', 'pending', 'rejected', 'archived'] as const;
-/** `vi`: practice and the placement test; `en`: ranked duels. Each language has its own error types (`tagCounts`). */
-export const passageLanguages = ['vi', 'en'] as const;
+/**
+ * `vi`: practice and the placement test; `en`: ranked duels (`isRanked`) and English practice (the others, SCRUM-219). Each
+ * language has its own error types (`tagCounts`). The same two as the typing languages.
+ */
+export const passageLanguages = typingLanguages;
 
 export type PassageVisibility = (typeof passageVisibilities)[number];
 export type PassageStatus = (typeof passageStatuses)[number];
@@ -80,9 +84,6 @@ export interface PassageDocument extends mongoose.Document {
 
 export const SYSTEM_OWNER_NAME = 'TypeTrace';
 
-/** How many private passages of their own a learner may have to type (`POST /api/passages`); archived ones do not count. */
-export const MAX_USER_PASSAGES = 20;
-
 /** A learner's own passage needs at least this many words: a shorter session never counts (`MIN_COUNTED_WORDS`). */
 export const MIN_USER_PASSAGE_WORDS = 20;
 
@@ -117,10 +118,17 @@ export const publicOwnerName = (author?: { role: string; displayName?: string } 
 };
 
 /**
- * What every learner flow (practice, placement, the passage list) adds to its query: English passages are for ranked duels
- * only. `$ne` (not `'vi'`) so passages saved before the `language` field still count as Vietnamese.
+ * The Vietnamese passages: what the placement test and Vietnamese practice add to their query. `$ne` (not `'vi'`) so
+ * passages saved before the `language` field still count as Vietnamese.
  */
 export const notEnglish = { language: { $ne: 'en' as const } };
+
+/**
+ * The passages Practice offers in `language` (SCRUM-219): the Vietnamese ones, or the English ones that are not the ranked
+ * duels' own (`isRanked`), so nobody rehearses a duel's passage.
+ */
+export const practiceLanguageFilter = (language: PassageLanguage) =>
+  language === 'en' ? { language: 'en' as const, isRanked: { $ne: true } } : notEnglish;
 
 /** Words are separated by spaces and punctuation stays attached to its word, as in a typing session. */
 export const splitWords = (content: string) => content.split(/\s+/).filter(Boolean);

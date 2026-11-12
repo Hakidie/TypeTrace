@@ -2,10 +2,12 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render-with-providers';
+import { minigamePlaysApi } from '@/modules/daily-tasks/api/daily-tasks.api';
 import { wordChainApi } from '../api/word-chain.api';
 import { WordChainMode } from './WordChainMode';
 
 vi.mock('../api/word-chain.api', () => ({ wordChainApi: { words: vi.fn(), saveScore: vi.fn(), board: vi.fn() } }));
+vi.mock('@/modules/daily-tasks/api/daily-tasks.api', () => ({ minigamePlaysApi: { start: vi.fn(), finish: vi.fn() } }));
 vi.mock('@/modules/auth/hooks/use-current-user', () => ({
   useCurrentUser: () => ({ data: { _id: 'u1' } }),
 }));
@@ -13,12 +15,14 @@ vi.mock('@/shared/components/lottie', () => ({ Lottie: () => null }));
 
 // The bot starts with "học sinh" (Math.random is 0) and answers "sinh viên" with "viên chức".
 const LIST = ['*học sinh', 'sinh viên', '*viên chức', 'chức vụ', 'sinh sôi'].join('\n');
-const BOX = { name: 'Tiếng thứ hai (tiếng "sinh" đã có sẵn)' };
+const BOX = { name: 'Second syllable (the syllable "sinh" is given)' };
 
 describe('WordChainMode', () => {
   beforeEach(() => {
     vi.mocked(wordChainApi.words).mockResolvedValue(LIST);
     vi.mocked(wordChainApi.saveScore).mockResolvedValue({ score: 1 });
+    vi.mocked(minigamePlaysApi.start).mockReset().mockResolvedValue({ id: 'p1' });
+    vi.mocked(minigamePlaysApi.finish).mockReset().mockResolvedValue({ counted: true });
     vi.mocked(wordChainApi.board).mockResolvedValue({
       range: 'week',
       items: [{ rank: 1, displayName: 'Lan', avatar: { skin: 'a' } as never, score: 12, isMe: false }],
@@ -34,52 +38,65 @@ describe('WordChainMode', () => {
 
   const startGame = async () => {
     renderWithProviders(<WordChainMode />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Bắt đầu' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Start' }));
     expect(await screen.findByRole('listitem', { name: 'Bot: học sinh' })).toBeInTheDocument();
   };
 
-  it('shows the rules, the time bonus by speed and the leaderboard', async () => {
+  it('shows the rules, the time bonus by speed, and the leaderboard in a modal that links to the Leaderboard page', async () => {
     renderWithProviders(<WordChainMode />);
-    expect(await screen.findByRole('heading', { name: 'Nối từ' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Word chain' })).toBeInTheDocument();
     expect(screen.getByText('≥ 40 WPM:')).toBeInTheDocument();
     expect(screen.getByRole('timer')).toHaveTextContent('60s');
-    const board = screen.getByRole('region', { name: 'Bảng xếp hạng Nối từ' });
+    expect(screen.queryByRole('region', { name: 'Word chain leaderboard' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Leaderboard' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Word chain leaderboard' });
+    expect(within(dialog).getByRole('link', { name: 'Open the Leaderboard page' })).toHaveAttribute('href', '/leaderboard?tab=minigames');
+    const board = within(dialog).getByRole('region', { name: 'Word chain leaderboard' });
     expect(await within(board).findByText('Lan')).toBeInTheDocument();
-    expect(within(board).getByText(/Bạn đứng thứ/)).toHaveTextContent('Bạn đứng thứ 4 với 3 điểm.');
-    await userEvent.click(within(board).getByRole('tab', { name: 'Mọi lúc' }));
+    expect(within(board).getByText(/You are/)).toHaveTextContent('You are #4 with 3 points.');
+    await userEvent.click(within(board).getByRole('tab', { name: 'All time' }));
     await waitFor(() => expect(wordChainApi.board).toHaveBeenCalledWith('all'));
+  });
+
+  it('switches the texts between English and Vietnamese', async () => {
+    renderWithProviders(<WordChainMode />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Tiếng Việt' }));
+    expect(await screen.findByRole('button', { name: 'Bắt đầu' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'English' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'English' }));
+    expect(await screen.findByRole('button', { name: 'Start' })).toBeInTheDocument();
   });
 
   it('types the linking syllable for the player: only the second syllable is needed', async () => {
     await startGame();
     await userEvent.type(screen.getByRole('textbox', BOX), 'viên{Enter}');
-    expect(await screen.findByRole('listitem', { name: 'Bạn: sinh viên' })).toBeInTheDocument();
+    expect(await screen.findByRole('listitem', { name: 'You: sinh viên' })).toBeInTheDocument();
     expect(screen.getByRole('listitem', { name: 'Bot: viên chức' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/Đúng! \+1 điểm, \+\d giây/);
-    expect(screen.getByRole('textbox', { name: 'Tiếng thứ hai (tiếng "chức" đã có sẵn)' })).toHaveValue('');
-    expect(screen.getByText('Điểm').nextSibling).toHaveTextContent('1');
+    expect(screen.getByRole('status')).toHaveTextContent(/Right! \+1 point, \+\d+s/);
+    expect(screen.getByRole('textbox', { name: 'Second syllable (the syllable "chức" is given)' })).toHaveValue('');
+    expect(screen.getByText('Score').nextSibling).toHaveTextContent('1');
   });
 
   it('a refused word costs 3 s, says why and stays in the box', async () => {
     await startGame();
     const box = screen.getByRole('textbox', BOX);
     await userEvent.type(box, 'chức vụ{Enter}');
-    expect(screen.getByRole('status')).toHaveTextContent('Từ phải bắt đầu bằng "sinh". −3 giây');
+    expect(screen.getByRole('status')).toHaveTextContent('The word must start with "sinh". −3s');
     expect(screen.getByRole('timer')).toHaveTextContent('57s');
     await userEvent.clear(box);
     await userEvent.type(box, 'tố{Enter}');
-    expect(screen.getByRole('status')).toHaveTextContent('"sinh tố" chưa có trong danh sách từ. −3 giây');
+    expect(screen.getByRole('status')).toHaveTextContent('"sinh tố" is not in the word list. −3s');
     expect(screen.getByRole('timer')).toHaveTextContent('54s');
     expect(box).toHaveValue('tố');
   });
 
   it('a hint costs 3 s and a skip 5 s', async () => {
     await startGame();
-    await userEvent.click(screen.getByRole('button', { name: /Gợi ý/ }));
-    expect(screen.getByRole('status')).toHaveTextContent(/Gợi ý: sinh (viên|sôi) \(−3 giây\)/);
+    await userEvent.click(screen.getByRole('button', { name: /Hint/ }));
+    expect(screen.getByRole('status')).toHaveTextContent(/Hint: sinh (viên|sôi) \(−3s\)/);
     expect(screen.getByRole('timer')).toHaveTextContent('57s');
-    await userEvent.click(screen.getByRole('button', { name: /Bỏ qua/ }));
-    expect(screen.getByRole('status')).toHaveTextContent('Bỏ qua "học sinh", −5 giây');
+    await userEvent.click(screen.getByRole('button', { name: /Skip/ }));
+    expect(screen.getByRole('status')).toHaveTextContent('Skipped "học sinh", −5s');
     expect(screen.getByRole('timer')).toHaveTextContent('52s');
   });
 
@@ -89,7 +106,7 @@ describe('WordChainMode', () => {
     await startGame();
     await userEvent.type(screen.getByRole('textbox', BOX), 'viên{Enter}');
     vi.setSystemTime(new Date('2026-11-09T10:05:00Z'));
-    expect(await screen.findByRole('heading', { name: 'Kỷ lục mới!' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'New best!' })).toBeInTheDocument();
     expect(localStorage.getItem('typetrace:noi-tu-best:u1')).toBe('1');
     await waitFor(() =>
       expect(wordChainApi.saveScore).toHaveBeenCalledWith(
@@ -102,6 +119,20 @@ describe('WordChainMode', () => {
       ),
     );
     expect(wordChainApi.saveScore).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a play of the game when it starts and closes it when it ends, also without a point (SCRUM-300)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-09T10:00:00Z'));
+    await startGame();
+    await waitFor(() => expect(minigamePlaysApi.start).toHaveBeenCalledWith('chain'));
+    expect(minigamePlaysApi.finish).not.toHaveBeenCalled();
+
+    vi.setSystemTime(new Date('2026-11-09T10:05:00Z'));
+
+    await waitFor(() => expect(minigamePlaysApi.finish).toHaveBeenCalledWith('p1'));
+    expect(minigamePlaysApi.finish).toHaveBeenCalledTimes(1);
+    expect(wordChainApi.saveScore).not.toHaveBeenCalled();
   });
 
   it('shows an error with a retry when the word list cannot load', async () => {

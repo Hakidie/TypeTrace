@@ -16,7 +16,13 @@ const day = (owner: unknown, date: string, sessions = DAILY_MISSION_SESSIONS) =>
   missionCompletedAt: new Date(`${date}T03:00:00.000Z`)
 });
 
-const emptyToday = (date: string) => ({ date, sessions: 0, missionGoal: DAILY_MISSION_SESSIONS, missionCompleted: false });
+const emptyToday = (date: string, coins = 20) => ({
+  date,
+  sessions: 0,
+  missionGoal: DAILY_MISSION_SESSIONS,
+  missionCompleted: false,
+  reward: { coins, claimed: false }
+});
 
 describe('GET /api/profile/streak (SCRUM-31)', () => {
   // Today is fixed, so no test runs across a midnight: 10 March 2026, 15:00 in Vietnam.
@@ -39,7 +45,7 @@ describe('GET /api/profile/streak (SCRUM-31)', () => {
     expect(response.body).toEqual({
       current: 3,
       longest: 3,
-      today: { date: '2026-03-10', sessions: 3, missionGoal: DAILY_MISSION_SESSIONS, missionCompleted: true }
+      today: { date: '2026-03-10', sessions: 3, missionGoal: DAILY_MISSION_SESSIONS, missionCompleted: true, reward: { coins: 30, claimed: false } }
     });
   });
 
@@ -47,7 +53,7 @@ describe('GET /api/profile/streak (SCRUM-31)', () => {
     const user = await createUser({});
     await DailyProgressModel.create([day(user._id, '2026-03-08'), day(user._id, '2026-03-09')]);
 
-    expect((await streakOf(user)).body).toEqual({ current: 2, longest: 2, today: emptyToday('2026-03-10') });
+    expect((await streakOf(user)).body).toEqual({ current: 2, longest: 2, today: emptyToday('2026-03-10', 30) });
   });
 
   it('breaks the streak when the last session was two days ago, and keeps the longest run', async () => {
@@ -66,7 +72,9 @@ describe('GET /api/profile/streak (SCRUM-31)', () => {
       expect((await streakOf(user)).body).toEqual({
         current: 1,
         longest: 1,
-        today: { date: '2026-03-10', sessions: done, missionGoal: DAILY_MISSION_SESSIONS, missionCompleted: done >= DAILY_MISSION_SESSIONS }
+        today: { date: '2026-03-10', sessions: done, missionGoal: DAILY_MISSION_SESSIONS, missionCompleted: done >= DAILY_MISSION_SESSIONS,
+          reward: { coins: 20, claimed: false }
+        }
       });
     }
   });
@@ -88,7 +96,7 @@ describe('GET /api/profile/streak (SCRUM-31)', () => {
     await DailyProgressModel.create([vietnam._id, london._id].flatMap((owner) => [day(owner, '2026-03-09'), day(owner, '2026-03-10')]));
 
     // Vietnam: today (11 March) has no session yet, the streak is alive from yesterday.
-    expect((await streakOf(vietnam)).body).toEqual({ current: 2, longest: 2, today: emptyToday('2026-03-11') });
+    expect((await streakOf(vietnam)).body).toEqual({ current: 2, longest: 2, today: emptyToday('2026-03-11', 30) });
     // UTC: it is still 10 March.
     expect((await streakOf(london)).body).toMatchObject({ current: 2, longest: 2, today: { date: '2026-03-10', missionCompleted: true } });
   });
@@ -108,5 +116,61 @@ describe('GET /api/profile/streak (SCRUM-31)', () => {
 
     expect(response.status).toBe(404);
     expect(response.body.message).toBe('User not found');
+  });
+});
+
+describe('POST /api/profile/streak/reward', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-03-10T08:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const claim = (user: { _id: unknown; email: string }) =>
+    api().post('/api/profile/streak/reward').set('Authorization', bearerFor(user));
+
+  it('gives 20 coins and 5 more per streak day before today, once a day', async () => {
+    const user = await createUser({});
+    await DailyProgressModel.create([day(user._id, '2026-03-08'), day(user._id, '2026-03-09'), day(user._id, '2026-03-10')]);
+
+    const response = await claim(user);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ coins: 30, totalCoins: 30 });
+    expect((await streakOf(user)).body.today.reward).toEqual({ coins: 30, claimed: true });
+    expect((await claim(user)).status).toBe(409);
+    expect((await UserModel.findById(user._id))!.coins).toBe(30);
+  });
+
+  it('caps the reward at 50 coins', async () => {
+    const user = await createUser({});
+    const days = Array.from({ length: 10 }, (_, index) => day(user._id, `2026-03-${String(index + 1).padStart(2, '0')}`));
+    await DailyProgressModel.create(days);
+
+    expect((await claim(user)).body.coins).toBe(50);
+  });
+
+  it('pays once when two claims arrive at the same time', async () => {
+    const user = await createUser({});
+    await DailyProgressModel.create(day(user._id, '2026-03-10'));
+
+    const statuses = (await Promise.all([claim(user), claim(user)])).map((response) => response.status).sort();
+
+    expect(statuses).toEqual([200, 409]);
+    expect((await UserModel.findById(user._id))!.coins).toBe(20);
+  });
+
+  it('answers 400 before the first counted session of the day, and 401 without a token', async () => {
+    const user = await createUser({});
+    await DailyProgressModel.create(day(user._id, '2026-03-09'));
+
+    const response = await claim(user);
+
+    expect(response.status).toBe(400);
+    expect((await UserModel.findById(user._id))!.coins).toBe(0);
+    expect((await api().post('/api/profile/streak/reward')).status).toBe(401);
   });
 });

@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 
 interface PanelProps {
   /** Heading of the panel. Without a title (and actions) there is no header row. */
-  title?: string;
+  title?: ReactNode;
   description?: string;
   /** Buttons shown on the right of the header, e.g. a "New" button. */
   actions?: ReactNode;
@@ -15,6 +15,8 @@ interface PanelProps {
   bare?: boolean;
   /** Shown in a tooltip on the title, for a hint that does not need a line of its own. */
   titleTip?: string;
+  /** A control next to the title, outside its tooltip (e.g. the switch to another panel, `PanelTitleSwitch`). */
+  titleAction?: ReactNode;
   /** The title and the description are centered in the header instead of left-aligned. */
   centerTitle?: boolean;
   /** Grows to the height the layout gives it (in a flex column) and passes it on to the content, which can then fill it. */
@@ -23,11 +25,12 @@ interface PanelProps {
   titleClassName?: string;
   /** Extra classes for the body (e.g. `p-0` for a table that touches the edges). */
   className?: string;
-  children: ReactNode;
+  /** Optional: a panel can be only a header (title, tip and actions). */
+  children?: ReactNode;
 }
 
 /** A block of content in a page: a bordered card with an optional header (title, description, actions) and the content below. */
-export const Panel = ({ title, titleTip, description, actions, transparent, bare, centerTitle, fill, titleClassName, className, children }: PanelProps) => (
+export const Panel = ({ title, titleTip, titleAction, description, actions, transparent, bare, centerTitle, fill, titleClassName, className, children }: PanelProps) => (
   <Card className={cn((transparent || bare) && 'bg-transparent shadow-none', bare && 'border-0', fill && 'flex min-h-0 flex-1 flex-col')}>
     {(title || actions) && (
       <div
@@ -37,7 +40,7 @@ export const Panel = ({ title, titleTip, description, actions, transparent, bare
           centerTitle && 'text-center sm:justify-center',
         )}
       >
-        <div className="min-w-0">
+        <div className={cn('min-w-0', titleAction && 'flex flex-wrap items-center gap-3')}>
           {title && (
             <h2 className={cn('text-lg font-semibold', titleClassName)}>
               {titleTip ? (
@@ -54,6 +57,7 @@ export const Panel = ({ title, titleTip, description, actions, transparent, bare
               )}
             </h2>
           )}
+          {titleAction}
           {description && <p className="text-base text-muted-foreground">{description}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

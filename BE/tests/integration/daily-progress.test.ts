@@ -373,6 +373,7 @@ describe('an account that never sent a time zone', () => {
     const streak = await api().get('/api/profile/streak').set('Authorization', bearerFor(old));
 
     expect(activity.body).toEqual({
+      language: 'vi',
       timezone: 'Asia/Ho_Chi_Minh',
       sessions: [{ date: '2026-03-11', sessions: 1 }]
     });
