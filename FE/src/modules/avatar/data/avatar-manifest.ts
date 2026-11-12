@@ -23,6 +23,10 @@ export const AVATAR_MANIFEST = {
     "lose"
   ],
   "hairWithBack": [],
+  "animatedItems": [
+    "back/dragon-wings",
+    "effect/baby-dragon"
+  ],
   "slots": {
     "skin": [
       "peach",
@@ -273,7 +277,8 @@ export const AVATAR_MANIFEST = {
       "party-hat",
       "sunglasses",
       "flower-crown",
-      "star-pin"
+      "star-pin",
+      "dragon-horns"
     ],
     "accessory": [
       "scarf-red",
@@ -287,14 +292,16 @@ export const AVATAR_MANIFEST = {
       "medal-gold",
       "suspenders-red",
       "name-tag",
-      "heart-locket"
+      "heart-locket",
+      "dragon-scarf"
     ],
     "back": [
       "angel-wings",
       "bat-wings",
       "fairy-wings",
       "cape-red",
-      "cape-purple"
+      "cape-purple",
+      "dragon-wings"
     ],
     "effect": [
       "hearts",
@@ -303,7 +310,8 @@ export const AVATAR_MANIFEST = {
       "snow",
       "bubbles",
       "flames",
-      "leaves"
+      "leaves",
+      "baby-dragon"
     ]
   },
   "presets": {
@@ -444,6 +452,17 @@ export const AVATAR_MANIFEST = {
       "headwear": "flower-crown",
       "back": "fairy-wings",
       "effect": "leaves"
+    },
+    "dragon": {
+      "skin": "peach",
+      "hair": "short-brown",
+      "top": "jacket-navy",
+      "bottom": "jeans-black",
+      "shoes": "sneakers-black",
+      "headwear": "dragon-horns",
+      "accessory": "dragon-scarf",
+      "back": "dragon-wings",
+      "effect": "baby-dragon"
     },
     "max": {
       "skin": "umber",

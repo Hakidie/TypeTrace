@@ -32,6 +32,21 @@ describe('parseEnv', () => {
     expect(set).toMatchObject({ vnpTmnCode: 'CODE', vnpHashSecret: 'secret', vnpUrl: 'https://pay.example/vpcpay.html' });
   });
 
+  it('reads the MoMo settings and defaults to the sandbox url and a local IPN url', () => {
+    const unset = parseEnv({ ...base, MOMO_PARTNER_CODE: ' ' });
+    expect(unset.momoPartnerCode).toBeUndefined();
+    expect(unset.momoUrl).toBe('https://test-payment.momo.vn/v2/gateway/api/create');
+    expect(unset.momoIpnUrl).toBe('http://localhost:5003/api/payments/momo/ipn');
+    const set = parseEnv({ ...base, MOMO_PARTNER_CODE: 'P', MOMO_ACCESS_KEY: 'a', MOMO_SECRET_KEY: 's', MOMO_IPN_URL: 'https://x.ngrok.app/api/payments/momo/ipn' });
+    expect(set).toMatchObject({ momoPartnerCode: 'P', momoAccessKey: 'a', momoSecretKey: 's', momoIpnUrl: 'https://x.ngrok.app/api/payments/momo/ipn' });
+  });
+
+  it('allows the mock MoMo payment in development only', () => {
+    expect(parseEnv(base).momoMock).toBe(false);
+    expect(parseEnv({ ...base, MOMO_MOCK: 'true' }).momoMock).toBe(true);
+    expect(() => parseEnv({ ...base, NODE_ENV: 'production', JWT_SECRET: 'x'.repeat(40), MOMO_MOCK: 'true' })).toThrow(/MOMO_MOCK/);
+  });
+
   it('lists every missing required variable', () => {
     expect(() => parseEnv({})).toThrow(/MONGO_URI[\s\S]*JWT_SECRET/);
   });

@@ -26,6 +26,8 @@ export interface CurrentUser {
   coins?: number;
   /** Bought or won avatar items, as `slot:item`. */
   ownedItems?: string[];
+  /** The Pro plan: on while `until` (an ISO date) is in the future. Missing on a response from before Pro. */
+  pro?: { active: boolean; until: string | null };
   /** Only what the frontend reads: the IANA time zone the learner's days are counted in (`Asia/Ho_Chi_Minh` until the browser sends its own). */
   settings?: { timezone?: string };
   /** Ping's tutorial (`modules/tutorial`): missing on accounts from before it, which are never shown one. */

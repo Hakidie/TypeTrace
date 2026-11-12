@@ -1,6 +1,6 @@
 import { AVATAR_SLOTS } from '../data/avatar-items';
-import { AVATAR_SLOT_NAMES, AvatarSlot, itemKey, unlockOf, unlockOfKey } from '../data/avatar-catalog';
-import { UserModel } from '../models/user.model';
+import { AVATAR_SLOT_NAMES, AvatarSlot, itemKey, OPTIONAL_SLOTS, unlockOf, unlockOfKey } from '../data/avatar-catalog';
+import { isProActive, UserDocument, UserModel } from '../models/user.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { AvatarLookInput } from '../validators/avatar.validator';
 
@@ -10,9 +10,30 @@ const findUser = async (userId: string) => {
   return user;
 };
 
-/** Free items are always owned; the others once they are in `ownedItems`. */
-const ownsItem = (ownedItems: string[], slot: AvatarSlot, item: string) =>
-  unlockOf(slot, item)?.kind === 'free' || ownedItems.includes(itemKey(slot, item));
+type Owner = Pick<UserDocument, 'ownedItems' | 'proUntil'>;
+
+/** Free items are always owned, Pro items while Pro is active; the others once they are in `ownedItems`. */
+const ownsItem = (user: Owner, slot: AvatarSlot, item: string) => {
+  const kind = unlockOf(slot, item)?.kind;
+  return kind === 'free' || (kind === 'pro' && isProActive(user.proUntil)) || user.ownedItems.includes(itemKey(slot, item));
+};
+
+/**
+ * Takes the Pro items off the worn look when Pro has ended (they are locked then). Run when the learner reads their account
+ * or the catalog. ponytail: another player sees them until the learner next opens the app; a cron would close that gap.
+ */
+export const dropExpiredProItems = async (user: UserDocument) => {
+  if (isProActive(user.proUntil)) return;
+  let changed = false;
+  for (const slot of OPTIONAL_SLOTS) {
+    const item = user.avatar[slot];
+    if (item && unlockOf(slot, item)?.kind === 'pro') {
+      user.set(`avatar.${slot}`, null);
+      changed = true;
+    }
+  }
+  if (changed) await user.save();
+};
 
 /**
  * Every item of every slot with how it is unlocked and whether the user owns it, plus the look they wear and their coins.
@@ -20,13 +41,19 @@ const ownsItem = (ownedItems: string[], slot: AvatarSlot, item: string) =>
  */
 export const getCatalog = async (userId: string) => {
   const user = await findUser(userId);
+  await dropExpiredProItems(user);
   const slots = Object.fromEntries(
     AVATAR_SLOT_NAMES.map((slot) => [
       slot,
-      (AVATAR_SLOTS[slot] as readonly string[]).map((id) => ({ id, unlock: unlockOf(slot, id), owned: ownsItem(user.ownedItems, slot, id) }))
+      (AVATAR_SLOTS[slot] as readonly string[]).map((id) => ({ id, unlock: unlockOf(slot, id), owned: ownsItem(user, slot, id) }))
     ])
   );
-  return { avatar: user.avatar, coins: user.coins, slots };
+  return {
+    avatar: user.avatar,
+    coins: user.coins,
+    pro: { active: isProActive(user.proUntil), until: user.proUntil ?? null },
+    slots
+  };
 };
 
 /**
@@ -56,7 +83,7 @@ export const updateAvatar = async (userId: string, look: AvatarLookInput) => {
     const item = look[slot];
     if (item === null) continue;
     if (!unlockOf(slot, item)) throw badRequest(`Unknown item: ${slot} ${item}`);
-    if (!ownsItem(user.ownedItems, slot, item)) throw badRequest(`Item not owned: ${slot} ${item}`);
+    if (!ownsItem(user, slot, item)) throw badRequest(`Item not owned: ${slot} ${item}`);
   }
   user.set('avatar', look);
   return user.save();

@@ -22,6 +22,9 @@ export interface TutorialState {
 /** The zone of the days of a learner who never sent their own (SCRUM-31). Readers fall back to it: old users have none stored. */
 export const DEFAULT_TIMEZONE = 'Asia/Ho_Chi_Minh';
 
+/** Pro is on while `proUntil` is in the future. */
+export const isProActive = (proUntil: Date | null | undefined, now = new Date()) => !!proUntil && proUntil > now;
+
 export interface UserDocument extends mongoose.Document {
   email: string;
   password: string;
@@ -58,6 +61,8 @@ export interface UserDocument extends mongoose.Document {
   ownedItems: string[];
   /** Earned in rated duels (phase 6). Only the account itself sees it (`/me`, the avatar catalog). */
   coins: number;
+  /** The end of the Pro plan the learner paid for (`grantPurchase`); `null` = never had it. Pro is active while it is in the future. */
+  proUntil: Date | null;
   /**
    * Ping's tutorial: set by `POST /api/tutorial/start` right after sign-up, or by a replay in Settings. Missing on accounts
    * from before the tutorial (they know how to play): nothing is shown to them.
@@ -127,6 +132,7 @@ const userSchema = new Schema<UserDocument>(
     },
     ownedItems: { type: [String], default: [] },
     coins: { type: Number, default: 0, min: 0 },
+    proUntil: { type: Date, default: null },
     // No default: an account without it is one from before the tutorial.
     tutorial: {
       type: new Schema(
@@ -149,6 +155,10 @@ const userSchema = new Schema<UserDocument>(
     toJSON: {
       transform: (_doc, ret: Record<string, unknown>) => {
         for (const field of PRIVATE_USER_FIELDS) delete ret[field];
+        // The learner reads whether Pro is on and until when, never the raw field.
+        const proUntil = ret.proUntil as Date | null | undefined;
+        ret.pro = { active: isProActive(proUntil), until: proUntil ?? null };
+        delete ret.proUntil;
         // Mongoose drops an empty `modes` object on save: answer it as `{}`, so readers never check for it.
         const tutorial = ret.tutorial as Partial<TutorialState> | undefined;
         if (tutorial && !tutorial.modes) tutorial.modes = {};

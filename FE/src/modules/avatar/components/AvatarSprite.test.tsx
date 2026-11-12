@@ -27,6 +27,22 @@ describe('AvatarSprite', () => {
     container.querySelectorAll('img').forEach((image) => expect(image).not.toHaveAttribute('loading'));
   });
 
+  it('stacks the two frames of each moving item (the Pro dragon wings and baby dragon) so CSS can flap their wings', () => {
+    const { container } = render(<AvatarSprite look={{ ...DEFAULT_AVATAR, back: 'dragon-wings', effect: 'baby-dragon' }} />);
+
+    const sources = [...container.querySelectorAll('img')].map((image) => image.getAttribute('src'));
+    expect(sources.slice(0, 2)).toEqual(['/avatar/back/dragon-wings.png', '/avatar/back/dragon-wings-flap.png']);
+    expect(container.querySelectorAll('.avatar-flap-a')).toHaveLength(2);
+    expect(container.querySelector('img[src="/avatar/effect/baby-dragon-flap.png"]')).toHaveClass('avatar-flap-b');
+  });
+
+  it('draws a still back item once, without flap classes', () => {
+    const { container } = render(<AvatarSprite look={{ ...DEFAULT_AVATAR, back: 'bat-wings' }} />);
+
+    expect(container.querySelectorAll('img[src*="/back/"]')).toHaveLength(1);
+    expect(container.querySelector('.avatar-flap-a')).toBeNull();
+  });
+
   it('shows only the head when cropped', () => {
     render(<AvatarSprite look={DEFAULT_AVATAR} scale={2} crop="head" label="Your avatar" />);
 

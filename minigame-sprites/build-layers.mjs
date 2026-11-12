@@ -107,18 +107,22 @@ const HEADWEARS = [
   'cap', 'headband', 'cat-ears', 'headphones', 'glasses', 'bow', 'flower-clip',
   'beanie-red', 'beanie-navy', 'beret-red', 'beret-black', 'crown', 'tiara', 'halo', 'bunny-ears',
   'witch-hat', 'party-hat', 'sunglasses', 'flower-crown', 'star-pin',
+  'dragon-horns', // Pro
 ];
 const ACCESSORIES = [
   'scarf-red', 'scarf-cream', 'bag-crossbody', 'necklace-pearl', 'brooch-star',
   'tie-red', 'bowtie-black', 'belt-brown', 'medal-gold', 'suspenders-red', 'name-tag', 'heart-locket',
+  'dragon-scarf', // Pro
 ];
 /** Face styles of the body layer: classic (dot eyes) or cute (big shiny eyes with lashes, blush). */
 const FACES = ['classic', 'cute', 'happy', 'cool', 'wink', 'sleepy'];
 const bodyFile = (look, pose) => `body/${look.skin}${look.face && look.face !== 'classic' ? `-${look.face}` : ''}-${pose}.png`;
 /** Worn behind the body. */
-const BACKS = ['angel-wings', 'bat-wings', 'fairy-wings', 'cape-red', 'cape-purple'];
+const BACKS = ['angel-wings', 'bat-wings', 'fairy-wings', 'cape-red', 'cape-purple', 'dragon-wings' /* Pro */];
+/** Items that move, as `{slot}/{name}`: a second frame `{slot}/{name}-flap.png` the app shows in turn with the first (AvatarSprite). */
+const ANIMATED_ITEMS = ['back/dragon-wings', 'effect/baby-dragon'];
 /** Cosmetic effects floating around the avatar, in every pose. */
-const EFFECTS = ['hearts', 'stars', 'notes', 'snow', 'bubbles', 'flames', 'leaves'];
+const EFFECTS = ['hearts', 'stars', 'notes', 'snow', 'bubbles', 'flames', 'leaves', 'baby-dragon' /* Pro */];
 
 /** The starter characters, as slot choices (missing keys: SpriteCook sneakers, nothing on the back, no effect). */
 const PRESETS = {
@@ -137,6 +141,7 @@ const PRESETS = {
   hana: { face: 'cute', skin: 'porcelain', hair: 'long-silver', top: 'dress-collar-pink', bottom: 'tights-white', shoes: 'maryjanes-red', headwear: 'tiara', back: 'angel-wings', effect: 'stars' },
   kiki: { face: 'cute', skin: 'tan', hair: 'twintails-midnight', top: 'dress-polka-violet', bottom: 'tights-black', shoes: 'boots-black', headwear: 'witch-hat', back: 'bat-wings' },
   rin: { face: 'cute', skin: 'sand', hair: 'buns-ginger', top: 'dress-mint', bottom: 'tights-pink', shoes: 'maryjanes-pink', headwear: 'flower-crown', back: 'fairy-wings', effect: 'leaves' },
+  dragon: { skin: 'peach', hair: 'short-brown', top: 'jacket-navy', bottom: 'jeans-black', shoes: 'sneakers-black', headwear: 'dragon-horns', accessory: 'dragon-scarf', back: 'dragon-wings', effect: 'baby-dragon' },
   max: { skin: 'umber', hair: 'curly-espresso', top: 'orange', bottom: 'joggers-black', shoes: 'hightops-blue', headwear: 'beanie-navy', back: 'cape-red', effect: 'flames' },
 };
 
@@ -658,6 +663,23 @@ const drawHeadwear = (name) => {
     for (let i = 0; i < 7; i++) rect(g, 48 + i, 10 + i, 3, 2, i % 2 ? dark : band);
     return outline(g, outsideBase);
   }
+  if (name === 'dragon-horns') {
+    // Pro: two small horns curving up and out of the hair, red roots and cream tips. `dx` is outward from the root.
+    const g = tall();
+    const HORN = [
+      [-1, 0, '#a52a36'], [0, 0, '#a52a36'], [1, 0, '#a52a36'],
+      [-1, -1, '#d33a48'], [0, -1, '#d33a48'], [1, -1, '#d33a48'],
+      [-2, -2, '#f3e6cc'], [-1, -2, '#f3e6cc'], [0, -2, '#e6d2ae'],
+      [-2, -3, '#f3e6cc'], [-1, -3, '#e6d2ae'],
+      [-3, -4, '#f3e6cc'], [-2, -4, '#e6d2ae'],
+      [-3, -5, '#f3e6cc'],
+    ];
+    for (const [xc, side] of [[21, 1], [40, -1]]) {
+      const root = hairTop(xc) + 1;
+      for (const [dx, dy, c] of HORN) put(g, xc + dx * side, root + dy, c);
+    }
+    return outline(g);
+  }
   if (name === 'headphones') {
     // A band arching just above the hair from cup to cup, and two round cups over the ears (the head is x 13 to 48).
     const g = tall();
@@ -1093,6 +1115,23 @@ const drawAccessory = (name) => {
     rect(g, 35, 41, 5, 1, '#9aa3b5');
     return outline(g);
   }
+  if (name === 'dragon-scarf') {
+    // Pro: a red scarf scaled in gold, its long end flickering into an ember-orange flame.
+    const red = '#c8323f';
+    const dark = '#8e1f2c';
+    const gold = '#f2b04a';
+    rect(g, 24, 31, 16, 1, '#e0505c');
+    rect(g, 22, 32, 20, 2, red);
+    rect(g, 23, 34, 18, 1, dark);
+    for (let x = 23; x <= 41; x += 3) put(g, x, 32 + (x % 2), gold);
+    rect(g, 32, 33, 4, 4, red);
+    rect(g, 32, 36, 4, 1, dark);
+    rect(g, 32, 37, 4, 7, red);
+    for (const y of [38, 40, 42]) put(g, y === 40 ? 34 : 33, y, gold);
+    pts(g, [[32, 44], [33, 44], [34, 44], [35, 44], [32, 45], [34, 45], [35, 45], [33, 46], [35, 46], [35, 47]], '#f0903c');
+    pts(g, [[33, 45], [34, 46]], '#ffd23f');
+    return outline(g);
+  }
   if (name === 'heart-locket') {
     for (let x = 26; x <= 38; x++) put(g, x, 33 + Math.round(4 * Math.sin((Math.PI * (x - 26)) / 12)), '#e0b030');
     const heart = ['.X.X.', 'XXXXX', '.XXX.', '..X..'];
@@ -1272,6 +1311,7 @@ const drawBack = (name) => {
       const edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
       return edge ? '#ff9bd2' : (x + y) % 5 === 0 ? '#e8f8ff' : '#bfe9ff';
     });
+  if (name === 'dragon-wings') return drawDragonWings(0);
   if (name.startsWith('cape')) {
     const cloth = name === 'cape-red' ? '#c0392b' : '#6b3fa0';
     for (let y = 30; y <= 60; y++) {
@@ -1285,6 +1325,124 @@ const drawBack = (name) => {
   return outline(g);
 };
 
+/**
+ * Pro: dragon wings on the back. Bat wings on both sides (a red arm to a clawed wrist, red fingers, an amber membrane
+ * scalloped between them) and a spade-tipped tail curling out on the left. Frame 0 has the wings raised, frame 1
+ * lowered (the tail swings a pixel): the app shows them in turn (`ANIMATED_ITEMS`), a flap.
+ */
+const DRAGON = { membrane: '#f0903c', shade: '#c86a26', bone: '#b3283a', scale: '#d33a48', scaleDark: '#99222f', horn: '#f3e6cc' };
+const insidePoly = (poly, x, y) => {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+};
+const lineTo = (g, [x0, y0], [x1, y1], c) => {
+  const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+  for (let i = 0; i <= steps; i++) put(g, Math.round(x0 + ((x1 - x0) * i) / steps), Math.round(y0 + ((y1 - y0) * i) / steps), c);
+};
+const drawDragonWings = (frame) => {
+  const g = blank();
+  const up = frame === 0;
+  // The left wing; the right one is its mirror. `root`/`base` are where it meets the back, `wrist` the clawed joint.
+  const wing = up
+    ? { root: [17, 27], base: [17, 34], wrist: [8, 9], tips: [[0, 13], [1, 23], [7, 32]] }
+    : { root: [17, 29], base: [17, 37], wrist: [6, 23], tips: [[0, 30], [2, 40], [9, 45]] };
+  const dip = (a, b) => {
+    const mx = (a[0] + b[0]) / 2;
+    const my = (a[1] + b[1]) / 2;
+    return [Math.round(mx + (wing.wrist[0] - mx) * 0.35), Math.round(my + (wing.wrist[1] - my) * 0.35)];
+  };
+  const [t0, t1, t2] = wing.tips;
+  const poly = [wing.root, wing.wrist, t0, dip(t0, t1), t1, dip(t1, t2), t2, wing.base];
+  const left = blank();
+  for (let y = 0; y < SIZE; y++)
+    for (let x = 0; x <= 18; x++)
+      if (insidePoly(poly, x + 0.5, y + 0.5)) put(left, x, y, insidePoly(poly, x + 0.5, y + 2.5) ? DRAGON.membrane : DRAGON.shade);
+  lineTo(left, wing.root, wing.wrist, DRAGON.bone);
+  lineTo(left, [wing.root[0], wing.root[1] + 1], [wing.wrist[0], wing.wrist[1] + 1], DRAGON.bone);
+  for (const tip of wing.tips) lineTo(left, wing.wrist, tip, DRAGON.bone);
+  pts(left, [[wing.wrist[0], wing.wrist[1] - 1], [wing.wrist[0] - 1, wing.wrist[1] - 2]], DRAGON.horn);
+  for (let y = 0; y < SIZE; y++)
+    for (let x = 0; x <= 18; x++)
+      if (left[y][x]) {
+        put(g, x, y, left[y][x]);
+        put(g, 61 - x, y, left[y][x]);
+      }
+  // The tail, two pixels thick, curling out under the left wing, then a spade tip.
+  const sway = up ? 0 : 1;
+  const tail = [[18, 49], [13, 52], [8, 53], [4, 51 + sway], [2, 47 + sway]];
+  for (let i = 1; i < tail.length; i++) {
+    lineTo(g, tail[i - 1], tail[i], DRAGON.scale);
+    lineTo(g, [tail[i - 1][0], tail[i - 1][1] + 1], [tail[i][0], tail[i][1] + 1], DRAGON.scaleDark);
+  }
+  const [sx, sy] = tail.at(-1);
+  const spade = [[0, -1], [-1, -2], [0, -2], [1, -2], [-2, -3], [-1, -3], [0, -3], [1, -3], [2, -3], [-1, -4], [0, -4], [1, -4], [0, -5]];
+  pts(g, spade.map(([dx, dy]) => [sx + dx, sy + dy]), DRAGON.scale);
+  return outline(g);
+};
+
+/**
+ * Pro: a chibi baby dragon, a pet hovering beside the avatar's head (top right, facing it), with embers drifting around:
+ * an effect, so it can be worn with the dragon wings. Frame 0 has its wing raised, frame 1 lowered and the dragon a pixel
+ * lower while the embers rise one: the app shows them in turn (`ANIMATED_ITEMS`), a wing beat that bobs.
+ * X scale, D shade, B belly, E eye, N nostril, H horn, W wing, w wing shade.
+ */
+const DRAGON_PET = [
+  [
+    '..........W...',
+    '.........WW...',
+    '...H.H..WWw...',
+    '...HHH.WWww...',
+    '..XXXXXWWww...',
+    '.XXXXXXXWww...',
+    'XXEXXXXXXw....',
+    'XXXXXXXXX.....',
+    'NXXXXXXXX.....',
+    '.XDDDXXXX.....',
+    '..XXXXXX......',
+    '..XBBBXXD.....',
+    '.XXBBBXXDD....',
+    '.X.BBBXX.D....',
+    '...XX.XX..D...',
+    '..........DD..',
+  ],
+  [
+    '..............',
+    '..............',
+    '...H.H........',
+    '...HHH........',
+    '..XXXXX.......',
+    '.XXXXXXX......',
+    'XXEXXXXXXW....',
+    'XXXXXXXXXWW...',
+    'NXXXXXXXXWww..',
+    '.XDDDXXXXwwW..',
+    '..XXXXXXwwW...',
+    '..XBBBXXDW....',
+    '.XXBBBXXDD....',
+    '.X.BBBXX.D....',
+    '...XX.XX..D...',
+    '..........DD..',
+  ],
+];
+const DRAGON_COLORS = { X: '#d33a48', D: '#99222f', B: '#f6c27a', E: '#ffd23f', N: '#99222f', H: '#f3e6cc', W: '#f0903c', w: '#c86a26' };
+const drawBabyDragon = (frame) => {
+  const g = tall();
+  DRAGON_PET[frame].forEach((row, dy) =>
+    [...row].forEach((ch, dx) => DRAGON_COLORS[ch] && put(g, 49 + dx, -12 + dy + frame, DRAGON_COLORS[ch])),
+  );
+  const glyphs = [GLYPHS['baby-dragon'], EMBER];
+  EMBER_SPOTS.forEach(([x0, y0], spot) => {
+    const [rows, colors] = glyphs[spot % glyphs.length];
+    rows.forEach((row, dy) => [...row].forEach((ch, dx) => colors[ch] && put(g, x0 + dx, y0 + dy - frame, colors[ch])));
+  });
+  return outline(g);
+};
+
 // ---- 3i. effects: small glyphs floating around the avatar ---------------------------------------------------------
 const GLYPHS = {
   hearts: [['.X.X.', 'XXXXX', 'XXXXX', '.XXX.', '..X..'], { X: '#ff5d8f' }],
@@ -1294,14 +1452,22 @@ const GLYPHS = {
   bubbles: [['.XX.', 'X..X', 'X..X', '.XX.'], { X: '#9fdcff' }],
   flames: [['..X..', '.XX..', '.XXX.', 'XXXXX', 'XXYXX', '.XYX.'], { X: '#ff7a2f', Y: '#ffd23f' }],
   leaves: [['..XX', '.XYX', 'XXX.', 'X...'], { X: '#4caf50', Y: '#7fd47f' }],
+  // Pro: the baby dragon's embers, a small flame and a spark in turn (see `drawBabyDragon`).
+  'baby-dragon': [['..X..', '.XYX.', 'XYZYX', '.XYX.'], { X: '#e0442e', Y: '#f0903c', Z: '#ffe08a' }],
 };
+const EMBER = [['.X.', 'XYX', '.X.'], { X: '#f0903c', Y: '#ffe08a' }];
+/** The embers keep clear of the top right, where the Pro dragon flies. */
+const EMBER_SPOTS = [[3, 10], [12, 0], [1, 30], [58, 32], [5, 46], [55, 46]];
 const EFFECT_SPOTS = [[3, 10], [56, 6], [1, 30], [58, 26], [5, 46], [55, 44]];
 const FLAME_SPOTS = [[8, 50], [52, 50], [3, 56], [57, 56]];
 const drawEffect = (name) => {
   const g = blank();
-  const [rows, colors] = GLYPHS[name];
-  for (const [x0, y0] of name === 'flames' ? FLAME_SPOTS : EFFECT_SPOTS)
+  if (name === 'baby-dragon') return drawBabyDragon(0);
+  const glyphs = [GLYPHS[name]];
+  (name === 'flames' ? FLAME_SPOTS : EFFECT_SPOTS).forEach(([x0, y0], spot) => {
+    const [rows, colors] = glyphs[spot % glyphs.length];
     rows.forEach((row, dy) => [...row].forEach((ch, dx) => colors[ch] && put(g, x0 + dx, y0 + dy, colors[ch])));
+  });
   return name === 'bubbles' ? g : outline(g);
 };
 
@@ -1370,6 +1536,8 @@ for (const [name, [style, color]] of Object.entries(SHOES)) save(`shoes/${name}.
 for (const name of HEADWEARS) save(`headwear/${name}.png`, drawHeadwear(name));
 for (const name of ACCESSORIES) save(`accessory/${name}.png`, drawAccessory(name));
 for (const name of BACKS) save(`back/${name}.png`, drawBack(name));
+save('back/dragon-wings-flap.png', drawDragonWings(1));
+save('effect/baby-dragon-flap.png', drawBabyDragon(1));
 for (const name of EFFECTS) save(`effect/${name}.png`, drawEffect(name));
 for (const pose of ['typing', 'win', 'lose']) save(`fx/${pose}.png`, fxFor(pose));
 
@@ -1409,6 +1577,7 @@ writeFileSync(
         fx: 'fx/{pose}.png (not for idle)',
       },
       hairWithBack: [...hairWithBack],
+      animatedItems: ANIMATED_ITEMS,
       slots: {
         skin: Object.keys(SKINS),
         face: FACES,
@@ -1445,6 +1614,7 @@ writeFileSync(
       layerOrder: manifest.layerOrder,
       poses: manifest.poses,
       hairWithBack: manifest.hairWithBack,
+      animatedItems: manifest.animatedItems,
       slots: manifest.slots,
       presets: manifest.presets,
     },

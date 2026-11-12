@@ -1,5 +1,6 @@
 import { Coins, Lock } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { PageHeader } from '@/shared/components/page-header';
@@ -41,9 +42,11 @@ const lockText = (unlock: AvatarUnlock) => {
   if (unlock.kind === 'shop') return `${unlock.price} coins`;
   if (unlock.kind === 'tier') return `${unlock.tier[0].toUpperCase()}${unlock.tier.slice(1)} reward`;
   if (unlock.kind === 'season') return 'Season reward';
+  if (unlock.kind === 'pro') return 'Pro';
   return '';
 };
-const pickable = (item: AvatarItem) => item.owned || item.unlock.kind === 'shop';
+// A Pro item can be previewed without Pro, like an item for sale; the left panel then leads to the Store.
+const pickable = (item: AvatarItem) => item.owned || item.unlock.kind === 'shop' || item.unlock.kind === 'pro';
 
 const sameLook = (a: AvatarLook, b: AvatarLook) => SLOT_NAMES.every((slot) => (a[slot] ?? null) === (b[slot] ?? null));
 
@@ -149,12 +152,15 @@ export const WardrobePage = () => {
     setDraft({ ...look, [slot]: item });
   };
   const save = () => updateAvatar.mutate(look, { onSuccess: () => setDraft(null) });
-  // An item for sale being previewed: it must be bought before the look can be saved.
+  // An item for sale or a Pro item being previewed: it must be bought (or Pro must be on) before the look can be saved.
   const unowned = SLOT_NAMES.flatMap((name) => {
     const item = catalog.data.slots[name].find((entry) => entry.id === look[name]);
-    return item && !item.owned && item.unlock.kind === 'shop' ? [{ slot: name, item, price: item.unlock.price }] : [];
+    if (!item || item.owned) return [];
+    if (item.unlock.kind === 'shop') return [{ slot: name, item, price: item.unlock.price }];
+    return item.unlock.kind === 'pro' ? [{ slot: name, item, price: 0 }] : [];
   });
-  const forSale = unowned[0];
+  const forSale = unowned.find((entry) => entry.item.unlock.kind === 'shop');
+  const proLocked = unowned.find((entry) => entry.item.unlock.kind === 'pro');
   const coins = catalog.data.coins;
 
   const groups = groupItems(catalog.data.slots[slot]);
@@ -201,6 +207,9 @@ export const WardrobePage = () => {
             <p className="flex items-center gap-2 text-lg font-semibold text-primary tabular-nums">
               <Coins className="size-5" aria-hidden="true" />
               <span>{coins} coins</span>
+              <Link to="/store?section=coins" className="text-sm font-normal text-muted-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring">
+                Get coins
+              </Link>
             </p>
             {forSale && (
               <div className="flex w-full flex-col items-center gap-1">
@@ -214,6 +223,11 @@ export const WardrobePage = () => {
                 </Button>
                 {coins < forSale.price && <p className="text-sm text-muted-foreground">Not enough coins</p>}
               </div>
+            )}
+            {proLocked && (
+              <Button asChild className="w-full">
+                <Link to="/store">Get Pro to wear {words(proLocked.item.id)}</Link>
+              </Button>
             )}
             <div className="grid w-full grid-cols-2 gap-2">
               <Button type="button" variant="outline" disabled={!dirty} onClick={() => setDraft(null)}>

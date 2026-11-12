@@ -54,7 +54,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run gen:module -- <name> --remove` | Delete a generated feature again |
 
 Optional services: without SMTP, emails (OTP and reset codes) are printed in the backend terminal in development and
-answer 503 in production; without Cloudinary, image upload answers 503; without `OPENAI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden; without `VNP_TMN_CODE` / `VNP_HASH_SECRET` (BE, `VNP_URL` defaults to the VNPay sandbox), payments answer 503.
+answer 503 in production; without Cloudinary, image upload answers 503; without `OPENAI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden; without `VNP_TMN_CODE` / `VNP_HASH_SECRET` (BE, `VNP_URL` defaults to the VNPay sandbox), VNPay payments answer 503; without `MOMO_PARTNER_CODE` / `MOMO_ACCESS_KEY` / `MOMO_SECRET_KEY` (BE, or `MOMO_MOCK=true` in development to pay without MoMo, `MOMO_URL` defaults to the MoMo sandbox, `MOMO_IPN_URL` must be a public address such as ngrok), MoMo payments answer 503.
 Everything else keeps working. `npm run seed` refuses `NODE_ENV=production`. Behind a proxy set `TRUST_PROXY=1`.
 Tests never read `BE/.env`: their variables are in `BE/vitest.config.mts`.
 
@@ -136,12 +136,27 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   learners practice, English `utils/english-errors.ts` (`EnglishError`, `classifyEnglishWord`, `tagEnglishWord`, SCRUM-218)
   for the English passages of ranked duels. Never mix the two: a passage's `tagCounts` counts the set of its `language`
   (`computePassageStats`). After changing a `tag…` function, run `npm run rebuild:tag-counts`.
-- Payments (VNPay, `/api/payments`, `services/payment.service.ts`): what can be bought and its price live in `config/payment.ts`
-  (`PAYMENT_PRODUCTS`, today only `pro`); the client sends a product id, never an amount. `POST /vnpay` saves a pending `Payment`
-  (its `_id` is `vnp_TxnRef`) and returns `paymentUrl`; VNPay sends the learner back to `${CLIENT_URL}/payments/vnpay/return`
-  and calls `GET /vnpay/ipn` (server to server, answers `RspCode`). Both go through `applyVnpayResult`, which checks the
-  `vnp_SecureHash` (`utils/vnpay.ts`), the payment and the amount, and changes a still-pending payment once. A payment never
-  grants anything by itself yet: the Pro plan and coin top-ups read `Payment.status === 'paid'`.
+- Payments (VNPay and MoMo side by side, `/api/payments`, `services/payment.service.ts`): what can be bought and its price live in `config/payment.ts`
+  (`PAYMENT_PRODUCTS`: Pro plans of 1, 6 and 12 months and three coin packs, each with its `amount` and its `grant`); the client
+  sends a product id, never an amount or a duration, and the frontend reads the prices from `GET /api/payments/products`. `POST /vnpay`
+  (10 an hour per learner) saves a pending `Payment` (its `_id` is `vnp_TxnRef`) and returns `paymentUrl`; VNPay sends the learner
+  back to `${CLIENT_URL}/payments/vnpay/return` and calls `GET /vnpay/ipn` (server to server, answers `RspCode`). Both go through
+  `applyVnpayResult`, which checks the `vnp_SecureHash` (`utils/vnpay.ts`), the payment and the amount, changes a still-pending
+  payment once, and then `grantPurchase` gives what was bought: the call that sets `Payment.grantedAt` is the only one that goes
+  on (a failed give clears it, so the next call repairs it). A Pro plan adds its days to `User.proUntil` after the current end (or
+  from now) in one pipeline update; coins are `$inc`ed and bypass `DAILY_COIN_LIMIT` (that only caps coins earned by playing).
+  Pro is on while `proUntil` is in the future (`isProActive`); `User.toJSON` sends `pro: { active, until }`, never `proUntil`, and
+  no update schema accepts it. Pro avatar items (`PRO_ITEMS` in `data/avatar-catalog.ts`, `Unlock` kind `pro`) are never stored in
+  `ownedItems`: they are owned while Pro is active, and `dropExpiredProItems` (run by `GET /api/auth/me` and the avatar catalog)
+  takes them off the worn look when it ends. Coins only buy avatar items, so no rating or duel depends on money.
+  MoMo (`POST /momo`, same limit and catalog, `Payment.provider: 'momo'`) asks MoMo's `/v2/gateway/api/create` with a signed request (HMAC-SHA256,
+  `utils/momo.ts`; the amount is in VND as it is, `orderId` and `requestId` are the payment `_id`) and returns MoMo's `payUrl` as `paymentUrl`
+  (a refused try is closed as `failed`, answer 502). MoMo sends the learner back to `${CLIENT_URL}/payments/momo/return` (`GET /momo/return`)
+  and calls `POST /momo/ipn` with a JSON body (server to server, it wants an empty 204): both go through `applyMomoResult`, which checks the
+  `signature`, the payment (only `momo` ones) and the amount, and `resultCode` `0` is a paid payment. Then the same `confirmPayment` and
+  `grantPurchase` as VNPay run, so nothing is given twice. Never put a MoMo key in the frontend.
+  `MOMO_MOCK=true` (development only: the env schema refuses it in production) skips MoMo: `POST /momo` waits `MOMO_MOCK_DELAY_MS`
+  and returns the return page with a paid answer it signs itself, so the return, `applyMomoResult` and `grantPurchase` run as for a real payment.
 - App-wide settings that admins change live in the one `AppSetting` document (`models/app-setting.model.ts`, SCRUM-210):
   read them with `getAppSettings()` (the model's defaults until an admin saves) and save them with `updateAppSettings(changes)`
   (`services/app-setting.service.ts`). A new setting is a new field there, with its default, not a new collection.
@@ -172,7 +187,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `redGlassCard` from `shared/lib/red-glass-theme.ts`. Square corners (radius 0), no per-page color schemes.
   Exception: the pixel avatar art (and the ranked duel screens built around it) keeps the colors of its sprites. Show an
   avatar only with `AvatarSprite` (`modules/avatar/components/`, layers from `FE/public/avatar`, rule in `lib/layers.ts`); the
-  sprites and the item lists are generated by `node minigame-sprites/build-layers.mjs`, never edited by hand.
+  sprites and the item lists are generated by `node minigame-sprites/build-layers.mjs`, never edited by hand. An item that moves (`animatedItems` in the manifest, as `{slot}/{id}`: the Pro `back/dragon-wings` and `effect/baby-dragon`, a pet flying beside the head with embers) has a second frame
+  `{slot}/{id}-flap.png`; `AvatarSprite` stacks both and the `avatar-flap` CSS shows them in turn (the first frame only, still, for reduced motion).
   The mascot Ping (the tutorial guide, a chibi cyberpunk kid) is its own pixel art, not avatar layers, and also keeps its
   colors: one strip of 4 frames (64×88 each) per move in `FE/public/mascot/ping-<move>.png` (idle, talk, happy, sad, point,
   typing), drawn by `node minigame-sprites/draw-ping.mjs`, never edited by hand.
@@ -180,6 +196,15 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   animation library, `@lottiefiles/dotlottie-react`) with files in `FE/public/lottie/` (source and author in its `CREDITS.md`);
   they keep their own colors like the avatar sprites, never carry information on their own, and stay still for reduced motion.
 - Login, register and forgot-password pages (`modules/auth`): `AuthLayout` puts `AuthBrandPanel` (the default avatar typing, big (scale 5) and centered above `TypingDemo`; the avatar's hair is level with the top of the form's title (the sprite frame has empty rows above it, so the avatar is pulled up by `AVATAR_TOP_GAP_PX`):  the Typing page's `PassageView` typing a fixed passage by itself, with a wrong word and a slip that is deleted; no keys, no API; the final state for reduced motion) on the left from `lg` up and the form on the right, with no background (no card, border or blur), both columns level at the top and together centered vertically between the header and the footer (as wide as the other pages, `max-w-7xl`), under the header of the signed-in pages (`BrandHeader` with `GuestMenu`: the default avatar's head, "Guest", and a menu with Mode, Login and Register, every tab without a role, `NavLinks`, which send a guest back to Login) and text 2px bigger than the shared components (`AuthLayout` overrides `text-2xl`, `text-base`, `text-sm`). Fields are `FormField hideLabel` (the label stays for screen readers, the placeholder names the field: "Email", "Password"; 12px between fields, 24px before the submit button, between the buttons, before the icon buttons, between those and before "Forgot password?": `mt-6` on the element, not an extra margin, because neighbouring vertical margins collapse to the larger one) + `AuthInput` (no border, line or background of its own, even focused, red text on `aria-invalid`, text 20px, show/hide button for passwords, shown only while the field is hovered or focused (always on touch screens)); the title is 32px and centered, the primary button is 48px high; the other page's link is an outline button under the submit button ("Log in to your account", "Create a new account"); `SocialButtons` (a row of three equal icon buttons that fill the width: Google, which really works, and Facebook and GitHub, placeholders that say "not available yet") sits under the form of Login and Register (after the button to the other page, on Login before "Forgot password?"); Google's own button cannot be resized, so `GoogleSignInButton` renders it scaled up and invisible over its square cell; Login's "Forgot password?" link is a right-aligned line under them; the title ("Login" / "Register") has no description and 24px below it, like the gaps between the buttons; Register also checks the email while it is typed (`useEmailExists`: a valid email, 500ms after the last key, `GET /api/auth/email-exists?email=` answers `{ exists }` and nothing else, under the auth rate limit; a red icon on the right of the field, with "This email already has an account. Log in instead." in a tooltip (`AuthInput`'s `warning`)) and shows `PasswordStrengthMeter` under the password (`passwordStrength` in `modules/auth/utils`, 0-4 from length, case, digit, symbol: a hint only, the server checks the length alone); a failed submit calls `useFormShake`. Their motion (`auth-enter`, `auth-shake`, the typing demo) is skipped for reduced motion.
+- The Store (`modules/payments`, `/store`, "Store" in the account menu): the coins and Pro status in the page header; Pro is one
+  bordered stage (the learner's avatar on a pixel floor wearing the Pro items the catalog lists, `unlock.kind === 'pro'`, each item a
+  tile showing its layer zoomed on its slot (`THUMB_FOCUS`) that switches it off; none yet means only the Pro badge is sold) beside the
+  perks and the plans; Coins follow with Ping pointing at the wardrobe. Plans and packs are `PlanOption` tiles (`layout="tile"`, a real
+  radio input each), prices and sizes from `GET /api/payments/products` (never a number in the frontend), one VNPay and one MoMo button per
+  section (`PayButtons`; `GATEWAYS` lists VNPay and MoMo; `useStartPayment` sends the browser to `paymentUrl`). `/payments/vnpay/return` and `/payments/momo/return` (`MomoReturnPage`) are `publicRoutes` pages: each forwards
+  its query to `GET /api/payments/<gateway>/return` (`useVnpayReturn(search, provider)`) and shows paid (confetti `Lottie` once, `CountUp` for coins),
+  failed (`failureMessage` from `vnp_ResponseCode`, `momoFailureMessage` from `resultCode`) or unverified. `ProBadge` marks an active Pro next to the name. The wardrobe
+  previews a Pro item without Pro and links to the Store ("Get Pro to wear ...", "Get coins").
 - Tooltips: use the shared `Tooltip` (`shared/components/ui/tooltip.tsx`, same look as the heatmap tooltip and the menus), not the native `title` attribute; wrap the trigger in a span when the button can be disabled.
 - Menus: every dropdown menu (`shared/components/ui/dropdown-menu.tsx`) has the `Panel` look: see-through page background with blur, panel border with the soft red hover, muted option text that turns red on a light red tint while hovered.
 - Styling: Tailwind theme tokens (`bg-background`, `text-muted-foreground`, ...), never raw hex colors. Layouts must work on phones.

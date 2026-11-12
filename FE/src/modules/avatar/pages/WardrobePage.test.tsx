@@ -34,7 +34,8 @@ const slots = {
   effect: [],
 };
 
-const answer = (avatar: AvatarLook = DEFAULT_AVATAR) => catalog.mockResolvedValue({ avatar, coins: 0, slots });
+const pro = { active: false, until: null };
+const answer = (avatar: AvatarLook = DEFAULT_AVATAR) => catalog.mockResolvedValue({ avatar, coins: 0, pro, slots });
 const renderPage = () => renderWithProviders(<WardrobePage />, { route: '/wardrobe' });
 const openTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
 
@@ -112,6 +113,32 @@ describe('WardrobePage', () => {
 
     expect(screen.getByRole('button', { name: 'Buy Buns pink for 100 coins' })).toBeDisabled();
     expect(screen.getByText('Not enough coins')).toBeInTheDocument();
+  });
+
+  it('previews a Pro item without Pro and leads to the Store instead of letting it be saved', async () => {
+    catalog.mockResolvedValue({
+      avatar: DEFAULT_AVATAR,
+      coins: 0,
+      pro,
+      slots: { ...slots, back: [{ id: 'dragon-wings', unlock: { kind: 'pro' }, owned: false }] },
+    });
+    renderPage();
+    await screen.findByRole('img', { name: 'Your avatar' });
+
+    openTab('Back');
+    const wings = screen.getByRole('button', { name: 'Dragon wings (Pro)' });
+    expect(within(wings).getByText('Pro')).toBeInTheDocument();
+    fireEvent.click(wings);
+
+    expect(wings).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('link', { name: 'Get Pro to wear Dragon wings' })).toHaveAttribute('href', '/store');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('links the coins to the coin packs of the Store', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: 'Get coins' })).toHaveAttribute('href', '/store?section=coins');
   });
 
   it('clears an optional slot with None', async () => {

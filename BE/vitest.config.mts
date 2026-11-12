@@ -23,7 +23,10 @@ export default defineConfig({
       OPENAI_MODEL: 'test-model',
       GOOGLE_CLIENT_ID: 'test-google-client-id',
       VNP_TMN_CODE: 'TESTCODE',
-      VNP_HASH_SECRET: 'test-vnpay-secret'
+      VNP_HASH_SECRET: 'test-vnpay-secret',
+      MOMO_PARTNER_CODE: 'MOMOTEST',
+      MOMO_ACCESS_KEY: 'test-momo-access',
+      MOMO_SECRET_KEY: 'test-momo-secret'
     },
     globalSetup: ['./tests/setup/download-mongod.ts'],
     setupFiles: ['./tests/setup/mock-external-services.ts', './tests/setup/in-memory-database.ts'],

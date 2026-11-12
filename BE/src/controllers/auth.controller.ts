@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { UserModel } from '../models/user.model';
+import { dropExpiredProItems } from '../services/avatar.service';
 import { forbidden } from '../utils/app-error';
 import { comparePassword, hashPassword } from '../utils/hash';
 import { signToken } from '../utils/jwt';
@@ -99,6 +100,7 @@ export const getMe = async (req: Request, res: Response) => {
   const userId = req.user?.sub;
   const user = await UserModel.findById(userId);
   if (!user) return res.status(404).json({ message: 'User not found' });
+  await dropExpiredProItems(user);
   return res.json(user);
 };
 
