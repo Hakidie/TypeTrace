@@ -42,11 +42,11 @@ const lockText = (unlock: AvatarUnlock) => {
   if (unlock.kind === 'shop') return `${unlock.price} coins`;
   if (unlock.kind === 'tier') return `${unlock.tier[0].toUpperCase()}${unlock.tier.slice(1)} reward`;
   if (unlock.kind === 'season') return 'Season reward';
-  if (unlock.kind === 'pro') return 'Pro';
+  if (unlock.kind === 'premium') return 'Premium';
   return '';
 };
-// A Pro item can be previewed without Pro, like an item for sale; the left panel then leads to the Store.
-const pickable = (item: AvatarItem) => item.owned || item.unlock.kind === 'shop' || item.unlock.kind === 'pro';
+// A Premium item can be previewed without Premium, like an item for sale; the left panel then leads to the Store.
+const pickable = (item: AvatarItem) => item.owned || item.unlock.kind === 'shop' || item.unlock.kind === 'premium';
 
 const sameLook = (a: AvatarLook, b: AvatarLook) => SLOT_NAMES.every((slot) => (a[slot] ?? null) === (b[slot] ?? null));
 
@@ -152,15 +152,15 @@ export const WardrobePage = () => {
     setDraft({ ...look, [slot]: item });
   };
   const save = () => updateAvatar.mutate(look, { onSuccess: () => setDraft(null) });
-  // An item for sale or a Pro item being previewed: it must be bought (or Pro must be on) before the look can be saved.
+  // An item for sale or a Premium item being previewed: it must be bought (or Premium must be on) before the look can be saved.
   const unowned = SLOT_NAMES.flatMap((name) => {
     const item = catalog.data.slots[name].find((entry) => entry.id === look[name]);
     if (!item || item.owned) return [];
     if (item.unlock.kind === 'shop') return [{ slot: name, item, price: item.unlock.price }];
-    return item.unlock.kind === 'pro' ? [{ slot: name, item, price: 0 }] : [];
+    return item.unlock.kind === 'premium' ? [{ slot: name, item, price: 0 }] : [];
   });
   const forSale = unowned.find((entry) => entry.item.unlock.kind === 'shop');
-  const proLocked = unowned.find((entry) => entry.item.unlock.kind === 'pro');
+  const proLocked = unowned.find((entry) => entry.item.unlock.kind === 'premium');
   const coins = catalog.data.coins;
 
   const groups = groupItems(catalog.data.slots[slot]);
@@ -226,7 +226,7 @@ export const WardrobePage = () => {
             )}
             {proLocked && (
               <Button asChild className="w-full">
-                <Link to="/store">Get Pro to wear {words(proLocked.item.id)}</Link>
+                <Link to="/store">Get Premium to wear {words(proLocked.item.id)}</Link>
               </Button>
             )}
             <div className="grid w-full grid-cols-2 gap-2">

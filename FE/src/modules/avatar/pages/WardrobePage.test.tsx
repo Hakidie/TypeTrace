@@ -115,23 +115,23 @@ describe('WardrobePage', () => {
     expect(screen.getByText('Not enough coins')).toBeInTheDocument();
   });
 
-  it('previews a Pro item without Pro and leads to the Store instead of letting it be saved', async () => {
+  it('previews a Premium item without Premium and leads to the Store instead of letting it be saved', async () => {
     catalog.mockResolvedValue({
       avatar: DEFAULT_AVATAR,
       coins: 0,
       pro,
-      slots: { ...slots, back: [{ id: 'dragon-wings', unlock: { kind: 'pro' }, owned: false }] },
+      slots: { ...slots, back: [{ id: 'dragon-wings', unlock: { kind: 'premium' }, owned: false }] },
     });
     renderPage();
     await screen.findByRole('img', { name: 'Your avatar' });
 
     openTab('Back');
-    const wings = screen.getByRole('button', { name: 'Dragon wings (Pro)' });
-    expect(within(wings).getByText('Pro')).toBeInTheDocument();
+    const wings = screen.getByRole('button', { name: 'Dragon wings (Premium)' });
+    expect(within(wings).getByText('Premium')).toBeInTheDocument();
     fireEvent.click(wings);
 
     expect(wings).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('link', { name: 'Get Pro to wear Dragon wings' })).toHaveAttribute('href', '/store');
+    expect(screen.getByRole('link', { name: 'Get Premium to wear Dragon wings' })).toHaveAttribute('href', '/store');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 

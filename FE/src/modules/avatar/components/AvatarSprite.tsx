@@ -5,7 +5,7 @@ import { layerFiles } from '../lib/layers';
 import type { AvatarLook, AvatarPose } from '../types/avatar.types';
 
 const { width: FRAME_W, height: FRAME_H } = AVATAR_MANIFEST;
-/** The items with a second frame, as `{slot}/{id}` (the Pro dragon wings and baby dragon). */
+/** The items with a second frame, as `{slot}/{id}` (the Premium dragon wings and baby dragon). */
 const ANIMATED = new Set<string>(AVATAR_MANIFEST.animatedItems);
 /** The head in the 76x76 frame (the body frame starts 6px right, 12px down): a 40px square around the face. */
 const HEAD = { x: 18, y: 8, size: 40 };

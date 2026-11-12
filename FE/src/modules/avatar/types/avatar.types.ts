@@ -28,13 +28,13 @@ export const DEFAULT_AVATAR: AvatarLook = {
 };
 
 export type AvatarTier = 'gold' | 'platinum' | 'diamond' | 'legend';
-/** How an item is unlocked: a starter item, sold for coins, a season tier reward, the item of a season (Gold and up), or worn while Pro is active. */
+/** How an item is unlocked: a starter item, sold for coins, a season tier reward, the item of a season (Gold and up), or worn while on Premium. */
 export type AvatarUnlock =
   | { kind: 'free' }
   | { kind: 'shop'; price: number }
   | { kind: 'tier'; tier: AvatarTier }
   | { kind: 'season' }
-  | { kind: 'pro' };
+  | { kind: 'premium' };
 
 export interface AvatarItem {
   id: string;
@@ -46,7 +46,7 @@ export interface AvatarItem {
 export interface AvatarCatalog {
   avatar: AvatarLook;
   coins: number;
-  /** The Pro plan of the account (the Store page and the wardrobe read it). */
-  pro: { active: boolean; until: string | null };
+  /** Whether the account is on Premium and until when (the Store page and the wardrobe read it). */
+  premium: { active: boolean; until: string | null };
   slots: Record<AvatarSlot, AvatarItem[]>;
 }

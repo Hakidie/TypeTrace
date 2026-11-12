@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
 import { avatarKeys } from '@/modules/avatar/hooks/use-avatar';
+import { planKeys } from '@/modules/plan/hooks/use-plan';
 import { paymentsApi } from '../api/payments.api';
 import type { PaymentProvider } from '../types/payments.types';
 
@@ -35,6 +36,8 @@ export const useVnpayReturn = (search: string, provider: PaymentProvider = 'vnpa
       if (result.status === 'paid') {
         void queryClient.invalidateQueries({ queryKey: currentUserKey });
         void queryClient.invalidateQueries({ queryKey: avatarKeys.catalog });
+        // A Premium payment changes the plan (US11.1): its passage limit and permissions.
+        void queryClient.invalidateQueries({ queryKey: planKeys.all });
       }
       return result;
     },

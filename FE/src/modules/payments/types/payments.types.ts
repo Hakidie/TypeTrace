@@ -1,5 +1,5 @@
 /** What a paid product gives (mirrors `PaymentGrant` of `BE/src/config/payment.ts`). */
-export type PaymentGrant = { kind: 'pro'; days: number } | { kind: 'coins'; coins: number };
+export type PaymentGrant = { kind: 'premium'; months: number } | { kind: 'coins'; coins: number };
 
 /** One line of `GET /api/payments/products`: the prices and sizes come from the server, never from the frontend. */
 export interface PaymentProduct {

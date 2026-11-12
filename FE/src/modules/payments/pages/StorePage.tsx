@@ -1,4 +1,4 @@
-import { CalendarCheck, Coins, Crown, Shirt } from 'lucide-react';
+import { BookOpen, CalendarCheck, Coins, Crown, Shirt } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
@@ -8,7 +8,8 @@ import { Ping } from '@/modules/tutorial/components/Ping';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { PageHeader } from '@/shared/components/page-header';
-import { ProBadge } from '@/shared/components/pro-badge';
+import { PremiumBadge } from '@/shared/components/premium-badge';
+import { usePlan } from '@/modules/plan/hooks/use-plan';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { PlanOption } from '../components/PlanOption';
@@ -16,7 +17,7 @@ import { usePaymentProducts, useStartPayment } from '../hooks/use-payments';
 import type { PaymentProvider } from '../types/payments.types';
 import { bonusPercent, coinPacks, formatCoins, formatVnd, itemLabel, planTitle, pricePerMonth, proPlans, savingPercent } from '../lib/store';
 
-/** The poses the preview walks through, so each Pro item is seen on the avatar in motion. */
+/** The poses the preview walks through, so each Premium item is seen on the avatar in motion. */
 const POSES: AvatarPose[] = ['idle', 'typing', 'win'];
 const POSE_MS = 3500;
 const SLOT_ORDER: AvatarSlot[] = ['headwear', 'accessory', 'back', 'effect'];
@@ -63,15 +64,15 @@ const thumbStyle = (slot: AvatarSlot) => {
   return { width: 76 * zoom, height: 76 * zoom, left: 28 - x * zoom, top: 28 - y * zoom };
 };
 
-/** A floor of square pixels under the avatar, fading upward: the stage the Pro set is shown on. Drawn from the theme accent. */
+/** A floor of square pixels under the avatar, fading upward: the stage the Dragon set is shown on. Drawn from the theme accent. */
 const PIXEL_FLOOR =
   'pointer-events-none absolute inset-x-0 bottom-0 h-3/5 [background-size:16px_16px] ' +
   '[background-image:linear-gradient(to_right,color-mix(in_oklab,var(--color-primary)_14%,transparent)_1px,transparent_1px),linear-gradient(to_bottom,color-mix(in_oklab,var(--color-primary)_14%,transparent)_1px,transparent_1px)] ' +
   '[mask-image:linear-gradient(to_top,black,transparent)]';
 
 /**
- * The Store (`/store`, from the account menu). Pro is a stage: the learner's own avatar wearing the Pro set (each item is a
- * tile that switches it off to see it alone) beside what Pro gives and the plans. Coins follow, with Ping pointing at what
+ * The Store (`/store`, from the account menu). Premium (US11.1) is a stage: the learner's own avatar wearing the Dragon set
+ * (each item is a tile that switches it off to see it alone) beside what Premium gives and the plans. Coins follow, with Ping pointing at what
  * they buy. The prices come from the server. A pay button (VNPay or MoMo) saves a pending payment and sends the browser to
  * that gateway; `/payments/<gateway>/return` brings it back.
  */
@@ -79,6 +80,8 @@ export const StorePage = () => {
   const products = usePaymentProducts();
   const catalog = useAvatarCatalog();
   const startPayment = useStartPayment();
+  // What Premium gives (the passage limit, Train), as an admin set it in the Plans page; the perks wait for it.
+  const premiumPlan = usePlan().data?.plans.premium;
   const [params] = useSearchParams();
   const [planId, setPlanId] = useState<string>();
   const [packId, setPackId] = useState<string>();
@@ -112,13 +115,13 @@ export const StorePage = () => {
   const packs = coinPacks(products.data);
   const plan = plans.find((entry) => entry.id === planId) ?? plans[Math.min(1, plans.length - 1)];
   const pack = packs.find((entry) => entry.id === packId) ?? packs[Math.min(1, packs.length - 1)];
-  const { pro, coins } = catalog.data;
+  const { premium, coins } = catalog.data;
   // The gateway the browser is being sent to, while the payment is being saved.
   const opening = startPayment.isPending ? startPayment.variables.provider : undefined;
 
-  // The Pro items the catalog has, in slot order. None yet (the sprites are not drawn): the Pro panel sells the badge alone.
+  // The Premium items the catalog has, in slot order. None (the sprites are not drawn): the panel sells the plan and the badge.
   const proItems = SLOT_ORDER.flatMap((slot) =>
-    catalog.data.slots[slot].filter((item) => item.unlock.kind === 'pro').map((item) => ({ slot, id: item.id })),
+    catalog.data.slots[slot].filter((item) => item.unlock.kind === 'premium').map((item) => ({ slot, id: item.id })),
   );
   const look: AvatarLook = {
     ...catalog.data.avatar,
@@ -128,7 +131,10 @@ export const StorePage = () => {
 
   const perks = [
     ...(proItems.length > 0 ? [{ icon: Shirt, text: `The Dragon set: ${proItems.length} items to wear while your plan lasts` }] : []),
-    { icon: Crown, text: 'A Pro badge beside your name' },
+    ...(premiumPlan
+      ? [{ icon: BookOpen, text: `Up to ${premiumPlan.maxPassages} passages of your own${premiumPlan.canCreateErrorPractice ? ', and Train on your weak spots' : ''}` }]
+      : []),
+    { icon: Crown, text: 'A Premium badge beside your name' },
     { icon: CalendarCheck, text: 'One payment. Nothing renews, and nothing is taken away when it ends.' },
   ];
 
@@ -136,7 +142,7 @@ export const StorePage = () => {
     <div className="space-y-10">
       <PageHeader
         title="Store"
-        description="Get Pro or top up coins. You pay once through VNPay or MoMo, nothing renews by itself."
+        description="Get Premium or top up coins. You pay once through VNPay or MoMo, nothing renews by itself."
         actions={
           <div className="flex items-center gap-4 border bg-card/60 px-4 py-2 backdrop-blur-sm">
             <span className="flex items-center gap-2 text-lg font-semibold tabular-nums text-primary">
@@ -144,21 +150,21 @@ export const StorePage = () => {
               {formatCoins(coins)}
             </span>
             <span className="h-6 w-px bg-border" aria-hidden="true" />
-            {pro.active && pro.until ? (
+            {premium.active && premium.until ? (
               <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <ProBadge /> until {dateText(pro.until)}
+                <PremiumBadge /> until {dateText(premium.until)}
               </span>
             ) : (
-              <span className="text-sm text-muted-foreground">You do not have Pro.</span>
+              <span className="text-sm text-muted-foreground">You are on Free.</span>
             )}
           </div>
         }
       />
 
-      <section aria-labelledby="store-pro" className="grid border bg-card/60 backdrop-blur-sm lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+      <section aria-labelledby="store-premium" className="grid border bg-card/60 backdrop-blur-sm lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="relative flex flex-col items-center justify-end gap-6 overflow-hidden border-b bg-primary/5 px-5 pt-8 pb-6 lg:border-r lg:border-b-0">
           <div aria-hidden="true" className={PIXEL_FLOOR} />
-          <AvatarSprite look={look} pose={pose} scale={4} label="Your avatar with the Pro set" className="relative" />
+          <AvatarSprite look={look} pose={pose} scale={4} label="Your avatar with the Dragon set" className="relative" />
           <span aria-hidden="true" className="relative -mt-6 h-px w-2/3 bg-primary/40" />
           {proItems.length > 0 && (
             <div role="group" aria-label="Preview items" className="relative grid w-full max-w-sm grid-cols-4 gap-2">
@@ -195,8 +201,8 @@ export const StorePage = () => {
 
         <div className="flex flex-col gap-6 p-5 sm:p-8">
           <div className="space-y-3">
-            <h2 id="store-pro" className="flex items-center gap-3 text-3xl font-semibold tracking-tight">
-              Pro <Crown className="size-7 text-primary" aria-hidden="true" />
+            <h2 id="store-premium" className="flex items-center gap-3 text-3xl font-semibold tracking-tight">
+              Premium <Crown className="size-7 text-primary" aria-hidden="true" />
             </h2>
             <ul className="space-y-2">
               {perks.map(({ icon: Icon, text }) => (
@@ -208,14 +214,14 @@ export const StorePage = () => {
             </ul>
           </div>
 
-          <div role="radiogroup" aria-label="Pro plan" className="grid gap-2 sm:grid-cols-3">
+          <div role="radiogroup" aria-label="Premium plan" className="grid gap-2 sm:grid-cols-3">
             {plans.map((entry) => {
               const saving = savingPercent(entry, plans[0]);
               return (
                 <PlanOption
                   key={entry.id}
                   layout="tile"
-                  name="pro-plan"
+                  name="premium-plan"
                   value={entry.id}
                   checked={entry.id === plan?.id}
                   onSelect={() => setPlanId(entry.id)}
@@ -231,12 +237,12 @@ export const StorePage = () => {
           <div className="space-y-2">
             <PayButtons
               icon={<Crown className="size-4" aria-hidden="true" />}
-              what={`${pro.active ? 'Extend' : 'Get'} Pro`}
+              what={`${premium.active ? 'Extend' : 'Get'} Premium`}
               disabled={!plan}
               opening={opening}
               onPay={(provider) => plan && startPayment.mutate({ product: plan.id, provider })}
             />
-            {pro.active && <p className="text-sm text-muted-foreground">The time is added after your current end date.</p>}
+            {premium.active && <p className="text-sm text-muted-foreground">The time is added after your current end date.</p>}
           </div>
         </div>
       </section>

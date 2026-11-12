@@ -14,11 +14,13 @@ vi.mock('../api/payments.api', () => ({
   paymentsApi: { products: () => products(), start: (product: string, provider?: string) => start(product, provider) },
 }));
 vi.mock('@/modules/avatar/api/avatar.api', () => ({ avatarApi: { catalog: () => catalog() } }));
+const plan = vi.fn();
+vi.mock('@/modules/plan/api/plan.api', () => ({ planApi: { get: () => plan() } }));
 
 const list: PaymentProduct[] = [
-  { id: 'pro-1m', amount: 49_000, grant: { kind: 'pro', days: 30 } },
-  { id: 'pro-6m', amount: 249_000, grant: { kind: 'pro', days: 180 } },
-  { id: 'pro-12m', amount: 449_000, grant: { kind: 'pro', days: 365 } },
+  { id: 'premium-1m', amount: 49_000, grant: { kind: 'premium', months: 1 } },
+  { id: 'premium-6m', amount: 249_000, grant: { kind: 'premium', months: 6 } },
+  { id: 'premium-12m', amount: 449_000, grant: { kind: 'premium', months: 12 } },
   { id: 'coins-500', amount: 20_000, grant: { kind: 'coins', coins: 500 } },
   { id: 'coins-1400', amount: 50_000, grant: { kind: 'coins', coins: 1400 } },
   { id: 'coins-3000', amount: 100_000, grant: { kind: 'coins', coins: 3000 } },
@@ -28,11 +30,11 @@ const free = { kind: 'free' };
 const emptySlots = { skin: [{ id: 'peach', unlock: free, owned: true }], face: [], hair: [], top: [], bottom: [], shoes: [], headwear: [], accessory: [], back: [], effect: [] };
 const dragonSlots = {
   ...emptySlots,
-  headwear: [{ id: 'dragon-horns', unlock: { kind: 'pro' }, owned: false }],
-  back: [{ id: 'dragon-wings', unlock: { kind: 'pro' }, owned: false }],
+  headwear: [{ id: 'dragon-horns', unlock: { kind: 'premium' }, owned: false }],
+  back: [{ id: 'dragon-wings', unlock: { kind: 'premium' }, owned: false }],
 };
 const answerCatalog = (extra: object = {}) =>
-  catalog.mockResolvedValue({ avatar: DEFAULT_AVATAR, coins: 320, pro: { active: false, until: null }, slots: emptySlots, ...extra });
+  catalog.mockResolvedValue({ avatar: DEFAULT_AVATAR, coins: 320, premium: { active: false, until: null }, slots: emptySlots, ...extra });
 
 const renderPage = (route = '/store') => renderWithProviders(<StorePage />, { route });
 
@@ -43,6 +45,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   products.mockReset().mockResolvedValue(list);
+  plan.mockReset().mockResolvedValue({ plan: 'free', expiresAt: null, maxPassages: 9, usedPassages: 2, canUsePublicPassages: false, canCreateErrorPractice: false, plans: { free: { priceVnd: 0, maxPassages: 9, canCreateErrorPractice: false, canUsePublicPassages: false }, premium: { priceVnd: 99000, maxPassages: 90, canCreateErrorPractice: true, canUsePublicPassages: true } } });
   start.mockReset().mockResolvedValue({ paymentId: 'p1', paymentUrl: 'https://sandbox.vnpayment.vn/pay?x=1' });
   catalog.mockReset();
   assign.mockReset();
@@ -53,7 +56,7 @@ describe('StorePage', () => {
   it('shows the plans and packs the server sent, with the saving and the bonus', async () => {
     renderPage();
 
-    const plans = await screen.findByRole('radiogroup', { name: 'Pro plan' });
+    const plans = await screen.findByRole('radiogroup', { name: 'Premium plan' });
     expect(within(plans).getByRole('radio', { name: /6 months/ })).toBeChecked();
     expect(within(plans).getByText('Save 15%')).toBeInTheDocument();
     expect(within(plans).getByText('Save 24%')).toBeInTheDocument();
@@ -66,12 +69,12 @@ describe('StorePage', () => {
 
   it('sends the chosen plan to VNPay', async () => {
     renderPage();
-    const plans = await screen.findByRole('radiogroup', { name: 'Pro plan' });
+    const plans = await screen.findByRole('radiogroup', { name: 'Premium plan' });
 
     fireEvent.click(within(plans).getByRole('radio', { name: /12 months/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Get Pro with VNPay' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Get Premium with VNPay' }));
 
-    await waitFor(() => expect(start).toHaveBeenCalledWith('pro-12m', 'vnpay'));
+    await waitFor(() => expect(start).toHaveBeenCalledWith('premium-12m', 'vnpay'));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://sandbox.vnpayment.vn/pay?x=1'));
   });
 
@@ -88,17 +91,17 @@ describe('StorePage', () => {
   it('sends the chosen plan and pack to MoMo with their own buttons, next to VNPay', async () => {
     start.mockResolvedValue({ paymentId: 'p2', paymentUrl: 'https://test-payment.momo.vn/pay/abc' });
     renderPage();
-    await screen.findByRole('radiogroup', { name: 'Pro plan' });
+    await screen.findByRole('radiogroup', { name: 'Premium plan' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Get Pro with MoMo' }));
-    await waitFor(() => expect(start).toHaveBeenCalledWith('pro-6m', 'momo'));
+    fireEvent.click(screen.getByRole('button', { name: 'Get Premium with MoMo' }));
+    await waitFor(() => expect(start).toHaveBeenCalledWith('premium-6m', 'momo'));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://test-payment.momo.vn/pay/abc'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Get coins with MoMo' }));
     await waitFor(() => expect(start).toHaveBeenCalledWith('coins-1400', 'momo'));
   });
 
-  it('previews the Pro items on the avatar and lets each one be switched off', async () => {
+  it('previews the Premium items on the avatar and lets each one be switched off', async () => {
     answerCatalog({ slots: dragonSlots });
     renderPage();
 
@@ -110,19 +113,26 @@ describe('StorePage', () => {
     expect(within(items).getByRole('button', { name: 'Dragon wings' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('has no item switches while the Pro items have no sprites yet', async () => {
+  it('has no item switches while the Premium items have no sprites yet', async () => {
     renderPage();
 
-    await screen.findByRole('radiogroup', { name: 'Pro plan' });
+    await screen.findByRole('radiogroup', { name: 'Premium plan' });
     expect(screen.queryByRole('group', { name: 'Preview items' })).not.toBeInTheDocument();
   });
 
-  it('offers to extend an active Pro and says until when', async () => {
-    answerCatalog({ pro: { active: true, until: '2027-05-10T00:00:00.000Z' } });
+  it('offers to extend an active Premium and says until when', async () => {
+    answerCatalog({ premium: { active: true, until: '2027-05-10T00:00:00.000Z' } });
     renderPage();
 
-    expect(await screen.findByRole('button', { name: 'Extend Pro with VNPay' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Extend Premium with VNPay' })).toBeInTheDocument();
     expect(screen.getByText(/until 10 May 2027/)).toBeInTheDocument();
+  });
+
+  it('lists what Premium gives from the plans an admin set (passage limit, Train)', async () => {
+    renderPage();
+
+    expect(await screen.findByText('Up to 90 passages of your own, and Train on your weak spots')).toBeInTheDocument();
+    expect(screen.getByText('A Premium badge beside your name')).toBeInTheDocument();
   });
 
   it('shows the backend error with a retry button', async () => {

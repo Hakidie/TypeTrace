@@ -4,10 +4,10 @@ import { bonusPercent, coinPacks, failureMessage, formatCoins, formatVnd, itemLa
 
 const products: PaymentProduct[] = [
   { id: 'coins-1400', amount: 50_000, grant: { kind: 'coins', coins: 1400 } },
-  { id: 'pro-12m', amount: 449_000, grant: { kind: 'pro', days: 365 } },
+  { id: 'premium-12m', amount: 449_000, grant: { kind: 'premium', months: 12 } },
   { id: 'coins-500', amount: 20_000, grant: { kind: 'coins', coins: 500 } },
-  { id: 'pro-1m', amount: 49_000, grant: { kind: 'pro', days: 30 } },
-  { id: 'pro-6m', amount: 249_000, grant: { kind: 'pro', days: 180 } },
+  { id: 'premium-1m', amount: 49_000, grant: { kind: 'premium', months: 1 } },
+  { id: 'premium-6m', amount: 249_000, grant: { kind: 'premium', months: 6 } },
 ];
 
 describe('store helpers', () => {
@@ -17,7 +17,7 @@ describe('store helpers', () => {
   });
 
   it('puts plans and packs in order, shortest and smallest first', () => {
-    expect(proPlans(products).map((plan) => plan.id)).toEqual(['pro-1m', 'pro-6m', 'pro-12m']);
+    expect(proPlans(products).map((plan) => plan.id)).toEqual(['premium-1m', 'premium-6m', 'premium-12m']);
     expect(coinPacks(products).map((pack) => pack.id)).toEqual(['coins-500', 'coins-1400']);
   });
 

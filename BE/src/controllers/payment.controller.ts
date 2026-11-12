@@ -49,8 +49,8 @@ export const momoIpn = async (req: Request, res: Response) => {
   res.status(204).end();
 };
 
-export const listProducts = (_req: Request, res: Response) => {
-  res.json(paymentService.listProducts());
+export const listProducts = async (_req: Request, res: Response) => {
+  res.json(await paymentService.listProducts());
 };
 
 /** VNPay's server calls this (server to server); the answer codes are the ones VNPay documents. */

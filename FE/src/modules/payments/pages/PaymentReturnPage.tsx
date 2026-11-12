@@ -21,13 +21,13 @@ const SLOT_ORDER: AvatarSlot[] = ['headwear', 'accessory', 'back', 'effect'];
 const formatGain = (coins: number) => `+${formatCoins(coins)}`;
 const dateText = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-/** After a Pro payment: the avatar already wearing the set, and a button that puts it on for good. Only when the set has sprites. */
+/** After a Premium payment: the avatar already wearing the set, and a button that puts it on for good. Only when the set has sprites. */
 const WearProSet = () => {
   const catalog = useAvatarCatalog();
   const updateAvatar = useUpdateAvatar();
   if (!catalog.data) return null;
 
-  const proItems = SLOT_ORDER.flatMap((slot) => catalog.data.slots[slot].filter((item) => item.unlock.kind === 'pro' && item.owned).map((item) => ({ slot, id: item.id })));
+  const proItems = SLOT_ORDER.flatMap((slot) => catalog.data.slots[slot].filter((item) => item.unlock.kind === 'premium' && item.owned).map((item) => ({ slot, id: item.id })));
   if (proItems.length === 0) return null;
   const look: AvatarLook = { ...catalog.data.avatar, ...Object.fromEntries(proItems.map(({ slot, id }) => [slot, id])) };
   const worn = proItems.every(({ slot, id }) => catalog.data.avatar[slot] === id);
@@ -35,7 +35,7 @@ const WearProSet = () => {
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="flex justify-center border-b border-primary/30 bg-primary/5 px-10 pt-2">
-        <AvatarSprite look={look} pose="win" scale={5} label="Your avatar with the Pro set" />
+        <AvatarSprite look={look} pose="win" scale={5} label="Your avatar with the Dragon set" />
       </div>
       {!worn && (
         <Button type="button" disabled={updateAvatar.isPending} onClick={() => updateAvatar.mutate(look)}>
@@ -69,9 +69,9 @@ const Paid = ({ result, signedIn }: { result: VnpayReturn; signedIn: boolean }) 
       ) : (
         <>
           <h1 className="flex items-center gap-2 text-3xl font-semibold">
-            You are Pro <Crown className="size-7 text-primary" aria-hidden="true" />
+            You are Premium <Crown className="size-7 text-primary" aria-hidden="true" />
           </h1>
-          {signedIn && user.data?.pro?.until && <p className="text-muted-foreground">Pro until {dateText(user.data.pro.until)}</p>}
+          {signedIn && user.data?.premium?.until && <p className="text-muted-foreground">Premium until {dateText(user.data.premium.until)}</p>}
           {signedIn && <WearProSet />}
         </>
       )}

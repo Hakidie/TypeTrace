@@ -1,5 +1,7 @@
 # Pro plan (paid with VNPay) — design
 
+> **Update (2026-11-13):** Pro was merged into the Premium plan of US11.1. A Pro purchase is now a paid Premium term (`recordPaidMonth`, a `Subscription` row); `User.proUntil` is gone, the items are `PREMIUM_ITEMS` (`Unlock` kind `premium`), and the prices follow the Premium price an admin sets. See the Payments part of AGENTS.md.
+
 ## Why
 The VNPay API is done (PR #55) but nothing can be bought yet. The first thing to sell is a **Pro plan** made of things
 learners want to show off and use every week, not of speed: the ranked duel design keeps real money out of the rating

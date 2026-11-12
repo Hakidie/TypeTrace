@@ -11,27 +11,26 @@ export const formatCoins = (coins: number) => `${number.format(coins)} coins`;
 /** `dragon-horns` → `Dragon horns`. */
 export const itemLabel = (id: string) => id.replace(/-/g, ' ').replace(/^./, (first) => first.toUpperCase());
 
-type ProProduct = PaymentProduct & { grant: { kind: 'pro'; days: number } };
+type PremiumProduct = PaymentProduct & { grant: { kind: 'premium'; months: number } };
 type CoinProduct = PaymentProduct & { grant: { kind: 'coins'; coins: number } };
 
-/** The Pro plans, shortest first. */
+/** The Premium plans, shortest first. */
 export const proPlans = (products: PaymentProduct[]) =>
-  products.filter((product): product is ProProduct => product.grant.kind === 'pro').sort((a, b) => a.grant.days - b.grant.days);
+  products.filter((product): product is PremiumProduct => product.grant.kind === 'premium').sort((a, b) => a.grant.months - b.grant.months);
 
 /** The coin packs, smallest first. */
 export const coinPacks = (products: PaymentProduct[]) =>
   products.filter((product): product is CoinProduct => product.grant.kind === 'coins').sort((a, b) => a.grant.coins - b.grant.coins);
 
-/** A plan of 30 days is one month, 180 six, 365 twelve. */
-export const monthsOf = (plan: ProProduct) => Math.max(1, Math.round(plan.grant.days / 30));
+export const monthsOf = (plan: PremiumProduct) => plan.grant.months;
 
-export const planTitle = (plan: ProProduct) => `${monthsOf(plan)} ${monthsOf(plan) === 1 ? 'month' : 'months'}`;
+export const planTitle = (plan: PremiumProduct) => `${monthsOf(plan)} ${monthsOf(plan) === 1 ? 'month' : 'months'}`;
 
 /** What a month costs. */
-export const pricePerMonth = (plan: ProProduct) => Math.round(plan.amount / monthsOf(plan));
+export const pricePerMonth = (plan: PremiumProduct) => Math.round(plan.amount / monthsOf(plan));
 
 /** How much cheaper a month is than the shortest plan's month, in %. */
-export const savingPercent = (plan: ProProduct, shortest: ProProduct) =>
+export const savingPercent = (plan: PremiumProduct, shortest: PremiumProduct) =>
   Math.max(0, Math.round((1 - pricePerMonth(plan) / pricePerMonth(shortest)) * 100));
 
 /** How many more coins per ₫ a pack gives than the smallest pack, in %. */

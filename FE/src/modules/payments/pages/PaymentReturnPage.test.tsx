@@ -21,8 +21,8 @@ const emptySlots = { skin: [], face: [], hair: [], top: [], bottom: [], shoes: [
 
 beforeEach(() => {
   confirmReturn.mockReset();
-  getMe.mockReset().mockResolvedValue({ _id: 'u1', email: 'a@b.c', coins: 1720, pro: { active: true, until: '2027-05-10T00:00:00.000Z' } });
-  catalog.mockReset().mockResolvedValue({ avatar: DEFAULT_AVATAR, coins: 1720, pro: { active: true, until: null }, slots: emptySlots });
+  getMe.mockReset().mockResolvedValue({ _id: 'u1', email: 'a@b.c', coins: 1720, premium: { active: true, until: '2027-05-10T00:00:00.000Z' } });
+  catalog.mockReset().mockResolvedValue({ avatar: DEFAULT_AVATAR, coins: 1720, premium: { active: true, until: null }, slots: emptySlots });
   tokenStore.set('token');
 });
 
@@ -41,22 +41,22 @@ describe('PaymentReturnPage', () => {
     expect(screen.getByRole('link', { name: 'Buy more' })).toHaveAttribute('href', '/store');
   });
 
-  it('welcomes a new Pro and says until when', async () => {
-    confirmReturn.mockResolvedValue({ status: 'paid', amount: 249_000, orderInfo: 'x', product: 'pro-6m', grant: { kind: 'pro', days: 180 } });
+  it('welcomes a new Premium learner and says until when', async () => {
+    confirmReturn.mockResolvedValue({ status: 'paid', amount: 249_000, orderInfo: 'x', product: 'premium-6m', grant: { kind: 'premium', months: 6 } });
     render();
 
-    expect(await screen.findByRole('heading', { name: /You are Pro/ })).toBeInTheDocument();
-    expect(await screen.findByText('Pro until 10 May 2027')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /You are Premium/ })).toBeInTheDocument();
+    expect(await screen.findByText('Premium until 10 May 2027')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open wardrobe' })).toBeInTheDocument();
   });
 
-  it('shows the Pro set on the avatar with a button to wear it, when the set has sprites', async () => {
-    confirmReturn.mockResolvedValue({ status: 'paid', amount: 49_000, orderInfo: 'x', product: 'pro-1m', grant: { kind: 'pro', days: 30 } });
+  it('shows the Dragon set on the avatar with a button to wear it, when the set has sprites', async () => {
+    confirmReturn.mockResolvedValue({ status: 'paid', amount: 49_000, orderInfo: 'x', product: 'premium-1m', grant: { kind: 'premium', months: 1 } });
     catalog.mockResolvedValue({
       avatar: DEFAULT_AVATAR,
       coins: 0,
-      pro: { active: true, until: null },
-      slots: { ...emptySlots, headwear: [{ id: 'dragon-horns', unlock: { kind: 'pro' }, owned: true }] },
+      premium: { active: true, until: null },
+      slots: { ...emptySlots, headwear: [{ id: 'dragon-horns', unlock: { kind: 'premium' }, owned: true }] },
     });
     render();
 
@@ -64,7 +64,7 @@ describe('PaymentReturnPage', () => {
   });
 
   it('says why a payment did not go through and leads back to the store', async () => {
-    confirmReturn.mockResolvedValue({ status: 'failed', amount: 49_000, orderInfo: 'x', product: 'pro-1m', grant: { kind: 'pro', days: 30 } });
+    confirmReturn.mockResolvedValue({ status: 'failed', amount: 49_000, orderInfo: 'x', product: 'premium-1m', grant: { kind: 'premium', months: 1 } });
     render('vnp_ResponseCode=24');
 
     expect(await screen.findByRole('heading', { name: 'Payment not completed' })).toBeInTheDocument();
@@ -73,7 +73,7 @@ describe('PaymentReturnPage', () => {
   });
 
   it('confirms a MoMo return with the MoMo route and explains its result code', async () => {
-    confirmReturn.mockResolvedValue({ status: 'failed', amount: 49_000, orderInfo: 'x', product: 'pro-1m', grant: { kind: 'pro', days: 30 } });
+    confirmReturn.mockResolvedValue({ status: 'failed', amount: 49_000, orderInfo: 'x', product: 'premium-1m', grant: { kind: 'premium', months: 1 } });
     renderWithProviders(<MomoReturnPage />, { route: '/payments/momo/return?orderId=p1&resultCode=1006&signature=abc' });
 
     expect(await screen.findByText('You cancelled the payment on MoMo.')).toBeInTheDocument();

@@ -1,14 +1,23 @@
 import { env } from '../config/env';
-import { PAYMENT_PRODUCTS, PaymentProduct } from '../config/payment';
+import { PAYMENT_PRODUCTS, PaymentProduct, productAmount } from '../config/payment';
 import { PaymentDocument, PaymentModel } from '../models/payment.model';
 import { UserModel } from '../models/user.model';
-import { AppError } from '../utils/app-error';
+import { AppError, badRequest } from '../utils/app-error';
 import { MomoParams, signMomoCreate, signMomoResult, verifyMomo } from '../utils/momo';
 import { buildVnpayUrl, verifyVnpay, vnpayDate, VnpParams } from '../utils/vnpay';
 import { objectIdSchema } from '../validators/common.validator';
+import { getPlanConfig } from './app-setting.service';
+import { recordPaidMonth } from './subscription.service';
 
 const PAYMENT_EXPIRES_MS = 15 * 60 * 1000;
 const MOMO_TIMEOUT_MS = 15_000;
+
+/** What a product costs now: Premium follows the price of one month an admin set in the Plans page. */
+const priceOf = async (product: PaymentProduct) => {
+  const amount = productAmount(product, (await getPlanConfig('premium')).priceVnd);
+  if (amount < 1) throw badRequest('This product is not for sale');
+  return amount;
+};
 
 const vnpayConfig = () => {
   if (!env.vnpTmnCode || !env.vnpHashSecret) throw new AppError(503, 'VNPay is not configured');
@@ -29,7 +38,8 @@ const momoConfig = () => {
 /** Saves a pending payment and returns the VNPay page the learner pays on. */
 export const createVnpayPayment = async (ownerId: string, product: PaymentProduct, ip: string) => {
   const { tmnCode, secret } = vnpayConfig();
-  const { amount, orderInfo } = PAYMENT_PRODUCTS[product];
+  const { orderInfo } = PAYMENT_PRODUCTS[product];
+  const amount = await priceOf(product);
   const payment = await PaymentModel.create({ owner: ownerId, product, amount, orderInfo, provider: 'vnpay' });
 
   const now = new Date();
@@ -54,7 +64,8 @@ export const createVnpayPayment = async (ownerId: string, product: PaymentProduc
 /** Saves a pending payment and asks MoMo for the page the learner pays on (`payUrl`). */
 export const createMomoPayment = async (ownerId: string, product: PaymentProduct) => {
   const { partnerCode, accessKey, secret } = momoConfig();
-  const { amount, orderInfo } = PAYMENT_PRODUCTS[product];
+  const { orderInfo } = PAYMENT_PRODUCTS[product];
+  const amount = await priceOf(product);
   const payment = await PaymentModel.create({ owner: ownerId, product, amount, orderInfo, provider: 'momo' });
 
   const fields: MomoParams = {
@@ -98,8 +109,12 @@ export const createMomoPayment = async (ownerId: string, product: PaymentProduct
 };
 
 /** The catalog the store shows: ids, prices and what each one gives. */
-export const listProducts = () =>
-  Object.entries(PAYMENT_PRODUCTS).map(([id, { amount, grant }]) => ({ id, amount, grant }));
+export const listProducts = async () => {
+  const { priceVnd } = await getPlanConfig('premium');
+  return (Object.keys(PAYMENT_PRODUCTS) as PaymentProduct[])
+    .map((id) => ({ id, amount: productAmount(id, priceVnd), grant: PAYMENT_PRODUCTS[id].grant }))
+    .filter(({ amount }) => amount > 0);
+};
 
 /**
  * Gives the learner what a paid payment bought, once. The call that sets `grantedAt` is the only one that goes on, so the
@@ -112,16 +127,10 @@ const grantPurchase = async (payment: PaymentDocument) => {
   const claimed = await PaymentModel.findOneAndUpdate({ _id: payment._id, status: 'paid', grantedAt: null }, { grantedAt: new Date() });
   if (!claimed) return;
   const { grant } = product;
-  const now = new Date();
   try {
-    await UserModel.updateOne(
-      { _id: payment.owner },
-      grant.kind === 'coins'
-        ? { $inc: { coins: grant.coins } }
-        : // Pro time starts after the end of the current Pro, or now when there is none. One update, no read first.
-          [{ $set: { proUntil: { $add: [{ $max: [{ $ifNull: ['$proUntil', now] }, now] }, grant.days * 86_400_000] } } }],
-      { updatePipeline: true }
-    );
+    // Premium: a paid term in the learner's plan history (US11.1), after the Premium they already have.
+    if (grant.kind === 'premium') await recordPaidMonth(String(payment.owner), grant.months);
+    else await UserModel.updateOne({ _id: payment.owner }, { $inc: { coins: grant.coins } });
   } catch (error) {
     await PaymentModel.updateOne({ _id: payment._id }, { grantedAt: null });
     throw error;
