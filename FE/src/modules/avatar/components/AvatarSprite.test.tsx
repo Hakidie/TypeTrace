@@ -36,6 +36,14 @@ describe('AvatarSprite', () => {
     expect(container.querySelector('img[src="/avatar/effect/baby-dragon-flap.png"]')).toHaveClass('avatar-flap-b');
   });
 
+  it('holds the raised frame of moving wings while the arms are up, and keeps the baby dragon beating', () => {
+    const { container } = render(<AvatarSprite look={{ ...DEFAULT_AVATAR, back: 'dragon-wings', effect: 'baby-dragon' }} pose="win" />);
+
+    expect(container.querySelectorAll('img[src*="/back/"]')).toHaveLength(1);
+    expect(container.querySelector('img[src="/avatar/back/dragon-wings.png"]')).not.toHaveClass('avatar-flap-a');
+    expect(container.querySelector('img[src="/avatar/effect/baby-dragon-flap.png"]')).toHaveClass('avatar-flap-b');
+  });
+
   it('draws a still back item once, without flap classes', () => {
     const { container } = render(<AvatarSprite look={{ ...DEFAULT_AVATAR, back: 'bat-wings' }} />);
 

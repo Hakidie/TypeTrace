@@ -675,7 +675,7 @@ const drawHeadwear = (name) => {
       [-3, -5, '#f3e6cc'],
     ];
     for (const [xc, side] of [[21, 1], [40, -1]]) {
-      const root = hairTop(xc) + 1;
+      const root = hairTop(xc) + 2; // set a pixel into the hair, so the horn grows out of it
       for (const [dx, dy, c] of HORN) put(g, xc + dx * side, root + dy, c);
     }
     return outline(g);
@@ -1120,10 +1120,10 @@ const drawAccessory = (name) => {
     const red = '#c8323f';
     const dark = '#8e1f2c';
     const gold = '#f2b04a';
-    rect(g, 24, 31, 16, 1, '#e0505c');
-    rect(g, 22, 32, 20, 2, red);
-    rect(g, 23, 34, 18, 1, dark);
-    for (let x = 23; x <= 41; x += 3) put(g, x, 32 + (x % 2), gold);
+    rect(g, 25, 31, 14, 1, '#e0505c');
+    rect(g, 23, 32, 18, 2, red); // no wider than the shoulders, which the raised arms (win) leave bare
+    rect(g, 24, 34, 16, 1, dark);
+    for (let x = 24; x <= 40; x += 3) put(g, x, 32 + (x % 2), gold);
     rect(g, 32, 33, 4, 4, red);
     rect(g, 32, 36, 4, 1, dark);
     rect(g, 32, 37, 4, 7, red);
@@ -1330,7 +1330,7 @@ const drawBack = (name) => {
  * scalloped between them) and a spade-tipped tail curling out on the left. Frame 0 has the wings raised, frame 1
  * lowered (the tail swings a pixel): the app shows them in turn (`ANIMATED_ITEMS`), a flap.
  */
-const DRAGON = { membrane: '#f0903c', shade: '#c86a26', bone: '#b3283a', scale: '#d33a48', scaleDark: '#99222f', horn: '#f3e6cc' };
+const DRAGON = { membrane: '#d9682a', shade: '#a84a1c', bone: '#b3283a', scale: '#d33a48', scaleDark: '#99222f', horn: '#f3e6cc' };
 const insidePoly = (poly, x, y) => {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -1374,7 +1374,8 @@ const drawDragonWings = (frame) => {
       }
   // The tail, two pixels thick, curling out under the left wing, then a spade tip.
   const sway = up ? 0 : 1;
-  const tail = [[18, 49], [13, 52], [8, 53], [4, 51 + sway], [2, 47 + sway]];
+  // It starts behind the hip (hidden by the body), so it stays attached when the arms are raised and stop covering its root.
+  const tail = [[24, 49], [18, 51], [13, 52], [8, 53], [4, 51 + sway], [2, 47 + sway]];
   for (let i = 1; i < tail.length; i++) {
     lineTo(g, tail[i - 1], tail[i], DRAGON.scale);
     lineTo(g, [tail[i - 1][0], tail[i - 1][1] + 1], [tail[i][0], tail[i][1] + 1], DRAGON.scaleDark);

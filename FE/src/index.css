@@ -164,6 +164,47 @@ body {
   }
 }
 
+/*
+ * The plan dialog (modules/plan): the two plans rise in one after the other (`plan-enter`, Premium last so the eye ends on
+ * it) and a band of light crosses the Premium button now and then (`plan-sheen`), saying it is the one to press. Still for
+ * reduced motion.
+ */
+@keyframes plan-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes plan-sheen {
+  0%,
+  70% {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(320%) skewX(-20deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .plan-enter {
+    animation: plan-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .plan-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 35%;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-primary-foreground) 45%, transparent), transparent);
+    animation: plan-sheen 3.6s cubic-bezier(0.65, 0, 0.35, 1) 0.8s infinite;
+  }
+}
+
 @keyframes auth-shake {
   20%,
   60% {
