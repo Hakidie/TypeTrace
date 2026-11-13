@@ -325,8 +325,8 @@ const WardrobeDesktop = () => {
           {EXTRAS.map(tab)}
         </div>
       </div>
-      {/* The space between the avatar and the bottom row grows with the screen's height; the looks sit in the middle of it. */}
-      <div className="flex flex-1 items-center justify-center py-4">
+      {/* A fixed 72px under the avatar (24px of the page's gap + 48px here), whatever the screen's height. */}
+      <div className="flex justify-center pt-12">
         <div role="group" aria-label="Looks" className="flex flex-wrap justify-center gap-1">
           {LOOKS.map(tab)}
         </div>
