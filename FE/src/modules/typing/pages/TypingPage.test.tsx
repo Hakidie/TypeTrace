@@ -22,7 +22,7 @@ vi.mock('../api/typing.api', () => ({
     begin: (id: string) => begin(id),
     complete: (id: string, typedWords: string[], typedAtMs: number[], timeLimitSeconds: number, replay?: unknown) =>
       complete(id, typedWords, typedAtMs, timeLimitSeconds, replay),
-    passages: (mode: string, language?: string) => passages(mode, language),
+    passages: (mode: string, language?: string, query?: unknown) => passages(mode, language, query),
   },
 }));
 
@@ -131,8 +131,8 @@ beforeEach(() => {
   begin.mockReset().mockResolvedValue(session);
   complete.mockReset().mockResolvedValue({ ...session, status: 'completed' });
   passages.mockReset().mockResolvedValue([
-    { _id: 'p1', title: 'Hà Nội vào thu', wordCount: 40 },
-    { _id: 'p2', title: 'Bữa cơm gia đình', wordCount: 35 },
+    { _id: 'p1', title: 'Hà Nội vào thu', wordCount: 40, isSystem: true, isOwn: false, ownerName: 'TypeTrace' },
+    { _id: 'p2', title: 'Bữa cơm gia đình', wordCount: 35, isSystem: true, isOwn: false, ownerName: 'TypeTrace' },
   ]);
   // The account answered with the language that was sent.
   updateSettings.mockReset().mockImplementation(({ typingLanguage }: { typingLanguage: 'vi' | 'en' }) => Promise.resolve(learner(typingLanguage)));
@@ -538,7 +538,7 @@ describe('TypingPage', () => {
 
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 60 }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
-    expect(passages).toHaveBeenCalledWith('practice', 'vi');
+    expect(passages).toHaveBeenCalledWith('practice', 'vi', { sort: '-createdAt', origin: 'system' });
 
     // Still Random back in practice: the pick is gone, so Restart types a random passage too.
     await user.click(screen.getByRole('radio', { name: 'Practice' }));
@@ -665,7 +665,7 @@ describe('TypingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Choose passage' }));
     await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
 
-    expect(passages).toHaveBeenCalledWith('practice', 'vi');
+    expect(passages).toHaveBeenCalledWith('practice', 'vi', { sort: '-createdAt', origin: 'system' });
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p1' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveTextContent('Hà Nội vào thu'));
     expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveClass('text-primary');
@@ -683,9 +683,9 @@ describe('TypingPage', () => {
   it('shows the passages locked by the plan or by the limit and does not start them', async () => {
     const user = userEvent.setup();
     passages.mockResolvedValue([
-      { _id: 'p1', title: 'Hà Nội vào thu', wordCount: 40 },
-      { _id: 'p9', title: 'Của người khác', wordCount: 30, lockedByPlan: true },
-      { _id: 'p8', title: 'Quá hạn mức', wordCount: 20, locked: true },
+      { _id: 'p1', title: 'Hà Nội vào thu', wordCount: 40, isSystem: true, isOwn: false, ownerName: 'TypeTrace' },
+      { _id: 'p9', title: 'Của người khác', wordCount: 30, isSystem: false, isOwn: false, ownerName: 'Lan', lockedByPlan: true },
+      { _id: 'p8', title: 'Quá hạn mức', wordCount: 20, isSystem: false, isOwn: true, ownerName: 'Mình', locked: true },
     ]);
     start.mockResolvedValue({ ...session, passageTitle: 'Bữa cơm gia đình' });
     renderPage();
@@ -732,6 +732,53 @@ describe('TypingPage', () => {
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p2' }));
     await user.click(screen.getByRole('button', { name: 'Random' }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: undefined }));
+  });
+
+  it('tags the passages with their source, and searches, sorts and filters them in the name menu (SCRUM-304)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Choose passage' }));
+    const first = await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ });
+    expect(first).toHaveTextContent('System');
+    // One row: the search box, the Filter and Sort buttons that go round their options, and the Search button.
+    const row = screen.getByRole('search');
+    expect(within(row).getByRole('button', { name: /^Filter:/ })).toHaveAccessibleName('Filter: System');
+
+    await user.click(within(row).getByRole('button', { name: /^Filter:/ }));
+    await user.type(screen.getByRole('textbox', { name: 'Search passages' }), 'thu{Enter}');
+    await waitFor(() => expect(passages).toHaveBeenLastCalledWith('practice', 'vi', { sort: '-createdAt', origin: 'mine', q: 'thu' }));
+  });
+
+  it('does not cut the passage name in the trigger, and keeps the menu inside a phone screen (SCRUM-304)', async () => {
+    const user = userEvent.setup();
+    start.mockResolvedValue({ ...session, passageTitle: 'Một đoạn văn có cái tên rất dài không bị cắt ở giữa chừng' });
+    renderPage();
+
+    const trigger = await screen.findByRole('button', { name: 'Choose passage' });
+    expect(trigger.className).not.toMatch(/max-w-48/);
+    expect(trigger.querySelector('span')?.className).not.toMatch(/truncate/);
+    await user.click(trigger);
+    // As wide as the trigger on a phone (names wrap), as wide as the longest name from `sm` up.
+    const menu = await screen.findByRole('menu', { name: 'Passages' });
+    expect(menu).toHaveClass('w-full');
+    expect(menu).toHaveClass('sm:w-max');
+    // Centered under the Mode tabs (the middle of the row), not under the name: it is placed against the row, not the name's frame.
+    expect(menu).toHaveClass('left-1/2');
+    expect(menu).toHaveClass('-translate-x-1/2');
+    expect(menu).not.toHaveClass('sm:min-w-full');
+    expect(menu.parentElement).toHaveClass('static');
+    expect(menu.closest('[data-tutorial="mode-tabs"]')).toHaveClass('relative');
+  });
+
+  it('has no filter by origin in the placement test: its passages are all the system\'s', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<TypingPage />, { route: '/typing?mode=placement' });
+
+    await user.click(await screen.findByRole('button', { name: 'Choose passage' }));
+
+    expect(await screen.findByRole('button', { name: /^Sort:/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Filter:/ })).not.toBeInTheDocument();
   });
 
   it('shows an error in the name menu when the passages cannot be loaded', async () => {
@@ -1004,7 +1051,7 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
 
     // The menu lists the English passages.
     await user.click(screen.getByRole('button', { name: 'Choose passage' }));
-    await waitFor(() => expect(passages).toHaveBeenCalledWith('practice', 'en'));
+    await waitFor(() => expect(passages).toHaveBeenCalledWith('practice', 'en', { sort: '-createdAt', origin: 'system' }));
   });
 
   it('opens an English learner on English, without the Placement tab, and switches back to Vietnamese', async () => {

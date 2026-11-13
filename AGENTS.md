@@ -169,6 +169,14 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   error profile has a "Practice this error" button (SCRUM-274; none in the English one), a link to
   `/typing?mode=targeted&focus=<type>`, also for a type without enough data yet, whose lesson says what the profile still
   needs. The passage menu and `GET /api/passages` take `passageModes` (practice, placement), never `targeted`.
+  `GET /api/passages` also takes `origin` (`system`, `mine`, `others`, SCRUM-304; 400 with `mine=true`) and sends `isSystem` on each
+  item. The passage menus of Typing (Practice) and of the placement leaderboard are one `PassageMenuPanel`
+  (`modules/typing/components`): one row, without borders or focus rings, with a search box (focused when the menu opens; a magnifier
+  and the placeholder "Search"; the search is sent with Enter only), a Sort button (newest first) and a Filter button (Practice only:
+  System at first, Mine, Others; no "All"): both show only their icon and the word with the current choice shows while they are hovered or focused (the box takes the room, `w-0 flex-1`, so the menu never changes its width), they go
+  round their options when pressed and the list is asked again at once, keeping the search that was sent; the menu opens centered
+  under the tabs of the page, on the Typing page (Mode tabs) and on the leaderboard alike (its `DropdownMenu` is `static`, the row of
+  the tabs is `relative`), and the trigger wraps a long name; each passage is tagged System or with its author's public name, never an email; it asks for 100 matches at most, no paging.
 - A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
   which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen
   (`createReplayRecorder`, `FE/src/modules/typing/utils/session-replay.ts`), the page sends them as `replay` with

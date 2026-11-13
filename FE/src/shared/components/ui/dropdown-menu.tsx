@@ -13,12 +13,13 @@ const DropdownMenuContext = React.createContext<DropdownMenuContextValue>({
   setOpen: () => {},
 });
 
-function DropdownMenu({ children }: { children: React.ReactNode }) {
+/** `className` is added to the wrapper: `static` lets the content be placed against a parent of its own instead (the passage menu of the Typing page, centered under the mode tabs). */
+function DropdownMenu({ children, className }: { children: React.ReactNode; className?: string }) {
   const [open, setOpen] = React.useState(false);
 
   return (
     <DropdownMenuContext.Provider value={{ open, setOpen }}>
-      <div className="relative inline-block">{children}</div>
+      <div className={cn('relative inline-block', className)}>{children}</div>
     </DropdownMenuContext.Provider>
   );
 }

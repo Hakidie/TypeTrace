@@ -5,22 +5,32 @@ import { paginationQuerySchema, sortSchema } from '../utils/pagination';
 import { cleanPassageText } from '../utils/passage-text';
 import { optionalBooleanQuerySchema } from './common.validator';
 
-export const listPassagesQuerySchema = paginationQuerySchema.extend({
-  mode: z.enum(passageModes).default('practice'),
-  /**
-   * Practice only (SCRUM-219): the passages of this typing language, the Typing page's menu sends the learner's. Vietnamese
-   * when missing: the Passages page lists the learner's own passages, which are Vietnamese. The placement test ignores it.
-   */
-  language: z.enum(passageLanguages).default('vi'),
-  /** Text searched in the title (`titleSearchPattern`: without accents it finds every accented form). */
-  q: z.string().trim().max(100).optional(),
-  /** `private` = only the learner's own private passages, `public` = only the public ones (TypeTrace's and approved ones). Missing = both. */
-  visibility: z.enum(passageVisibilities).optional(),
-  /** `true` = only the learner's own passages (private or approved, the Passages page), `false` = only the others. Missing = both. */
-  mine: optionalBooleanQuerySchema,
-  // By title unless asked otherwise, like the passage menu of the Typing page.
-  sort: sortSchema(['title', 'createdAt', 'wordCount'], 'title')
-});
+export const passageOrigins = ['system', 'mine', 'others'] as const;
+
+export const listPassagesQuerySchema = paginationQuerySchema
+  .extend({
+    mode: z.enum(passageModes).default('practice'),
+    /**
+     * Practice only (SCRUM-219): the passages of this typing language, the Typing page's menu sends the learner's. Vietnamese
+     * when missing: the Passages page lists the learner's own passages, which are Vietnamese. The placement test ignores it.
+     */
+    language: z.enum(passageLanguages).default('vi'),
+    /** Text searched in the title (`titleSearchPattern`: without accents it finds every accented form). */
+    q: z.string().trim().max(100).optional(),
+    /** `private` = only the learner's own private passages, `public` = only the public ones (TypeTrace's and approved ones). Missing = both. */
+    visibility: z.enum(passageVisibilities).optional(),
+    /** `true` = only the learner's own passages (private or approved, the Passages page), `false` = only the others. Missing = both. */
+    mine: optionalBooleanQuerySchema,
+    /**
+     * Who made the passage (SCRUM-304, the passage menus): `system` = TypeTrace's (no owner, an admin, or an account that was
+     * deleted), `mine` = the learner's own ones they can type, `others` = the public ones of other learners. Missing = all.
+     * Not with `mine=true` (the Passages page's own list), which says the same thing another way.
+     */
+    origin: z.enum(passageOrigins).optional(),
+    // By title unless asked otherwise: the Passages page relies on it, the passage menus send `-createdAt` themselves.
+    sort: sortSchema(['title', 'createdAt', 'wordCount'], 'title')
+  })
+  .refine((query) => !(query.origin && query.mine === true), { message: 'origin cannot be combined with mine=true', path: ['origin'] });
 
 /** Pasted text is cleaned first (`cleanPassageText`), so the limits apply to what is saved. */
 const cleanText = z.string().transform(cleanPassageText);

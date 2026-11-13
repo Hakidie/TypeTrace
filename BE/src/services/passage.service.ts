@@ -103,7 +103,7 @@ interface ListPlan {
 }
 
 /** One passage of the learner list. `reviewNote` (why a request was turned down) only goes to the owner. */
-const toListItem = (userId: string, withContent = false, plan?: ListPlan) => (passage: PassageDocument) => {
+const toListItem = (userId: string, withContent = false, plan?: ListPlan, learners: Set<string> = new Set()) => (passage: PassageDocument) => {
   const isOwn = String(passage.owner) === userId;
   return {
     _id: passage._id,
@@ -124,6 +124,8 @@ const toListItem = (userId: string, withContent = false, plan?: ListPlan) => (pa
       ? { lockedByPlan: true }
       : {}),
     isOwn,
+    // TypeTrace's own: no owner, an admin, or an account that was deleted (SCRUM-304, the label of the passage menus).
+    isSystem: !isOwn && !(passage.owner && learners.has(String(passage.owner))),
     createdAt: passage.createdAt
   };
 };
@@ -141,7 +143,7 @@ const tooManyPassages = (limit: number) => badRequest(`You can have at most ${li
  * own passages (`true`, private or approved: the Passages page, whose cards also show the text) or only the others
  * (`false`). Titles sort in Vietnamese order.
  */
-export const listPassages = async (userId: string, { mode, language, q, visibility, mine, ...pagination }: ListPassagesQuery) => {
+export const listPassages = async (userId: string, { mode, language, q, visibility, mine, origin, ...pagination }: ListPassagesQuery) => {
   // A locked passage is hidden from everyone but its owner, who sees it dimmed (US11.1).
   const [lockedByOwner, { config }] = await Promise.all([getLockedByOwner(), getPlanOf(userId)]);
   const ownLocked = lockedByOwner.get(userId) ?? [];
@@ -149,6 +151,11 @@ export const listPassages = async (userId: string, { mode, language, q, visibili
   const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter(userId, mode, hidden, language, mine === true)];
   if (visibility) conditions.push({ visibility });
   if (mine !== undefined) conditions.push(mine ? { owner: userId } : { owner: { $ne: userId } });
+  // The learner accounts that own a passage: the rest of the owners (an admin, a deleted account) are the system's.
+  const learners = await getLearnerOwnerIds(await PassageModel.distinct('owner', { owner: { $ne: null } }));
+  if (origin === 'mine') conditions.push({ owner: userId });
+  if (origin === 'others') conditions.push({ owner: { $in: [...learners].filter((id) => id !== userId) } });
+  if (origin === 'system') conditions.push({ owner: { $nin: [...learners] } });
   if (q) conditions.push({ title: titleSearchPattern(q) });
   // The text only for the learner's own passages: nobody else's private text is sent, and the passage menu does not need it.
   const withContent = mine === true;
@@ -159,10 +166,10 @@ export const listPassages = async (userId: string, { mode, language, q, visibili
       ? undefined
       : {
           lockedIds: new Set(ownLocked.map(String)),
-          learnerOwnerIds: await getLearnerOwnerIds(page.items.flatMap((item) => (item.owner ? [item.owner] : []))),
+          learnerOwnerIds: learners,
           canUsePublicPassages: config.canUsePublicPassages
         };
-  return { ...page, items: page.items.map(toListItem(userId, withContent, plan)) };
+  return { ...page, items: page.items.map(toListItem(userId, withContent, plan, learners)) };
 };
 
 /**

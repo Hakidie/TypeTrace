@@ -200,6 +200,19 @@ describe('LeaderboardPage placement tab (US10.1)', () => {
     expect(screen.getByRole('radio', { name: 'This week' })).toBeChecked();
   });
 
+  it('opens the passage menu centered under the leaderboard tabs', async () => {
+    placementBoard.mockResolvedValue(placement([]));
+    const user = userEvent.setup();
+    await openPlacement();
+
+    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+
+    const menu = await screen.findByRole('menu', { name: 'Placement passages' });
+    expect(menu.parentElement).toHaveClass('static');
+    // The row of the tabs is what the menu is placed against, so its middle is the middle of the tabs.
+    expect(screen.getByRole('radiogroup', { name: 'Leaderboard' }).parentElement).toHaveClass('relative');
+  });
+
   it('lists the rank, name, WPM, accuracy and time of each line and marks the learner', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     placementBoard.mockResolvedValue(placement([placementRow(1, 'Minh', 72.5, 98, 180_000), placementRow(2, 'Lan', 60, 94.5, 125_000, true)]));
