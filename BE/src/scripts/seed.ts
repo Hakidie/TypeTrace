@@ -7,14 +7,14 @@
 import mongoose from 'mongoose';
 import { connectDb } from '../config/db';
 import { env } from '../config/env';
-import { ErrorCounts, TypingSessionModel } from '../models/typing-session.model';
+import { ErrorCounts, type SessionWord, TypingSessionModel } from '../models/typing-session.model';
 import { UserModel } from '../models/user.model';
 import { recordCountedSession, usableTimeZone } from '../services/daily-progress.service';
 import { addMonths } from '../services/monthly-progress.service';
 import { grantPremium } from '../services/subscription.service';
 import { hashPassword } from '../utils/hash';
 import { addDays, localDateKey } from '../utils/local-date';
-import { WordError } from '../utils/vietnamese-errors';
+import { classifyWord, WordError } from '../utils/vietnamese-errors';
 
 export const DEMO_ACCOUNTS = [
   { email: 'demo@example.com', password: 'demo1234', displayName: 'Demo User', role: 'user' },
@@ -129,11 +129,65 @@ export const demoErrorCounts = (wpm: number, errors: number) => {
 };
 
 /**
+ * Real Vietnamese words with every vowel (a ă â e ê i o ô ơ u ư y) and every tone, for the words of the demo sessions (SCRUM-29): the
+ * vowel × tone grid of the demo learner shows dark, light and grey cells (ă, ơ, y and some tones are rare, so they stay grey).
+ */
+const DEMO_WORDS = [
+  'ba', 'bà', 'bá', 'bả', 'bã', 'bạ', 'xa', 'nhà', 'cá', 'tả', 'mã', 'lạ', 'ăn', 'bắt', 'bằng', 'lặn',
+  'cân', 'cấp', 'cầu', 'ẩn', 'nhẫn', 'sậy', 'xe', 'mẹ', 'nhé', 'kẻ', 'bê', 'kể', 'mềm', 'lễ', 'đệ', 'ếch',
+  'đi', 'tí', 'bì', 'tỉ', 'vĩ', 'bị', 'to', 'bó', 'mò', 'nỏ', 'học', 'nói', 'cô', 'tối', 'hồ', 'hổ',
+  'cộng', 'ông', 'mơ', 'cớ', 'bờ', 'mỡ', 'hợp', 'cu', 'cú', 'thù', 'củ', 'ngũ', 'mụ', 'tư', 'từ', 'thử',
+  'sữa', 'ý', 'ỷ', 'kỳ', 'mỹ', 'tuy'
+];
+
+/** The same word with its tone changed: hỏi and ngã swapped, any other tone typed as sắc (huyền as sắc, sắc as huyền). */
+const wrongTone = (word: string) => {
+  const marks = { '\u0300': '\u0301', '\u0301': '\u0300', '\u0303': '\u0309', '\u0309': '\u0303', '\u0323': '\u0301' } as Record<string, string>;
+  const letters = [...word.normalize('NFD')];
+  const at = letters.findIndex((char) => marks[char]);
+  if (at !== -1) {
+    letters[at] = marks[letters[at]];
+  } else {
+    // No tone: a sắc after the first vowel and its own mark (â, ă, ơ, ...).
+    const vowel = letters.findIndex((char) => 'aeiouy'.includes(char));
+    let end = vowel + 1;
+    while ('\u0302\u0306\u031b'.includes(letters[end] ?? 'x')) end += 1;
+    letters.splice(end, 0, '\u0301');
+  }
+  return letters.join('').normalize('NFC');
+};
+
+/**
+ * The words of a demo session (SCRUM-29): `count` words of `DEMO_WORDS`, the first ones of the list much more often than the last
+ * ones (the golden ratio walk squared, so the same on every call, and `offset` makes the sessions differ): the vowel × tone grid
+ * then has cells seen often and cells seen too little (grey). `wrong` of them are typed with a wrong tone, graded by the rules:
+ * the words with hỏi or ngã first (the demo learner mixes them up, like in `demoErrorCounts`), then the others.
+ */
+export const demoWords = (count: number, wrong: number, offset = 0): SessionWord[] => {
+  const targets = Array.from({ length: count }, (_, index) => {
+    const walk = ((offset + index + 1) * 0.6180339887) % 1;
+    return DEMO_WORDS[Math.floor(DEMO_WORDS.length * walk * walk)];
+  });
+  const weak = (word: string) => /[\u0309\u0303]/.test(word.normalize('NFD'));
+  const wrongAt = new Set(
+    targets
+      .map((target, index) => ({ index, rank: weak(target) ? 0 : 1 }))
+      .sort((a, b) => a.rank - b.rank || a.index - b.index)
+      .slice(0, wrong)
+      .map((item) => item.index)
+  );
+  return targets.map((target, index) => {
+    const typed = wrongAt.has(index) ? wrongTone(target) : target;
+    return { index, target, typed, errorTypes: classifyWord(target, typed) };
+  });
+};
+
+/**
  * Gives `demo@example.com` a counted placement test 8 months ago and counted practice sessions since, getting faster and cleaner,
  * with two months without a session and sessions on the last days: every range of the profile chart (a year, a month, a week)
  * shows something, with a month that keeps the figures of the one before. The days are the learner's own (their time zone) and
  * count for their streak and heatmap. Each session has errors and chances of every type (`demoErrorCounts`), for the error
- * profile. Does nothing when the learner already has the sessions. Answers how many it made.
+ * profile and the error rate chart, and its words (`demoWords`), for the vowel × tone grid. Does nothing when the learner already has the sessions. Answers how many it made.
  */
 export const seedDemoSessions = async (now = new Date()) => {
   const user = await UserModel.findOne({ email: DEMO_ACCOUNTS[0].email });
@@ -151,15 +205,17 @@ export const seedDemoSessions = async (now = new Date()) => {
     ...DEMO_RECENT_DAYS.map(([daysAgo, wpm, errors]) => ({ day: addDays(today, -daysAgo), mode: 'practice' as const, wpm, errors }))
   ];
 
-  for (const { day, mode, wpm, errors } of plan) {
+  for (const [position, { day, mode, wpm, errors }] of plan.entries()) {
     // 10:00 in Vietnam; never later than now, so no session is in the future.
     const completedAt = new Date(Math.min(new Date(`${day}T03:00:00.000Z`).getTime(), now.getTime()));
+    const words = demoWords(wpm, errors, position * 7);
     await TypingSessionModel.create({
       owner: user._id,
       mode,
       passageId: DEMO_SESSION_PASSAGE_ID,
       passageTitle: mode === 'placement' ? 'Demo placement test' : 'Demo practice',
-      targetWords: Array.from({ length: wpm }, () => 'từ'),
+      targetWords: words.map((word) => word.target),
+      words,
       status: 'completed',
       startedAt: new Date(completedAt.getTime() - 60_000),
       completedAt,
@@ -194,6 +250,25 @@ export const fillDemoErrorCounts = async () => {
   return sessions.length;
 };
 
+/**
+ * Gives the demo sessions seeded before the vowel × tone grid (SCRUM-29: no words) their `demoWords`, from their WPM and their
+ * errors. Answers how many it changed; a session is changed once.
+ */
+export const fillDemoWords = async () => {
+  const sessions = await TypingSessionModel.find({ passageId: DEMO_SESSION_PASSAGE_ID, 'words.0': { $exists: false } })
+    .select('wpm errorCounts')
+    .lean();
+  for (const [position, session] of sessions.entries()) {
+    const errors = Object.values(session.errorCounts ?? {}).reduce((sum, count) => sum + (count ?? 0), 0);
+    const words = demoWords(session.wpm ?? 0, errors, position * 7);
+    await TypingSessionModel.updateOne(
+      { _id: session._id, 'words.0': { $exists: false } },
+      { $set: { words, targetWords: words.map((word) => word.target) } }
+    );
+  }
+  return sessions.length;
+};
+
 const run = async () => {
   // The demo admin has a public password: never create it on a real deployment.
   if (env.nodeEnv === 'production') throw new Error('Refusing to seed demo accounts when NODE_ENV=production.');
@@ -201,9 +276,11 @@ const run = async () => {
   const created = await seedDemoAccounts();
   const sessions = await seedDemoSessions();
   const filled = await fillDemoErrorCounts();
+  const withWords = await fillDemoWords();
   console.log(created.length ? `Created: ${created.join(', ')}` : 'Demo accounts already exist.');
   console.log(sessions ? `Created ${sessions} typing sessions for ${DEMO_ACCOUNTS[0].email} (placement test and practice).` : 'Demo typing sessions already exist.');
   if (filled) console.log(`Added the error counts of the error profile to ${filled} demo sessions seeded before it.`);
+  if (withWords) console.log(`Added words (for the vowel × tone grid) to ${withWords} demo sessions seeded before it.`);
   for (const account of DEMO_ACCOUNTS) console.log(`  ${account.email} / ${account.password}`);
   console.log(`  + ${DEMO_STUDENTS.length} students: student01..${DEMO_STUDENTS.length}@example.com / student1234`);
   await mongoose.disconnect();

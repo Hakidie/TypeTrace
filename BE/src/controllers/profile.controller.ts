@@ -3,6 +3,7 @@ import { UserModel } from '../models/user.model';
 import { deleteImage, uploadImage } from '../services/cloudinary.service';
 import * as dailyProgressService from '../services/daily-progress.service';
 import * as errorProfileService from '../services/error-profile.service';
+import * as errorTrendService from '../services/error-trend.service';
 import * as vowelToneService from '../services/vowel-tone.service';
 import * as monthlyProgressService from '../services/monthly-progress.service';
 import * as userDailyTasksService from '../services/user-daily-tasks.service';
@@ -73,6 +74,12 @@ export const getDailyTasks = async (req: Request, res: Response) => {
 export const getErrorProfile = async (req: Request, res: Response) => {
   const { language } = req.query as LanguageQuery;
   res.json(await errorProfileService.getErrorProfile(req.user!.sub, language));
+};
+
+/** The learner's error rate of each error type over time, by month, week or day: `range`, `date`, `language` as the monthly progress (SCRUM-30). */
+export const getErrorTrend = async (req: Request, res: Response) => {
+  const { range, date, language } = req.query as unknown as MonthlyProgressQuery;
+  res.json(await errorTrendService.getErrorTrend(req.user!.sub, range, date, language));
 };
 
 /** The learner's vowel × tone grid: sightings and errors of each vowel with each tone in their last counted Vietnamese sessions (SCRUM-29). */

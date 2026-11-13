@@ -18,6 +18,8 @@ export interface CompactToolbarMenu {
   /** The `value` of the option that is on. */
   value: string;
   onChange: (value: string) => void;
+  /** Extra classes for the menu, e.g. a wider `min-w-72` for long option names (`min-w-44` otherwise). */
+  menuClassName?: string;
   /** The items of the menu when it is not a plain list of options (a hint, a setting saved as it is picked); they replace `options`. */
   children?: ReactNode;
 }
@@ -106,7 +108,7 @@ const MenuPart = ({ menu }: { menu: CompactToolbarMenu }) => (
       <menu.icon className="size-4" />
       <span className="ml-2">{menu.valueLabel}</span>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" role="menu" aria-label={`${menu.label} options`} className="min-w-44">
+    <DropdownMenuContent align="end" role="menu" aria-label={`${menu.label} options`} className={cn('min-w-44', menu.menuClassName)}>
       {menu.children ??
         menu.options.map((option) => (
           <MenuOption key={option.value} selected={option.value === menu.value} onSelect={() => menu.onChange(option.value)}>
