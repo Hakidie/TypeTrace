@@ -112,10 +112,29 @@ export interface StartSessionInput {
 }
 
 /** One entry of the passage dropdown (`GET /api/passages`): no text. */
+/** Who made a passage (SCRUM-304): TypeTrace's (`system`), the learner's own (`mine`) or another learner's public one (`others`). */
+export type PassageOrigin = 'system' | 'mine' | 'others';
+
+/** What the passage menus can be sorted by: newest first, by name, by number of words. */
+export type PassageMenuSort = '-createdAt' | 'title' | 'wordCount';
+
+/** What a passage menu asks of `GET /api/passages` besides the mode and language: text in the title, sort, who made it. */
+export interface PassageMenuQuery {
+  q?: string;
+  sort?: PassageMenuSort;
+  origin?: PassageOrigin;
+}
+
 export interface PassageOption {
   _id: string;
   title: string;
   wordCount: number;
+  /** TypeTrace's own passage (no owner, an admin, or an account that was deleted): the menu tags it "System". */
+  isSystem: boolean;
+  /** One of the learner's own passages. */
+  isOwn: boolean;
+  /** The public name of the author, never an email. */
+  ownerName: string;
   /** One of the learner's own passages past the limit of their plan (US11.1): shown, but it cannot be picked. */
   locked?: boolean;
   /** Another learner's public passage on a plan that may not practice it (US11.1): picking it opens the plan. */

@@ -65,6 +65,7 @@ describe('GET /api/passages', () => {
       visibility: 'public',
       status: 'published',
       isOwn: false,
+      isSystem: true,
       createdAt: expect.any(String)
     });
     const titles = titlesOf(response);
@@ -236,6 +237,7 @@ describe('POST /api/passages', () => {
       visibility: 'private',
       status: 'published',
       isOwn: true,
+      isSystem: false,
       createdAt: expect.any(String)
     });
     const saved = (await PassageModel.findById(response.body._id))!.toObject();
@@ -541,5 +543,108 @@ describe('English passages (ranked duel, phase 1)', () => {
 
     expect(response.status).toBe(201);
     expect((await PassageModel.findById(response.body._id))!.language).toBe('vi');
+  });
+});
+
+describe('origin filter (SCRUM-304)', () => {
+  type Item = { title: string; isOwn: boolean; isSystem: boolean; lockedByPlan?: boolean };
+  const setup = async () => {
+    const me = await createUser({ email: 'me@example.com', displayName: 'Mình' });
+    const lan = await createUser({ email: 'lan@example.com', displayName: 'Lan' });
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
+    await ownPassage(me, 'Bài của mình');
+    await ownPassage(me, 'Bài đang chờ duyệt', { status: 'pending' });
+    await ownPassage(lan, 'Bài tình cảm của Lan', { visibility: 'public', ownerName: 'Lan' });
+    await ownPassage(admin, 'Bài của quản trị', { visibility: 'public', ownerName: 'TypeTrace' });
+    return { me, lan, admin, auth: bearerFor(me) };
+  };
+  const itemsOf = (response: { body: { items: Item[] } }) => response.body.items;
+
+  it('origin=system lists only system passages: the starter ones and an admin\'s', async () => {
+    const { auth } = await setup();
+    const response = await listPassages(auth, '?origin=system&limit=100');
+
+    expect(response.status).toBe(200);
+    expect(itemsOf(response).every((item) => item.isSystem && !item.isOwn)).toBe(true);
+    expect(titlesOf(response)).toContain('Bài của quản trị');
+    expect(titlesOf(response)).not.toContain('Bài tình cảm của Lan');
+    expect(titlesOf(response)).not.toContain('Bài của mình');
+    expect(response.body.total).toBeGreaterThan(1);
+  });
+
+  it('origin=mine lists only the learner\'s own passages, also the one waiting for review', async () => {
+    const { auth } = await setup();
+    const response = await listPassages(auth, '?origin=mine&limit=100');
+
+    expect(titlesOf(response).sort()).toEqual(['Bài của mình', 'Bài đang chờ duyệt']);
+    expect(itemsOf(response).every((item) => item.isOwn && !item.isSystem)).toBe(true);
+  });
+
+  it('origin=others lists only the public passages of other learners', async () => {
+    const { auth } = await setup();
+    const response = await listPassages(auth, '?origin=others&limit=100');
+
+    expect(titlesOf(response)).toEqual(['Bài tình cảm của Lan']);
+    expect(itemsOf(response)[0]).toMatchObject({ isOwn: false, isSystem: false });
+  });
+
+  it('without origin lists all of them, each with a boolean isSystem', async () => {
+    const { auth } = await setup();
+    const response = await listPassages(auth, '?limit=100');
+
+    expect(titlesOf(response)).toEqual(expect.arrayContaining(['Bài của mình', 'Bài tình cảm của Lan', 'Bài của quản trị']));
+    expect(itemsOf(response).every((item) => typeof item.isSystem === 'boolean')).toBe(true);
+  });
+
+  it('combines origin with the search (accents optional) and with the sort', async () => {
+    const { auth } = await setup();
+
+    expect(titlesOf(await listPassages(auth, '?origin=others&q=tinh'))).toEqual(['Bài tình cảm của Lan']);
+    expect(titlesOf(await listPassages(auth, '?origin=others&q=khong-co'))).toEqual([]);
+    const newestFirst = await listPassages(auth, '?origin=mine&sort=-createdAt');
+    expect(titlesOf(newestFirst)).toEqual(['Bài đang chờ duyệt', 'Bài của mình']);
+  });
+
+  it('treats the passages of a deleted account as system passages', async () => {
+    const { auth, lan } = await setup();
+    await lan.deleteOne();
+
+    const system = await listPassages(auth, '?origin=system&limit=100');
+    expect(titlesOf(system)).toContain('Bài tình cảm của Lan');
+    expect(titlesOf(await listPassages(auth, '?origin=others'))).toEqual([]);
+  });
+
+  it('answers 400 for origin together with mine=true, and for an unknown origin', async () => {
+    const { auth } = await setup();
+
+    expect((await listPassages(auth, '?origin=mine&mine=true')).status).toBe(400);
+    expect((await listPassages(auth, '?origin=bad')).status).toBe(400);
+  });
+
+  it('marks the placement passages as system ones', async () => {
+    const { auth } = await setup();
+    const response = await listPassages(auth, '?mode=placement&origin=system');
+
+    expect(response.status).toBe(200);
+    expect(response.body.items.length).toBeGreaterThan(0);
+    expect(itemsOf(response).every((item) => item.isSystem)).toBe(true);
+  });
+
+  it('keeps another learner\'s passage locked by the Free plan under origin=others', async () => {
+    const { auth } = await setup();
+    const response = await listPassages(auth, '?origin=others');
+
+    // The default plan is Free: it may not practice another learner's public passage (US11.1).
+    expect(itemsOf(response)[0].lockedByPlan).toBe(true);
+  });
+
+  it('never sends an email, also for a passage whose owner name is empty', async () => {
+    const { auth } = await setup();
+    const quiet = await createUser({ email: 'quiet@example.com' });
+    await ownPassage(quiet, 'Bài không tên', { visibility: 'public', ownerName: '' });
+
+    const text = JSON.stringify((await listPassages(auth, '?origin=others&limit=100')).body);
+    expect(text).toContain('Bài không tên');
+    expect(text).not.toMatch(/@example\.com/);
   });
 });

@@ -2,6 +2,7 @@ import { http } from '@/shared/api/http';
 import type { Paginated } from '@/shared/api/types';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
 import type {
+  PassageMenuQuery,
   PassageOption,
   ReplayEvent,
   SessionMode,
@@ -11,7 +12,7 @@ import type {
   TypingSession,
 } from '../types/typing.types';
 
-/** The passage menu shows one page of the list, as big as the backend allows (sorted by title). */
+/** The passage menu shows one page of the list, as big as the backend allows; search and filters narrow it. */
 const PASSAGE_MENU_LIMIT = 100;
 
 /** Every function resolves with the response body (not the Axios response). */
@@ -32,11 +33,21 @@ export const typingApi = {
   replay: (id: string) => http.get<SessionReplay>(`/sessions/${id}/replay`).then((r) => r.data),
   /**
    * The passages the learner can choose for a mode (published, public, and their own in practice), in Practice the ones of
-   * `language` (SCRUM-219); the placement test is always Vietnamese.
+   * `language` (SCRUM-219); the placement test is always Vietnamese. `query` (SCRUM-304): a search in the title, the sort and
+   * who made the passage; only what is set is sent.
    */
-  passages: (mode: SessionMode, language: TypingLanguage = 'vi') =>
+  passages: (mode: SessionMode, language: TypingLanguage = 'vi', query: PassageMenuQuery = {}) =>
     http
-      .get<Paginated<PassageOption>>('/passages', { params: { mode, language, limit: PASSAGE_MENU_LIMIT } })
+      .get<Paginated<PassageOption>>('/passages', {
+        params: {
+          mode,
+          language,
+          limit: PASSAGE_MENU_LIMIT,
+          ...(query.q ? { q: query.q } : {}),
+          ...(query.sort ? { sort: query.sort } : {}),
+          ...(query.origin ? { origin: query.origin } : {}),
+        },
+      })
       .then((r) => r.data.items),
   abandon: (id: string) => http.patch<TypingSession>(`/sessions/${id}/abandon`).then((r) => r.data),
 };

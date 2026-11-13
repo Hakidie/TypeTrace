@@ -14,23 +14,24 @@ import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { cn } from '@/shared/lib/utils';
 import { redGlassTheme } from '@/shared/lib/red-glass-theme';
 import { type TypingLanguage } from '@/shared/lib/typing-language';
 import { WordError, type WordErrorType } from '@/shared/lib/vietnamese-errors';
 import { MinigamesMode, type MinigameId } from '../components/MinigamesMode';
+import { PassageMenuPanel } from '../components/PassageMenuPanel';
 import { TypingArea, TypingStatus } from '../components/TypingArea';
 import { WeakSpotsMode, type WeakSpotsFocus } from '../components/WeakSpotsMode';
-import { useBeginSession, useCompleteSession, usePassageOptions, useStartSession } from '../hooks/use-typing';
+import { useBeginSession, useCompleteSession, useStartSession } from '../hooks/use-typing';
 import type { ReplayEvent, SessionMode, StartSessionInput } from '../types/typing.types';
 import { errorLabels, languageNames, modeIcons, modeLabels, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 
 // The buttons around the passage: the language switch, Restart, and in a Weak spots lesson the way back to its cards (bottom row).
 const actionClass = 'h-auto gap-2 px-4 py-2 text-[1.125rem] text-muted-foreground';
 
-// Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text up to 12rem; a longer one stays on one line and is cut off.
-const chipClass = 'max-w-48 min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
+// Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text (SCRUM-304: the passage menu's trigger wraps a long name, a Weak spots lesson's name is cut).
+const chipClass = 'min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
 
 // Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain, `&game=bot` the unrated duel against a bot, `&game=chain` Nối từ), instead of a passage to practise.
 // `?mode=targeted` is Weak spots: its cards (`WeakSpotsMode`: the auto lesson, US3.2, and the five error types, SCRUM-74) until
@@ -61,55 +62,6 @@ const unitLabels: Record<TimeUnit, string> = { sec: 'Sec', min: 'Min' };
  */
 const defaultTimeOf = (mode: SessionMode): { unit: TimeUnit; index: number } =>
   mode === 'placement' || mode === 'targeted' ? { unit: 'min', index: 0 } : { unit: 'sec', index: 1 };
-
-/** The passages to choose from for `mode` (in Practice, of `language`); the picked one is red. It is only mounted while the menu is open, so the list is fetched when the learner opens it. */
-const PassageMenu = ({
-  mode,
-  language,
-  selectedId,
-  onSelect,
-  onNeedPremium,
-}: {
-  mode: SessionMode;
-  language: TypingLanguage;
-  selectedId?: string;
-  onSelect: (id: string) => void;
-  /** Called for a passage the plan does not allow (US11.1): the page opens the plan instead of starting it. */
-  onNeedPremium: () => void;
-}) => {
-  const { data, isLoading, isError } = usePassageOptions(mode, { language });
-  if (isLoading) return <p className="px-2 py-1.5 text-base text-muted-foreground">Loading…</p>;
-  if (isError) return <p className="px-2 py-1.5 text-base text-destructive">Could not load passages</p>;
-  if (!data?.length) return <p className="px-2 py-1.5 text-base text-muted-foreground">No passages</p>;
-  return (
-    <>
-      {data.map((passage) => (
-        <DropdownMenuItem
-          key={passage._id}
-          role="menuitemradio"
-          aria-checked={passage._id === selectedId}
-          // A passage past the owner's limit cannot be picked; one locked by the plan opens the plan (US11.1).
-          aria-disabled={passage.locked ? true : undefined}
-          className={cn('gap-2', passage._id === selectedId && 'text-primary', (passage.locked || passage.lockedByPlan) && 'opacity-60')}
-          onClick={(event) => {
-            if (passage.locked) return event.preventDefault();
-            if (passage.lockedByPlan) return onNeedPremium();
-            onSelect(passage._id);
-          }}
-        >
-          <span className="truncate">{passage.title}</span>
-          {(passage.locked || passage.lockedByPlan) && (
-            <span className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
-              <Lock className="size-3.5" aria-hidden />
-              {passage.locked ? 'Locked' : 'Premium'}
-            </span>
-          )}
-          <span className="ml-auto shrink-0 pl-4 text-sm text-muted-foreground">{passage.wordCount} words</span>
-        </DropdownMenuItem>
-      ))}
-    </>
-  );
-};
 
 /** The Weak spots card picked (`&focus=`): `auto` or one error type; anything else is no pick (the cards show). */
 const focusOf = (value: string | null): WeakSpotsFocus | undefined =>
@@ -379,7 +331,7 @@ export const TypingPage = () => {
       {/* Top center: the name of the passage being typed on the left, the mode tabs in the exact center of the page and the time tabs on the right.
           On one row from `xl` only: below it the three do not fit side by side (the mode tabs alone are about 490px), so they are stacked and centered, as on phones.
           `[&>*]:min-w-0` lets the frame of the passage shrink to its column (or the screen): the passage name is cut first. */}
-      <div data-tutorial="mode-tabs" className="flex flex-col items-center gap-2 xl:grid xl:gap-x-2 xl:grid-cols-[1fr_auto_1fr]">
+      <div data-tutorial="mode-tabs" className="relative flex flex-col items-center gap-2 xl:grid xl:gap-x-2 xl:grid-cols-[1fr_auto_1fr]">
         <div className="flex min-w-0 max-w-full xl:justify-self-end [&>*]:min-w-0">
           {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Minigames.
               A Weak spots lesson shows only its name: its card is its choice, and the ways back to the cards are the Weak spots tab
@@ -390,10 +342,10 @@ export const TypingPage = () => {
             </div>
           )}
           {!game && !targeted && (
-          <DropdownMenu>
+          <DropdownMenu className="static">
             <div className="flex outline outline-1 -outline-offset-1 outline-border">
               <DropdownMenuTrigger disabled={complete.isPending} title={passageTitle} aria-label="Choose passage" className={cn(chipClass, randomPassage ? 'text-muted-foreground' : 'text-primary')}>
-                <span className="truncate">{passageTitle ?? '—'}</span>
+                <span className="block break-words text-left">{passageTitle ?? '—'}</span>
               </DropdownMenuTrigger>
               <button
                 type="button"
@@ -408,8 +360,9 @@ export const TypingPage = () => {
               </button>
             </div>
             {/* The page theme tints --color-background; the menu keeps the normal one, like the Sort and Filter menus. */}
-            <DropdownMenuContent role="menu" aria-label="Passages" className="max-h-72 w-full min-w-0 overflow-y-auto [--color-background:var(--background)]">
-              <PassageMenu mode={mode} language={language ?? 'vi'} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
+            {/* SCRUM-304: placed against the mode-tabs row (the wrapper is `static`) and centered, so it opens under the Mode tabs; from `sm` up as wide as its longest passage name (24 to 32rem), on a phone as wide as the row so it never leaves the screen, and the names wrap. */}
+            <DropdownMenuContent role="menu" aria-label="Passages" className="left-1/2 w-full -translate-x-1/2 sm:w-max sm:min-w-[24rem] sm:max-w-[min(32rem,calc(100vw-2rem))] [--color-background:var(--background)]">
+              <PassageMenuPanel mode={mode} language={language ?? 'vi'} showOriginFilter={mode === 'practice'} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
             </DropdownMenuContent>
           </DropdownMenu>
           )}
