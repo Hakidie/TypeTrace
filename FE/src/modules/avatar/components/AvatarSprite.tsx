@@ -45,7 +45,10 @@ export const AvatarSprite = ({ look, pose = 'idle', scale = 2, crop = 'full', ea
           // An item that moves has a second frame drawn right above the first; CSS shows them in turn (`avatar-flap`).
           .flatMap((file): { file: string; flap: 'a' | 'b' | null }[] => {
             const item = file.replace(/\.png$/, '');
-            return ANIMATED.has(item) ? [{ file, flap: 'a' }, { file: `${item}-flap.png`, flap: 'b' }] : [{ file, flap: null }];
+            // Arms up (`win`): wings on the back hold their raised frame, else their lowered frame hangs under the arms and
+            // looks fallen off. Other moving items (the baby dragon) keep beating.
+            const held = pose === 'win' && item.startsWith('back/');
+            return ANIMATED.has(item) && !held ? [{ file, flap: 'a' }, { file: `${item}-flap.png`, flap: 'b' }] : [{ file, flap: null }];
           })
           .map(({ file, flap }) => (
             <img

@@ -46,8 +46,8 @@ export const PLAN_CARDS = [
   { key: 'premium', name: 'Premium' },
 ] as const;
 
-/** The pixel avatar that illustrates each plan on the plan dialog: what a new account wears for Free, the same avatar with a crown, a cape and stars for Premium. Items of the avatar catalog (`FE/public/avatar`). */
+/** The pixel avatar that illustrates each plan on the plan dialog: what a new account wears for Free, the same avatar wearing the Dragon set Premium unlocks. Items of the avatar catalog (`FE/public/avatar`). */
 export const PLAN_AVATARS: Record<'free' | 'premium', AvatarLook> = {
   free: DEFAULT_AVATAR,
-  premium: { ...DEFAULT_AVATAR, headwear: 'crown', back: 'cape-red', effect: 'stars' },
+  premium: { ...DEFAULT_AVATAR, headwear: 'dragon-horns', accessory: 'dragon-scarf', back: 'dragon-wings', effect: 'baby-dragon' },
 };
