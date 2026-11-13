@@ -61,10 +61,21 @@ describe('StorePage', () => {
     expect(within(plans).getByText('Save 15%')).toBeInTheDocument();
     expect(within(plans).getByText('Save 24%')).toBeInTheDocument();
     expect(within(plans).getByText('249.000 ₫')).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Coin pack' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'Coins' }));
+    expect(screen.queryByRole('radiogroup', { name: 'Premium plan' })).not.toBeInTheDocument();
     const packs = screen.getByRole('radiogroup', { name: 'Coin pack' });
     expect(within(packs).getByRole('radio', { name: /1\.400 coins/ })).toBeChecked();
     expect(within(packs).getByText('+12% coins')).toBeInTheDocument();
     expect(screen.getByText('320 coins')).toBeInTheDocument();
+  });
+
+  it('opens on the coin packs from /store?section=coins', async () => {
+    renderPage('/store?section=coins');
+
+    expect(await screen.findByRole('radiogroup', { name: 'Coin pack' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Coins' })).toBeChecked();
+    expect(screen.queryByRole('radiogroup', { name: 'Premium plan' })).not.toBeInTheDocument();
   });
 
   it('sends the chosen plan to VNPay', async () => {
@@ -80,6 +91,7 @@ describe('StorePage', () => {
 
   it('sends the chosen coin pack to VNPay', async () => {
     renderPage();
+    fireEvent.click(await screen.findByRole('radio', { name: 'Coins' }));
     const packs = await screen.findByRole('radiogroup', { name: 'Coin pack' });
 
     fireEvent.click(within(packs).getByRole('radio', { name: /3\.000 coins/ }));
@@ -97,7 +109,8 @@ describe('StorePage', () => {
     await waitFor(() => expect(start).toHaveBeenCalledWith('premium-6m', 'momo'));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://test-payment.momo.vn/pay/abc'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Get coins with MoMo' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Coins' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Get coins with MoMo' }));
     await waitFor(() => expect(start).toHaveBeenCalledWith('coins-1400', 'momo'));
   });
 
@@ -120,12 +133,12 @@ describe('StorePage', () => {
     expect(screen.queryByRole('group', { name: 'Preview items' })).not.toBeInTheDocument();
   });
 
-  it('offers to extend an active Premium and says until when', async () => {
-    answerCatalog({ premium: { active: true, until: '2027-05-10T00:00:00.000Z' } });
+  it('offers to extend an active Premium and says how many days are left', async () => {
+    answerCatalog({ premium: { active: true, until: new Date(Date.now() + 68.5 * 24 * 60 * 60 * 1000).toISOString() } });
     renderPage();
 
     expect(await screen.findByRole('button', { name: 'Extend Premium with VNPay' })).toBeInTheDocument();
-    expect(screen.getByText(/until 10 May 2027/)).toBeInTheDocument();
+    expect(screen.getByText('69 days')).toBeInTheDocument();
   });
 
   it('lists what Premium gives from the plans an admin set (passage limit, Train)', async () => {

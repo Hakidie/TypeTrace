@@ -1,5 +1,5 @@
 import { BookOpen, CalendarCheck, Coins, Crown, Shirt } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { useAvatarCatalog } from '@/modules/avatar/hooks/use-avatar';
@@ -7,23 +7,31 @@ import type { AvatarLook, AvatarPose, AvatarSlot } from '@/modules/avatar/types/
 import { Ping } from '@/modules/tutorial/components/Ping';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
-import { PageHeader } from '@/shared/components/page-header';
 import { PremiumBadge } from '@/shared/components/premium-badge';
 import { usePlan } from '@/modules/plan/hooks/use-plan';
 import { Button } from '@/shared/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
+import { CoinPackCard } from '../components/CoinPackCard';
 import { PlanOption } from '../components/PlanOption';
 import { usePaymentProducts, useStartPayment } from '../hooks/use-payments';
 import type { PaymentProvider } from '../types/payments.types';
-import { bonusPercent, coinPacks, formatCoins, formatVnd, itemLabel, planTitle, pricePerMonth, proPlans, savingPercent } from '../lib/store';
+import { bonusPercent, coinPacks, daysLeftText, timeLeftDetail, formatCoins, formatVnd, itemLabel, planTitle, pricePerMonth, proPlans, savingPercent } from '../lib/store';
 
 /** The poses the preview walks through, so each Premium item is seen on the avatar in motion. */
 const POSES: AvatarPose[] = ['idle', 'typing', 'win'];
 const POSE_MS = 3500;
+/** Coins lying beside the avatar for each pack, from the smallest: a glance tells a small pack from a big one. */
+const COIN_PILES = [4, 10, 20];
+const COIN_POSES: AvatarPose[] = ['typing', 'idle', 'win'];
 const SLOT_ORDER: AvatarSlot[] = ['headwear', 'accessory', 'back', 'effect'];
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-const dateText = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+const STORE_TABS = [
+  { value: 'premium', label: 'Premium' },
+  { value: 'coins', label: 'Coins' },
+] as const;
 
 const GATEWAYS: { provider: PaymentProvider; name: string }[] = [
   { provider: 'vnpay', name: 'VNPay' },
@@ -82,12 +90,14 @@ export const StorePage = () => {
   const startPayment = useStartPayment();
   // What Premium gives (the passage limit, Train), as an admin set it in the Plans page; the perks wait for it.
   const premiumPlan = usePlan().data?.plans.premium;
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [planId, setPlanId] = useState<string>();
   const [packId, setPackId] = useState<string>();
   const [hidden, setHidden] = useState<string[]>([]);
   const [pose, setPose] = useState<AvatarPose>('idle');
-  const coinsSection = useRef<HTMLElement>(null);
+  // The tab lives in the URL: `/store?section=coins` (from the wardrobe) opens on the coin packs.
+  const section = params.get('section') === 'coins' ? 'coins' : 'premium';
+  const chooseSection = (value: string) => setParams(value === 'coins' ? { section: 'coins' } : {}, { replace: true });
 
   // Motion with a reason: the preview shows the set in every pose. Reduced motion keeps it still.
   useEffect(() => {
@@ -99,13 +109,6 @@ export const StorePage = () => {
     }, POSE_MS);
     return () => clearInterval(timer);
   }, []);
-
-  // `/store?section=coins` (from the wardrobe) opens on the coin packs.
-  useEffect(() => {
-    if (params.get('section') === 'coins' && products.isSuccess) {
-      coinsSection.current?.scrollIntoView?.({ behavior: reducedMotion() ? 'auto' : 'smooth' });
-    }
-  }, [params, products.isSuccess]);
 
   if (products.isLoading || catalog.isLoading) return <LoadingState rows={4} />;
   if (products.isError || !products.data) return <ErrorState error={products.error} onRetry={() => void products.refetch()} />;
@@ -140,27 +143,51 @@ export const StorePage = () => {
 
   return (
     <div className="space-y-10">
-      <PageHeader
-        title="Store"
-        description="Get Premium or top up coins. You pay once through VNPay or MoMo, nothing renews by itself."
-        actions={
-          <div className="flex items-center gap-4 border bg-card/60 px-4 py-2 backdrop-blur-sm">
-            <span className="flex items-center gap-2 text-lg font-semibold tabular-nums text-primary">
-              <Coins className="size-5" aria-hidden="true" />
-              {formatCoins(coins)}
-            </span>
-            <span className="h-6 w-px bg-border" aria-hidden="true" />
-            {premium.active && premium.until ? (
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <PremiumBadge /> until {dateText(premium.until)}
-              </span>
-            ) : (
-              <span className="text-sm text-muted-foreground">You are on Free.</span>
-            )}
-          </div>
-        }
-      />
+      {/* The tabs read as the titles of the Progress page's panels (`sectionTitleClass`): no border, no background. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+        <div role="radiogroup" aria-label="Store section" className="flex items-center gap-6">
+          {STORE_TABS.map(({ value, label }) => {
+            const selected = section === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => chooseSection(value)}
+                className={cn(
+                  'border px-3 py-1 text-[1.5rem] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  selected ? 'border-primary/70 text-primary/70' : 'border-transparent text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-6 text-[1.5rem] font-semibold">
+          <span className="flex items-center gap-2 tabular-nums text-primary">
+            <Coins className="size-6" aria-hidden="true" />
+            {formatCoins(coins)}
+          </span>
+          {premium.active && premium.until ? (
+            <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0} className="flex cursor-help items-center gap-2 tabular-nums text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <PremiumBadge className="[&_svg]:size-6" /> {daysLeftText(premium.until)}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{timeLeftDetail(premium.until)}</TooltipContent>
+            </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <span className="text-muted-foreground">You are on Free.</span>
+          )}
+        </div>
+      </div>
 
+      {section === 'premium' && (
       <section aria-labelledby="store-premium" className="grid border bg-card/60 backdrop-blur-sm lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="relative flex flex-col items-center justify-end gap-6 overflow-hidden border-b bg-primary/5 px-5 pt-8 pb-6 lg:border-r lg:border-b-0">
           <div aria-hidden="true" className={PIXEL_FLOOR} />
@@ -246,22 +273,17 @@ export const StorePage = () => {
           </div>
         </div>
       </section>
+      )}
 
-      <section ref={coinsSection} id="coins" aria-labelledby="store-coins" className="grid scroll-mt-24 gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      {section === 'coins' && (
+      <section aria-label="Coins" className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="flex flex-col gap-5">
-          <div className="space-y-1">
-            <h2 id="store-coins" className="flex items-center gap-3 text-3xl font-semibold tracking-tight">
-              Coins <Coins className="size-7 text-primary" aria-hidden="true" />
-            </h2>
-            <p className="max-w-[60ch] text-muted-foreground">Bigger packs give more coins for the same money.</p>
-          </div>
-          <div role="radiogroup" aria-label="Coin pack" className="grid gap-2 sm:grid-cols-3">
+          <div role="radiogroup" aria-label="Coin pack" className="grid flex-1 auto-rows-fr gap-2 sm:grid-cols-3">
             {packs.map((entry, index) => {
               const bonus = bonusPercent(entry, packs[0]);
               return (
-                <PlanOption
+                <CoinPackCard
                   key={entry.id}
-                  layout="tile"
                   name="coin-pack"
                   value={entry.id}
                   checked={entry.id === pack?.id}
@@ -270,13 +292,10 @@ export const StorePage = () => {
                   price={formatVnd(entry.amount)}
                   badge={bonus > 0 ? `+${bonus}% coins` : undefined}
                   // One, two, three coins: the bigger the pack, the more of them.
-                  icon={
-                    <span aria-hidden="true" className="flex h-8 items-center text-primary">
-                      {Array.from({ length: index + 1 }, (_, coin) => (
-                        <Coins key={coin} className={cn('size-8', coin > 0 && '-ml-4')} />
-                      ))}
-                    </span>
-                  }
+                  stack={index + 1}
+                  pile={COIN_PILES[index] ?? 4}
+                  // The learner's own avatar, in a livelier pose for each bigger pack.
+                  illustration={<AvatarSprite look={catalog.data.avatar} pose={COIN_POSES[index] ?? 'idle'} scale={3} label="" />}
                 />
               );
             })}
@@ -303,6 +322,7 @@ export const StorePage = () => {
           </div>
         </aside>
       </section>
+      )}
     </div>
   );
 };

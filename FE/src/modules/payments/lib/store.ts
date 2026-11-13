@@ -69,3 +69,23 @@ export const momoFailureMessage = (code: string | null) => {
       return 'MoMo did not complete the payment.';
   }
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/** The whole days until a Premium ends, a started day counting as a day; at least 1 while it lasts. */
+const daysUntil = (until: string, now: Date) => Math.max(1, Math.ceil((new Date(until).getTime() - now.getTime()) / DAY_MS));
+
+/** "69 days": what is left of a Premium, for the Store's top row. */
+export const daysLeftText = (until: string, now = new Date()) => plural(daysUntil(until, now), 'day');
+
+/** "2 months 9 days left": the same time in calendar months and days, for the tooltip. Under a month it is only days. */
+export const timeLeftDetail = (until: string, now = new Date()) => {
+  const end = new Date(until);
+  const stepped = (count: number) => new Date(now.getFullYear(), now.getMonth() + count, now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds());
+  let months = (end.getFullYear() - now.getFullYear()) * 12 + end.getMonth() - now.getMonth();
+  if (months > 0 && stepped(months) > end) months -= 1;
+  if (months <= 0) return `${plural(daysUntil(until, now), 'day')} left`;
+  const days = Math.ceil((end.getTime() - stepped(months).getTime()) / DAY_MS);
+  return `${[plural(months, 'month'), days > 0 ? plural(days, 'day') : ''].filter(Boolean).join(' ')} left`;
+};
