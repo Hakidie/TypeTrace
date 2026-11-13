@@ -67,7 +67,7 @@ export const keyOfDay = (range: ChartRange, day: string) => {
 };
 
 /** The first day ('YYYY-MM-DD') of the period a key stands for: a point whose first day is after today has not started. */
-const firstDayOf = (key: string) => (key.length === 7 ? `${key}-01` : key);
+export const firstDayOf = (key: string) => (key.length === 7 ? `${key}-01` : key);
 
 /**
  * The keys of the points of `range`, oldest first, as of `today` ('YYYY-MM-DD' in the learner's zone). Without `date` the range
@@ -155,7 +155,7 @@ export const figuresByKey = (range: ChartRange, days: ReadonlyMap<string, DayTot
  * The name of the zone as MongoDB wants it. `Intl` takes a name in any letter case (`asia/saigon`), MongoDB does not, so the
  * canonical name comes from `Intl` itself.
  */
-const mongoTimeZone = (timeZone: string) => new Intl.DateTimeFormat('en-US', { timeZone }).resolvedOptions().timeZone;
+export const mongoTimeZone = (timeZone: string) => new Intl.DateTimeFormat('en-US', { timeZone }).resolvedOptions().timeZone;
 
 /**
  * `GET /api/profile/monthly-progress?range=year|month|week&date=&language=`: the average WPM and accuracy of each point of

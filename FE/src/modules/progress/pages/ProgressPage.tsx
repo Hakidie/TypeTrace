@@ -1,4 +1,4 @@
-import { Calendar, CalendarDays, CalendarRange, ChartLine, type LucideIcon } from 'lucide-react';
+import { Calendar, CalendarDays, CalendarRange, ChartLine, Languages, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { ProfileErrorProfile } from '@/modules/profile/components/ProfileErrorProfile';
@@ -12,6 +12,11 @@ import { Panel } from '@/shared/components/panel';
 import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { dateKeyIn } from '@/shared/lib/local-date';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
+import { errorLabels, languageNames } from '@/modules/typing/typing.config';
+import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
+import { ErrorTrendChart } from '../components/ErrorTrendChart';
+import { ErrorTrendLegend } from '../components/ErrorTrendLegend';
+import { errorTrendTypes } from '../lib/error-trend';
 import { VowelToneGrid } from '../components/VowelToneGrid';
 
 // Week, Month, Year: the smallest first.
@@ -55,6 +60,16 @@ export const ProgressPage = () => {
   const { data: user } = useCurrentUser();
   const today = dateKeyIn(new Date(), user?.settings?.timezone);
   const [range, setRange] = useState<ChartRange>('month');
+  // The chart of the top panel (SCRUM-30): WPM and accuracy, or the error rate of each error type, switched by the button next to the title.
+  const [chart, setChart] = useState<'wpm' | 'errors'>('wpm');
+  // The language of the error rate chart (a view only, as on the error profile): its error types are the lines. Vietnamese at first.
+  const [errorLanguage, setErrorLanguage] = useState<TypingLanguage>('vi');
+  const otherErrorLanguage: TypingLanguage = errorLanguage === 'vi' ? 'en' : 'vi';
+  const errorTypes = errorTrendTypes(errorLanguage);
+  // Which lines the error rate chart draws: all of them, or one error type only (the Lines button under it).
+  const [errorLines, setErrorLines] = useState<'all' | SessionErrorType>('all');
+  const shownTypes = errorLines === 'all' ? errorTypes : [errorLines];
+  const hiddenTypes: ReadonlySet<SessionErrorType> = new Set(errorTypes.filter((type) => !shownTypes.includes(type)));
   // The two pages: Progress (the chart and the panel under it) or the vowel × tone grid (SCRUM-29), switched by the button under the page.
   const [view, setView] = useState<'progress' | 'vowel-tone'>('progress');
   // The panel under the chart: the error profile (first) or My Sessions, switched by clicking its title.
@@ -98,7 +113,8 @@ export const ProgressPage = () => {
     <div className="flex flex-1 flex-col gap-12">
       {/* PANEL Progress */}
       <Panel
-        title="Progress"
+        title={chart === 'wpm' ? 'Progress' : 'Error rate'}
+        titleAction={<PanelTitleSwitch other={chart === 'wpm' ? 'Error rate' : 'Progress'} onClick={() => setChart(chart === 'wpm' ? 'errors' : 'wpm')} />}
         bare
         fill
         titleClassName={sectionTitleClass}
@@ -126,71 +142,112 @@ export const ProgressPage = () => {
         {/* The chart is laid out inside a box that grows (`lg:flex-1`), so it has a definite height to fill. */}
         <div className="relative h-80 lg:h-auto lg:min-h-64 lg:flex-1">
           <div className="absolute inset-0">
-            <ProfileMonthlyChart
-              range={range}
-              date={date}
-              compare={added.map(({ range: periodRange, anchor }) => ({
-                range: periodRange,
-                date: anchor,
-              }))}
-              axes
-              lines={lines}
-              heightClassName="h-full"
-            />
+            {chart === 'errors' ? (
+              <ErrorTrendChart range={range} date={date} language={errorLanguage} hidden={hiddenTypes} />
+            ) : (
+              <ProfileMonthlyChart
+                range={range}
+                date={date}
+                compare={added.map(({ range: periodRange, anchor }) => ({
+                  range: periodRange,
+                  date: anchor,
+                }))}
+                axes
+                lines={lines}
+                heightClassName="h-full"
+              />
+            )}
           </div>
         </div>
 
-        {/* Under the chart: the periods put on it at the left (the tags, then the + Add comparison), which lines it draws at the right. */}
-        <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
-          <CompactToolbar
-            className="sm:justify-start [&>:first-child]:pl-0"
-            adder={{
-              label: 'Add comparison',
-              disabled: added.length >= COMPARE_OPACITIES.length,
-              // Only the ranges as long as the one on the chart or longer: a year or a month on a month, never a week.
-              groups: RANGE_OPTIONS.filter(({ value: groupRange }) => RANGE_LENGTH[groupRange] >= RANGE_LENGTH[range]).map(({ value: groupRange, label }) => ({
-                label,
-                // The year (2026), the month (March) and the week (Week 2) the menu is set to; its months are the ones of that year, its weeks the ones of that month.
-                valueLabel: periodLabel(groupRange, inMenu),
-                options: periodOptions(groupRange, inMenu, today),
-                selected: added.filter((period) => period.range === groupRange).map((period) => periodValue(groupRange, period.anchor)),
-                onPick: (value) => pickAdded(groupRange, value),
-              })),
-            }}
-            tags={added.map((period, index) => ({
-              id: idOf(period),
-              label: compareLabel(period.range, period.anchor),
-              sample: (
-                <svg width="24" height="4" aria-hidden className="shrink-0">
-                  {/* The line of the figure that shows: the WPM, solid, unless only the accuracy does, dashed. */}
-                  <line
-                    x1="0"
-                    x2="24"
-                    y1="2"
-                    y2="2"
-                    stroke={lines === 'accuracy' ? 'var(--muted-foreground)' : 'var(--primary)'}
-                    strokeDasharray={lines === 'accuracy' ? '4 3' : undefined}
-                    strokeWidth="2"
-                    strokeOpacity={COMPARE_OPACITIES[index]}
-                  />
-                </svg>
-              ),
-              onRemove: () => setAdded(added.filter((other) => idOf(other) !== idOf(period))),
-            }))}
-          />
-          <CompactToolbar
-            menus={[
-              {
-                label: 'Lines',
-                icon: ChartLine,
-                valueLabel: LINES_OPTIONS.find((option) => option.value === lines)!.label,
-                options: LINES_OPTIONS,
-                value: lines,
-                onChange: (value: string) => setLines(value as ChartLines),
-              },
-            ]}
-          />
-        </div>
+        {chart === 'errors' ? (
+          // The language button at the left, the legend in the middle, the Lines button at the right.
+          <div className="mt-2 grid shrink-0 items-center gap-2 sm:grid-cols-[1fr_auto_1fr]">
+            <CompactToolbar
+              className="sm:justify-start [&>:first-child]:pl-0"
+              showWords
+              buttons={[
+                {
+                  label: `Error rate language: ${languageNames[errorLanguage]}. Switch to ${languageNames[otherErrorLanguage]}`,
+                  icon: Languages,
+                  valueLabel: languageNames[errorLanguage],
+                  onClick: () => {
+                    setErrorLanguage(otherErrorLanguage);
+                    setErrorLines('all');
+                  },
+                },
+              ]}
+            />
+            <ErrorTrendLegend types={shownTypes} />
+            <CompactToolbar
+              className="sm:col-start-3 sm:justify-end"
+              menus={[
+                {
+                  label: 'Lines',
+                  icon: ChartLine,
+                  valueLabel: errorLines === 'all' ? 'All lines' : errorLabels[errorLines],
+                  // The names are long: the menu is wide enough for most of them on one line.
+                  menuClassName: 'min-w-72',
+                  options: [{ value: 'all', label: 'All lines' }, ...errorTypes.map((type) => ({ value: type, label: `${errorLabels[type]} only` }))],
+                  value: errorLines,
+                  onChange: (value: string) => setErrorLines(value as 'all' | SessionErrorType),
+                },
+              ]}
+            />
+          </div>
+        ) : (
+          /* Under the chart: the periods put on it at the left (the tags, then the + Add comparison), which lines it draws at the right. */
+          <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+            <CompactToolbar
+              className="sm:justify-start [&>:first-child]:pl-0"
+              adder={{
+                label: 'Add comparison',
+                disabled: added.length >= COMPARE_OPACITIES.length,
+                // Only the ranges as long as the one on the chart or longer: a year or a month on a month, never a week.
+                groups: RANGE_OPTIONS.filter(({ value: groupRange }) => RANGE_LENGTH[groupRange] >= RANGE_LENGTH[range]).map(({ value: groupRange, label }) => ({
+                  label,
+                  // The year (2026), the month (March) and the week (Week 2) the menu is set to; its months are the ones of that year, its weeks the ones of that month.
+                  valueLabel: periodLabel(groupRange, inMenu),
+                  options: periodOptions(groupRange, inMenu, today),
+                  selected: added.filter((period) => period.range === groupRange).map((period) => periodValue(groupRange, period.anchor)),
+                  onPick: (value) => pickAdded(groupRange, value),
+                })),
+              }}
+              tags={added.map((period, index) => ({
+                id: idOf(period),
+                label: compareLabel(period.range, period.anchor),
+                sample: (
+                  <svg width="24" height="4" aria-hidden className="shrink-0">
+                    {/* The line of the figure that shows: the WPM, solid, unless only the accuracy does, dashed. */}
+                    <line
+                      x1="0"
+                      x2="24"
+                      y1="2"
+                      y2="2"
+                      stroke={lines === 'accuracy' ? 'var(--muted-foreground)' : 'var(--primary)'}
+                      strokeDasharray={lines === 'accuracy' ? '4 3' : undefined}
+                      strokeWidth="2"
+                      strokeOpacity={COMPARE_OPACITIES[index]}
+                    />
+                  </svg>
+                ),
+                onRemove: () => setAdded(added.filter((other) => idOf(other) !== idOf(period))),
+              }))}
+            />
+            <CompactToolbar
+              menus={[
+                {
+                  label: 'Lines',
+                  icon: ChartLine,
+                  valueLabel: LINES_OPTIONS.find((option) => option.value === lines)!.label,
+                  options: LINES_OPTIONS,
+                  value: lines,
+                  onChange: (value: string) => setLines(value as ChartLines),
+                },
+              ]}
+            />
+          </div>
+        )}
       </Panel>
 
       {/* One place for two panels: the title of each switches to the other (the error profile first). */}

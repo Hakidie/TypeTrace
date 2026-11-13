@@ -8,8 +8,9 @@ const getMonthlyProgress = vi.fn();
 const getErrorProfile = vi.fn();
 const getSessions = vi.fn();
 const getVowelTone = vi.fn();
+const getErrorTrend = vi.fn();
 
-vi.mock('../api/progress.api', () => ({ progressApi: { getVowelTone: () => getVowelTone() } }));
+vi.mock('../api/progress.api', () => ({ progressApi: { getVowelTone: () => getVowelTone(), getErrorTrend: (range: string, language: string, date?: string) => getErrorTrend(range, language, date) } }));
 
 vi.mock('@/modules/profile/api/profile.api', () => ({
   profileApi: { getMonthlyProgress: (range: string, date?: string) => getMonthlyProgress(range, date), getErrorProfile: () => getErrorProfile(), getSessions: (params: unknown) => getSessions(params) },
@@ -44,6 +45,14 @@ const renderSessions = async () => {
 
 // Today: Tuesday 10 March 2026 (the browser's UTC day: the test user has no time zone).
 beforeEach(() => {
+  getErrorTrend.mockReset().mockImplementation((range: string, language: string) =>
+    Promise.resolve({
+      range,
+      language,
+      types: language === 'en' ? ['LETTER_WRONG', 'LETTER_MISSING', 'LETTER_EXTRA', 'LETTERS_SWAPPED', 'CASE_WRONG', 'PUNCTUATION_WRONG'] : ['BASE_LETTER', 'D_MISSING', 'MARK_WRONG', 'TONE_WRONG', 'HOI_NGA_CONFUSION'],
+      points: [{ key: '2026-03-01', rates: { BASE_LETTER: 5, TONE_WRONG: 12 } }],
+    }),
+  );
   getVowelTone.mockReset().mockResolvedValue({ language: 'vi', window: 10, minSeen: 5, sessionsUsed: 0, cells: [] });
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-03-10T08:00:00.000Z'));
@@ -80,7 +89,7 @@ describe('ProgressPage (SCRUM-240)', () => {
     expect(screen.getByRole('heading', { name: 'Progress' })).toBeInTheDocument();
     expect(await screen.findByRole('img', { name: /WPM and accuracy by week/ })).toBeInTheDocument();
     expect(getMonthlyProgress).toHaveBeenCalledWith('month', '2026-02-01'); // today is 10 March
-    expect(screen.getAllByRole('button').slice(0, 3).map((button) => button.getAttribute('aria-label'))).toEqual(['Week', 'Month', 'Year']);
+    expect(screen.getAllByRole('button').slice(1, 4).map((button) => button.getAttribute('aria-label'))).toEqual(['Week', 'Month', 'Year']);
     expect(screen.getByRole('button', { name: 'Lines' })).toHaveTextContent('All lines');
     expect(screen.getByRole('button', { name: 'Year' })).toHaveTextContent('2026');
     expect(screen.getByRole('button', { name: 'Month' })).toHaveTextContent('February');
@@ -335,5 +344,79 @@ describe('ProgressPage height', () => {
     expect(box).toHaveClass('lg:flex-1', 'lg:min-h-64');
     expect(chart).toHaveClass('h-full');
     expect(box.parentElement!.parentElement).toHaveClass('flex-1', 'flex', 'flex-col');
+  });
+});
+
+describe('ProgressPage error rate chart (SCRUM-30)', () => {
+  it('switches the chart of the top panel between Progress and Error rate with the button next to the title', async () => {
+    const user = userEvent.setup();
+    getMonthlyProgress.mockImplementation((range: string) =>
+      Promise.resolve({ range, points: [{ key: '2026-02', avgWpm: 40, avgAccuracy: 95, carriedOver: false }] }),
+    );
+    renderWithProviders(<ProgressPage />, { route: '/progress' });
+
+    expect(await screen.findByRole('img', { name: /WPM and accuracy by/ })).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Error types shown' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Switch to Error rate' }));
+
+    expect(screen.getByRole('heading', { name: 'Error rate' })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: /Error rate of each error type by/ })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /WPM and accuracy by/ })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('list', { name: 'Error types shown' })).getAllByRole('listitem')).toHaveLength(5);
+    // The Week, Month and Year buttons stay, and the comparison of the WPM chart goes.
+    expect(screen.getByRole('button', { name: 'Month' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add comparison' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Switch to Progress' }));
+    expect(await screen.findByRole('img', { name: /WPM and accuracy by/ })).toBeInTheDocument();
+  });
+
+  it('shows or hides lines with the Lines button at the bottom right: all of them, or one error type only', async () => {
+    const user = userEvent.setup();
+    getMonthlyProgress.mockImplementation((range: string) =>
+      Promise.resolve({ range, points: [{ key: '2026-02', avgWpm: 40, avgAccuracy: 95, carriedOver: false }] }),
+    );
+    renderWithProviders(<ProgressPage />, { route: '/progress' });
+    await user.click(await screen.findByRole('button', { name: 'Switch to Error rate' }));
+    await screen.findByRole('img', { name: /Error rate of each error type by/ });
+
+    await user.click(screen.getByRole('button', { name: 'Lines' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'Wrong tone only' }));
+
+    expect(screen.getByRole('button', { name: 'Lines' })).toHaveTextContent('Wrong tone');
+    expect(within(screen.getByRole('list', { name: 'Error types shown' })).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Wrong tone']);
+
+    await user.click(screen.getByRole('button', { name: 'Lines' }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'All lines' }));
+    expect(within(screen.getByRole('list', { name: 'Error types shown' })).getAllByRole('listitem')).toHaveLength(5);
+  });
+
+  it('has a language button at the bottom left that switches the lines to the English error types, and a wider Lines menu', async () => {
+    const user = userEvent.setup();
+    getMonthlyProgress.mockImplementation((range: string) =>
+      Promise.resolve({ range, points: [{ key: '2026-02', avgWpm: 40, avgAccuracy: 95, carriedOver: false }] }),
+    );
+    renderWithProviders(<ProgressPage />, { route: '/progress' });
+    await user.click(await screen.findByRole('button', { name: 'Switch to Error rate' }));
+    await screen.findByRole('img', { name: /Error rate of each error type by/ });
+    const legend = () => within(screen.getByRole('list', { name: 'Error types shown' })).getAllByRole('listitem');
+
+    expect(legend()).toHaveLength(5);
+    // The language button is before the legend, the Lines button after it.
+    const language = screen.getByRole('button', { name: 'Error rate language: Vietnamese. Switch to English' });
+    expect(language.compareDocumentPosition(screen.getByRole('list', { name: 'Error types shown' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Its word is always shown, not only on hover.
+    expect(language).toHaveTextContent('Vietnamese');
+
+    await user.click(language);
+    expect(screen.getByRole('button', { name: 'Error rate language: English. Switch to Vietnamese' })).toBeInTheDocument();
+    expect(legend()).toHaveLength(6);
+    expect(legend().map((item) => item.textContent)).toContain('Swapped letters');
+
+    await user.click(screen.getByRole('button', { name: 'Lines' }));
+    expect(screen.getByRole('menu', { name: 'Lines options' })).toHaveClass('min-w-72');
+    expect(screen.getByRole('menuitemradio', { name: 'Extra letter only' })).toBeInTheDocument();
   });
 });

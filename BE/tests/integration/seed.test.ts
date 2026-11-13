@@ -7,12 +7,16 @@ import {
   DEMO_SESSION_PASSAGE_ID,
   DEMO_STUDENTS,
   demoErrorCounts,
+  demoWords,
   fillDemoErrorCounts,
+  fillDemoWords,
   seedDemoAccounts,
   seedDemoSessions
 } from '../../src/scripts/seed';
 import { getErrorProfile } from '../../src/services/error-profile.service';
 import { getMonthlyProgress } from '../../src/services/monthly-progress.service';
+import { getErrorTrend } from '../../src/services/error-trend.service';
+import { getVowelToneGrid } from '../../src/services/vowel-tone.service';
 import { getCurrentSubscription } from '../../src/services/subscription.service';
 import { comparePassword } from '../../src/utils/hash';
 import { WordError } from '../../src/utils/vietnamese-errors';
@@ -177,5 +181,62 @@ describe('seedDemoSessions', () => {
 
     expect((await TypingSessionModel.findById(old._id).lean())!).toMatchObject(demoErrorCounts(47, 6));
     expect(await fillDemoErrorCounts()).toBe(0);
+  });
+
+  it('gives the demo learner words, so the vowel × tone grid has cells to show, dark, light and grey (SCRUM-29, SCRUM-82)', async () => {
+    await seedDemoAccounts();
+    await seedDemoSessions();
+
+    const grid = await getVowelToneGrid(await demoId());
+
+    expect(grid.sessionsUsed).toBe(10);
+    expect(grid.cells.some((cell) => cell.seen >= grid.minSeen && cell.wrong > 0)).toBe(true);
+    expect(grid.cells.some((cell) => cell.seen >= grid.minSeen && cell.wrong === 0)).toBe(true);
+    expect(grid.cells.some((cell) => cell.seen > 0 && cell.seen < grid.minSeen)).toBe(true);
+    expect(grid.cells.some((cell) => cell.examples.length > 0)).toBe(true);
+  });
+
+  it('gives the demo learner an error rate chart: a rate for each Vietnamese type in the months with sessions (SCRUM-30, SCRUM-82)', async () => {
+    await seedDemoAccounts();
+    await seedDemoSessions();
+
+    const trend = await getErrorTrend(String(await demoId()), 'year');
+
+    const withData = trend.points.filter((point) => Object.values(point.rates).some((rate) => rate !== null));
+    expect(withData.length).toBeGreaterThan(3);
+    expect(trend.types).toHaveLength(5);
+    expect(withData.every((point) => typeof point.rates.HOI_NGA_CONFUSION === 'number')).toBe(true);
+  });
+
+  it('makes demo words of the count asked, with the number of wrong words asked, each graded by the rules', () => {
+    const words = demoWords(40, 6);
+
+    expect(words).toHaveLength(40);
+    expect(words.map((word) => word.index)).toEqual(Array.from({ length: 40 }, (_, index) => index));
+    expect(words.filter((word) => word.errorTypes.length > 0)).toHaveLength(6);
+    expect(words.filter((word) => word.errorTypes.length === 0).every((word) => word.typed === word.target)).toBe(true);
+    expect(demoWords(40, 6)).toEqual(words);
+  });
+
+  it('adds words to the demo sessions seeded before them, once', async () => {
+    await seedDemoAccounts();
+    const old = await TypingSessionModel.create({
+      owner: await demoId(),
+      passageId: DEMO_SESSION_PASSAGE_ID,
+      targetWords: ['từ'],
+      status: 'completed',
+      isCounted: true,
+      completedAt: new Date(),
+      wpm: 30,
+      accuracy: 92.8,
+      errorCounts: { TONE_WRONG: 3 }
+    });
+
+    expect(await fillDemoWords()).toBe(1);
+
+    const filled = (await TypingSessionModel.findById(old._id).lean())!;
+    expect(filled.words).toHaveLength(30);
+    expect(filled.words.filter((word) => word.errorTypes.length > 0)).toHaveLength(3);
+    expect(await fillDemoWords()).toBe(0);
   });
 });
