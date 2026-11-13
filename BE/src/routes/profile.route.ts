@@ -5,6 +5,7 @@ import {
   getErrorProfile,
   getMonthlyProgress,
   getStreak,
+  getVowelTone,
   updateAvatarSource,
   updateProfile,
   updateSecurity,
@@ -41,6 +42,8 @@ profileRouter.get('/daily-tasks', authGuard, getDailyTasks);
  * one typing language: `?language=vi|en`, their Practice language when missing (SCRUM-219).
  */
 profileRouter.get('/error-profile', authGuard, validate({ query: languageQuerySchema }), getErrorProfile);
+/** The learner's own vowel × tone grid: sightings and errors of each vowel with each tone, in their last counted Vietnamese sessions (SCRUM-29). */
+profileRouter.get('/vowel-tone', authGuard, getVowelTone);
 /** The learner's own average WPM and errors by month, week or day: `?range=year|month|week` (SCRUM-240) and `?language=` (SCRUM-219). */
 profileRouter.get('/monthly-progress', authGuard, validate({ query: monthlyProgressQuerySchema }), getMonthlyProgress);
 /** `{ timezone?, typingLanguage? }`: the zone of the learner's days, sent by the browser (SCRUM-31), and their Practice language (SCRUM-219). */
