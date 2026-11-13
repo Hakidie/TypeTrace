@@ -780,3 +780,16 @@ body {
     animation-duration: 1.4s;
   }
 }
+
+/* Store coin packs: the coins around the avatar drop a little and fade while the card is hovered or chosen. */
+@keyframes coin-fall {
+  0% { transform: translateY(-14px) rotate(var(--coin-tilt)); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(16px) rotate(var(--coin-tilt)); opacity: 0; }
+}
+@utility coin-fall {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: coin-fall 1.6s ease-in infinite;
+    animation-delay: var(--coin-delay);
+  }
+}

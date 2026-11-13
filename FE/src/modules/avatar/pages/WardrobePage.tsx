@@ -1,28 +1,29 @@
-import { Coins, Lock } from 'lucide-react';
+import { Backpack, Check, Coins, Columns2, Footprints, Glasses, GraduationCap, Hand, Lock, Plus, Scissors, Shirt, Smile, Sparkles, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { formatCoins } from '@/modules/payments/lib/store';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
-import { PageHeader } from '@/shared/components/page-header';
 import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { AvatarSprite } from '../components/AvatarSprite';
+import { WardrobeSwitch } from '../components/WardrobeSwitch';
 import { useAvatarCatalog, useBuyItem, useUpdateAvatar } from '../hooks/use-avatar';
 import type { AvatarItem, AvatarLook, AvatarPose, AvatarSlot, AvatarUnlock } from '../types/avatar.types';
 
 /** `head`: the slot changes the head, so its cards show the head bigger; `full`: the whole avatar. */
-const SLOTS: { slot: AvatarSlot; label: string; optional?: boolean; focus: 'head' | 'full' }[] = [
-  { slot: 'skin', label: 'Skin', focus: 'head' },
-  { slot: 'face', label: 'Face', focus: 'head' },
-  { slot: 'hair', label: 'Hair', focus: 'head' },
-  { slot: 'top', label: 'Top', focus: 'full' },
-  { slot: 'bottom', label: 'Bottom', focus: 'full' },
-  { slot: 'shoes', label: 'Shoes', focus: 'full' },
-  { slot: 'headwear', label: 'Headwear', optional: true, focus: 'head' },
-  { slot: 'accessory', label: 'Accessory', optional: true, focus: 'full' },
-  { slot: 'back', label: 'Back', optional: true, focus: 'full' },
-  { slot: 'effect', label: 'Effect', optional: true, focus: 'full' },
+const SLOTS: { slot: AvatarSlot; icon: LucideIcon; label: string; optional?: boolean; focus: 'head' | 'full' }[] = [
+  { slot: 'skin', icon: Hand, label: 'Skin', focus: 'head' },
+  { slot: 'face', icon: Smile, label: 'Face', focus: 'head' },
+  { slot: 'hair', icon: Scissors, label: 'Hair', focus: 'head' },
+  { slot: 'top', icon: Shirt, label: 'Top', focus: 'full' },
+  { slot: 'bottom', icon: Columns2, label: 'Bottom', focus: 'full' },
+  { slot: 'shoes', icon: Footprints, label: 'Shoes', focus: 'full' },
+  { slot: 'headwear', icon: GraduationCap, label: 'Headwear', optional: true, focus: 'head' },
+  { slot: 'accessory', icon: Glasses, label: 'Accessory', optional: true, focus: 'full' },
+  { slot: 'back', icon: Backpack, label: 'Back', optional: true, focus: 'full' },
+  { slot: 'effect', icon: Sparkles, label: 'Effect', optional: true, focus: 'full' },
 ];
 
 const POSES: { pose: AvatarPose; label: string }[] = [
@@ -162,6 +163,8 @@ export const WardrobePage = () => {
   const forSale = unowned.find((entry) => entry.item.unlock.kind === 'shop');
   const proLocked = unowned.find((entry) => entry.item.unlock.kind === 'premium');
   const coins = catalog.data.coins;
+  // The item of the open tab that the preview wears: when it is already owned, the page says so where Buy would be.
+  const shownItem = catalog.data.slots[slot].find((entry) => entry.id === look[slot]);
 
   const groups = groupItems(catalog.data.slots[slot]);
   const worn = groups.find((group) => group.items.some((item) => item.id === look[slot]));
@@ -180,12 +183,36 @@ export const WardrobePage = () => {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Wardrobe" description="Dress up the avatar you race with." />
+      {/* The title is in the look of the Store's tabs and of the Progress page's section titles (no description); the coins sit at the top right. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-[1.5rem] font-semibold">
+        <div className="flex items-center gap-4">
+          <h1 className="text-primary/70">Wardrobe</h1>
+          <WardrobeSwitch to="modern" other="Modern wardrobe" />
+        </div>
+        {/* The coins; "Get coins" opens to their right while they are hovered or focused (grid 0fr -> 1fr animates the width). */}
+        <div className="group flex items-center">
+          <span className="flex items-center gap-2 tabular-nums text-primary">
+            <Coins className="size-6" aria-hidden="true" />
+            {formatCoins(coins)}
+          </span>
+          <span className="grid grid-cols-[0fr] opacity-0 transition-[grid-template-columns,opacity] duration-300 ease-out focus-within:grid-cols-[1fr] focus-within:opacity-100 group-hover:grid-cols-[1fr] group-hover:opacity-100 motion-reduce:transition-none">
+            <span className="overflow-hidden whitespace-nowrap pl-4">
+              <Link
+                to="/store?section=coins"
+                className="inline-flex items-center gap-1.5 border border-primary/60 px-3 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+              >
+                <Plus className="size-4" aria-hidden="true" />
+                Get coins
+              </Link>
+            </span>
+          </span>
+        </div>
+      </div>
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-24">
           {/* PANEL Avatar preview */}
           <Panel className="flex flex-col items-center gap-4">
-            <div className="flex w-full justify-center border-b border-primary/30 bg-primary/5 pt-2">
+            <div className="flex w-full justify-center border-b border-primary/30 pt-2">
               <AvatarSprite look={look} pose={pose} scale={4} label="Your avatar" />
             </div>
             <div role="group" aria-label="Pose" className="grid w-full grid-cols-4 border">
@@ -204,13 +231,6 @@ export const WardrobePage = () => {
                 </button>
               ))}
             </div>
-            <p className="flex items-center gap-2 text-lg font-semibold text-primary tabular-nums">
-              <Coins className="size-5" aria-hidden="true" />
-              <span>{coins} coins</span>
-              <Link to="/store?section=coins" className="text-sm font-normal text-muted-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring">
-                Get coins
-              </Link>
-            </p>
             {forSale && (
               <div className="flex w-full flex-col items-center gap-1">
                 <Button
@@ -221,12 +241,17 @@ export const WardrobePage = () => {
                 >
                   Buy {words(forSale.item.id)} for {forSale.price} coins
                 </Button>
-                {coins < forSale.price && <p className="text-sm text-muted-foreground">Not enough coins</p>}
               </div>
             )}
             {proLocked && (
               <Button asChild className="w-full">
                 <Link to="/store">Get Premium to wear {words(proLocked.item.id)}</Link>
+              </Button>
+            )}
+            {!forSale && !proLocked && shownItem?.owned && (
+              <Button type="button" variant="outline" className="w-full" disabled>
+                <Check className="size-4" aria-hidden="true" />
+                {words(shownItem.id)} is yours
               </Button>
             )}
             <div className="grid w-full grid-cols-2 gap-2">
@@ -237,32 +262,53 @@ export const WardrobePage = () => {
                 Save
               </Button>
             </div>
-            {dirty && <p className="text-sm text-muted-foreground">Not saved yet</p>}
           </Panel>
         </div>
         {/* PANEL Wardrobe items */}
         <Panel>
-          <div role="tablist" aria-label="Slots" className="-mx-1 mb-4 flex gap-1 overflow-x-auto px-1 pb-1">
-            {SLOTS.map((entry) => (
-              <button
-                key={entry.slot}
-                type="button"
-                role="tab"
-                aria-selected={slot === entry.slot}
-                onClick={() => {
-                  setSlot(entry.slot);
-                  setBrowsing(null);
-                }}
-                className={cn(
-                  'shrink-0 border-b-2 px-3 py-1.5 text-base transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-                  slot === entry.slot ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {entry.label}
-              </button>
-            ))}
+          {/* The slot tabs are a sidebar on the right of the items from `md` up; on phones they stay a row above them. */}
+          <div className="flex flex-col gap-4 md:flex-row md:gap-6">
+          <div role="tablist" aria-label="Slots" aria-orientation="vertical" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:order-last md:mx-0 md:w-auto md:shrink-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
+            {SLOTS.map((entry) => {
+              const selected = slot === entry.slot;
+              return (
+                // From `md` up the sidebar is icons only; hovering (or focusing) a tab opens a flyout as in the admin sidebar: the same icon in the
+                // same place with the name beside it, to the right of the icon so it never covers the items. Phones keep icon and name.
+                <div key={entry.slot} role="presentation" className="group/tab relative flex shrink-0 flex-col">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => {
+                      setSlot(entry.slot);
+                      setBrowsing(null);
+                    }}
+                    className={cn(
+                      'inline-flex items-center gap-2 border-b-2 px-3 py-1.5 text-left text-base transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+                      'md:justify-center md:border-b-0 md:border-l-2 md:px-2.5 md:py-2',
+                      selected ? 'border-primary font-semibold text-primary' : 'border-transparent text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    <entry.icon className="size-4 shrink-0 md:size-5" aria-hidden="true" />
+                    <span className="md:sr-only">{entry.label}</span>
+                  </button>
+                  {/* 9px + the 1px border = the 10px that keeps the icon where it was. Only for the eye: the tab keeps its name. */}
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'pointer-events-none absolute left-0 top-0 z-50 hidden h-full items-center gap-2 whitespace-nowrap border bg-background pl-[9px] pr-4 text-base shadow-md',
+                      'md:group-hover/tab:flex md:group-focus-within/tab:flex',
+                      selected ? 'text-primary' : 'text-foreground',
+                    )}
+                  >
+                    <entry.icon className="size-5 shrink-0" />
+                    {entry.label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-          <div role="tabpanel" aria-label={current.label} className="flex flex-col gap-4">
+          <div role="tabpanel" aria-label={current.label} className="flex min-w-0 flex-1 flex-col gap-4">
             {!oneStyle && open && open.items.length > 1 && (
               <section aria-label={`${open.label} colors`} className="flex flex-col gap-2 border bg-primary/5 p-3">
                 <h3 className="text-sm font-semibold text-foreground">{open.label}: colors</h3>
@@ -317,6 +363,7 @@ export const WardrobePage = () => {
                     );
                   })}
             </div>
+          </div>
           </div>
         </Panel>
       </div>

@@ -1,5 +1,5 @@
 import { LogOut, Moon, Shield, Shirt, Sun } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { MenuItem } from '@/app/module.types';
 import { useLogout } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
@@ -20,6 +20,11 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
   // The user's own name (the menu is theirs alone): the display name, or the start of their email without one.
   const name = user?.displayName || user?.email?.split('@')[0];
   const ModeIcon = mode === 'dark' ? Moon : Sun;
+  // A page that lives in this menu (Wardrobe, Store, Settings) is named beside the button while it is open: nothing else in the header says where it is.
+  const { pathname } = useLocation();
+  const menuPage = [{ label: 'Wardrobe', icon: Shirt, to: '/wardrobe' }, ...menuItems.filter((item) => item.to)].find(
+    (item) => pathname === item.to || pathname.startsWith(`${item.to}/`),
+  );
 
   // The entries modules add, after Mode (default) or after Admin (`last`), for the roles that may see them.
   const renderItems = (last: boolean) =>
@@ -33,10 +38,17 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
       ));
 
   return (
+    <div className="flex items-center gap-3">
+    {menuPage && (
+      <span className="hidden items-center gap-2 text-sm font-semibold text-primary md:flex">
+        <menuPage.icon className="size-4" aria-hidden="true" />
+        {menuPage.label}
+      </span>
+    )}
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Account menu"
-        className="flex items-center gap-2 py-1 pl-1 pr-1 text-sm font-semibold text-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring xl:pr-3"
+        className="group flex items-center py-1 pl-1 pr-1 text-sm font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Avatar className="size-9">
           <AvatarImage src={shownPictureUrl(user)} alt={user?.email} />
@@ -45,9 +57,16 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
             {user ? <AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} crop="head" scale={0.9} /> : initials}
           </AvatarFallback>
         </Avatar>
-        {/* Narrow screens keep only the avatar: the nav links need the room. */}
-        {name && <span className="hidden max-w-36 truncate xl:inline">{name}</span>}
-        {user?.premium?.active && <PremiumBadge className="hidden xl:inline-flex" />}
+        {/* Name and crown share one drawer that opens beside the avatar while the button is hovered or focused
+            (grid 0fr -> 1fr animates the width without a fixed size). Narrow screens keep the name out: the nav links need the room. */}
+        {(name || user?.premium?.active) && (
+          <span className="grid grid-cols-[0fr] opacity-0 transition-[grid-template-columns,opacity] duration-300 ease-out group-hover:grid-cols-[1fr] group-hover:opacity-100 group-focus-visible:grid-cols-[1fr] group-focus-visible:opacity-100 motion-reduce:transition-none">
+            <span className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap pl-2 pr-1">
+              {name && <span className="hidden max-w-36 truncate tracking-wide xl:block">{name}</span>}
+              {user?.premium?.active && <PremiumBadge className="shrink-0" />}
+            </span>
+          </span>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuItem onClick={() => navigate('/wardrobe')} className="gap-2">
@@ -73,5 +92,6 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   );
 };

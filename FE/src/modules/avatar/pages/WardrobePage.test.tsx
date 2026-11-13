@@ -69,6 +69,19 @@ describe('WardrobePage', () => {
     await waitFor(() => expect(update).toHaveBeenCalledWith(expect.objectContaining({ hair: 'long-pink' })));
   });
 
+  it('says an owned item is yours where Buy would be, and shows Buy instead for one that is for sale', async () => {
+    renderPage();
+    await screen.findByRole('img', { name: 'Your avatar' });
+
+    openTab('Hair');
+    fireEvent.click(screen.getByRole('button', { name: 'Long pink' }));
+    expect(screen.getByRole('button', { name: 'Long pink is yours' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Buns pink/ }));
+    expect(screen.getByRole('button', { name: 'Buy Buns pink for 100 coins' })).toBeInTheDocument();
+    expect(screen.queryByText(/is yours/)).not.toBeInTheDocument();
+  });
+
   it('shows locked items with their price or reward; a reward cannot be picked', async () => {
     renderPage();
     await screen.findByRole('img', { name: 'Your avatar' });
@@ -112,7 +125,6 @@ describe('WardrobePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Buns pink/ }));
 
     expect(screen.getByRole('button', { name: 'Buy Buns pink for 100 coins' })).toBeDisabled();
-    expect(screen.getByText('Not enough coins')).toBeInTheDocument();
   });
 
   it('previews a Premium item without Premium and leads to the Store instead of letting it be saved', async () => {
@@ -133,6 +145,14 @@ describe('WardrobePage', () => {
     expect(wings).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('link', { name: 'Get Premium to wear Dragon wings' })).toHaveAttribute('href', '/store');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('saves the modern wardrobe as the choice from the switch beside the title', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch to Modern wardrobe' }));
+
+    expect(localStorage.getItem('wardrobeVersion')).toBe('modern');
   });
 
   it('links the coins to the coin packs of the Store', async () => {

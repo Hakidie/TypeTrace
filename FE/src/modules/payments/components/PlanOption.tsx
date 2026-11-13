@@ -21,7 +21,7 @@ interface PlanOptionProps {
 
 /**
  * A choice in the Store: a real radio input (the keyboard, the arrow keys and the screen reader come with it), drawn as a
- * row or a tile. The selected one gets the primary outline and its square fills in; the press moves it 1%, both skipped for reduced motion.
+ * row or a tile. The selected one gets the primary outline (a row also fills in its square, a tile has none); the press moves it 1%, both skipped for reduced motion.
  */
 export const PlanOption = ({ name, value, checked, onSelect, title, detail, price, badge, icon, layout = 'row' }: PlanOptionProps) => {
   const tile = layout === 'tile';
@@ -41,15 +41,12 @@ export const PlanOption = ({ name, value, checked, onSelect, title, detail, pric
           'transition-[background-color,outline-color,transform] duration-150 hover:bg-primary/10 active:scale-[0.99]',
           'group-has-[:checked]/option:bg-primary/5 group-has-[:checked]/option:outline-primary',
           'group-has-[:focus-visible]/option:outline-ring motion-reduce:transition-none motion-reduce:active:scale-100',
-          tile ? 'flex h-full flex-col gap-3 p-4' : 'flex items-center gap-4 p-4',
+          tile ? 'relative flex h-full flex-col gap-3 p-4' : 'flex items-center gap-4 p-4',
         )}
       >
         {tile ? (
           <>
-            <span className="flex items-center justify-between gap-2">
-              {square}
-              {tag}
-            </span>
+            {tag && <span className="absolute right-3 top-3">{tag}</span>}
             {icon}
             <span className="block text-xl font-semibold text-foreground">{title}</span>
             {detail && <span className="-mt-2 block text-sm text-muted-foreground">{detail}</span>}
