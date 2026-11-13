@@ -126,12 +126,12 @@ describe('WardrobeV2Page', () => {
     spy.mockRestore();
   });
 
-  it('opens the drawer on the side of the slot group: left for clothes, right for the others', async () => {
+  it('opens the drawer on the right for every slot, whatever its group', async () => {
     renderPage();
     await screen.findByRole('img', { name: 'Your avatar' });
 
     openSlot('Top');
-    expect(screen.getByRole('complementary', { name: 'Top' })).toHaveClass('left-0');
+    expect(screen.getByRole('complementary', { name: 'Top' })).toHaveClass('right-0');
     openSlot('Hair');
     expect(screen.getByRole('complementary', { name: 'Hair' })).toHaveClass('right-0');
     openSlot('Headwear');

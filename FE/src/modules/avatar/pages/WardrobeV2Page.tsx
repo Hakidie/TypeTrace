@@ -41,8 +41,6 @@ const EXTRAS: SlotEntry[] = [
   { slot: 'back', icon: Backpack, label: 'Back', optional: true, focus: 'full' },
 ];
 const SLOTS = [...CLOTHES, ...LOOKS, ...EXTRAS];
-/** The drawer of a slot opens on the side of its group: on the left for the clothes, on the right for the others. */
-const sideOf = (name: AvatarSlot): 'left' | 'right' => (CLOTHES.some((entry) => entry.slot === name) ? 'left' : 'right');
 const SLOT_NAMES = SLOTS.map(({ slot }) => slot);
 
 const POSES: { pose: AvatarPose; label: string }[] = [
@@ -148,7 +146,7 @@ export const WardrobeV2Page = () => (useMediaQuery('(max-width: 767px)') ? <Ward
 /**
  * The modern wardrobe (`WardrobeV2Page`, from `md` up): the avatar in the middle of the page with the slots in three groups (clothes on
  * the left, skin, face, hair and effect under it, headwear and the extras on the right). A slot opens a drawer with its
- * items (styles and their colors, as in the first wardrobe) on the side of its group (left for the clothes, right for the others); the page moves over so the avatar stays in view and shows each
+ * items (styles and their colors, as in the first wardrobe) on the right; the page moves over so the avatar stays in view and shows each
  * pick at once. Picking only changes the preview; Save puts the look on (`PUT /api/avatar`).
  */
 const WardrobeDesktop = () => {
@@ -168,7 +166,6 @@ const WardrobeDesktop = () => {
   const dirty = !sameLook(look, saved);
   const coins = catalog.data.coins;
   const current = SLOTS.find((entry) => entry.slot === slot);
-  const side = slot ? sideOf(slot) : null;
   const pick = (item: string | null) => {
     if (!slot) return;
     setBrowsing(null);
@@ -232,8 +229,7 @@ const WardrobeDesktop = () => {
         className={cn(
           'flex flex-col bg-background p-4 duration-300 animate-in motion-reduce:animate-none',
           'fixed z-40 gap-4 overflow-y-auto',
-          side === 'left' && 'bottom-0 left-0 top-[61px] w-[25rem] border-r slide-in-from-left',
-          side === 'right' && 'bottom-0 right-0 top-[61px] w-[25rem] border-l slide-in-from-right',
+          'bottom-0 right-0 top-[61px] w-[25rem] border-l slide-in-from-right',
         )}
       >
         <div className="flex items-center justify-between gap-4">
@@ -289,7 +285,7 @@ const WardrobeDesktop = () => {
     ) : null;
 
   return (
-    <div className={cn('flex flex-1 flex-col gap-6 transition-[padding] duration-300 ease-out motion-reduce:transition-none', side === 'left' && 'pl-[26rem]', side === 'right' && 'pr-[26rem]')}>
+    <div className={cn('flex flex-1 flex-col gap-6 transition-[padding] duration-300 ease-out motion-reduce:transition-none', current && 'pr-[26rem]')}>
       {/* From `lg` up the three columns make the middle one (Reset, Pose, Save) the center of the screen, whatever the width of the title and the coins. */}
       <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-[1.5rem] font-semibold lg:grid lg:grid-cols-[1fr_auto_1fr]">
         <div className="flex items-center gap-4">
