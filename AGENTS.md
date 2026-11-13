@@ -146,6 +146,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   are sent with `GET /api/profile/error-profile`: never write them in the frontend. A feature that needs the learner's weak
   error types reads `getWeakErrorTypes` (the daily tasks and word rain still pick theirs their own way); Weak spots reads
   `getTopErrorTypes` (every type with enough data, weak or not, highest rate first: `rankedTypes` of the answer).
+- The vowel × tone grid (SCRUM-29) is never stored either: `getVowelToneGrid` (`services/vowel-tone.service.ts`) works it out when read, with the pure `computeVowelToneGrid`, from the `words` of the learner's last 10 counted Vietnamese sessions: per vowel (12) and tone (6) the sightings (`seen`) and the errors (`wrong`: another tone, or the vowel typed as another letter or mark in a word of the same length) with up to 3 wrong words; `GET /api/profile/vowel-tone` sends all 72 cells and `minSeen` (`MIN_VOWEL_TONE_SEEN`, 5), so the frontend never writes the threshold. The Progress page shows it as a page of its own (`VowelToneGrid`, a `PanelTitleSwitch showLabel` button under each page).
 - Weak spots (SCRUM-28, US3.2; one error type: SCRUM-74) is the session mode `targeted` (the Train tab, called Weak spots before, of the Typing
   page): `POST /api/sessions { mode: 'targeted', errorType? }` types a lesson aimed at the learner's errors instead of a
   passage, built by `lessonFor` (`services/targeted-practice.service.ts`). The pure `buildLesson` picks 30 to 50 words of

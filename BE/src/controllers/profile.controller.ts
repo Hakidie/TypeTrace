@@ -3,6 +3,7 @@ import { UserModel } from '../models/user.model';
 import { deleteImage, uploadImage } from '../services/cloudinary.service';
 import * as dailyProgressService from '../services/daily-progress.service';
 import * as errorProfileService from '../services/error-profile.service';
+import * as vowelToneService from '../services/vowel-tone.service';
 import * as monthlyProgressService from '../services/monthly-progress.service';
 import * as userDailyTasksService from '../services/user-daily-tasks.service';
 import { updateSettings as saveSettings } from '../services/user.service';
@@ -72,6 +73,11 @@ export const getDailyTasks = async (req: Request, res: Response) => {
 export const getErrorProfile = async (req: Request, res: Response) => {
   const { language } = req.query as LanguageQuery;
   res.json(await errorProfileService.getErrorProfile(req.user!.sub, language));
+};
+
+/** The learner's vowel × tone grid: sightings and errors of each vowel with each tone in their last counted Vietnamese sessions (SCRUM-29). */
+export const getVowelTone = async (req: Request, res: Response) => {
+  res.json(await vowelToneService.getVowelToneGrid(req.user!.sub));
 };
 
 /** The learner's WPM and errors of each point of the profile chart: months, weeks or days, by `range` (SCRUM-240), of one typing language. */

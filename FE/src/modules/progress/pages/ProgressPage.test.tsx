@@ -7,6 +7,9 @@ import { ProgressPage } from './ProgressPage';
 const getMonthlyProgress = vi.fn();
 const getErrorProfile = vi.fn();
 const getSessions = vi.fn();
+const getVowelTone = vi.fn();
+
+vi.mock('../api/progress.api', () => ({ progressApi: { getVowelTone: () => getVowelTone() } }));
 
 vi.mock('@/modules/profile/api/profile.api', () => ({
   profileApi: { getMonthlyProgress: (range: string, date?: string) => getMonthlyProgress(range, date), getErrorProfile: () => getErrorProfile(), getSessions: (params: unknown) => getSessions(params) },
@@ -41,6 +44,7 @@ const renderSessions = async () => {
 
 // Today: Tuesday 10 March 2026 (the browser's UTC day: the test user has no time zone).
 beforeEach(() => {
+  getVowelTone.mockReset().mockResolvedValue({ language: 'vi', window: 10, minSeen: 5, sessionsUsed: 0, cells: [] });
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-03-10T08:00:00.000Z'));
   getSessions.mockReset().mockResolvedValue(page([session()]));
@@ -300,5 +304,36 @@ describe('ProgressPage (SCRUM-240)', () => {
     expect(screen.getByRole('img', { name: /WPM and accuracy by/ })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('article')).toBeInTheDocument();
+  });
+});
+
+describe('ProgressPage vowel × tone page (SCRUM-29)', () => {
+  it('shows the grid as a page of its own with the button under the page, and goes back with the button under it', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ProgressPage />, { route: '/progress' });
+
+    expect(await screen.findByRole('heading', { name: 'Progress' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Switch to Vowel × tone' }));
+
+    expect(screen.getByRole('heading', { name: 'Vowel × tone' })).toBeInTheDocument();
+    // A page of its own: neither the chart nor the panels under it.
+    expect(screen.queryByRole('heading', { name: 'Progress' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Error profile' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Switch to Progress' }));
+    expect(await screen.findByRole('heading', { name: 'Progress' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Error profile' })).toBeInTheDocument();
+  });
+});
+
+describe('ProgressPage height', () => {
+  it('lets the chart grow with the screen: the page fills the height, the chart box takes what is left', async () => {
+    renderWithProviders(<ProgressPage />, { route: '/progress' });
+
+    const chart = await screen.findByRole('img', { name: /WPM and accuracy by/ });
+    const box = chart.closest('section')!.parentElement!.parentElement!;
+    expect(box).toHaveClass('lg:flex-1', 'lg:min-h-64');
+    expect(chart).toHaveClass('h-full');
+    expect(box.parentElement!.parentElement).toHaveClass('flex-1', 'flex', 'flex-col');
   });
 });

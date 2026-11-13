@@ -9,8 +9,10 @@ import { COMPARE_OPACITIES } from '@/modules/profile/lib/monthly-chart';
 import type { ChartLines, ChartRange } from '@/modules/profile/types/profile.types';
 import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { Panel } from '@/shared/components/panel';
+import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { dateKeyIn } from '@/shared/lib/local-date';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
+import { VowelToneGrid } from '../components/VowelToneGrid';
 
 // Week, Month, Year: the smallest first.
 const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
@@ -53,6 +55,8 @@ export const ProgressPage = () => {
   const { data: user } = useCurrentUser();
   const today = dateKeyIn(new Date(), user?.settings?.timezone);
   const [range, setRange] = useState<ChartRange>('month');
+  // The two pages: Progress (the chart and the panel under it) or the vowel × tone grid (SCRUM-29), switched by the button under the page.
+  const [view, setView] = useState<'progress' | 'vowel-tone'>('progress');
   // The panel under the chart: the error profile (first) or My Sessions, switched by clicking its title.
   const [bottomPanel, setBottomPanel] = useState<'sessions' | 'errors'>('errors');
   // The day that decides the period shown (the month before this one at first); the periods are cut from it, and never after today.
@@ -76,12 +80,27 @@ export const ProgressPage = () => {
     else if (added.length < COMPARE_OPACITIES.length) setAdded([...added, { range: periodRange, anchor }]);
   };
 
+  // The grid is a page of its own: only its panel, and the button back under it (12px under, as on the Passages page).
+  if (view === 'vowel-tone') {
+    return (
+      <div className="flex flex-1 flex-col">
+        <VowelToneGrid />
+        <div className="mt-3 mb-4 flex shrink-0 items-center justify-center">
+          <PanelTitleSwitch other="Progress" showLabel onClick={() => setView('progress')} />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-12">
+    // On a large screen the page is as tall as the screen leaves it (`flex-1` in the page's column): the chart takes the height the
+    // error profile and the button leave, at least `min-h-64`, and the page scrolls only when even that does not fit.
+    <div className="flex flex-1 flex-col gap-12">
       {/* PANEL Progress */}
       <Panel
         title="Progress"
         bare
+        fill
         titleClassName={sectionTitleClass}
         actions={
           <CompactToolbar
@@ -104,20 +123,25 @@ export const ProgressPage = () => {
           />
         }
       >
-        <ProfileMonthlyChart
-          range={range}
-          date={date}
-          compare={added.map(({ range: periodRange, anchor }) => ({
-            range: periodRange,
-            date: anchor,
-          }))}
-          axes
-          lines={lines}
-          heightClassName="h-80"
-        />
+        {/* The chart is laid out inside a box that grows (`lg:flex-1`), so it has a definite height to fill. */}
+        <div className="relative h-80 lg:h-auto lg:min-h-64 lg:flex-1">
+          <div className="absolute inset-0">
+            <ProfileMonthlyChart
+              range={range}
+              date={date}
+              compare={added.map(({ range: periodRange, anchor }) => ({
+                range: periodRange,
+                date: anchor,
+              }))}
+              axes
+              lines={lines}
+              heightClassName="h-full"
+            />
+          </div>
+        </div>
 
         {/* Under the chart: the periods put on it at the left (the tags, then the + Add comparison), which lines it draws at the right. */}
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
           <CompactToolbar
             className="sm:justify-start [&>:first-child]:pl-0"
             adder={{
@@ -175,6 +199,11 @@ export const ProgressPage = () => {
       ) : (
         <ProfileSessions onSwitch={() => setBottomPanel('errors')} />
       )}
+
+      {/* `mb-4` and the 32px of the page make 48px under the button, as many as between the header and the title (`pt-12`). */}
+      <div className="mb-4 flex shrink-0 items-center justify-center">
+        <PanelTitleSwitch other="Vowel × tone" showLabel onClick={() => setView('vowel-tone')} />
+      </div>
     </div>
   );
 };
