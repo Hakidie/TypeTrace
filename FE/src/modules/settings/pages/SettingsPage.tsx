@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GraduationCap, Moon, Palette, ShieldCheck, Sun } from 'lucide-react';
+import { GraduationCap, Moon, Palette, ShieldCheck, Shirt, Sun } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { WardrobeVersionSetting } from '@/modules/avatar/components/WardrobeVersionSetting';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { TutorialReplay } from '@/modules/tutorial/components/TutorialReplay';
 import { CompactToolbar } from '@/shared/components/compact-toolbar';
@@ -53,6 +54,7 @@ const MODE_OPTIONS = [
 const tabs = [
   { value: 'appearance', label: 'Appearance', icon: Palette },
   { value: 'security', label: 'Security', icon: ShieldCheck },
+  { value: 'wardrobe', label: 'Wardrobe', icon: Shirt },
   { value: 'tutorial', label: 'Tutorial', icon: GraduationCap },
 ];
 
@@ -256,6 +258,9 @@ export const SettingsPage = () => {
           </Panel>
         </div>
       )}
+
+      {/* PANEL Wardrobe: which version of the wardrobe opens. */}
+      {tab === 'wardrobe' && <WardrobeVersionSetting />}
 
       {/* PANEL Email code at login: a title with its tip, the switch on the right. */}
       {tab === 'security' && (user ? <SecuritySettings user={user} /> : <LoadingState rows={1} />)}

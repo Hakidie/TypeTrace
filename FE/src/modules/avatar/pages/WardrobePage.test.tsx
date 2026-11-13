@@ -147,6 +147,14 @@ describe('WardrobePage', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
+  it('saves the modern wardrobe as the choice from the switch beside the title', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Switch to Modern wardrobe' }));
+
+    expect(localStorage.getItem('wardrobeVersion')).toBe('modern');
+  });
+
   it('links the coins to the coin packs of the Store', async () => {
     renderPage();
 

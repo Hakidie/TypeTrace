@@ -105,6 +105,17 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('form', { name: 'New theme' })).toBeInTheDocument();
   });
 
+  it('chooses the version of the wardrobe in the Wardrobe tab and remembers it', async () => {
+    renderPage('wardrobe');
+
+    const versions = await screen.findByRole('radiogroup', { name: 'Wardrobe version' });
+    expect(within(versions).getByRole('radio', { name: 'Classic' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(within(versions).getByRole('radio', { name: 'Modern' }));
+
+    expect(within(versions).getByRole('radio', { name: 'Modern' })).toHaveAttribute('aria-checked', 'true');
+    expect(localStorage.getItem('wardrobeVersion')).toBe('modern');
+  });
+
   it("replays Ping's tutorial from the Tutorial panel", async () => {
     resetTutorial.mockResolvedValue({ _id: 'u1', email: 'lan@example.com', role: 'user', tutorial: { tour: 'active', modes: {} } });
     renderPage('tutorial');

@@ -8,6 +8,7 @@ import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { AvatarSprite } from '../components/AvatarSprite';
+import { WardrobeSwitch } from '../components/WardrobeSwitch';
 import { useAvatarCatalog, useBuyItem, useUpdateAvatar } from '../hooks/use-avatar';
 import type { AvatarItem, AvatarLook, AvatarPose, AvatarSlot, AvatarUnlock } from '../types/avatar.types';
 
@@ -184,7 +185,10 @@ export const WardrobePage = () => {
     <div className="space-y-6">
       {/* The title is in the look of the Store's tabs and of the Progress page's section titles (no description); the coins sit at the top right. */}
       <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-[1.5rem] font-semibold">
-        <h1 className="text-primary/70">Wardrobe</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-primary/70">Wardrobe</h1>
+          <WardrobeSwitch to="modern" other="Modern wardrobe" />
+        </div>
         {/* The coins; "Get coins" opens to their right while they are hovered or focused (grid 0fr -> 1fr animates the width). */}
         <div className="group flex items-center">
           <span className="flex items-center gap-2 tabular-nums text-primary">
