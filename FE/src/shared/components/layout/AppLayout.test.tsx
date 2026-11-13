@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { Home, Shield } from 'lucide-react';
+import { Home, ShoppingBag, Shield } from 'lucide-react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { renderWithProviders } from '@/test/render-with-providers';
@@ -22,9 +22,11 @@ const navItems = [
   { to: '/admin', label: 'Admin', icon: Shield, roles: ['admin' as const] },
 ];
 
-const renderLayout = () =>
-  renderWithProviders(<AppLayout navItems={navItems} />, {
-    route: '/',
+const menuItems = [{ to: '/store', label: 'Store', icon: ShoppingBag }];
+
+const renderLayout = (route = '/') =>
+  renderWithProviders(<AppLayout navItems={navItems} menuItems={menuItems} />, {
+    route,
     otherRoutes: { '/logout': 'logout route', '/login': 'login page' },
   });
 
@@ -45,6 +47,21 @@ describe('AppLayout', () => {
     expect(await screen.findByText('TypeTrace')).toBeInTheDocument();
     expect(screen.getByText(/All rights reserved/)).toBeInTheDocument();
     expect(screen.queryByText('MERN Auth')).not.toBeInTheDocument();
+  });
+
+  it('names the page beside the profile button when it lives in the account menu', async () => {
+    getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
+    renderLayout('/store');
+
+    expect(await screen.findByText('Store')).toBeInTheDocument();
+  });
+
+  it('names no page beside the profile button for a page outside the account menu', async () => {
+    getMe.mockResolvedValue({ _id: '1', email: 'a@b.com', role: 'user' });
+    renderLayout('/');
+
+    expect(await screen.findByRole('img', { name: 'Avatar' })).toBeInTheDocument();
+    expect(screen.queryByText('Store')).not.toBeInTheDocument();
   });
 
   it('hides links meant for other roles', async () => {

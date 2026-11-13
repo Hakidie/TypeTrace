@@ -144,7 +144,9 @@ describe('StorePage', () => {
   it('lists what Premium gives from the plans an admin set (passage limit, Train)', async () => {
     renderPage();
 
-    expect(await screen.findByText('Up to 90 passages of your own, and Train on your weak spots')).toBeInTheDocument();
+    expect(await screen.findByText('Up to 90 passages of your own')).toBeInTheDocument();
+    expect(screen.getByText("Practice with other learners' public passages")).toBeInTheDocument();
+    expect(screen.getByText('AI-assisted training lessons built around your weak spots')).toBeInTheDocument();
     expect(screen.getByText('A Premium badge beside your name')).toBeInTheDocument();
   });
 

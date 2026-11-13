@@ -1,5 +1,5 @@
 import { LogOut, Moon, Shield, Shirt, Sun } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { MenuItem } from '@/app/module.types';
 import { useLogout } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
@@ -20,6 +20,11 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
   // The user's own name (the menu is theirs alone): the display name, or the start of their email without one.
   const name = user?.displayName || user?.email?.split('@')[0];
   const ModeIcon = mode === 'dark' ? Moon : Sun;
+  // A page that lives in this menu (Wardrobe, Store, Settings) is named beside the button while it is open: nothing else in the header says where it is.
+  const { pathname } = useLocation();
+  const menuPage = [{ label: 'Wardrobe', icon: Shirt, to: '/wardrobe' }, ...menuItems.filter((item) => item.to)].find(
+    (item) => pathname === item.to || pathname.startsWith(`${item.to}/`),
+  );
 
   // The entries modules add, after Mode (default) or after Admin (`last`), for the roles that may see them.
   const renderItems = (last: boolean) =>
@@ -33,6 +38,13 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
       ));
 
   return (
+    <div className="flex items-center gap-3">
+    {menuPage && (
+      <span className="hidden items-center gap-2 text-sm font-semibold text-primary md:flex">
+        <menuPage.icon className="size-4" aria-hidden="true" />
+        {menuPage.label}
+      </span>
+    )}
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Account menu"
@@ -80,5 +92,6 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   );
 };

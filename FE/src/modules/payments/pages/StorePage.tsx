@@ -1,4 +1,4 @@
-import { BookOpen, CalendarCheck, Coins, Crown, Shirt } from 'lucide-react';
+import { BookOpen, CalendarCheck, Coins, Crown, Shirt, Sparkles, Users } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
@@ -133,11 +133,15 @@ export const StorePage = () => {
   const toggle = (id: string) => setHidden((now) => (now.includes(id) ? now.filter((entry) => entry !== id) : [...now, id]));
 
   const perks = [
-    ...(proItems.length > 0 ? [{ icon: Shirt, text: `The Dragon set: ${proItems.length} items to wear while your plan lasts` }] : []),
     ...(premiumPlan
-      ? [{ icon: BookOpen, text: `Up to ${premiumPlan.maxPassages} passages of your own${premiumPlan.canCreateErrorPractice ? ', and Train on your weak spots' : ''}` }]
+      ? [
+          { icon: BookOpen, text: `Up to ${premiumPlan.maxPassages} passages of your own` },
+          ...(premiumPlan.canUsePublicPassages ? [{ icon: Users, text: "Practice with other learners' public passages" }] : []),
+          ...(premiumPlan.canCreateErrorPractice ? [{ icon: Sparkles, text: 'AI-assisted training lessons built around your weak spots' }] : []),
+        ]
       : []),
     { icon: Crown, text: 'A Premium badge beside your name' },
+    ...(proItems.length > 0 ? [{ icon: Shirt, text: `The Dragon set: ${proItems.length} items to wear while your plan lasts` }] : []),
     { icon: CalendarCheck, text: 'One payment. Nothing renews, and nothing is taken away when it ends.' },
   ];
 
@@ -188,13 +192,13 @@ export const StorePage = () => {
       </div>
 
       {section === 'premium' && (
-      <section aria-labelledby="store-premium" className="grid border bg-card/60 backdrop-blur-sm lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <div className="relative flex flex-col items-center justify-end gap-6 overflow-hidden border-b bg-primary/5 px-5 pt-8 pb-6 lg:border-r lg:border-b-0">
+      <section aria-labelledby="store-premium" className="grid gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,6fr)]">
+        <div className="relative flex flex-col items-center justify-end gap-6 overflow-hidden">
           <div aria-hidden="true" className={PIXEL_FLOOR} />
-          <AvatarSprite look={look} pose={pose} scale={4} label="Your avatar with the Dragon set" className="relative" />
+          <AvatarSprite look={look} pose={pose} scale={5} label="Your avatar with the Dragon set" className="relative" />
           <span aria-hidden="true" className="relative -mt-6 h-px w-2/3 bg-primary/40" />
           {proItems.length > 0 && (
-            <div role="group" aria-label="Preview items" className="relative grid w-full max-w-sm grid-cols-4 gap-2">
+            <div role="group" aria-label="Preview items" className="relative flex w-full justify-center gap-2 overflow-x-auto">
               {proItems.map(({ slot, id }) => {
                 const shown = !hidden.includes(id);
                 return (
@@ -204,7 +208,7 @@ export const StorePage = () => {
                     aria-pressed={shown}
                     onClick={() => toggle(id)}
                     className={cn(
-                      'flex flex-col items-center gap-1 border bg-foreground/15 p-1.5 transition-[background-color,border-color,opacity] duration-150',
+                      'flex shrink-0 flex-col items-center gap-1 border bg-primary/5 px-3 py-1.5 transition-[background-color,border-color,opacity] duration-150',
                       'focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none',
                       shown ? 'border-primary text-primary' : 'text-muted-foreground opacity-60 hover:bg-primary/10 hover:opacity-100',
                     )}
@@ -218,7 +222,7 @@ export const StorePage = () => {
                         style={{ imageRendering: 'pixelated', ...thumbStyle(slot) }}
                       />
                     </span>
-                    <span className="line-clamp-2 w-full text-center text-xs leading-tight">{itemLabel(id)}</span>
+                    <span className="whitespace-nowrap text-center text-base leading-tight">{itemLabel(id)}</span>
                   </button>
                 );
               })}
@@ -226,7 +230,7 @@ export const StorePage = () => {
           )}
         </div>
 
-        <div className="flex flex-col gap-6 p-5 sm:p-8">
+        <div className="flex flex-col gap-6">
           <div className="space-y-3">
             <h2 id="store-premium" className="flex items-center gap-3 text-3xl font-semibold tracking-tight">
               Premium <Crown className="size-7 text-primary" aria-hidden="true" />
@@ -261,7 +265,8 @@ export const StorePage = () => {
             })}
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
+            {premium.active && <p className="text-sm text-muted-foreground">The time is added after your current end date.</p>}
             <PayButtons
               icon={<Crown className="size-4" aria-hidden="true" />}
               what={`${premium.active ? 'Extend' : 'Get'} Premium`}
@@ -269,7 +274,6 @@ export const StorePage = () => {
               opening={opening}
               onPay={(provider) => plan && startPayment.mutate({ product: plan.id, provider })}
             />
-            {premium.active && <p className="text-sm text-muted-foreground">The time is added after your current end date.</p>}
           </div>
         </div>
       </section>
