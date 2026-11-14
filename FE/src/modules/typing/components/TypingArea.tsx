@@ -41,7 +41,7 @@ interface TypingAreaProps {
   timeLimitSeconds?: number;
   /** Called once when time runs out and no word was finished, so there is nothing to grade. */
   onTimeUp?: () => void;
-  /** Shown above the passage, at its top center, e.g. the language switch. */
+  /** Shown above the passage, at its top center, e.g. the name of the passage. */
   header?: ReactNode;
   /** Shown under the card, at its bottom center, e.g. a Restart button. */
   actions?: ReactNode;

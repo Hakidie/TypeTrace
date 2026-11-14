@@ -2,6 +2,8 @@ import { ArrowRight, Lock } from 'lucide-react';
 import { ErrorTypeCard } from '@/modules/profile/components/ErrorTypeCard';
 import { useErrorProfile } from '@/modules/profile/hooks/use-profile';
 import { ErrorState } from '@/shared/components/error-state';
+import { Button } from '@/shared/components/ui/button';
+import { practiceButtonClass } from '@/shared/lib/panel-styles';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { LoadingState } from '@/shared/components/loading-state';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
@@ -56,7 +58,7 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="text-2xl text-primary/80">{title}</span>
+                <span className="text-2xl text-muted-foreground">{title}</span>
               </TooltipTrigger>
               <TooltipContent side="bottom" align="start">
                 A passage written for the error types you miss most.
@@ -88,14 +90,31 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
             ))}
           </span>
         )}
-        <span className="flex h-9 w-fit items-center gap-2 self-end bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform duration-200 group-hover:-translate-y-0.5">
+        <span className="flex h-9 w-fit items-center gap-2 self-center bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform duration-200 group-hover:-translate-y-0.5">
           Start <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
         </span>
       </button>
       <section aria-label="Error types">
         <ul className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
           {profile.types.map((item) => (
-            <ErrorTypeCard key={item.type} item={item} profile={profile} locked={locked} onSelect={() => onPick(item.type as WordErrorType)} />
+            <ErrorTypeCard
+              key={item.type}
+              item={item}
+              profile={profile}
+              locked={locked}
+              onSelect={() => onPick(item.type as WordErrorType)}
+              action={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={practiceButtonClass}
+                  aria-label={`Practice this error: ${errorLabels[item.type]}${locked ? ' (Premium)' : ''}`}
+                  onClick={() => onPick(item.type as WordErrorType)}
+                >
+                  {locked && <Lock className="size-4" aria-hidden />} Practice this error
+                </Button>
+              }
+            />
           ))}
         </ul>
       </section>

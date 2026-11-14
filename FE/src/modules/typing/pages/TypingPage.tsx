@@ -1,5 +1,5 @@
 import { ArrowLeft, Gamepad2, Languages, Lock, RotateCcw, Trophy } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
@@ -28,21 +28,32 @@ import { useBeginSession, useCompleteSession, useStartSession } from '../hooks/u
 import type { ReplayEvent, SessionMode, StartSessionInput } from '../types/typing.types';
 import { errorLabels, languageNames, modeIcons, modeLabels, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 
-// The buttons around the passage: the language switch, Restart, and in a Weak spots lesson the way back to its cards (bottom row).
+// The buttons around the passage: Restart, and in the bottom row the language switch (Practice) or in a Weak spots lesson the way back to its cards.
 const actionClass = 'h-auto gap-2 px-4 py-2 text-[1.125rem] text-muted-foreground';
+// Restart and the language button: an icon, and the word grows next to it only while the button is hovered or focused (as on the toolbars).
+const hoverButtonClass = 'group gap-0 h-auto px-4 py-2 text-[1.125rem] text-muted-foreground';
+const hoverWordClass =
+  'max-w-0 overflow-hidden opacity-0 transition-all duration-200 group-hover:ml-2 group-hover:max-w-40 group-hover:opacity-100 group-focus-visible:ml-2 group-focus-visible:max-w-40 group-focus-visible:opacity-100';
 
-// Same frame as the chat button and the word count / timer at the bottom of the page. The name is as wide as its text (SCRUM-304: the passage menu's trigger wraps a long name, a Weak spots lesson's name is cut).
-const chipClass = 'min-w-0 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
+// The name of the passage above the text: as wide as its text, cut with an ellipsis when it does not fit.
+const nameClass = 'min-w-0 px-4 py-2 text-[1.125rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50';
+
+// Manual / Random choose the passage of Practice and Placement; Train (Weak spots) is the third tab of the same group, since its
+// lesson is the passage (SCRUM-28).
+const passageTabs = [
+  { value: 'manual', label: 'Manual', hint: 'Choose the passage to type from a list.' },
+  { value: 'random', label: 'Random', hint: 'A new random passage each time.' },
+  { value: 'train', label: modeLabels.targeted, hint: 'A lesson aimed at the error types you get wrong most.' },
+];
 
 // Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain, `&game=bot` the unrated duel against a bot, `&game=chain` Nối từ), instead of a passage to practise.
 // `?mode=targeted` is Weak spots: its cards (`WeakSpotsMode`: the auto lesson, US3.2, and the five error types, SCRUM-74) until
 // one is picked, then its lesson (`&focus=auto` or `&focus=<type>`), a passage the AI wrote from words picked for the errors.
 const modeTabs = [
-  { value: 'practice', label: 'Practice', icon: modeIcons.practice },
-  { value: 'placement', label: 'Placement', icon: modeIcons.placement },
-  { value: 'rank', label: 'Rank', icon: Trophy },
-  { value: 'targeted', label: modeLabels.targeted, icon: modeIcons.targeted },
-  { value: 'minigames', label: 'Minigames', icon: Gamepad2 },
+  { value: 'practice', label: 'Practice', icon: modeIcons.practice, hint: 'Type a passage at your own pace. Counts toward your progress.' },
+  { value: 'placement', label: 'Placement', icon: modeIcons.placement, hint: 'The placement test: your speed and accuracy on the weekly leaderboard.' },
+  { value: 'rank', label: 'Rank', icon: Trophy, hint: 'Rated duels against other players.' },
+  { value: 'minigames', label: 'Minigames', icon: Gamepad2, hint: 'Word games: Rain, a duel against a bot and Nối từ.' },
 ];
 
 
@@ -171,17 +182,26 @@ export const TypingPage = () => {
     return id ? { mode: 'practice', id } : undefined;
   });
   // The pick is dropped when the mode changes, so it stays Random on the way back to the mode it was made in; the time goes back to the default of the mode too.
+  const [manualOn, setManualOn] = useState(false);
+  // Manual clicked in Train: the mode changes to Practice first, which opens with Manual on.
+  const [wantManual, setWantManual] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [modeOfChoice, setModeOfChoice] = useState(mode);
   if (modeOfChoice !== mode) {
     setModeOfChoice(mode);
     setChosen(undefined);
+    setManualOn(wantManual);
+    setMenuOpen(wantManual);
+    setWantManual(false);
     // Each mode opens with its own time: 1 minute for the placement test and Weak spots, 20 seconds for Practice.
     setTimeUnit(defaultTimeOf(mode).unit);
     setTimeIndex(defaultTimeOf(mode).index);
     setShownUnit(undefined);
   }
   const passageId = chosen?.mode === mode ? chosen.id : undefined;
-  const randomPassage = passageId === undefined;
+  // The Manual / Random tabs: Manual lets the learner choose the passage from its name above the text; a passage picked
+  // before (`?passage=`) is a manual choice too. The menu is opened by the Manual tab (and by the name).
+  const manual = manualOn || passageId !== undefined;
 
   useEffect(() => {
     if (legacyGame) setSearchParams({ mode: 'minigames', game: legacyGame }, { replace: true });
@@ -263,12 +283,14 @@ export const TypingPage = () => {
     saveLanguage(next, {
       onSuccess: () => {
         setChosen(undefined);
+        setManualOn(false);
+        setMenuOpen(false);
         start.mutate(startInputOf(mode, undefined, timeSeconds));
       },
     });
   };
   // The language switch, Practice only (the placement test and Weak spots are always Vietnamese): one button, built like
-  // Restart, at the top center of the passage. It shows the language being typed and a click switches to the other one.
+  // Restart, at the bottom center of the page (the middle of the word count / timer row). It shows the language being typed and a click switches to the other one.
   // Also shown while the passage loads or fails, so a language with no passage can be left.
   const current = language ?? 'vi';
   const other: TypingLanguage = current === 'vi' ? 'en' : 'vi';
@@ -276,12 +298,12 @@ export const TypingPage = () => {
     mode === 'practice' && !game ? (
       <Button
         variant="ghost"
-        className={actionClass}
+        className={hoverButtonClass}
         aria-label={`Typing language: ${languageNames[current]}. Switch to ${languageNames[other]}`}
         onClick={() => switchLanguage(other)}
         disabled={language === undefined || savingLanguage || start.isPending || complete.isPending}
       >
-        <Languages className="size-5" /> {languageNames[current]}
+        <Languages className="size-5" /> <span className={hoverWordClass}>{languageNames[current]}</span>
       </Button>
     ) : undefined;
 
@@ -305,6 +327,53 @@ export const TypingPage = () => {
     setChosen(id ? { mode, id } : undefined);
     start.mutate(startInput(id, timeSeconds));
   };
+  // Random: a new random passage. Manual: the menu opens to choose one; the passage on screen stays until then.
+  const pickPassageTab = (value: string) => {
+    if (value === 'train') {
+      // From anywhere but its cards, Train opens its cards: in a lesson the tab is a way back to them.
+      if (!weakSpotsCards) backToWeakSpots();
+    } else if (targeted) {
+      // Back to Practice, which starts a random passage (Manual: and opens the menu).
+      setWantManual(value === 'manual');
+      setSearchParams({});
+    } else if (value === 'random') {
+      setManualOn(false);
+      setMenuOpen(false);
+      pick(undefined);
+    } else {
+      setManualOn(true);
+      setMenuOpen(true);
+    }
+  };
+  // The name of the passage, at the top center of the text. With the Manual tab it is the button that opens the menu of passages;
+  // otherwise (Random, Placement's random pick, a Weak spots lesson) it only shows the name. The full name is in the shared tooltip.
+  const nameTooltip = (child: ReactNode) => (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>{child}</TooltipTrigger>
+        {passageTitle && <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-normal break-words">{passageTitle}</TooltipContent>}
+      </Tooltip>
+    </TooltipProvider>
+  );
+  const passageName =
+    game || weakSpotsCards ? undefined : !targeted && manual ? (
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} className="flex min-w-0 max-w-full">
+        {nameTooltip(
+          <span className="flex min-w-0">
+            <DropdownMenuTrigger disabled={complete.isPending} aria-label="Choose passage" className={cn(nameClass, 'text-primary')}>
+              <span className="block truncate whitespace-nowrap">{passageTitle ?? '—'}</span>
+            </DropdownMenuTrigger>
+          </span>,
+        )}
+        {/* The menu keeps the normal background, like the Sort and Filter menus (the page theme tints --color-background). Centered under the name. */}
+        <DropdownMenuContent role="menu" aria-label="Passages" className="left-1/2 w-[calc(100vw-2rem)] -translate-x-1/2 sm:w-max sm:min-w-[24rem] sm:max-w-[min(32rem,calc(100vw-2rem))] [--color-background:var(--background)]">
+          <PassageMenuPanel mode={mode} language={language ?? 'vi'} showOriginFilter={mode === 'practice'} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : (
+      nameTooltip(<span className={cn(nameClass, 'truncate text-muted-foreground')}>{passageTitle ?? '—'}</span>)
+    );
+
   // A Weak spots card: its lesson, or the plan for a plan without Weak spots.
   const pickWeakSpot = (picked: WeakSpotsFocus) => (weakSpotsLocked ? setPlanOpen(true) : setSearchParams({ mode: 'targeted', focus: picked }));
   const backToWeakSpots = () => setSearchParams({ mode: 'targeted' });
@@ -333,56 +402,15 @@ export const TypingPage = () => {
           On one row from `xl` only: below it the three do not fit side by side (the mode tabs alone are about 490px), so they are stacked and centered, as on phones.
           `[&>*]:min-w-0` lets the frame of the passage shrink to its column (or the screen): the passage name is cut first. */}
       <div data-tutorial="mode-tabs" className="relative flex flex-col items-center gap-2 xl:grid xl:gap-x-2 xl:grid-cols-[1fr_auto_1fr]">
-        <div className="flex min-w-0 max-w-full xl:justify-self-end [&>*]:min-w-0">
-          {/* The menu opens under the whole frame (name and Random) and is as wide as it. Not in Rank (the room picks the passage) or Minigames.
-              A Weak spots lesson shows only its name: its card is its choice, and the ways back to the cards are the Weak spots tab
-              and the button under the passage. */}
-          {targeted && !weakSpotsCards && (
-            <div className="flex min-w-0 outline outline-1 -outline-offset-1 outline-border">
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className={cn(chipClass, 'truncate text-primary')}>{passageTitle ?? '—'}</span>
-                  </TooltipTrigger>
-                  {passageTitle && <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-normal break-words">{passageTitle}</TooltipContent>}
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          )}
-          {!game && !targeted && (
-          <DropdownMenu className="static flex min-w-0 max-w-full">
-            <div className="flex min-w-0 outline outline-1 -outline-offset-1 outline-border">
-              {/* The full name in the shared tooltip (not the native `title`), in a span so it also shows while the button is disabled. */}
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="flex min-w-0">
-                      <DropdownMenuTrigger disabled={complete.isPending} aria-label="Choose passage" className={cn(chipClass, randomPassage ? 'text-muted-foreground' : 'text-primary')}>
-                        <span className="block truncate whitespace-nowrap text-left">{passageTitle ?? '—'}</span>
-                      </DropdownMenuTrigger>
-                    </span>
-                  </TooltipTrigger>
-                  {passageTitle && <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-normal break-words">{passageTitle}</TooltipContent>}
-                </Tooltip>
-              </TooltipProvider>
-              <button
-                type="button"
-                onClick={() => pick(undefined)}
-                disabled={start.isPending || complete.isPending}
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-2 whitespace-nowrap px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-                  randomPassage ? 'text-primary' : 'text-muted-foreground enabled:hover:bg-muted enabled:hover:text-foreground',
-                )}
-              >
-                Random
-              </button>
-            </div>
-            {/* The page theme tints --color-background; the menu keeps the normal one, like the Sort and Filter menus. */}
-            {/* SCRUM-304: placed against the mode-tabs row (the wrapper is `static`) and centered, so it opens under the Mode tabs; from `sm` up as wide as its longest passage name (24 to 32rem), on a phone as wide as the row so it never leaves the screen, and the names wrap. */}
-            <DropdownMenuContent role="menu" aria-label="Passages" className="left-1/2 w-full -translate-x-1/2 sm:w-max sm:min-w-[24rem] sm:max-w-[min(32rem,calc(100vw-2rem))] [--color-background:var(--background)]">
-              <PassageMenuPanel mode={mode} language={language ?? 'vi'} showOriginFilter={mode === 'practice'} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="flex min-w-0 max-w-full xl:justify-self-end">
+          {/* Not in Rank (the room picks the passage) or Minigames. In Train the lesson is the choice, so Manual / Random lead back to Practice. The name of the passage is above the text. */}
+          {!game && (
+            <TabGroup
+              label="Passage"
+              tabs={passageTabs}
+              value={targeted ? 'train' : manual ? 'manual' : 'random'}
+              onChange={pickPassageTab}
+            />
           )}
         </div>
         <TabGroup
@@ -399,16 +427,12 @@ export const TypingPage = () => {
             else if (value === 'minigames') {
               if (!minigames) setSearchParams({ mode: 'minigames' });
             }
-            // From anywhere but its cards, Weak spots opens its cards: in a lesson the tab is a way back to them.
-            else if (value === 'targeted') {
-              if (!weakSpotsCards) backToWeakSpots();
-            }
             else if (value !== mode || game) setPlacementPrompt({ open: true });
           }}
         />
         <div className="xl:justify-self-start">
-          {/* Not in Rank (a duel lasts the time the server gives it) or a minigame (a Rain round lasts a minute). */}
-          <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', (game || weakSpotsCards) && 'hidden')}>
+          {/* Not in Rank (a duel lasts the time the server gives it) or a minigame (a Rain round lasts a minute). Train shows it on its cards too: it is the time of the lesson. */}
+          <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', game && 'hidden')}>
             <TabGroup
               label="Time"
               framed={false}
@@ -482,30 +506,32 @@ export const TypingPage = () => {
           key={session._id}
           targetWords={session.targetWords}
           language={session.language ?? 'vi'}
-          header={languageSwitch}
+          header={passageName}
           disabled={complete.isPending}
           onStart={() => begin.mutate(session._id)}
           onFinish={finish}
           timeLimitSeconds={timeSeconds}
           onTimeUp={restart}
           actions={
-            <Button variant="ghost" className={actionClass} onClick={restart} disabled={start.isPending || complete.isPending}>
-              <RotateCcw className="size-5" /> Restart
+            <Button variant="ghost" className={hoverButtonClass} onClick={restart} disabled={start.isPending || complete.isPending}>
+              <RotateCcw className="size-5" /> <span className={hoverWordClass}>Restart</span>
             </Button>
           }
           // A Weak spots lesson has its way back to the cards in the bottom row, between the word count and the timer.
           statusCenter={
-            targeted && (
+            targeted ? (
               <Button variant="ghost" className={actionClass} onClick={backToWeakSpots} disabled={complete.isPending}>
                 <ArrowLeft className="size-5" aria-hidden /> All weak spots
               </Button>
+            ) : (
+              languageSwitch
             )
           }
         />
       ) : (
         <>
           <div className="mx-auto my-auto w-full max-w-7xl">
-            {languageSwitch && <div className="mb-4 flex justify-center">{languageSwitch}</div>}
+            {passageName && <div className="mb-4 flex justify-center">{passageName}</div>}
             {start.isError ? (
               <ErrorState error={start.error} onRetry={restart} />
             ) : (
@@ -527,10 +553,12 @@ export const TypingPage = () => {
             seconds={0}
             finished={false}
             center={
-              targeted && (
+              targeted ? (
                 <Button variant="ghost" className={actionClass} onClick={backToWeakSpots}>
                   <ArrowLeft className="size-5" aria-hidden /> All weak spots
                 </Button>
+              ) : (
+                languageSwitch
               )
             }
           />

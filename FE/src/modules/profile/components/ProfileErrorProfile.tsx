@@ -3,14 +3,14 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PlanDialog } from '@/modules/plan/components/PlanDialog';
 import { usePlan } from '@/modules/plan/hooks/use-plan';
-import { errorLabels, languageNames, modeIcons } from '@/modules/typing/typing.config';
+import { errorLabels, languageNames } from '@/modules/typing/typing.config';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { Panel } from '@/shared/components/panel';
 import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
-import { sectionTitleClass } from '@/shared/lib/panel-styles';
+import { practiceButtonClass, sectionTitleClass } from '@/shared/lib/panel-styles';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 import { useErrorProfile } from '../hooks/use-profile';
@@ -22,11 +22,6 @@ const linkClass = 'text-primary underline-offset-4 hover:underline';
 const gridClass = 'grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2 lg:grid-cols-3';
 // Blank error types while the profile loads: a row of them on wide screens.
 const BLANK_TYPES = 3;
-// The icon of the Train tab, whose lesson the button opens.
-const TrainIcon = modeIcons.targeted;
-
-// Solid red with a shadow, as it floats over the card's text: the theme tokens only.
-const practiceButtonClass = 'border-primary bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:text-primary-foreground';
 
 interface PracticeButtonProps {
   type: WordErrorType;
@@ -51,7 +46,7 @@ const PracticeButton = ({ type, locked, onLocked }: PracticeButtonProps) => {
   return (
     <Button asChild variant="outline" size="sm" className={practiceButtonClass}>
       <Link to={`/typing?mode=targeted&focus=${type}`} aria-label={name}>
-        <TrainIcon className="size-4" aria-hidden /> Practice this error
+        Practice this error
       </Link>
     </Button>
   );
