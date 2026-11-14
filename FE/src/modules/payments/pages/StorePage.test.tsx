@@ -83,7 +83,7 @@ describe('StorePage', () => {
     const plans = await screen.findByRole('radiogroup', { name: 'Premium plan' });
 
     fireEvent.click(within(plans).getByRole('radio', { name: /12 months/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Get Premium with VNPay' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Get with VNPay' }));
 
     await waitFor(() => expect(start).toHaveBeenCalledWith('premium-12m', 'vnpay'));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://sandbox.vnpayment.vn/pay?x=1'));
@@ -105,13 +105,23 @@ describe('StorePage', () => {
     renderPage();
     await screen.findByRole('radiogroup', { name: 'Premium plan' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Get Premium with MoMo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Get with MoMo' }));
     await waitFor(() => expect(start).toHaveBeenCalledWith('premium-6m', 'momo'));
     await waitFor(() => expect(assign).toHaveBeenCalledWith('https://test-payment.momo.vn/pay/abc'));
 
     fireEvent.click(screen.getByRole('radio', { name: 'Coins' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Get coins with MoMo' }));
     await waitFor(() => expect(start).toHaveBeenCalledWith('coins-1400', 'momo'));
+  });
+
+  it('sends the chosen plan and pack to payOS with its own button', async () => {
+    start.mockResolvedValue({ paymentId: 'p3', paymentUrl: 'https://pay.payos.vn/web/abc' });
+    renderPage();
+    await screen.findByRole('radiogroup', { name: 'Premium plan' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Get with payOS' }));
+    await waitFor(() => expect(start).toHaveBeenCalledWith('premium-6m', 'payos'));
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('https://pay.payos.vn/web/abc'));
   });
 
   it('previews the Premium items on the avatar and lets each one be switched off', async () => {
@@ -137,7 +147,7 @@ describe('StorePage', () => {
     answerCatalog({ premium: { active: true, until: new Date(Date.now() + 68.5 * 24 * 60 * 60 * 1000).toISOString() } });
     renderPage();
 
-    expect(await screen.findByRole('button', { name: 'Extend Premium with VNPay' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Extend with VNPay' })).toBeInTheDocument();
     expect(screen.getByText('69 days')).toBeInTheDocument();
   });
 

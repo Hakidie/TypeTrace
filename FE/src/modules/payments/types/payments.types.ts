@@ -9,8 +9,8 @@ export interface PaymentProduct {
   grant: PaymentGrant;
 }
 
-/** The two gateways: each has its own start and return routes under `/api/payments/<provider>`. */
-export type PaymentProvider = 'vnpay' | 'momo';
+/** The three gateways: each has its own start and return routes under `/api/payments/<provider>`. */
+export type PaymentProvider = 'vnpay' | 'momo' | 'payos';
 
 /** `POST /api/payments/<provider>`: the gateway page the browser goes to. */
 export interface StartedPayment {
@@ -25,4 +25,57 @@ export interface VnpayReturn {
   orderInfo: string;
   product: string;
   grant: PaymentGrant | null;
+}
+
+/** One row of `GET /api/admin/payments`. */
+export interface AdminPaymentRow {
+  _id: string;
+  userName: string;
+  email: string | null;
+  product: string;
+  /** In VND. */
+  amount: number;
+  provider: PaymentProvider;
+  status: 'pending' | 'paid' | 'failed';
+  /** The learner got what they bought. */
+  granted: boolean;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminPaymentPage {
+  items: AdminPaymentRow[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface AdminPaymentListParams {
+  page: number;
+  limit: number;
+  sort: string;
+  q?: string;
+  status?: AdminPaymentRow['status'];
+  provider?: PaymentProvider;
+}
+
+/** One row of `GET /api/payments/mine`: the learner's own history. `expired`: never paid and its link is over. */
+export interface MyPaymentRow {
+  _id: string;
+  product: string;
+  /** In VND. */
+  amount: number;
+  provider: PaymentProvider;
+  status: 'pending' | 'paid' | 'failed' | 'expired';
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface MyPaymentPage {
+  items: MyPaymentRow[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }

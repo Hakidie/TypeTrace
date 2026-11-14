@@ -56,7 +56,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run gen:module -- <name> --remove` | Delete a generated feature again |
 
 Optional services: without SMTP, emails (OTP and reset codes) are printed in the backend terminal in development and
-answer 503 in production; without Cloudinary, image upload answers 503; without `GEMINI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden; without `VNP_TMN_CODE` / `VNP_HASH_SECRET` (BE, `VNP_URL` defaults to the VNPay sandbox), VNPay payments answer 503; without `MOMO_PARTNER_CODE` / `MOMO_ACCESS_KEY` / `MOMO_SECRET_KEY` (BE, or `MOMO_MOCK=true` in development to pay without MoMo, `MOMO_URL` defaults to the MoMo sandbox, `MOMO_IPN_URL` must be a public address such as ngrok), MoMo payments answer 503.
+answer 503 in production; without Cloudinary, image upload answers 503; without `GEMINI_API_KEY`, the AI chat answers 503; without `GOOGLE_CLIENT_ID` (BE) / `VITE_GOOGLE_CLIENT_ID` (FE), "Login with Google" answers 503 and its button is hidden; without `VNP_TMN_CODE` / `VNP_HASH_SECRET` (BE, `VNP_URL` defaults to the VNPay sandbox), VNPay payments answer 503; without `PAYOS_CLIENT_ID` / `PAYOS_API_KEY` / `PAYOS_CHECKSUM_KEY` (BE, `PAYOS_URL` defaults to payOS's API), payOS payments answer 503; without `MOMO_PARTNER_CODE` / `MOMO_ACCESS_KEY` / `MOMO_SECRET_KEY` (BE, or `MOMO_MOCK=true` in development to pay without MoMo, `MOMO_URL` defaults to the MoMo sandbox, `MOMO_IPN_URL` must be a public address such as ngrok), MoMo payments answer 503.
 Everything else keeps working. `npm run seed` refuses `NODE_ENV=production`. Behind a proxy set `TRUST_PROXY=1`.
 Tests never read `BE/.env`: their variables are in `BE/vitest.config.mts`.
 
@@ -240,7 +240,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   link) and a `?passage=` link of the Passages page (a Vietnamese passage) switch back to Vietnamese and save it. `TypingArea`, the replay and the result page check and name errors with the session's `language`; the session cards of
   the profile say VI or EN. The minigames keep their own language (`useMinigameLang`), and the word bank (`word.model.ts`) is
   Vietnamese only.
-- Payments (VNPay and MoMo side by side, `/api/payments`, `services/payment.service.ts`): what can be bought and its price live in `config/payment.ts`
+- Payments (VNPay, MoMo and payOS side by side, `/api/payments`, `services/payment.service.ts`): what can be bought and its price live in `config/payment.ts`
   (`PAYMENT_PRODUCTS`: Premium terms of 1, 6 and 12 months and three coin packs, each with its `grant`); a coin pack has its own `amount`,
   a Premium term costs the price of one month an admin sets in the Plans page (`AppSettings.plans.premium.priceVnd`) times its months, less its
   `discount` (`productAmount`; at 0 Premium is not sold: hidden from the list, 400 to buy); the client
@@ -263,6 +263,23 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `grantPurchase` as VNPay run, so nothing is given twice. Never put a MoMo key in the frontend.
   `MOMO_MOCK=true` (development only: the env schema refuses it in production) skips MoMo: `POST /momo` waits `MOMO_MOCK_DELAY_MS`
   and returns the return page with a paid answer it signs itself, so the return, `applyMomoResult` and `grantPurchase` run as for a real payment.
+  payOS (`POST /payos`, same limit and catalog, `Payment.provider: 'payos'`) asks payOS's `/v2/payment-requests` with `x-client-id` / `x-api-key`
+  and a signed body (HMAC-SHA256 of five fields, `utils/payos.ts`; env `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`, `PAYOS_URL`)
+  and returns `checkoutUrl` as `paymentUrl` (a refused try is closed as `failed`, answer 502). payOS wants a whole number as the order code, so
+  the payment keeps `payosOrderCode` (`newPayosOrderCode`, unique) next to its `_id`, and the description stays within 25 characters. payOS sends the
+  learner back (or cancels) to `${CLIENT_URL}/payments/payos/return` with an unsigned query: `GET /payos/return` never trusts it, `applyPayosReturn`
+  asks payOS for the order (`GET /v2/payment-requests/:orderCode`) and only `PAID` with the right amount pays (CANCELLED, EXPIRED, FAILED close it;
+  an unreachable payOS leaves it pending). `POST /payos/webhook` (server to server, must be registered in payOS on a public address) goes through
+  `applyPayosWebhook`: the `signature` of `data` is the proof, `data.code` `00` pays, and an unknown order answers 200 (payOS tests the address
+  with a made-up one). Then the same `confirmPayment` and `grantPurchase` run, so nothing is given twice. Never put a payOS key in the frontend.
+  Admins see every payment at `/admin/payments` (`AdminPaymentsPage`, `GET /api/admin/payments`: search by buyer, filter by status and gateway;
+  `services/admin-payment.service.ts`, never an id or a gateway field of the payment): an open payOS payment (pending, or paid but not given) has a
+  "Check again with payOS" button, `POST /api/admin/payments/:id/recheck`, which runs `applyPayosReturn` again, for a learner who paid, closed the page and never got the webhook.
+  The learner's own history is `GET /api/payments/mine` (`listMyPayments`, newest first, paged; no gateway codes; a pending try older than
+  `PAYMENT_EXPIRES_MS` reads `expired`, nothing stored) shown at `/store/history` (`PaymentHistoryPage`, opened by a "Payment history" button under the Store page and left by a "Store" button under it, as on the Progress page).
+  Premium that ends in `RENEWAL_BANNER_DAYS` (3, `lib/store.ts`) days or fewer shows `PremiumRenewalBanner` (a widget of the payments module, a bar at the
+  bottom of every app page except `/store`) from `premium.until` of `GET /api/auth/me`, worked out when the app opens (no job); "Extend Premium" opens the
+  Store, where a paid month is added after the days left (`recordPaidMonth`); "Not now" is remembered per end date in `localStorage`.
 - App-wide settings that admins change live in the one `AppSetting` document (`models/app-setting.model.ts`, SCRUM-210):
   read them with `getAppSettings()` (the model's defaults until an admin saves) and save them with `updateAppSettings(changes)`
   (`services/app-setting.service.ts`). A new setting is a new field there, with its default, not a new collection.
@@ -319,9 +336,9 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   tile showing its layer zoomed on its slot (`THUMB_FOCUS`) that switches it off) beside the perks (the passage limit and Train from
   `usePlan`, as an admin set them) and the terms; Coins are the other tab (two title-style tabs (the look of the Progress page's section titles, no border) on the top row, next to the coins and the days Premium has left ("69 days", in the coins color; a tooltip says it in months and days), with no page title or description; kept in the URL as `?section=coins`, which the wardrobe links to; Premium is the default), with Ping pointing at the wardrobe. Plans are `PlanOption` tiles and coin packs are `CoinPackCard`s (a pile of coins on a pixel floor, the size, and the price as a band that fills when chosen); both are (`layout="tile"` for plans, a real
   radio input each), prices and sizes from `GET /api/payments/products` (never a number in the frontend), one VNPay and one MoMo button per
-  section (`PayButtons`; `GATEWAYS` lists VNPay and MoMo; `useStartPayment` sends the browser to `paymentUrl`). `/payments/vnpay/return` and `/payments/momo/return` (`MomoReturnPage`) are `publicRoutes` pages: each forwards
+  section (`PayButtons`; `GATEWAYS` lists payOS, VNPay and MoMo (payOS first, all outline buttons, with their own logos from `FE/public/payments`, which keep their colors; the button text has no icon); `useStartPayment` sends the browser to `paymentUrl`). `/payments/vnpay/return` and `/payments/momo/return` (`MomoReturnPage`) are `publicRoutes` pages: each forwards
   its query to `GET /api/payments/<gateway>/return` (`useVnpayReturn(search, provider)`) and shows paid (confetti `Lottie` once, `CountUp` for coins),
-  failed (`failureMessage` from `vnp_ResponseCode`, `momoFailureMessage` from `resultCode`) or unverified. `PremiumBadge` marks Premium next to the name in the header. The wardrobe
+  failed (`failureMessage` from `vnp_ResponseCode`, `momoFailureMessage` from `resultCode`, `payosFailureMessage` from `cancel`; `PayosReturnPage` at `/payments/payos/return`) or unverified. `PremiumBadge` marks Premium next to the name in the header. The wardrobe
   previews a Premium item without Premium and links to the Store ("Get Premium to wear ...", "Get coins"); "Get Premium" in the
   `PlanDialog` opens the Store, and a paid return refreshes the plan (`planKeys`).
 - The wardrobe (`modules/avatar`, `/wardrobe`, from the account menu) has two versions, chosen by the browser setting `useWardrobeVersion` (`classic` until chosen; Settings > Wardrobe tab, `WardrobeVersionSetting`, or the `WardrobeSwitch` icon beside the page title, which uses `PanelTitleSwitch` and is hidden on phones): `WardrobeRoute` shows `WardrobePage` (the classic one: avatar panel beside the items, slot tabs in a side bar) or `WardrobeV2Page` (the Modern version, from `md` up; a phone gets the classic page): the avatar in the middle, the slots in three groups (clothes on the left, skin, face, hair and effect under it, headwear, accessory and back on the right), the tabs showing what the avatar wears, and a drawer on the right for the open slot (the page moves over) with the styles and colors; Reset, Pose (`TabGroup`) and Save are on the title row, the Buy / Get Premium button at the bottom.

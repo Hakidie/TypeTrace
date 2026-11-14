@@ -13,7 +13,7 @@ import { Button } from '@/shared/components/ui/button';
 import { redGlassTheme } from '@/shared/lib/red-glass-theme';
 import { CountUp } from '../components/CountUp';
 import { useVnpayReturn } from '../hooks/use-payments';
-import { failureMessage, formatCoins, momoFailureMessage } from '../lib/store';
+import { failureMessage, formatCoins, momoFailureMessage, payosFailureMessage } from '../lib/store';
 import type { PaymentProvider, VnpayReturn } from '../types/payments.types';
 
 const SLOT_ORDER: AvatarSlot[] = ['headwear', 'accessory', 'back', 'effect'];
@@ -109,14 +109,19 @@ const Trouble = ({ title, text }: { title: string; text: string }) => (
 /**
  * Where VNPay sends the browser back (`/payments/vnpay/return`, public: the checksum is the proof, a learner whose login
  * ended can still see the result). It asks the server to confirm what VNPay sent, then shows the outcome.
- * `MomoReturnPage` is the same page for MoMo (`/payments/momo/return`).
+ * `MomoReturnPage` and `PayosReturnPage` are the same page for MoMo and payOS (payOS's query is not signed: the server asks payOS).
  */
 export const PaymentReturnPage = ({ provider = 'vnpay' }: { provider?: PaymentProvider }) => {
   const { search } = useLocation();
   const result = useVnpayReturn(search, provider);
   const signedIn = Boolean(tokenStore.get());
-  const gateway = provider === 'momo' ? 'MoMo' : 'VNPay';
-  const failure = provider === 'momo' ? momoFailureMessage(new URLSearchParams(search).get('resultCode')) : failureMessage(new URLSearchParams(search).get('vnp_ResponseCode'));
+  const query = new URLSearchParams(search);
+  const gateway = { vnpay: 'VNPay', momo: 'MoMo', payos: 'payOS' }[provider];
+  const failure = {
+    vnpay: () => failureMessage(query.get('vnp_ResponseCode')),
+    momo: () => momoFailureMessage(query.get('resultCode')),
+    payos: () => payosFailureMessage(query.get('cancel')),
+  }[provider]();
 
   return (
     <div className={`flex min-h-screen flex-col overflow-x-clip ${redGlassTheme}`}>
@@ -150,3 +155,4 @@ export const PaymentReturnPage = ({ provider = 'vnpay' }: { provider?: PaymentPr
 };
 
 export const MomoReturnPage = () => <PaymentReturnPage provider="momo" />;
+export const PayosReturnPage = () => <PaymentReturnPage provider="payos" />;

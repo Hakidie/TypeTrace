@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { renderWithProviders } from '@/test/render-with-providers';
-import { MomoReturnPage, PaymentReturnPage } from './PaymentReturnPage';
+import { MomoReturnPage, PaymentReturnPage, PayosReturnPage } from './PaymentReturnPage';
 
 const confirmReturn = vi.fn();
 const getMe = vi.fn();
@@ -78,6 +78,14 @@ describe('PaymentReturnPage', () => {
 
     expect(await screen.findByText('You cancelled the payment on MoMo.')).toBeInTheDocument();
     expect(confirmReturn).toHaveBeenCalledWith('?orderId=p1&resultCode=1006&signature=abc', 'momo');
+  });
+
+  it('confirms a payOS return with the payOS route and says when the learner cancelled', async () => {
+    confirmReturn.mockResolvedValue({ status: 'failed', amount: 49_000, orderInfo: 'x', product: 'premium-1m', grant: { kind: 'premium', months: 1 } });
+    renderWithProviders(<PayosReturnPage />, { route: '/payments/payos/return?orderCode=17&cancel=true&status=CANCELLED' });
+
+    expect(await screen.findByText('You cancelled the payment on payOS.')).toBeInTheDocument();
+    expect(confirmReturn).toHaveBeenCalledWith('?orderCode=17&cancel=true&status=CANCELLED', 'payos');
   });
 
   it('refuses a return the server could not verify', async () => {

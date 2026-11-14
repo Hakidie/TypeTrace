@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { env } from '../config/env';
-import { createMomoPayment, createVnpayPayment, listProducts, momoIpn, momoReturn, vnpayIpn, vnpayReturn } from '../controllers/payment.controller';
+import { createMomoPayment, createVnpayPayment, createPayosPayment, listMyPayments, listProducts, momoIpn, momoReturn, payosReturn, payosWebhook, vnpayIpn, vnpayReturn } from '../controllers/payment.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
-import { createPaymentSchema, momoResultSchema, vnpayQuerySchema } from '../validators/payment.validator';
+import { createPaymentSchema, momoResultSchema, myPaymentsQuerySchema, payosReturnSchema, payosWebhookSchema, vnpayQuerySchema } from '../validators/payment.validator';
 
 export const paymentRouter = Router();
 
@@ -21,6 +21,8 @@ const startLimiter = rateLimit({
 });
 
 paymentRouter.get('/products', authGuard, listProducts);
+// The learner's own history (US11.2).
+paymentRouter.get('/mine', authGuard, validate({ query: myPaymentsQuerySchema }), listMyPayments);
 paymentRouter.post('/vnpay', authGuard, requireRole('user', 'admin'), startLimiter, validate({ body: createPaymentSchema }), createVnpayPayment);
 // Not signed in: the checksum from VNPay is the proof (`verifyVnpay`).
 paymentRouter.get('/vnpay/return', validate({ query: vnpayQuerySchema }), vnpayReturn);
@@ -30,3 +32,8 @@ paymentRouter.get('/vnpay/ipn', validate({ query: vnpayQuerySchema }), vnpayIpn)
 paymentRouter.post('/momo', authGuard, requireRole('user', 'admin'), startLimiter, validate({ body: createPaymentSchema }), createMomoPayment);
 paymentRouter.get('/momo/return', validate({ query: momoResultSchema }), momoReturn);
 paymentRouter.post('/momo/ipn', validate({ body: momoResultSchema }), momoIpn);
+
+// payOS: the same catalog, limit and rules. The webhook's signature is the proof (`verifyPayos`); the return asks payOS itself.
+paymentRouter.post('/payos', authGuard, requireRole('user', 'admin'), startLimiter, validate({ body: createPaymentSchema }), createPayosPayment);
+paymentRouter.get('/payos/return', validate({ query: payosReturnSchema }), payosReturn);
+paymentRouter.post('/payos/webhook', validate({ body: payosWebhookSchema }), payosWebhook);

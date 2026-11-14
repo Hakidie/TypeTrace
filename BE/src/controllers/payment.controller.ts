@@ -4,7 +4,8 @@ import * as paymentService from '../services/payment.service';
 import { PaymentOutcome } from '../services/payment.service';
 import { badRequest, notFound } from '../utils/app-error';
 import { MomoParams } from '../utils/momo';
-import { CreatePaymentInput } from '../validators/payment.validator';
+import { CreatePaymentInput, MyPaymentsQuery } from '../validators/payment.validator';
+import { PayosFields } from '../utils/payos';
 import { VnpParams } from '../utils/vnpay';
 
 /** VNPay wants an IPv4-looking address: `::1` and `::ffff:1.2.3.4` become plain IPv4. */
@@ -47,6 +48,27 @@ export const momoReturn = async (req: Request, res: Response) => {
 export const momoIpn = async (req: Request, res: Response) => {
   returnBody(await paymentService.applyMomoResult(req.body as MomoParams));
   res.status(204).end();
+};
+
+export const createPayosPayment = async (req: Request, res: Response) => {
+  const { product } = req.body as CreatePaymentInput;
+  res.status(201).json(await paymentService.createPayosPayment(req.user!.sub, product));
+};
+
+/** The learner's browser comes back (or cancels) on payOS: the server asks payOS what happened to the order. */
+export const payosReturn = async (req: Request, res: Response) => {
+  res.json(returnBody(await paymentService.applyPayosReturn(Number(req.query.orderCode))));
+};
+
+/** payOS's server calls this; any other answer than 200 makes it try again. An order we do not know is answered 200 too. */
+export const payosWebhook = async (req: Request, res: Response) => {
+  const outcome = await paymentService.applyPayosWebhook(req.body as { success?: boolean; data?: PayosFields; signature?: string });
+  if (outcome.result !== 'not-found') returnBody(outcome);
+  res.json({ success: true });
+};
+
+export const listMyPayments = async (req: Request, res: Response) => {
+  res.json(await paymentService.listMyPayments(req.user!.sub, req.query as unknown as MyPaymentsQuery));
 };
 
 export const listProducts = async (_req: Request, res: Response) => {

@@ -1,9 +1,17 @@
 import { http } from '@/shared/api/http';
-import type { PaymentProduct, PaymentProvider, StartedPayment, VnpayReturn } from '../types/payments.types';
+import type { AdminPaymentListParams, AdminPaymentPage, AdminPaymentRow, MyPaymentPage, PaymentProduct, PaymentProvider, StartedPayment, VnpayReturn } from '../types/payments.types';
 
 /** Every function resolves with the response body (not the Axios response). */
+export const adminPaymentsApi = {
+  list: (params: AdminPaymentListParams) => http.get<AdminPaymentPage>('/admin/payments', { params }).then((r) => r.data),
+  /** Asks payOS again about an open payment, then gives what was bought. */
+  recheck: (id: string) => http.post<AdminPaymentRow>(`/admin/payments/${id}/recheck`).then((r) => r.data),
+};
+
 export const paymentsApi = {
   products: () => http.get<PaymentProduct[]>('/payments/products').then((r) => r.data),
+  /** One page of the signed-in learner's own payments, newest first. */
+  mine: (page: number, limit: number) => http.get<MyPaymentPage>('/payments/mine', { params: { page, limit } }).then((r) => r.data),
   start: (product: string, provider: PaymentProvider = 'vnpay') =>
     http.post<StartedPayment>(`/payments/${provider}`, { product }).then((r) => r.data),
   /** `search` is the query string the gateway appended to the return URL; the server checks its checksum. */

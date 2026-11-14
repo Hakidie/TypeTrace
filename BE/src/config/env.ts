@@ -49,7 +49,13 @@ const envSchema = z
     MOMO_IPN_URL: optionalString,
     // Development only: `true` makes the MoMo button pay at once, without calling MoMo (a mock that always succeeds).
     // Refused in production, where it would hand out Pro and coins for free.
-    MOMO_MOCK: z.string().optional().transform((value) => value === 'true')
+    MOMO_MOCK: z.string().optional().transform((value) => value === 'true'),
+    // Optional. payOS payment gateway (https://my.payos.vn, one payment channel gives the three keys). Without them, payOS payments answer 503.
+    // The webhook (POST /api/payments/payos/webhook) must be registered in payOS on a public address (ngrok in development).
+    PAYOS_CLIENT_ID: optionalString,
+    PAYOS_API_KEY: optionalString,
+    PAYOS_CHECKSUM_KEY: optionalString,
+    PAYOS_URL: z.string().trim().min(1).default('https://api-merchant.payos.vn')
   })
   .superRefine((value, ctx) => {
     const weakSecret = value.JWT_SECRET === PLACEHOLDER_JWT_SECRET || value.JWT_SECRET.length < 32;
@@ -106,7 +112,11 @@ export const parseEnv = (raw: RawEnv) => {
     momoSecretKey: v.MOMO_SECRET_KEY,
     momoUrl: v.MOMO_URL,
     momoIpnUrl: v.MOMO_IPN_URL ?? `http://localhost:${v.PORT}/api/payments/momo/ipn`,
-    momoMock: v.MOMO_MOCK
+    momoMock: v.MOMO_MOCK,
+    payosClientId: v.PAYOS_CLIENT_ID,
+    payosApiKey: v.PAYOS_API_KEY,
+    payosChecksumKey: v.PAYOS_CHECKSUM_KEY,
+    payosUrl: v.PAYOS_URL
   };
 };
 
