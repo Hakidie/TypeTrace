@@ -106,7 +106,7 @@ describe('AppLayout', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
     expect(screen.queryByRole('menuitem', { name: 'Secret' })).not.toBeInTheDocument();
     // Wardrobe, Mode, the entries, then the `last` entries, then Logout.
-    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Wardrobe', 'Mode: Dark', 'AI chat', 'Settings', 'Logout']);
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Wardrobe', 'Dark', 'AI chat', 'Settings', 'Logout']);
     fireEvent.click(await screen.findByRole('menuitem', { name: 'AI chat' }));
     expect(onSelect).toHaveBeenCalledTimes(1);
 
@@ -171,7 +171,7 @@ describe('AppLayout', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
 
-    expect(screen.getByRole('menuitem', { name: /Mode:/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /^(Light|Dark)$/ })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /logout/i })).toBeInTheDocument();
   });
 
@@ -186,11 +186,11 @@ describe('AppLayout', () => {
     renderLayout();
     fireEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
 
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Mode: Light' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Light' }));
 
     await waitFor(() => expect(updateActive).toHaveBeenCalledWith({ mode: 'dark' }));
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
-    expect(await screen.findByRole('menuitem', { name: 'Mode: Dark' })).toBeInTheDocument();
+    expect(await screen.findByRole('menuitem', { name: 'Dark' })).toBeInTheDocument();
     expect(document.documentElement).toHaveClass('dark');
   });
 

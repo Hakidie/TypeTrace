@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avat
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { useThemeMode } from '@/modules/settings/hooks/use-theme-mode';
 
-/** The avatar and the user's name as a button: it opens a menu with Wardrobe, Mode (each press switches between Light and Dark), AI chat, Admin (admins only: the link to the admin area), Settings and Logout (the entries modules add are `menuItems`; `last` ones come after Admin). */
+/** The avatar and the user's name as a button: it opens a menu with Wardrobe, Light or Dark, the current mode (each press switches it), AI chat, Admin (admins only: the link to the admin area), Settings and Logout (the entries modules add are `menuItems`; `last` ones come after Admin). */
 export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuItems?: MenuItem[] }) => {
   const handleLogout = useLogout();
   const navigate = useNavigate();
@@ -75,7 +75,7 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')} className="gap-2">
           <ModeIcon className="size-4" />
-          Mode: {mode === 'dark' ? 'Dark' : 'Light'}
+          {mode === 'dark' ? 'Dark' : 'Light'}
         </DropdownMenuItem>
         {renderItems(false)}
         {user?.role === 'admin' && (
