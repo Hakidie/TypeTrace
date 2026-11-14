@@ -223,7 +223,7 @@ describe('TypingPage', () => {
 
     it('keeps the passage picked in the menu when the time changes', async () => {
       const user = await openPlacement();
-      await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+      await user.click(screen.getByRole('radio', { name: 'Manual' }));
       await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
       await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
 
@@ -305,12 +305,13 @@ describe('TypingPage', () => {
     await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
   });
 
-  it('has Practice, Placement, Weak spots, Rank and Minigames tabs and shows the name of the passage', async () => {
+  it('has Practice, Placement, Rank and Minigames mode tabs, Manual, Random and Train passage tabs, and shows the name of the passage', async () => {
     start.mockResolvedValue({ ...session, passageTitle: 'Mùa thu Hà Nội' });
     renderPage();
     await screen.findByRole('textbox', { name: 'Typing area' });
 
-    expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Rank', 'Train', 'Minigames']);
+    expect(within(screen.getByRole('radiogroup', { name: 'Mode' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Practice', 'Placement', 'Rank', 'Minigames']);
+    expect(within(screen.getByRole('radiogroup', { name: 'Passage' })).getAllByRole('radio').map((tab) => tab.textContent)).toEqual(['Manual', 'Random', 'Train']);
     expect(screen.getByRole('radio', { name: 'Practice' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('radio', { name: 'Rank' })).toBeEnabled();
     expect(screen.getByText('Mùa thu Hà Nội')).toBeInTheDocument();
@@ -509,7 +510,7 @@ describe('TypingPage', () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByRole('textbox', { name: 'Typing area' });
-    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await user.click(screen.getByRole('radio', { name: 'Manual' }));
     await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p1' }));
     await screen.findByRole('textbox', { name: 'Typing area' });
@@ -528,23 +529,23 @@ describe('TypingPage', () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByRole('textbox', { name: 'Typing area' });
-    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await user.click(screen.getByRole('radio', { name: 'Manual' }));
     await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).not.toHaveClass('text-primary'));
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Random' })).not.toBeChecked());
     await screen.findByRole('textbox', { name: 'Typing area' });
 
     await user.click(screen.getByRole('radio', { name: 'Placement' }));
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start' }));
 
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 60 }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Random' })).toBeChecked());
     expect(passages).toHaveBeenCalledWith('practice', 'vi', { sort: '-createdAt', origin: 'system' });
 
     // Still Random back in practice: the pick is gone, so Restart types a random passage too.
     await user.click(screen.getByRole('radio', { name: 'Practice' }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice' }));
     await screen.findByRole('textbox', { name: 'Typing area' });
-    expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary');
+    expect(screen.getByRole('radio', { name: 'Random' })).toBeChecked();
     await user.click(screen.getByRole('button', { name: /restart/i }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: undefined }));
   });
@@ -658,26 +659,28 @@ describe('TypingPage', () => {
     const user = userEvent.setup();
     start.mockResolvedValueOnce({ ...session, passageTitle: 'Bữa cơm gia đình' });
     renderPage();
-    expect(await screen.findByRole('button', { name: 'Choose passage' })).toHaveTextContent('Bữa cơm gia đình');
-    expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary');
+    // Random: the name is only shown, at the top center of the text, and is not a button.
+    expect(await screen.findByText('Bữa cơm gia đình')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Choose passage' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Random' })).toBeChecked();
 
     start.mockResolvedValueOnce({ ...session, passageTitle: 'Hà Nội vào thu' });
-    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await user.click(screen.getByRole('radio', { name: 'Manual' }));
     await user.click(await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
 
     expect(passages).toHaveBeenCalledWith('practice', 'vi', { sort: '-createdAt', origin: 'system' });
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p1' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveTextContent('Hà Nội vào thu'));
     expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveClass('text-primary');
-    expect(screen.getByRole('button', { name: 'Random' })).not.toHaveClass('text-primary');
+    expect(screen.getByRole('radio', { name: 'Random' })).not.toBeChecked();
 
     // Restart keeps the picked passage.
     await user.click(screen.getByRole('button', { name: /restart/i }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p1' }));
 
-    await user.click(screen.getByRole('button', { name: 'Random' }));
+    await user.click(screen.getByRole('radio', { name: 'Random' }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: undefined }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Random' })).toHaveClass('text-primary'));
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Random' })).toBeChecked());
   });
 
   it('shows the passages locked by the plan or by the limit and does not start them', async () => {
@@ -689,7 +692,7 @@ describe('TypingPage', () => {
     ]);
     start.mockResolvedValue({ ...session, passageTitle: 'Bữa cơm gia đình' });
     renderPage();
-    await user.click(await screen.findByRole('button', { name: 'Choose passage' }));
+    await user.click(await screen.findByRole('radio', { name: 'Manual' }));
     const startedBefore = start.mock.calls.length;
 
     // A passage of another learner on the Free plan: the plan opens instead of the session.
@@ -700,7 +703,7 @@ describe('TypingPage', () => {
     await user.click(screen.getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     // A passage past the owner's limit: nothing happens.
-    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await user.click(screen.getByRole('radio', { name: 'Manual' }));
     const locked = await screen.findByRole('menuitemradio', { name: /Quá hạn mức.*Locked/ });
     expect(locked).toHaveAttribute('aria-disabled', 'true');
     await user.click(locked);
@@ -723,14 +726,14 @@ describe('TypingPage', () => {
     expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
     expect(start).toHaveBeenCalledTimes(1);
     expect(start).toHaveBeenCalledWith({ mode: 'practice', passageId: 'p2' });
-    expect(screen.getByRole('button', { name: 'Random' })).not.toHaveClass('text-primary');
+    expect(screen.getByRole('radio', { name: 'Random' })).not.toBeChecked();
     // Read once, then left out of the URL: a reload after Random or another pick must not bring it back.
     await waitFor(() => expect(screen.getByLabelText('URL search')).toBeEmptyDOMElement());
 
     // Restart keeps the passage, Random leaves it.
     await user.click(screen.getByRole('button', { name: /restart/i }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: 'p2' }));
-    await user.click(screen.getByRole('button', { name: 'Random' }));
+    await user.click(screen.getByRole('radio', { name: 'Random' }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice', passageId: undefined }));
   });
 
@@ -738,7 +741,7 @@ describe('TypingPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: 'Choose passage' }));
+    await user.click(await screen.findByRole('radio', { name: 'Manual' }));
     const first = await screen.findByRole('menuitemradio', { name: /Hà Nội vào thu/ });
     expect(first).toHaveTextContent('System');
     // One row: the search box, the Filter and Sort buttons that go round their options, and the Search button.
@@ -755,22 +758,21 @@ describe('TypingPage', () => {
     start.mockResolvedValue({ ...session, passageTitle: 'Một đoạn văn có cái tên rất dài không bị cắt ở giữa chừng' });
     renderPage();
 
+    // The Manual tab turns the name into the button of the menu.
+    await user.click(await screen.findByRole('radio', { name: 'Manual' }));
     const trigger = await screen.findByRole('button', { name: 'Choose passage' });
     expect(trigger.className).not.toMatch(/max-w-48/);
     // One line, never wrapped; the frame is as wide as the name, and only a name wider than the room is cut (ellipsis).
     expect(trigger.querySelector('span')).toHaveClass('whitespace-nowrap', 'truncate');
     expect(trigger.querySelector('span')?.className).not.toMatch(/break-words/);
     await user.click(trigger);
-    // As wide as the trigger on a phone (names wrap), as wide as the longest name from `sm` up.
+    // As wide as the screen on a phone (names wrap), as wide as the longest name from `sm` up, centered under the name.
     const menu = await screen.findByRole('menu', { name: 'Passages' });
-    expect(menu).toHaveClass('w-full');
+    expect(menu).toHaveClass('w-[calc(100vw-2rem)]');
     expect(menu).toHaveClass('sm:w-max');
-    // Centered under the Mode tabs (the middle of the row), not under the name: it is placed against the row, not the name's frame.
     expect(menu).toHaveClass('left-1/2');
     expect(menu).toHaveClass('-translate-x-1/2');
-    expect(menu).not.toHaveClass('sm:min-w-full');
-    expect(menu.parentElement).toHaveClass('static');
-    expect(menu.closest('[data-tutorial="mode-tabs"]')).toHaveClass('relative');
+    expect(menu.parentElement).toHaveClass('relative');
   });
 
   it('shows the full passage name in a tooltip, not in the native title', async () => {
@@ -779,6 +781,7 @@ describe('TypingPage', () => {
     start.mockResolvedValue({ ...session, passageTitle: name });
     renderPage();
 
+    await user.click(await screen.findByRole('radio', { name: 'Manual' }));
     const trigger = await screen.findByRole('button', { name: 'Choose passage' });
     expect(trigger).not.toHaveAttribute('title');
     await user.hover(trigger);
@@ -790,7 +793,7 @@ describe('TypingPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<TypingPage />, { route: '/typing?mode=placement' });
 
-    await user.click(await screen.findByRole('button', { name: 'Choose passage' }));
+    await user.click(await screen.findByRole('radio', { name: 'Manual' }));
 
     expect(await screen.findByRole('button', { name: /^Sort:/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Filter:/ })).not.toBeInTheDocument();
@@ -801,7 +804,7 @@ describe('TypingPage', () => {
     passages.mockRejectedValue(new Error('boom'));
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: 'Choose passage' }));
+    await user.click(await screen.findByRole('radio', { name: 'Manual' }));
 
     expect(await screen.findByText('Could not load passages')).toBeInTheDocument();
   });
@@ -844,8 +847,13 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     expect(auto).toHaveTextContent('Hỏi / ngã confusion25.5%');
     expect(auto).toHaveTextContent('Missing stroke on đ20%');
     // The five error types, the cards of the error profile; the auto card comes first (on top on phones).
+    // They stay hidden under the auto lesson until "Practice on one error" is pressed.
+    expect(screen.queryByRole('region', { name: 'Error types' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
     const types = screen.getByRole('region', { name: 'Error types' });
-    expect(within(types).getAllByRole('button', { name: /^Practice / })).toHaveLength(5);
+    expect(within(types).getAllByRole('button', { name: /^Practice [^t]/ })).toHaveLength(5);
+    // Each card also has a "Practice this error" button, floating over it while it is hovered.
+    expect(within(types).getAllByRole('button', { name: /^Practice this error: / })).toHaveLength(5);
     expect(within(types).getAllByText('Weak')).toHaveLength(2);
     expect(auto.compareDocumentPosition(types) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted');
@@ -882,6 +890,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     const user = userEvent.setup();
     renderAt('/typing?mode=targeted');
 
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
     await user.click(await screen.findByRole('button', { name: 'Practice Wrong vowel mark (â ê ô ă ơ ư)' }));
 
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'MARK_WRONG' }));
@@ -892,6 +901,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'MARK_WRONG' });
 
     await user.click(screen.getByRole('button', { name: 'All weak spots' }));
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
     const tone = await screen.findByRole('button', { name: 'Practice Wrong tone' });
     expect(within(tone.closest('li')!).getByText(/Needs 15 more/)).toBeInTheDocument();
     await user.click(tone);
@@ -918,6 +928,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     renderAt('/typing?mode=targeted');
 
     // The cards show once the error profile is in, so the lesson has it from its first render.
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
     await user.click(await screen.findByRole('button', { name: 'Practice Wrong vowel mark (â ê ô ă ơ ư)' }));
 
     await screen.findByRole('textbox', { name: 'Typing area' });
@@ -989,6 +1000,41 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     expect(start).toHaveBeenCalledTimes(1);
   });
 
+  it('goes back to Practice with the Random tab from Train, and opens the passage menu with Manual', async () => {
+    const user = userEvent.setup();
+    renderAt('/typing?mode=targeted');
+    expect(await screen.findByRole('radio', { name: 'Train' })).toBeChecked();
+    // Train belongs to the typing modes: Practice stays lit in the Mode tabs.
+    expect(screen.getByRole('radio', { name: 'Practice' })).toBeChecked();
+
+    await user.click(screen.getByRole('radio', { name: 'Random' }));
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice' }));
+    expect(screen.getByRole('radio', { name: 'Random' })).toBeChecked();
+
+    await user.click(screen.getByRole('radio', { name: 'Train' }));
+    await user.click(screen.getByRole('radio', { name: 'Manual' }));
+    expect(await screen.findByRole('menu', { name: 'Passages' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Manual' })).toBeChecked();
+  });
+
+  it('shows the time tabs on the Train cards too, the minute selected', async () => {
+    renderAt('/typing?mode=targeted');
+
+    expect(await screen.findByRole('radio', { name: '01' })).toBeChecked();
+    expect(screen.getByRole('radiogroup', { name: 'Time' })).toBeInTheDocument();
+  });
+
+  it('explains each option of the Passage and Mode tabs in a tooltip', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.hover(screen.getByRole('radio', { name: 'Train' }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('error types you get wrong most');
+    await user.hover(screen.getByRole('radio', { name: 'Rank' }));
+    await waitFor(() => expect(screen.getByRole('tooltip')).toHaveTextContent('Rated duels'));
+  });
+
   it('says the lesson is being written while the AI writes it', async () => {
     start.mockImplementation(() => new Promise(() => {}));
     renderAt('/typing?mode=targeted&focus=auto');
@@ -1002,8 +1048,9 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     renderAt('/typing?mode=targeted');
 
     expect(await screen.findByRole('button', { name: 'Practice your weak spots (Premium)' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /\(Premium\)$/ })).toHaveLength(6);
-    await user.click(screen.getByRole('button', { name: 'Practice Hỏi / ngã confusion (Premium)' }));
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
+    expect(screen.getAllByRole('button', { name: /\(Premium\)$/ })).toHaveLength(11);
+    await user.click(screen.getByRole('button', { name: 'Practice this error: Hỏi / ngã confusion (Premium)' }));
 
     expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
@@ -1065,8 +1112,32 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
 
     // The menu lists the English passages.
-    await user.click(screen.getByRole('button', { name: 'Choose passage' }));
+    await user.click(screen.getByRole('radio', { name: 'Manual' }));
     await waitFor(() => expect(passages).toHaveBeenCalledWith('practice', 'en', { sort: '-createdAt', origin: 'system' }));
+  });
+
+  it('puts the language button in the bottom row, between the word count and the timer, and the passage name above the text', async () => {
+    start.mockResolvedValue({ ...session, passageTitle: 'Mùa thu Hà Nội' });
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    const stats = document.querySelector('[data-tutorial="typing-stats"]') as HTMLElement;
+    expect(within(stats).getByRole('button', { name: /^Typing language:/ })).toBeInTheDocument();
+    // The name is no longer in the top row with the tabs: it is above the passage.
+    const tabsRow = document.querySelector('[data-tutorial="mode-tabs"]') as HTMLElement;
+    expect(within(tabsRow).queryByText('Mùa thu Hà Nội')).not.toBeInTheDocument();
+    expect(screen.getByText('Mùa thu Hà Nội')).toBeInTheDocument();
+  });
+
+  it('opens the passage menu from the Manual tab and keeps Manual on after a pick', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(screen.getByRole('radio', { name: 'Random' })).toBeChecked();
+
+    await user.click(screen.getByRole('radio', { name: 'Manual' }));
+    expect(await screen.findByRole('menu', { name: 'Passages' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Manual' })).toBeChecked();
   });
 
   it('opens an English learner on English, without the Placement tab, and switches back to Vietnamese', async () => {

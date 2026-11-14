@@ -14,8 +14,24 @@ const DropdownMenuContext = React.createContext<DropdownMenuContextValue>({
 });
 
 /** `className` is added to the wrapper: `static` lets the content be placed against a parent of its own instead (the passage menu of the Typing page, centered under the mode tabs). */
-function DropdownMenu({ children, className }: { children: React.ReactNode; className?: string }) {
-  const [open, setOpen] = React.useState(false);
+function DropdownMenu({
+  children,
+  className,
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  /** Optional: the parent keeps the open state (the Typing page opens the passage menu from its Manual tab). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [innerOpen, setInnerOpen] = React.useState(false);
+  const open = controlledOpen ?? innerOpen;
+  const setOpen = (next: boolean) => {
+    setInnerOpen(next);
+    onOpenChange?.(next);
+  };
 
   return (
     <DropdownMenuContext.Provider value={{ open, setOpen }}>

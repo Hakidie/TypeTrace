@@ -1,7 +1,11 @@
-import { ArrowRight, Lock } from 'lucide-react';
+import { ArrowRight, ChevronDown, Lock } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { ErrorTypeCard } from '@/modules/profile/components/ErrorTypeCard';
 import { useErrorProfile } from '@/modules/profile/hooks/use-profile';
 import { ErrorState } from '@/shared/components/error-state';
+import { Button } from '@/shared/components/ui/button';
+import { cn } from '@/shared/lib/utils';
+import { practiceButtonClass } from '@/shared/lib/panel-styles';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { LoadingState } from '@/shared/components/loading-state';
 import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
@@ -36,6 +40,12 @@ interface WeakSpotsModeProps {
  */
 export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
   const errorProfile = useErrorProfile('vi');
+  // The five error types stay under the auto lesson until "Practice on one error" is pressed: the lesson fills the screen on its own.
+  const [showTypes, setShowTypes] = useState(false);
+  const typesRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (showTypes) typesRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [showTypes]);
   if (errorProfile.isPending) return <LoadingState rows={3} />;
   if (errorProfile.isError) return <ErrorState error={errorProfile.error} onRetry={() => void errorProfile.refetch()} />;
 
@@ -46,59 +56,89 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-12 py-4">
-      <button
-        type="button"
-        onClick={() => onPick('auto')}
-        aria-label={`Practice your weak spots${locked ? ' (Premium)' : ''}`}
-        className="group flex flex-1 flex-col justify-center gap-12 text-left transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
-      >
-        <span className="relative flex items-center justify-center">
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-2xl text-primary/80">{title}</span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="start">
-                A passage written for the error types you miss most.
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          {locked && (
-            <span className="absolute right-0 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Lock className="size-4" aria-hidden /> Premium
-            </span>
-          )}
-        </span>
-        <span className="flex items-center">
-          {focus.length ? (
-            <TypingPreview text={focus.map((item) => EXAMPLES[item.type]).filter(Boolean).join(' ')} />
-          ) : (
-            <span className="flex-1 text-center text-base text-muted-foreground">
-              Your error profile does not have enough data yet, so this starts a random passage. Pick an error type to practice it now.
-            </span>
-          )}
-        </span>
-        {focus.length > 0 && (
-          <span className="flex flex-wrap justify-evenly gap-x-12 gap-y-6">
-            {focus.map((item) => (
-              <span key={item.type} className="flex items-start gap-4">
-                <span className="max-w-40 pt-0.5 text-base leading-tight text-muted-foreground">{errorLabels[item.type]}</span>
-                <span className="text-5xl font-extrabold tabular-nums leading-none text-primary">{item.rate}%</span>
+      {/* The first panel: the auto lesson and the button that shows the error types. It stretches to fit the screen (the room the page leaves). */}
+      <div className={cn('flex flex-1 flex-col gap-6', showTypes && 'min-h-[calc(100svh-14rem)]')}>
+        <button
+          type="button"
+          onClick={() => onPick('auto')}
+          aria-label={`Practice your weak spots${locked ? ' (Premium)' : ''}`}
+          className="group flex flex-1 flex-col justify-center gap-12 text-left transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
+        >
+          <span className="relative flex items-center justify-center">
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-2xl text-muted-foreground">{title}</span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="start">
+                  A passage written for the error types you miss most.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {locked && (
+              <span className="absolute right-0 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Lock className="size-4" aria-hidden /> Premium
               </span>
-            ))}
+            )}
           </span>
-        )}
-        <span className="flex h-9 w-fit items-center gap-2 self-end bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform duration-200 group-hover:-translate-y-0.5">
-          Start <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
-        </span>
-      </button>
-      <section aria-label="Error types">
-        <ul className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-          {profile.types.map((item) => (
-            <ErrorTypeCard key={item.type} item={item} profile={profile} locked={locked} onSelect={() => onPick(item.type as WordErrorType)} />
-          ))}
-        </ul>
-      </section>
+          <span className="flex items-center">
+            {focus.length ? (
+              <TypingPreview text={focus.map((item) => EXAMPLES[item.type]).filter(Boolean).join(' ')} />
+            ) : (
+              <span className="flex-1 text-center text-base text-muted-foreground">
+                Your error profile does not have enough data yet, so this starts a random passage. Pick an error type to practice it now.
+              </span>
+            )}
+          </span>
+          {focus.length > 0 && (
+            <span className="flex flex-wrap justify-evenly gap-x-12 gap-y-6">
+              {focus.map((item) => (
+                <span key={item.type} className="flex items-start gap-4">
+                  <span className="max-w-40 pt-0.5 text-base leading-tight text-muted-foreground">{errorLabels[item.type]}</span>
+                  <span className="text-5xl font-extrabold tabular-nums leading-none text-primary">{item.rate}%</span>
+                </span>
+              ))}
+            </span>
+          )}
+          <span className="flex h-9 w-fit items-center gap-2 self-center bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform duration-200 group-hover:-translate-y-0.5">
+            Start <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
+          </span>
+        </button>
+        <Button
+          variant="ghost"
+          className="group h-auto self-center px-4 py-2 text-[1.125rem] text-muted-foreground"
+          aria-expanded={showTypes}
+          onClick={() => setShowTypes((shown) => !shown)}
+        >
+          Practice on one error <ChevronDown className={cn('ml-2 size-5 transition-transform duration-200', showTypes && 'rotate-180')} aria-hidden />
+        </Button>
+      </div>
+      {showTypes && (
+        <section ref={typesRef} aria-label="Error types" className="scroll-mt-4">
+          <ul className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+            {profile.types.map((item) => (
+              <ErrorTypeCard
+                key={item.type}
+                item={item}
+                profile={profile}
+                locked={locked}
+                onSelect={() => onPick(item.type as WordErrorType)}
+                action={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={practiceButtonClass}
+                    aria-label={`Practice this error: ${errorLabels[item.type]}${locked ? ' (Premium)' : ''}`}
+                    onClick={() => onPick(item.type as WordErrorType)}
+                  >
+                    {locked && <Lock className="size-4" aria-hidden />} Practice this error
+                  </Button>
+                }
+              />
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 };

@@ -232,8 +232,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   says which, as `language`; the English chart starts at the first counted English session). Both languages count for the
   days (streak, daily mission, heatmap) and for the sessions, minutes, WPM and accuracy of the daily tasks; word rain's focus,
   `getWeakErrorTypes`, `getTopErrorTypes` (Weak spots), the daily tasks of an error type and the admin user list's averages
-  read Vietnamese sessions only. Frontend: the language button sits at the top center of the passage, in Practice only
-  (`TypingPage`, `TypingArea`'s `header`: it shows the language being typed and a click switches to the other one): it saves
+  read Vietnamese sessions only. Frontend: the language button sits at the bottom center of the page, in the row of the word count and the timer, in Practice only
+  (`TypingPage`, `TypingArea`'s `statusCenter`, also while the passage loads: it shows the language being typed and a click switches to the other one): it saves
   the language (`useSaveTypingLanguage`, which empties the per-language profile queries) and then starts a random passage of
   it; in English a notification says to turn off Vietnamese input, and the Placement tab is hidden (the Weak spots tab stays).
   Every way into the placement test (the tab, Ping's tour, `?mode=placement`) or into Weak spots (its tab, a `?mode=targeted`
