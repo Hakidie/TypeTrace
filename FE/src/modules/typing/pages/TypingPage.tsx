@@ -418,7 +418,8 @@ export const TypingPage = () => {
           // Five modes do not fit a phone with their names: there only the open one keeps its name.
           iconsOnPhones
           tabs={tabs}
-          value={ranked ? 'rank' : minigames ? 'minigames' : mode}
+          // Train is a typing mode of Practice: its tab is in the Passage group, and Practice stays lit in this one.
+          value={ranked ? 'rank' : minigames ? 'minigames' : targeted ? 'practice' : mode}
           onChange={(value) => {
             if (value === 'practice') setSearchParams({});
             else if (value === 'rank') {

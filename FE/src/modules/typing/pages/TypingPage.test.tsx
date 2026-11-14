@@ -847,6 +847,9 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     expect(auto).toHaveTextContent('Hỏi / ngã confusion25.5%');
     expect(auto).toHaveTextContent('Missing stroke on đ20%');
     // The five error types, the cards of the error profile; the auto card comes first (on top on phones).
+    // They stay hidden under the auto lesson until "Practice on one error" is pressed.
+    expect(screen.queryByRole('region', { name: 'Error types' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
     const types = screen.getByRole('region', { name: 'Error types' });
     expect(within(types).getAllByRole('button', { name: /^Practice [^t]/ })).toHaveLength(5);
     // Each card also has a "Practice this error" button, floating over it while it is hovered.
@@ -887,6 +890,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     const user = userEvent.setup();
     renderAt('/typing?mode=targeted');
 
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
     await user.click(await screen.findByRole('button', { name: 'Practice Wrong vowel mark (â ê ô ă ơ ư)' }));
 
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'MARK_WRONG' }));
@@ -897,6 +901,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'MARK_WRONG' });
 
     await user.click(screen.getByRole('button', { name: 'All weak spots' }));
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
     const tone = await screen.findByRole('button', { name: 'Practice Wrong tone' });
     expect(within(tone.closest('li')!).getByText(/Needs 15 more/)).toBeInTheDocument();
     await user.click(tone);
@@ -923,6 +928,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     renderAt('/typing?mode=targeted');
 
     // The cards show once the error profile is in, so the lesson has it from its first render.
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
     await user.click(await screen.findByRole('button', { name: 'Practice Wrong vowel mark (â ê ô ă ơ ư)' }));
 
     await screen.findByRole('textbox', { name: 'Typing area' });
@@ -998,6 +1004,8 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     const user = userEvent.setup();
     renderAt('/typing?mode=targeted');
     expect(await screen.findByRole('radio', { name: 'Train' })).toBeChecked();
+    // Train belongs to the typing modes: Practice stays lit in the Mode tabs.
+    expect(screen.getByRole('radio', { name: 'Practice' })).toBeChecked();
 
     await user.click(screen.getByRole('radio', { name: 'Random' }));
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'practice' }));
@@ -1040,6 +1048,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     renderAt('/typing?mode=targeted');
 
     expect(await screen.findByRole('button', { name: 'Practice your weak spots (Premium)' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
     expect(screen.getAllByRole('button', { name: /\(Premium\)$/ })).toHaveLength(11);
     await user.click(screen.getByRole('button', { name: 'Practice this error: Hỏi / ngã confusion (Premium)' }));
 
