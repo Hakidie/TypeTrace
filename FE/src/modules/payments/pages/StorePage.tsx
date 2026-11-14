@@ -1,12 +1,13 @@
 import { BookOpen, CalendarCheck, Coins, Crown, Shirt, Sparkles, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { useAvatarCatalog } from '@/modules/avatar/hooks/use-avatar';
 import type { AvatarLook, AvatarPose, AvatarSlot } from '@/modules/avatar/types/avatar.types';
 import { Ping } from '@/modules/tutorial/components/Ping';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
+import { PanelTitleSwitch } from '@/shared/components/panel-title-switch';
 import { PremiumBadge } from '@/shared/components/premium-badge';
 import { usePlan } from '@/modules/plan/hooks/use-plan';
 import { Button } from '@/shared/components/ui/button';
@@ -93,6 +94,7 @@ export const StorePage = () => {
   // What Premium gives (the passage limit, Train), as an admin set it in the Plans page; the perks wait for it.
   const premiumPlan = usePlan().data?.plans.premium;
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const [planId, setPlanId] = useState<string>();
   const [packId, setPackId] = useState<string>();
   const [hidden, setHidden] = useState<string[]>([]);
@@ -148,7 +150,7 @@ export const StorePage = () => {
   ];
 
   return (
-    <div className="space-y-10">
+    <div className="flex flex-1 flex-col gap-10">
       {/* The tabs read as the titles of the Progress page's panels (`sectionTitleClass`): no border, no background. */}
       <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
         <div role="radiogroup" aria-label="Store section" className="flex items-center gap-6">
@@ -327,6 +329,11 @@ export const StorePage = () => {
         </aside>
       </section>
       )}
+
+      {/* The way to the history is a button at the bottom of the page, as on the Progress page: `mb-4` and the 32px of the page make 48px under it. */}
+      <div className="mt-auto mb-4 flex shrink-0 items-center justify-center">
+        <PanelTitleSwitch other="Payment history" showLabel onClick={() => navigate('/store/history')} />
+      </div>
     </div>
   );
 };

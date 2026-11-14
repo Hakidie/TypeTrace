@@ -556,3 +556,41 @@ describe('GET /api/payments/payos/return', () => {
     expect((await reload(user._id))!.coins).toBe(0);
   });
 });
+
+describe('GET /api/payments/mine', () => {
+  it('needs a signed-in user and lists only their own payments, newest first, without gateway codes', async () => {
+    expect((await api().get('/api/payments/mine')).status).toBe(401);
+    const an = await createUser({ email: 'an@example.com' });
+    const binh = await createUser({ email: 'binh@example.com' });
+    await PaymentModel.create({ owner: an._id, product: 'coins-500', amount: 20_000, orderInfo: 'x', provider: 'momo', status: 'paid', paidAt: new Date(), momoTransId: 'T1' });
+    await PaymentModel.create({ owner: an._id, product: 'premium-1m', amount: 99_000, orderInfo: 'x', status: 'failed', vnpResponseCode: '24' });
+    await PaymentModel.create({ owner: binh._id, product: 'coins-500', amount: 20_000, orderInfo: 'x' });
+
+    const res = await api().get('/api/payments/mine').set('Authorization', bearerFor(an));
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(2);
+    expect(res.body.items[0]).toMatchObject({ product: 'premium-1m', provider: 'vnpay', status: 'failed' });
+    expect(res.body.items[1]).toMatchObject({ product: 'coins-500', provider: 'momo', status: 'paid', amount: 20_000 });
+    expect(JSON.stringify(res.body)).not.toMatch(/momoTransId|vnpResponseCode|owner|orderInfo/);
+  });
+
+  it('reads a try whose link is over as expired, and keeps a fresh one pending', async () => {
+    const an = await createUser({ email: 'an@example.com' });
+    const old = await PaymentModel.create({ owner: an._id, product: 'coins-500', amount: 20_000, orderInfo: 'x' });
+    await PaymentModel.collection.updateOne({ _id: old._id }, { $set: { createdAt: new Date(Date.now() - 20 * 60 * 1000) } });
+    await PaymentModel.create({ owner: an._id, product: 'coins-1400', amount: 50_000, orderInfo: 'x' });
+
+    const res = await api().get('/api/payments/mine').set('Authorization', bearerFor(an));
+
+    expect(res.body.items.map((item: { status: string }) => item.status)).toEqual(['pending', 'expired']);
+  });
+
+  it('pages and refuses a sort on a private field', async () => {
+    const an = await createUser({ email: 'an@example.com' });
+    for (let i = 0; i < 3; i++) await PaymentModel.create({ owner: an._id, product: 'coins-500', amount: 20_000, orderInfo: 'x' });
+    const auth = bearerFor(an);
+    expect((await api().get('/api/payments/mine?limit=2').set('Authorization', auth)).body).toMatchObject({ total: 3, totalPages: 2 });
+    expect((await api().get('/api/payments/mine?sort=owner').set('Authorization', auth)).status).toBe(400);
+  });
+});

@@ -30,6 +30,11 @@ export const payosWebhookSchema = z.object({
 
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
 
+/** `GET /api/payments/mine`: the learner's own payments, newest first. */
+export const myPaymentsQuerySchema = paginationQuerySchema.extend({ sort: sortSchema(['createdAt']) });
+
+export type MyPaymentsQuery = z.infer<typeof myPaymentsQuerySchema>;
+
 /** `GET /api/admin/payments`: the payments of all users. */
 export const listPaymentsQuerySchema = paginationQuerySchema.extend({
   /** Text searched in the buyer's display name and email. */

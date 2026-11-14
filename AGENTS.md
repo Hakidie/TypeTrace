@@ -275,6 +275,11 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   Admins see every payment at `/admin/payments` (`AdminPaymentsPage`, `GET /api/admin/payments`: search by buyer, filter by status and gateway;
   `services/admin-payment.service.ts`, never an id or a gateway field of the payment): an open payOS payment (pending, or paid but not given) has a
   "Check again with payOS" button, `POST /api/admin/payments/:id/recheck`, which runs `applyPayosReturn` again, for a learner who paid, closed the page and never got the webhook.
+  The learner's own history is `GET /api/payments/mine` (`listMyPayments`, newest first, paged; no gateway codes; a pending try older than
+  `PAYMENT_EXPIRES_MS` reads `expired`, nothing stored) shown at `/store/history` (`PaymentHistoryPage`, opened by a "Payment history" button under the Store page and left by a "Store" button under it, as on the Progress page).
+  Premium that ends in `RENEWAL_BANNER_DAYS` (3, `lib/store.ts`) days or fewer shows `PremiumRenewalBanner` (a widget of the payments module, a bar at the
+  bottom of every app page except `/store`) from `premium.until` of `GET /api/auth/me`, worked out when the app opens (no job); "Extend Premium" opens the
+  Store, where a paid month is added after the days left (`recordPaidMonth`); "Not now" is remembered per end date in `localStorage`.
 - App-wide settings that admins change live in the one `AppSetting` document (`models/app-setting.model.ts`, SCRUM-210):
   read them with `getAppSettings()` (the model's defaults until an admin saves) and save them with `updateAppSettings(changes)`
   (`services/app-setting.service.ts`). A new setting is a new field there, with its default, not a new collection.

@@ -4,7 +4,7 @@ import * as paymentService from '../services/payment.service';
 import { PaymentOutcome } from '../services/payment.service';
 import { badRequest, notFound } from '../utils/app-error';
 import { MomoParams } from '../utils/momo';
-import { CreatePaymentInput } from '../validators/payment.validator';
+import { CreatePaymentInput, MyPaymentsQuery } from '../validators/payment.validator';
 import { PayosFields } from '../utils/payos';
 import { VnpParams } from '../utils/vnpay';
 
@@ -65,6 +65,10 @@ export const payosWebhook = async (req: Request, res: Response) => {
   const outcome = await paymentService.applyPayosWebhook(req.body as { success?: boolean; data?: PayosFields; signature?: string });
   if (outcome.result !== 'not-found') returnBody(outcome);
   res.json({ success: true });
+};
+
+export const listMyPayments = async (req: Request, res: Response) => {
+  res.json(await paymentService.listMyPayments(req.user!.sub, req.query as unknown as MyPaymentsQuery));
 };
 
 export const listProducts = async (_req: Request, res: Response) => {

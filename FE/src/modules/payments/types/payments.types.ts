@@ -59,3 +59,23 @@ export interface AdminPaymentListParams {
   status?: AdminPaymentRow['status'];
   provider?: PaymentProvider;
 }
+
+/** One row of `GET /api/payments/mine`: the learner's own history. `expired`: never paid and its link is over. */
+export interface MyPaymentRow {
+  _id: string;
+  product: string;
+  /** In VND. */
+  amount: number;
+  provider: PaymentProvider;
+  status: 'pending' | 'paid' | 'failed' | 'expired';
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface MyPaymentPage {
+  items: MyPaymentRow[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}

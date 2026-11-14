@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PaymentProduct } from '../types/payments.types';
-import { bonusPercent, coinPacks, failureMessage, formatCoins, formatVnd, daysLeftText, itemLabel, momoFailureMessage, payosFailureMessage, planTitle, pricePerMonth, proPlans, savingPercent, timeLeftDetail } from './store';
+import { bonusPercent, coinPacks, failureMessage, formatCoins, formatVnd, daysLeftText, itemLabel, momoFailureMessage, payosFailureMessage, planTitle, purchaseLabel, shouldAskToRenew, pricePerMonth, proPlans, savingPercent, timeLeftDetail } from './store';
 
 const products: PaymentProduct[] = [
   { id: 'coins-1400', amount: 50_000, grant: { kind: 'coins', coins: 1400 } },
@@ -83,5 +83,32 @@ describe('timeLeftDetail', () => {
   it('gives only days under a month', () => {
     expect(timeLeftDetail(new Date(2026, 9, 21, 10, 0, 0).toISOString(), now)).toBe('20 days left');
     expect(timeLeftDetail(new Date(2026, 9, 2, 10, 0, 0).toISOString(), now)).toBe('1 day left');
+  });
+});
+
+describe('shouldAskToRenew', () => {
+  const now = new Date('2026-11-14T10:00:00.000Z');
+  const at = (days: number) => new Date(now.getTime() + days * 86_400_000).toISOString();
+
+  it('is true from 3 days before the end, up to the end', () => {
+    expect(shouldAskToRenew({ active: true, until: at(3) }, now)).toBe(true);
+    expect(shouldAskToRenew({ active: true, until: at(0.1) }, now)).toBe(true);
+    expect(shouldAskToRenew({ active: true, until: at(3.01) }, now)).toBe(false);
+  });
+
+  it('is false on Free or without a date', () => {
+    expect(shouldAskToRenew({ active: false, until: null }, now)).toBe(false);
+    expect(shouldAskToRenew({ active: true, until: null }, now)).toBe(false);
+    expect(shouldAskToRenew(undefined, now)).toBe(false);
+  });
+});
+
+describe('purchaseLabel', () => {
+  it('names a purchase from the catalog and keeps an unknown id', () => {
+    expect(purchaseLabel('premium-1m', products)).toBe('Premium 1 month');
+    expect(purchaseLabel('premium-6m', products)).toBe('Premium 6 months');
+    expect(purchaseLabel('coins-1400', products)).toBe('1.400 coins');
+    expect(purchaseLabel('old-pack', products)).toBe('old-pack');
+    expect(purchaseLabel('coins-500', undefined)).toBe('coins-500');
   });
 });

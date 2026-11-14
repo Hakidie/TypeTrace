@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { env } from '../config/env';
-import { createMomoPayment, createVnpayPayment, createPayosPayment, listProducts, momoIpn, momoReturn, payosReturn, payosWebhook, vnpayIpn, vnpayReturn } from '../controllers/payment.controller';
+import { createMomoPayment, createVnpayPayment, createPayosPayment, listMyPayments, listProducts, momoIpn, momoReturn, payosReturn, payosWebhook, vnpayIpn, vnpayReturn } from '../controllers/payment.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
-import { createPaymentSchema, momoResultSchema, payosReturnSchema, payosWebhookSchema, vnpayQuerySchema } from '../validators/payment.validator';
+import { createPaymentSchema, momoResultSchema, myPaymentsQuerySchema, payosReturnSchema, payosWebhookSchema, vnpayQuerySchema } from '../validators/payment.validator';
 
 export const paymentRouter = Router();
 
@@ -21,6 +21,8 @@ const startLimiter = rateLimit({
 });
 
 paymentRouter.get('/products', authGuard, listProducts);
+// The learner's own history (US11.2).
+paymentRouter.get('/mine', authGuard, validate({ query: myPaymentsQuerySchema }), listMyPayments);
 paymentRouter.post('/vnpay', authGuard, requireRole('user', 'admin'), startLimiter, validate({ body: createPaymentSchema }), createVnpayPayment);
 // Not signed in: the checksum from VNPay is the proof (`verifyVnpay`).
 paymentRouter.get('/vnpay/return', validate({ query: vnpayQuerySchema }), vnpayReturn);

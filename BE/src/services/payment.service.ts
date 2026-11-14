@@ -6,6 +6,8 @@ import { AppError, badRequest } from '../utils/app-error';
 import { MomoParams, signMomoCreate, signMomoResult, verifyMomo } from '../utils/momo';
 import { newPayosOrderCode, PayosFields, signPayosCreate, verifyPayos } from '../utils/payos';
 import { buildVnpayUrl, verifyVnpay, vnpayDate, VnpParams } from '../utils/vnpay';
+import { paginate } from '../utils/pagination';
+import type { MyPaymentsQuery } from '../validators/payment.validator';
 import { objectIdSchema } from '../validators/common.validator';
 import { getPlanConfig } from './app-setting.service';
 import { recordPaidMonth } from './subscription.service';
@@ -159,6 +161,29 @@ export const createPayosPayment = async (ownerId: string, product: PaymentProduc
   }
   await PaymentModel.updateOne({ _id: payment._id }, { payosLinkId: answer.data.paymentLinkId });
   return { paymentId: payment.id as string, paymentUrl: answer.data.checkoutUrl };
+};
+
+/**
+ * The learner's own payments (their history), newest first. A try that was never paid and whose link is over reads `expired`
+ * (nothing is stored: the gateway's page closes after `PAYMENT_EXPIRES_MS`); an expired or cancelled try never changes the plan.
+ * Only what the learner needs: no gateway codes, no id of the user.
+ */
+export const listMyPayments = async (ownerId: string, query: MyPaymentsQuery) => {
+  const page = await paginate(PaymentModel, { owner: ownerId }, query);
+  const now = Date.now();
+  return {
+    ...page,
+    items: page.items.map((payment) => ({
+      _id: String(payment._id),
+      product: payment.product,
+      amount: payment.amount,
+      // Payments saved before MoMo have no provider: they are VNPay's.
+      provider: payment.provider ?? 'vnpay',
+      status: payment.status === 'pending' && payment.createdAt.getTime() + PAYMENT_EXPIRES_MS < now ? ('expired' as const) : payment.status,
+      paidAt: payment.paidAt ?? null,
+      createdAt: payment.createdAt
+    }))
+  };
 };
 
 /** The catalog the store shows: ids, prices and what each one gives. */

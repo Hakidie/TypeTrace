@@ -99,3 +99,17 @@ export const PROVIDER_NAMES: Record<AdminPaymentRow['provider'], string> = { pay
 
 /** Only an open payOS payment, or a paid one that was not given yet, has something to check with payOS. */
 export const canRecheck = (row: AdminPaymentRow) => row.provider === 'payos' && (row.status === 'pending' || (row.status === 'paid' && !row.granted));
+
+/** Premium that ends in this many days or fewer asks the learner whether to extend it (the banner). */
+export const RENEWAL_BANNER_DAYS = 3;
+
+/** True while Premium is on and ends within `RENEWAL_BANNER_DAYS`. Worked out when the app opens: nothing runs in the background. */
+export const shouldAskToRenew = (premium: { active: boolean; until: string | null } | undefined, now = new Date()) =>
+  Boolean(premium?.active && premium.until && new Date(premium.until).getTime() - now.getTime() <= RENEWAL_BANNER_DAYS * DAY_MS);
+
+/** What a payment bought, from the catalog: "Premium 6 months", "1.400 coins". An id the catalog no longer sells stays as it is. */
+export const purchaseLabel = (productId: string, products: PaymentProduct[] | undefined) => {
+  const grant = products?.find((product) => product.id === productId)?.grant;
+  if (!grant) return productId;
+  return grant.kind === 'premium' ? `Premium ${plural(grant.months, 'month')}` : formatCoins(grant.coins);
+};

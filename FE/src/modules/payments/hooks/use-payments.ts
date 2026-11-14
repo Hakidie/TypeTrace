@@ -8,6 +8,7 @@ import type { AdminPaymentListParams, PaymentProvider } from '../types/payments.
 
 export const paymentKeys = {
   products: ['payments', 'products'] as const,
+  mine: (page: number, limit: number) => ['payments', 'mine', page, limit] as const,
   admin: (params: AdminPaymentListParams) => ['admin', 'payments', params] as const,
   vnpayReturn: (search: string) => ['payments', 'return', search] as const,
 };
@@ -67,3 +68,7 @@ export const useRecheckPayment = () => {
     },
   });
 };
+
+/** The learner's own payments, one page at a time; the previous page stays on screen while the next one loads. */
+export const useMyPayments = (page: number, limit: number) =>
+  useQuery({ queryKey: paymentKeys.mine(page, limit), queryFn: () => paymentsApi.mine(page, limit), placeholderData: keepPreviousData });
