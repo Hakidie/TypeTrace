@@ -4,10 +4,10 @@ import { PAYMENT_PRODUCT_IDS, PaymentProduct } from '../config/payment';
 export const PAYMENT_STATUSES = ['pending', 'paid', 'failed'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
-export const PAYMENT_PROVIDERS = ['vnpay', 'momo'] as const;
+export const PAYMENT_PROVIDERS = ['vnpay', 'momo', 'payos'] as const;
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
 
-/** One try to pay through VNPay or MoMo. Its `_id` is the `vnp_TxnRef` sent to VNPay, or the `orderId` sent to MoMo. */
+/** One try to pay through VNPay, MoMo or payOS. Its `_id` is the `vnp_TxnRef` sent to VNPay, or the `orderId` sent to MoMo; payOS gets `payosOrderCode`. */
 export interface PaymentDocument extends mongoose.Document {
   owner: Types.ObjectId;
   product: PaymentProduct;
@@ -21,6 +21,11 @@ export interface PaymentDocument extends mongoose.Document {
   vnpResponseCode?: string;
   momoTransId?: string;
   momoResultCode?: string;
+  /** payOS wants a whole number as the order code, so it cannot be the `_id`. */
+  payosOrderCode?: number;
+  payosLinkId?: string;
+  /** payOS's own word for the state (PAID, CANCELLED, EXPIRED, ...). */
+  payosStatus?: string;
   paidAt?: Date;
   /** Set once, by the call that gave the learner what they bought (`grantPurchase`); empty while it is not given yet. */
   grantedAt?: Date | null;
@@ -40,6 +45,9 @@ const paymentSchema = new Schema<PaymentDocument>(
     provider: { type: String, enum: PAYMENT_PROVIDERS },
     momoTransId: { type: String },
     momoResultCode: { type: String },
+    payosOrderCode: { type: Number, unique: true, sparse: true },
+    payosLinkId: { type: String },
+    payosStatus: { type: String },
     paidAt: { type: Date },
     grantedAt: { type: Date, default: null }
   },

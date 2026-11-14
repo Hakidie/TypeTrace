@@ -41,6 +41,14 @@ describe('parseEnv', () => {
     expect(set).toMatchObject({ momoPartnerCode: 'P', momoAccessKey: 'a', momoSecretKey: 's', momoIpnUrl: 'https://x.ngrok.app/api/payments/momo/ipn' });
   });
 
+  it('reads the payOS settings and defaults to the payOS api url', () => {
+    const unset = parseEnv({ ...base, PAYOS_CLIENT_ID: ' ' });
+    expect(unset.payosClientId).toBeUndefined();
+    expect(unset.payosUrl).toBe('https://api-merchant.payos.vn');
+    const set = parseEnv({ ...base, PAYOS_CLIENT_ID: 'c', PAYOS_API_KEY: 'a', PAYOS_CHECKSUM_KEY: 'k' });
+    expect(set).toMatchObject({ payosClientId: 'c', payosApiKey: 'a', payosChecksumKey: 'k' });
+  });
+
   it('allows the mock MoMo payment in development only', () => {
     expect(parseEnv(base).momoMock).toBe(false);
     expect(parseEnv({ ...base, MOMO_MOCK: 'true' }).momoMock).toBe(true);

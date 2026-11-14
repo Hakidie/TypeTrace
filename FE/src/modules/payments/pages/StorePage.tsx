@@ -1,5 +1,5 @@
 import { BookOpen, CalendarCheck, Coins, Crown, Shirt, Sparkles, Users } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { useAvatarCatalog } from '@/modules/avatar/hooks/use-avatar';
@@ -33,24 +33,26 @@ const STORE_TABS = [
   { value: 'coins', label: 'Coins' },
 ] as const;
 
-const GATEWAYS: { provider: PaymentProvider; name: string }[] = [
-  { provider: 'vnpay', name: 'VNPay' },
-  { provider: 'momo', name: 'MoMo' },
+/** The logos are the gateways' own (`public/payments`) and keep their colors, like the avatar sprites. */
+const GATEWAYS: { provider: PaymentProvider; name: string; logo: string }[] = [
+  { provider: 'payos', name: 'payOS', logo: '/payments/payos.svg' },
+  { provider: 'vnpay', name: 'VNPay', logo: '/payments/vnpay.svg' },
+  { provider: 'momo', name: 'MoMo', logo: '/payments/momo.png' },
 ];
 
-/** One pay button per gateway, side by side from `sm` up. While one is opening, both wait. */
-const PayButtons = ({ icon, what, disabled, opening, onPay }: { icon: ReactNode; what: string; disabled: boolean; opening?: PaymentProvider; onPay: (provider: PaymentProvider) => void }) => (
-  <div className="flex flex-col gap-2 sm:flex-row">
-    {GATEWAYS.map(({ provider, name }) => (
+/** One pay button per gateway (payOS first, the main one), three equal columns from `sm` up whose text wraps to fit the panel. While one is opening, all wait. */
+const PayButtons = ({ what, disabled, opening, onPay }: { what: string; disabled: boolean; opening?: PaymentProvider; onPay: (provider: PaymentProvider) => void }) => (
+  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+    {GATEWAYS.map(({ provider, name, logo }) => (
       <Button
         key={provider}
         type="button"
-        variant={provider === 'vnpay' ? 'default' : 'outline'}
-        className="h-12 flex-1 active:scale-[0.98]"
+        variant="outline"
+        className="h-auto min-h-12 min-w-0 whitespace-normal px-3 py-2 text-center active:scale-[0.98]"
         disabled={disabled || opening !== undefined}
         onClick={() => onPay(provider)}
       >
-        {icon}
+        <img src={logo} alt="" aria-hidden="true" className="size-6 shrink-0 object-contain" />
         {opening === provider ? `Opening ${name}...` : `${what} with ${name}`}
       </Button>
     ))}
@@ -268,8 +270,7 @@ export const StorePage = () => {
           <div className="space-y-3">
             {premium.active && <p className="text-sm text-muted-foreground">The time is added after your current end date.</p>}
             <PayButtons
-              icon={<Crown className="size-4" aria-hidden="true" />}
-              what={`${premium.active ? 'Extend' : 'Get'} Premium`}
+              what={premium.active ? 'Extend' : 'Get'}
               disabled={!plan}
               opening={opening}
               onPay={(provider) => plan && startPayment.mutate({ product: plan.id, provider })}
@@ -305,7 +306,6 @@ export const StorePage = () => {
             })}
           </div>
           <PayButtons
-            icon={<Coins className="size-4" aria-hidden="true" />}
             what="Get coins"
             disabled={!pack}
             opening={opening}

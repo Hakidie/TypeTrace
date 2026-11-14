@@ -1,12 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
 import { avatarKeys } from '@/modules/avatar/hooks/use-avatar';
 import { planKeys } from '@/modules/plan/hooks/use-plan';
-import { paymentsApi } from '../api/payments.api';
-import type { PaymentProvider } from '../types/payments.types';
+import { toast } from 'sonner';
+import { adminPaymentsApi, paymentsApi } from '../api/payments.api';
+import type { AdminPaymentListParams, PaymentProvider } from '../types/payments.types';
 
 export const paymentKeys = {
   products: ['payments', 'products'] as const,
+  admin: (params: AdminPaymentListParams) => ['admin', 'payments', params] as const,
   vnpayReturn: (search: string) => ['payments', 'return', search] as const,
 };
 
@@ -45,5 +47,23 @@ export const useVnpayReturn = (search: string, provider: PaymentProvider = 'vnpa
     staleTime: Infinity,
     retry: false,
     refetchOnWindowFocus: false,
+  });
+};
+
+/** One page of the payments of all users; the previous page stays on screen while the next one loads. */
+export const useAdminPayments = (params: AdminPaymentListParams) =>
+  useQuery({ queryKey: paymentKeys.admin(params), queryFn: () => adminPaymentsApi.list(params), placeholderData: keepPreviousData });
+
+/** Checks an open payOS payment again. No `onError`: the shared query client toasts the backend message. */
+export const useRecheckPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: adminPaymentsApi.recheck,
+    onSuccess: (row) => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'payments'] });
+      toast[row.status === 'paid' && row.granted ? 'success' : 'message'](
+        row.status === 'paid' ? (row.granted ? 'Paid: the learner got what they bought.' : 'Paid, but not given yet.') : row.status === 'failed' ? 'payOS says this payment failed or was cancelled.' : 'payOS still shows this payment as open.',
+      );
+    },
   });
 };

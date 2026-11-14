@@ -26,7 +26,10 @@ export default defineConfig({
       VNP_HASH_SECRET: 'test-vnpay-secret',
       MOMO_PARTNER_CODE: 'MOMOTEST',
       MOMO_ACCESS_KEY: 'test-momo-access',
-      MOMO_SECRET_KEY: 'test-momo-secret'
+      MOMO_SECRET_KEY: 'test-momo-secret',
+      PAYOS_CLIENT_ID: 'test-payos-client',
+      PAYOS_API_KEY: 'test-payos-key',
+      PAYOS_CHECKSUM_KEY: 'test-payos-checksum'
     },
     globalSetup: ['./tests/setup/download-mongod.ts'],
     setupFiles: ['./tests/setup/mock-external-services.ts', './tests/setup/in-memory-database.ts'],

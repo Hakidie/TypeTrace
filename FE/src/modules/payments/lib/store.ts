@@ -1,4 +1,4 @@
-import type { PaymentProduct } from '../types/payments.types';
+import type { AdminPaymentRow, PaymentProduct } from '../types/payments.types';
 
 const number = new Intl.NumberFormat('vi-VN');
 
@@ -70,6 +70,10 @@ export const momoFailureMessage = (code: string | null) => {
   }
 };
 
+/** The same for payOS: its return URL only says whether the learner cancelled (`cancel=true`); the server asks payOS the rest. */
+export const payosFailureMessage = (cancel: string | null) =>
+  cancel === 'true' ? 'You cancelled the payment on payOS.' : 'payOS did not complete the payment.';
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
@@ -89,3 +93,9 @@ export const timeLeftDetail = (until: string, now = new Date()) => {
   const days = Math.ceil((end.getTime() - stepped(months).getTime()) / DAY_MS);
   return `${[plural(months, 'month'), days > 0 ? plural(days, 'day') : ''].filter(Boolean).join(' ')} left`;
 };
+
+/** The gateways' names, as the admin payment list shows them. */
+export const PROVIDER_NAMES: Record<AdminPaymentRow['provider'], string> = { payos: 'payOS', vnpay: 'VNPay', momo: 'MoMo' };
+
+/** Only an open payOS payment, or a paid one that was not given yet, has something to check with payOS. */
+export const canRecheck = (row: AdminPaymentRow) => row.provider === 'payos' && (row.status === 'pending' || (row.status === 'paid' && !row.granted));

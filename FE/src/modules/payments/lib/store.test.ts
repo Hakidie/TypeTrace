@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PaymentProduct } from '../types/payments.types';
-import { bonusPercent, coinPacks, failureMessage, formatCoins, formatVnd, daysLeftText, itemLabel, momoFailureMessage, planTitle, pricePerMonth, proPlans, savingPercent, timeLeftDetail } from './store';
+import { bonusPercent, coinPacks, failureMessage, formatCoins, formatVnd, daysLeftText, itemLabel, momoFailureMessage, payosFailureMessage, planTitle, pricePerMonth, proPlans, savingPercent, timeLeftDetail } from './store';
 
 const products: PaymentProduct[] = [
   { id: 'coins-1400', amount: 50_000, grant: { kind: 'coins', coins: 1400 } },
@@ -46,6 +46,14 @@ describe('store helpers', () => {
     expect(momoFailureMessage('1006')).toMatch(/cancelled/);
     expect(momoFailureMessage('1005')).toMatch(/expired/);
     expect(momoFailureMessage(null)).toMatch(/MoMo did not complete/);
+  });
+});
+
+describe('payosFailureMessage', () => {
+  it('tells a cancel from any other failure', () => {
+    expect(payosFailureMessage('true')).toMatch(/cancelled/);
+    expect(payosFailureMessage('false')).toMatch(/payOS did not complete/);
+    expect(payosFailureMessage(null)).toMatch(/payOS did not complete/);
   });
 });
 

@@ -50,7 +50,7 @@ export const revokeUserPremium = async (adminId: string, userId: string) => {
   await revokePremium(userId, adminId);
 };
 
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * The plan terms of all users, newest first. Each row has the user's name (display name, or the email when they have none) and

@@ -9,6 +9,7 @@ import { getCurrentSubscription, grantPremium, revokePremium } from '../../src/s
 import { PaymentModel } from '../../src/models/payment.model';
 import { UserModel } from '../../src/models/user.model';
 import { signMomoCreate, signMomoResult } from '../../src/utils/momo';
+import { signPayosCreate, signPayosData } from '../../src/utils/payos';
 import { signVnpay, verifyVnpay } from '../../src/utils/vnpay';
 import { api } from '../helpers/api';
 import { bearerFor, createUser } from '../helpers/user-factory';
@@ -422,6 +423,136 @@ describe('POST /api/payments/momo/ipn and GET /momo/return', () => {
     expect((await api().post('/api/payments/momo/ipn').send({ orderId: id })).status).toBe(400);
 
     expect(await PaymentModel.findById(id)).toMatchObject({ status: 'pending' });
+    expect((await reload(user._id))!.coins).toBe(0);
+  });
+});
+
+// ---- payOS, next to VNPay and MoMo ----
+
+const PAYOS_CHECKSUM = 'test-payos-checksum';
+const PAYOS_LINK = { code: '00', data: { checkoutUrl: 'https://pay.payos.vn/web/abc', paymentLinkId: 'link-1' } };
+
+const startPayos = async (product: PaymentProduct = 'coins-500', reply: object = PAYOS_LINK, user?: Awaited<ReturnType<typeof createUser>>) => {
+  const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json(reply));
+  const owner = user ?? (await createUser({}));
+  const response = await api().post('/api/payments/payos').set('Authorization', bearerFor(owner)).send({ product });
+  const payment = await PaymentModel.findOne({ provider: 'payos', owner: owner._id }).sort({ createdAt: -1 });
+  return { user: owner, response, fetchSpy, payment };
+};
+
+/** A webhook body, signed like payOS signs it. */
+const payosWebhookBody = (orderCode: number, product: PaymentProduct, overrides: Record<string, unknown> = {}) => {
+  const data = { orderCode, amount: amountOf(product), description: 'x', paymentLinkId: 'link-1', code: '00', desc: 'success', reference: 'FT1', ...overrides };
+  return { code: '00', desc: 'success', success: true, data, signature: signPayosData(data, PAYOS_CHECKSUM) };
+};
+
+describe('POST /api/payments/payos', () => {
+  it('needs a signed-in user and a known product', async () => {
+    expect((await api().post('/api/payments/payos').send({ product: 'premium-6m' })).status).toBe(401);
+    const auth = bearerFor(await createUser({}));
+    expect((await api().post('/api/payments/payos').set('Authorization', auth).send({ product: 'free' })).status).toBe(400);
+  });
+
+  it('saves a pending payment with a whole order code and sends the signed request to payOS', async () => {
+    const { response, fetchSpy, payment } = await startPayos('premium-6m');
+
+    expect(response.status).toBe(201);
+    expect(response.body.paymentUrl).toBe('https://pay.payos.vn/web/abc');
+    expect(payment).toMatchObject({ product: 'premium-6m', amount: 505_000, status: 'pending', provider: 'payos', payosLinkId: 'link-1' });
+    expect(Number.isSafeInteger(payment!.payosOrderCode)).toBe(true);
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe('https://api-merchant.payos.vn/v2/payment-requests');
+    expect((init!.headers as Record<string, string>)['x-api-key']).toBe('test-payos-key');
+    const sent = JSON.parse(String(init!.body));
+    expect(sent).toMatchObject({ orderCode: payment!.payosOrderCode, amount: 505_000, returnUrl: 'http://localhost:5173/payments/payos/return' });
+    expect(sent.description.length).toBeLessThanOrEqual(25);
+    expect(sent.signature).toBe(signPayosCreate(sent, PAYOS_CHECKSUM));
+  });
+
+  it('closes the try and answers 502 when payOS refuses', async () => {
+    const { response, payment } = await startPayos('coins-500', { code: '231', desc: 'denied' });
+    expect(response.status).toBe(502);
+    expect(payment).toMatchObject({ status: 'failed' });
+  });
+
+  it('answers 503 without keys', async () => {
+    const saved = env.payosApiKey;
+    env.payosApiKey = undefined;
+    try {
+      const response = await api().post('/api/payments/payos').set('Authorization', bearerFor(await createUser({}))).send({ product: 'coins-500' });
+      expect(response.status).toBe(503);
+    } finally {
+      env.payosApiKey = saved;
+    }
+  });
+});
+
+describe('POST /api/payments/payos/webhook', () => {
+  it('pays once, however many times payOS calls it, and gives the coins', async () => {
+    const { user, payment } = await startPayos('coins-1400');
+    const body = payosWebhookBody(payment!.payosOrderCode!, 'coins-1400');
+
+    expect((await api().post('/api/payments/payos/webhook').send(body)).status).toBe(200);
+    expect((await api().post('/api/payments/payos/webhook').send(body)).status).toBe(200);
+
+    expect(await PaymentModel.findById(payment!._id)).toMatchObject({ status: 'paid', payosStatus: 'PAID' });
+    expect((await reload(user._id))!.coins).toBe(1400);
+  });
+
+  it('gives a Premium term', async () => {
+    const { user, payment } = await startPayos('premium-1m');
+    await api().post('/api/payments/payos/webhook').send(payosWebhookBody(payment!.payosOrderCode!, 'premium-1m'));
+    expect((await getCurrentSubscription(String(user._id))).plan).toBe('premium');
+  });
+
+  it('refuses a bad signature, a changed amount and gives nothing; answers 200 to an order it does not know', async () => {
+    const { user, payment } = await startPayos('coins-500');
+    const code = payment!.payosOrderCode!;
+
+    expect((await api().post('/api/payments/payos/webhook').send({ ...payosWebhookBody(code, 'coins-500'), signature: 'f'.repeat(64) })).status).toBe(400);
+    expect((await api().post('/api/payments/payos/webhook').send({ success: true })).status).toBe(400);
+    expect((await api().post('/api/payments/payos/webhook').send(payosWebhookBody(code, 'coins-500', { amount: 100 }))).status).toBe(400);
+    expect((await api().post('/api/payments/payos/webhook').send(payosWebhookBody(123, 'coins-500'))).status).toBe(200);
+
+    expect(await PaymentModel.findById(payment!._id)).toMatchObject({ status: 'pending' });
+    expect((await reload(user._id))!.coins).toBe(0);
+  });
+});
+
+describe('GET /api/payments/payos/return', () => {
+  const answerWith = (status: string, amount: number) => vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ code: '00', data: { status, amount, paymentLinkId: 'link-1' } }));
+
+  it('asks payOS and pays when payOS says PAID, whatever the query says', async () => {
+    const { user, payment } = await startPayos('coins-500');
+    answerWith('PAID', amountOf('coins-500'));
+
+    const result = await api().get('/api/payments/payos/return').query({ orderCode: payment!.payosOrderCode, cancel: 'true', status: 'CANCELLED' });
+
+    expect(result.body).toMatchObject({ status: 'paid', product: 'coins-500' });
+    expect((await reload(user._id))!.coins).toBe(500);
+  });
+
+  it('fails a payment payOS shows as cancelled, and keeps one still open pending', async () => {
+    const cancelled = await startPayos('coins-500');
+    answerWith('CANCELLED', amountOf('coins-500'));
+    expect((await api().get('/api/payments/payos/return').query({ orderCode: cancelled.payment!.payosOrderCode })).body.status).toBe('failed');
+    expect((await reload(cancelled.user._id))!.coins).toBe(0);
+
+    const open = await startPayos('coins-500', PAYOS_LINK, cancelled.user);
+    answerWith('PENDING', amountOf('coins-500'));
+    expect((await api().get('/api/payments/payos/return').query({ orderCode: open.payment!.payosOrderCode })).body.status).toBe('pending');
+  });
+
+  it('stays pending when payOS cannot be reached, and refuses a wrong amount or an unknown order', async () => {
+    const { user, payment } = await startPayos('coins-500');
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'));
+    expect((await api().get('/api/payments/payos/return').query({ orderCode: payment!.payosOrderCode })).body.status).toBe('pending');
+
+    answerWith('PAID', 100);
+    expect((await api().get('/api/payments/payos/return').query({ orderCode: payment!.payosOrderCode })).status).toBe(400);
+    expect((await api().get('/api/payments/payos/return').query({ orderCode: 42 })).status).toBe(404);
+    expect((await api().get('/api/payments/payos/return').query({ orderCode: 'x' })).status).toBe(400);
     expect((await reload(user._id))!.coins).toBe(0);
   });
 });

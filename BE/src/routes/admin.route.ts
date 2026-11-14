@@ -22,6 +22,7 @@ import {
   updateDailyTaskSettings
 } from '../controllers/admin-daily-task.controller';
 import { createTheme, deleteTheme, listThemes, updateTheme } from '../controllers/admin-theme.controller';
+import { listPayments, recheckPayment } from '../controllers/admin-payment.controller';
 import { cancelPremium, getPlans, getPlanUsers, grantPremium, listSubscriptions, previewPlans, revokePremium, savePlans } from '../controllers/admin-plan.controller';
 import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, setUserStatus, updateUser } from '../controllers/admin.controller';
 import { getPlacementSettings, updatePlacementSettings } from '../controllers/placement.controller';
@@ -46,6 +47,7 @@ import {
 import { createAdminThemeSchema, listAdminThemesQuerySchema, updateAdminThemeSchema } from '../validators/admin-theme.validator';
 import { adminUpdateUserSchema, listUsersQuerySchema, setUserStatusSchema } from '../validators/admin-user.validator';
 import { bulkIdsSchema, idParamsSchema } from '../validators/common.validator';
+import { listPaymentsQuerySchema } from '../validators/payment.validator';
 import { grantPremiumSchema, listSubscriptionsQuerySchema, planUsersQuerySchema, updatePlansSchema } from '../validators/plan.validator';
 import { placementSettingsSchema } from '../validators/placement.validator';
 import { listSeasonsQuerySchema } from '../validators/ranked.validator';
@@ -73,6 +75,9 @@ adminRouter.get('/plans/users-over-time', validate({ query: planUsersQuerySchema
 adminRouter.post('/plans/preview', validate({ body: updatePlansSchema }), previewPlans);
 adminRouter.put('/plans', validate({ body: updatePlansSchema }), savePlans);
 // Every plan change of every user (who, which plan, from where, who made it).
+// Payments of all users (VNPay, MoMo, payOS) and a new check of an open payOS payment.
+adminRouter.get('/payments', validate({ query: listPaymentsQuerySchema }), listPayments);
+adminRouter.post('/payments/:id/recheck', validate({ params: idParamsSchema }), recheckPayment);
 adminRouter.get('/subscriptions', validate({ query: listSubscriptionsQuerySchema }), listSubscriptions);
 
 adminRouter.get('/passages', validate({ query: listPassagesQuerySchema }), listPassages);
