@@ -1,7 +1,8 @@
 import { History } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { EmptyState } from '@/shared/components/empty-state';
+import { ExpandButton } from '@/shared/components/expand-button';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
@@ -15,6 +16,8 @@ import { SubscriptionCard } from './SubscriptionCard';
 
 // Three rows a page.
 const PAGE_SIZE = 3;
+// The Expand button under the list shows 10 rows a page.
+const EXPANDED_PAGE_SIZE = 10;
 
 const SORT_OPTIONS = [
   { value: '-createdAt', label: 'Newest' },
@@ -45,13 +48,14 @@ const BY_OPTIONS = [
  */
 export const SubscriptionList = ({ onSwitch }: { onSwitch?: () => void } = {}) => {
   const list = useListParams({ sort: '-createdAt', prefix: 'subscriptions' });
+  const [expanded, setExpanded] = useState(false);
   const plan = list.get('plan') as PlanId | '';
   const method = list.get('method') as 'none' | '';
   const by = list.get('by') as 'admin' | 'system' | '';
   const status = list.get('status') as SubscriptionStatus | '';
   const rows = useSubscriptions({
     page: list.page,
-    limit: PAGE_SIZE,
+    limit: expanded ? EXPANDED_PAGE_SIZE : PAGE_SIZE,
     sort: list.sort,
     q: list.q || undefined,
     plan: plan || undefined,
@@ -114,7 +118,19 @@ export const SubscriptionList = ({ onSwitch }: { onSwitch?: () => void } = {}) =
             : renderState()}
         </div>
         {rows.data && rows.data.items.length > 0 && (
-          <Pagination page={rows.data.page} totalPages={rows.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
+          <div className="flex items-center justify-between">
+            {/* Bottom left: 10 rows a page instead of 3 (shown while there is more than the 3 rows to see). */}
+            {(expanded || rows.data.total > PAGE_SIZE) && (
+              <ExpandButton
+                expanded={expanded}
+                onToggle={() => {
+                  setExpanded(!expanded);
+                  list.setPage(1);
+                }}
+              />
+            )}
+            <Pagination page={rows.data.page} totalPages={rows.data.totalPages} onPageChange={list.setPage} variant="toolbar" accent plain flushRight />
+          </div>
         )}
       </Panel>
     </section>

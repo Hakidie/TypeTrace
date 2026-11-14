@@ -1,3 +1,6 @@
+import type { ChartRange } from '@/modules/profile/types/profile.types';
+import type { AvatarLook } from '@/modules/avatar/types/avatar.types';
+
 /** What a paid product gives (mirrors `PaymentGrant` of `BE/src/config/payment.ts`). */
 export type PaymentGrant = { kind: 'premium'; months: number } | { kind: 'coins'; coins: number };
 
@@ -32,6 +35,9 @@ export interface AdminPaymentRow {
   _id: string;
   userName: string;
   email: string | null;
+  /** The uploaded picture the buyer shows; `null` when they chose their pixel avatar or never set a picture. */
+  avatarUrl: string | null;
+  avatar: AvatarLook;
   product: string;
   /** In VND. */
   amount: number;
@@ -78,4 +84,17 @@ export interface MyPaymentPage {
   limit: number;
   total: number;
   totalPages: number;
+}
+
+/** The money each gateway took in a period (`GET /api/admin/payments/revenue`): only payments that are paid and given. `key` is 'YYYY-MM' (year), the first day of a block of 7 days (month) or a day (week), as in the Progress chart. In VND. */
+export interface PaymentRevenuePoint {
+  key: string;
+  payos: number;
+  vnpay: number;
+  momo: number;
+}
+
+export interface PaymentRevenueData {
+  range: ChartRange;
+  points: PaymentRevenuePoint[];
 }

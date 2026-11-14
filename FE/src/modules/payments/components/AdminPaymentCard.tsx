@@ -1,37 +1,70 @@
 import { RefreshCw } from 'lucide-react';
+import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { Button } from '@/shared/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
-import { ListRow, ListRowStat } from '@/shared/components/list-row';
-import { canRecheck, formatVnd, PROVIDER_NAMES } from '../lib/store';
-import type { AdminPaymentRow } from '../types/payments.types';
+import { ListRow } from '@/shared/components/list-row';
+import { canRecheck, PROVIDER_NAMES, purchaseLabel } from '../lib/store';
+import type { AdminPaymentRow, PaymentProduct } from '../types/payments.types';
 
 const STATUS_NAMES: Record<AdminPaymentRow['status'], string> = { pending: 'Pending', paid: 'Paid', failed: 'Failed' };
 
-const dateTime = new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
+const dayFormat = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+const timeFormat = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'UTC' });
+/** The day goes under the plan ("13/11/2026"), the time under the gateway ("12:18 UTC"). */
+const dayOf = (iso: string) => dayFormat.format(new Date(iso));
+const timeOf = (iso: string) => `${timeFormat.format(new Date(iso))} UTC`;
 
-/** One payment of a user: who, what and how much on the left, the gateway, the state and whether it was given on the right. */
-export const AdminPaymentCard = ({ row, onRecheck, checking }: { row: AdminPaymentRow; onRecheck: (row: AdminPaymentRow) => void; checking: boolean }) => (
+/** What a payment bought: "Premium-6M" for a Premium term, the catalog's label for anything else ("500 coins"). */
+const planName = (productId: string, products?: PaymentProduct[]) => {
+  const grant = products?.find((product) => product.id === productId)?.grant;
+  return grant?.kind === 'premium' ? `Premium-${grant.months}M` : purchaseLabel(productId, products);
+};
+
+/** The four columns of a row share the width left by the buyer equally. */
+const COLUMNS = 'grid w-full grid-cols-4 gap-x-10';
+
+/** A right-aligned column built like the buyer's: a bold line on top, a muted one under it. */
+const Cell = ({ top, bottom }: { top: string; bottom?: string }) => (
+  <div className="min-w-0 text-right">
+    <p className="truncate text-2xl font-extrabold text-primary/80 first-letter:uppercase">{top}</p>
+    {bottom !== undefined && <p className="truncate text-lg text-muted-foreground">{bottom}</p>}
+  </div>
+);
+
+/** One payment of a user: the buyer with their avatar, then Plan over the day, Gateway over the time, Amount, and Status over Access in equal columns, all right-aligned. */
+export const AdminPaymentCard = ({
+  row,
+  products,
+  onRecheck,
+  checking,
+}: {
+  row: AdminPaymentRow;
+  products?: PaymentProduct[];
+  onRecheck: (row: AdminPaymentRow) => void;
+  checking: boolean;
+}) => (
   <ListRow
     plain
     flat
+    stretch
     identity={
-      <div className="min-w-0">
-        <p className="truncate text-2xl font-extrabold text-primary/80">{row.userName}</p>
-        <p className="truncate text-lg text-muted-foreground">{row.email ?? ''}</p>
-      </div>
-    }
-    center={
-      <div className="min-w-0 text-center">
-        <p className="truncate text-lg font-semibold">{row.product}</p>
-        <p className="text-sm text-muted-foreground">{dateTime.format(new Date(row.createdAt))}</p>
+      <div className="flex min-w-0 items-center gap-3">
+        {/* 61px = the height of the columns. The uploaded picture, or the pixel face of the account. */}
+        <div className="flex size-[61px] shrink-0 items-center justify-center overflow-hidden">
+          {row.avatarUrl ? <img src={row.avatarUrl} alt="" className="size-full object-cover" /> : <AvatarSprite look={row.avatar} crop="head" scale={1.5} label={`Avatar of ${row.userName}`} />}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-2xl font-extrabold text-primary/80">{row.userName}</p>
+          <p className="truncate text-lg text-muted-foreground">{row.email ?? ''}</p>
+        </div>
       </div>
     }
     extra={
-      <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-0">
-        <ListRowStat className="w-32" label="AMOUNT" value={formatVnd(row.amount)} />
-        <ListRowStat className="w-28" label="GATEWAY" value={PROVIDER_NAMES[row.provider]} />
-        <ListRowStat className="w-28" label="STATUS" value={STATUS_NAMES[row.status]} />
-        <ListRowStat className="w-28" label="GIVEN" value={row.status === 'paid' ? (row.granted ? 'Yes' : 'Not yet') : '-'} />
+      <div className={COLUMNS}>
+        <Cell top={planName(row.product, products)} bottom={dayOf(row.createdAt)} />
+        <Cell top={PROVIDER_NAMES[row.provider]} bottom={timeOf(row.createdAt)} />
+        <Cell top={new Intl.NumberFormat('vi-VN').format(row.amount)} bottom="₫" />
+        <Cell top={STATUS_NAMES[row.status]} bottom={`Access: ${row.status !== 'paid' ? 'No' : row.granted ? 'Yes' : 'Not yet'}`} />
       </div>
     }
     action={

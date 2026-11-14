@@ -19,6 +19,8 @@ interface ListRowProps {
   plain?: boolean;
   /** No lines between the tiers and before `meta`: the tags and the date sit under the top tier without separators. */
   flat?: boolean;
+  /** `extra` takes all the room between the identity and the action (from `xl` up), for columns that share the row equally; `center` is not shown. */
+  stretch?: boolean;
 }
 
 /**
@@ -26,19 +28,24 @@ interface ListRowProps {
  * Top: identity | center | extra | action. Bottom (when given): tags | meta.
  * Below `xl` the top tier stacks (identity and action, then extra) and `center` is hidden.
  */
-export const ListRow = ({ identity, center, extra, action, tags, meta, plain, flat }: ListRowProps) => (
+export const ListRow = ({ identity, center, extra, action, tags, meta, plain, flat, stretch }: ListRowProps) => (
   <article
     className={cn(
       'group border-0 text-primary',
       plain ? 'bg-transparent transition-colors hover:bg-primary/15' : 'bg-primary/15 transition-shadow hover:ring-1 hover:ring-primary/60',
     )}
   >
-    <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 py-3 pr-3 pl-4 xl:grid-cols-[minmax(0,300px)_minmax(16px,1fr)_minmax(0,50%)_minmax(16px,1fr)_auto_auto] xl:gap-x-0">
+    <div
+      className={cn(
+        'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 py-3 pr-3 pl-4 xl:gap-x-0',
+        stretch ? 'xl:grid-cols-[minmax(0,300px)_0_0_0_minmax(0,1fr)_auto]' : 'xl:grid-cols-[minmax(0,300px)_minmax(16px,1fr)_minmax(0,50%)_minmax(16px,1fr)_auto_auto]',
+      )}
+    >
       {identity}
       <span className="hidden xl:block" aria-hidden />
       <div className="hidden xl:block">{center}</div>
       <span className="hidden xl:block" aria-hidden />
-      <div className="col-span-2 xl:col-span-1">{extra}</div>
+      <div className={cn('col-span-2 xl:col-span-1', stretch && 'xl:pl-8')}>{extra}</div>
       <div className="col-start-2 row-start-1 self-start xl:col-start-auto xl:row-start-auto">{action}</div>
     </div>
 

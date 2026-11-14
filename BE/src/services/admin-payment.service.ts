@@ -1,4 +1,5 @@
 import type { QueryFilter } from 'mongoose';
+import { DEFAULT_AVATAR } from '../data/avatar-catalog';
 import { PaymentDocument, PaymentModel } from '../models/payment.model';
 import { UserModel } from '../models/user.model';
 import { badRequest, notFound } from '../utils/app-error';
@@ -7,13 +8,18 @@ import type { ListPaymentsQuery } from '../validators/payment.validator';
 import { escapeRegex } from './admin-plan.service';
 import { applyPayosReturn } from './payment.service';
 
+type Person = { name: string; email: string; avatarUrl: string | null; avatar: unknown };
+
 /** What an admin sees of one payment: the buyer's name and email (only admins read this), never an id of theirs or a gateway key. */
-const rowOf = (payment: PaymentDocument, people: Map<string, { name: string; email: string }>) => {
+const rowOf = (payment: PaymentDocument, people: Map<string, Person>) => {
   const person = people.get(String(payment.owner));
   return {
     _id: String(payment._id),
     userName: person?.name ?? 'Unknown',
     email: person?.email ?? null,
+    // The picture the user shows (none while they chose their pixel avatar) and their pixel avatar, as in the admin user list.
+    avatarUrl: person?.avatarUrl ?? null,
+    avatar: person?.avatar ?? DEFAULT_AVATAR,
     product: payment.product,
     amount: payment.amount,
     // Payments saved before MoMo have no provider: they are VNPay's.
@@ -27,8 +33,8 @@ const rowOf = (payment: PaymentDocument, people: Map<string, { name: string; ema
 };
 
 const peopleOf = async (payments: PaymentDocument[]) => {
-  const users = await UserModel.find({ _id: { $in: [...new Set(payments.map((payment) => String(payment.owner)))] } }).select('displayName email');
-  return new Map(users.map((user) => [String(user._id), { name: user.displayName || user.email, email: user.email }]));
+  const users = await UserModel.find({ _id: { $in: [...new Set(payments.map((payment) => String(payment.owner)))] } }).select('displayName email avatar avatarUrl avatarSource');
+  return new Map(users.map((user) => [String(user._id), { name: user.displayName || user.email, email: user.email, avatarUrl: user.avatarSource === 'pixel' ? null : (user.avatarUrl ?? null), avatar: user.avatar }]));
 };
 
 /** The payments of all users, newest first by default. */

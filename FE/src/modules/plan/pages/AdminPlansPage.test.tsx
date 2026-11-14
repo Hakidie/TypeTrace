@@ -303,6 +303,17 @@ describe('AdminPlansPage', () => {
     await waitFor(() => expect(listSubscriptions).toHaveBeenLastCalledWith(expect.objectContaining({ plan: 'premium' })));
   });
 
+  it('shows 3 terms a page, and 10 after Expand (only while there are more than 3)', async () => {
+    const user = userEvent.setup();
+    listSubscriptions.mockResolvedValue(subscriptionPage([row()], { total: 12, totalPages: 4 }));
+    renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });
+    await screen.findByText('An');
+
+    await user.click(screen.getByRole('button', { name: 'Expand' }));
+    await waitFor(() => expect(listSubscriptions).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 10, page: 1 })));
+    expect(screen.getByRole('button', { name: 'Collapse' })).toBeInTheDocument();
+  });
+
   it('filters by source (None) and by who changed the plan (Admin, System)', async () => {
     const user = userEvent.setup();
     renderWithProviders(<AdminPlansPage />, { route: '/admin/plans?show=list' });

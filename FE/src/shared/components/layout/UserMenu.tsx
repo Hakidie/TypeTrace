@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avat
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
 import { useThemeMode } from '@/modules/settings/hooks/use-theme-mode';
 
-/** The avatar and the user's name as a button: it opens a menu with Wardrobe, Mode (each press switches between Light and Dark), AI chat, Admin (admins only: the link to the admin area), Settings and Logout (the entries modules add are `menuItems`; `last` ones come after Admin). */
+/** The avatar and the user's name as a button: it opens a menu with Wardrobe, the entries of the modules (Store, Payment, AI chat), Light or Dark, the current mode (each press switches it), Admin (admins only: the link to the admin area), Settings and Logout (the entries modules add are `menuItems`; `last` ones come after Admin). */
 export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuItems?: MenuItem[] }) => {
   const handleLogout = useLogout();
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
     (item) => pathname === item.to || pathname.startsWith(`${item.to}/`),
   );
 
-  // The entries modules add, after Mode (default) or after Admin (`last`), for the roles that may see them.
+  // The entries modules add, before Mode (default) or after Admin (`last`), for the roles that may see them.
   const renderItems = (last: boolean) =>
     menuItems
       .filter((item) => !!item.last === last && (!item.roles || (user && item.roles.includes(user.role))))
@@ -73,11 +73,11 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
           <Shirt className="size-4" />
           Wardrobe
         </DropdownMenuItem>
+        {renderItems(false)}
         <DropdownMenuItem onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')} className="gap-2">
           <ModeIcon className="size-4" />
-          Mode: {mode === 'dark' ? 'Dark' : 'Light'}
+          {mode === 'dark' ? 'Dark' : 'Light'}
         </DropdownMenuItem>
-        {renderItems(false)}
         {user?.role === 'admin' && (
           <DropdownMenuItem onClick={() => navigate('/admin')} className="gap-2">
             <Shield className="size-4" />

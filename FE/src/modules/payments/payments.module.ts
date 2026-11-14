@@ -1,4 +1,4 @@
-import { CreditCard, ShoppingBag } from 'lucide-react';
+import { CreditCard, Receipt, ShoppingBag } from 'lucide-react';
 import type { AppModule } from '@/app/module.types';
 import { PremiumRenewalBanner } from './components/PremiumRenewalBanner';
 import { PaymentHistoryPage } from './pages/PaymentHistoryPage';
@@ -22,5 +22,8 @@ export const paymentsModule: AppModule = {
   // Admins: every payment of every user, with a new check of an open payOS payment (`/api/admin/payments`).
   adminRoutes: [{ path: '/admin/payments', Component: AdminPaymentsPage }],
   adminNavItems: [{ to: '/admin/payments', label: 'Payments', icon: CreditCard }],
-  menuItems: [{ label: 'Store', icon: ShoppingBag, to: '/store' }],
+  menuItems: [
+    { label: 'Store', icon: ShoppingBag, to: '/store' },
+    { label: 'Payment', icon: Receipt, to: '/store/history' },
+  ],
 };

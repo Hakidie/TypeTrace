@@ -12,7 +12,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Switch } from '@/shared/components/ui/switch';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
-import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
+import { FitAvatar } from '../components/FitAvatar';
 import { HelpLabel } from '../components/HelpLabel';
 import { PlanUsersChart } from '../components/PlanUsersChart';
 import { SubscriptionList } from '../components/SubscriptionList';
@@ -32,6 +32,8 @@ const planSchema = z.object({
 const schema = z.object({ free: planSchema, premium: planSchema });
 
 // Number fields that look like text: no border, background or focus ring.
+// The label of an option: may wrap, its size follows the width of the card (so the avatar and the switch always have room).
+const optionLabel = 'text-[clamp(0.875rem,4.4cqw,1.5rem)] font-semibold leading-none tracking-wide text-primary/70';
 const bareInput = 'h-auto border-0 bg-transparent p-0 text-right shadow-none focus-visible:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
 
 const PlansForm = ({
@@ -92,25 +94,21 @@ const PlansForm = ({
             aria-label={`${name} plan`}
             // A click on the card (not on a field, a switch or a "?") shows only its line on the chart; a click again shows both.
             onClick={(event) => !(event.target as HTMLElement).closest('input, button, label, [role="switch"]') && onPickLine(key)}
-            className={`group cursor-pointer border p-4 ${lines === key ? 'border-primary' : 'border-border'}`}
+            className={`group @container min-w-0 cursor-pointer border p-4 ${lines === key ? 'border-primary' : 'border-border'}`}
           >
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-[clamp(1rem,6cqw,2rem)]">
+              {/* Left column: the name, the price, the passage limit and the two permissions. */}
               <div className="flex flex-col gap-4">
-              <span className="block text-[2rem] font-bold leading-none text-primary/70">{name}</span>
-              <div className="grid grid-cols-[auto_1fr] gap-8">
-              {/* Left column: the avatar that illustrates the plan, filling the column (as on the plan dialog). */}
-              <div className="flex items-center justify-center">
-                <AvatarSprite look={PLAN_AVATARS[key]} scale={3} label={`Avatar of the ${name} plan`} />
-              </div>
-              {/* Right column: the price level with the top of the avatar, then the passage limit and the two permissions. */}
+              <span className="block text-[clamp(1.25rem,7cqw,2rem)] font-bold leading-none text-primary/70">{name}</span>
               <div className="flex flex-col justify-between gap-6">
-                <div className="flex flex-col items-end text-right">
+                <div className="flex flex-col items-start text-left">
                   <Input
                     id={`${key}-price`}
                     aria-label={`Monthly price (${name})`}
                     type="number"
                     min={0}
                     step={1}
-                    className={`${bareInput} w-52 text-[3rem] font-black leading-none text-primary`}
+                    className={`${bareInput} w-full !text-left text-[clamp(1.75rem,11cqw,3rem)] font-black leading-none text-primary`}
                     {...register(`${key}.priceVnd`, { valueAsNumber: true })}
                   />
                   <span className="block text-sm text-muted-foreground">VND/month</span>
@@ -122,6 +120,7 @@ const PlansForm = ({
                     htmlFor={`${key}-max`}
                     text="Passage limit"
                     help={PASSAGE_LIMIT_HELP}
+                    className={optionLabel}
                   />
                   <div className="flex flex-col items-end text-right">
                     <Input
@@ -130,7 +129,7 @@ const PlansForm = ({
                       type="number"
                       min={0}
                       step={1}
-                      className={`${bareInput} w-24 h-9 text-3xl font-black leading-none text-primary`}
+                      className={`${bareInput} w-24 h-9 text-[clamp(1.25rem,6cqw,1.875rem)] font-black leading-none text-primary`}
                       {...register(`${key}.maxPassages`, { valueAsNumber: true })}
                     />
                     {errors[key]?.maxPassages && <p className="text-sm text-destructive">{errors[key]?.maxPassages?.message}</p>}
@@ -138,7 +137,7 @@ const PlansForm = ({
                 </div>
                 {PERMISSIONS.map(({ field, label, help }) => (
                   <div key={field} className="flex min-h-9 items-center justify-between gap-4">
-                    <HelpLabel htmlFor={`${key}-${field}`} text={label} help={help} />
+                    <HelpLabel htmlFor={`${key}-${field}`} text={label} help={help} className={optionLabel} />
                     <Controller
                       control={control}
                       name={`${key}.${field}`}
@@ -151,6 +150,8 @@ const PlansForm = ({
                 </div>
               </div>
               </div>
+              {/* Right column: the avatar of the plan, as tall as the left column (from the name to the last permission). */}
+              <FitAvatar look={PLAN_AVATARS[key]} label={`Avatar of the ${name} plan`} />
               </div>
             </fieldset>
           ))}

@@ -52,6 +52,12 @@ describe('WardrobeV2Page', () => {
     expect(names('Extras')).toEqual(['Headwear', 'Accessory', 'Back']);
   });
 
+  it('links the coins to the coin packs of the Store', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('link', { name: 'Get coins' })).toHaveAttribute('href', '/store?section=coins');
+  });
+
   it('says on each tab what the avatar wears in that slot', async () => {
     renderPage();
     await screen.findByRole('img', { name: 'Your avatar' });
