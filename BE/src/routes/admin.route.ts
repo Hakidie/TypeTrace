@@ -22,7 +22,7 @@ import {
   updateDailyTaskSettings
 } from '../controllers/admin-daily-task.controller';
 import { createTheme, deleteTheme, listThemes, updateTheme } from '../controllers/admin-theme.controller';
-import { listPayments, recheckPayment } from '../controllers/admin-payment.controller';
+import { getPaymentRevenue, listPayments, recheckPayment } from '../controllers/admin-payment.controller';
 import { cancelPremium, getPlans, getPlanUsers, grantPremium, listSubscriptions, previewPlans, revokePremium, savePlans } from '../controllers/admin-plan.controller';
 import { bulkDeleteUsers, deleteUser, getStats, getUser, listUsers, setUserStatus, updateUser } from '../controllers/admin.controller';
 import { getPlacementSettings, updatePlacementSettings } from '../controllers/placement.controller';
@@ -76,6 +76,7 @@ adminRouter.post('/plans/preview', validate({ body: updatePlansSchema }), previe
 adminRouter.put('/plans', validate({ body: updatePlansSchema }), savePlans);
 // Every plan change of every user (who, which plan, from where, who made it).
 // Payments of all users (VNPay, MoMo, payOS) and a new check of an open payOS payment.
+adminRouter.get('/payments/revenue', validate({ query: planUsersQuerySchema }), getPaymentRevenue);
 adminRouter.get('/payments', validate({ query: listPaymentsQuerySchema }), listPayments);
 adminRouter.post('/payments/:id/recheck', validate({ params: idParamsSchema }), recheckPayment);
 adminRouter.get('/subscriptions', validate({ query: listSubscriptionsQuerySchema }), listSubscriptions);

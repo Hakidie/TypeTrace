@@ -4,12 +4,14 @@ import { avatarKeys } from '@/modules/avatar/hooks/use-avatar';
 import { planKeys } from '@/modules/plan/hooks/use-plan';
 import { toast } from 'sonner';
 import { adminPaymentsApi, paymentsApi } from '../api/payments.api';
+import type { ChartRange } from '@/modules/profile/types/profile.types';
 import type { AdminPaymentListParams, PaymentProvider } from '../types/payments.types';
 
 export const paymentKeys = {
   products: ['payments', 'products'] as const,
   mine: (page: number, limit: number) => ['payments', 'mine', page, limit] as const,
   admin: (params: AdminPaymentListParams) => ['admin', 'payments', params] as const,
+  revenue: (range: ChartRange, date: string) => ['admin', 'payments', 'revenue', range, date] as const,
   vnpayReturn: (search: string) => ['payments', 'return', search] as const,
 };
 
@@ -54,6 +56,10 @@ export const useVnpayReturn = (search: string, provider: PaymentProvider = 'vnpa
 /** One page of the payments of all users; the previous page stays on screen while the next one loads. */
 export const useAdminPayments = (params: AdminPaymentListParams) =>
   useQuery({ queryKey: paymentKeys.admin(params), queryFn: () => adminPaymentsApi.list(params), placeholderData: keepPreviousData });
+
+/** The money of each gateway over a period; the previous period stays on screen while the next one loads. */
+export const usePaymentRevenue = (range: ChartRange, date: string) =>
+  useQuery({ queryKey: paymentKeys.revenue(range, date), queryFn: () => adminPaymentsApi.revenue(range, date), placeholderData: keepPreviousData });
 
 /** Checks an open payOS payment again. No `onError`: the shared query client toasts the backend message. */
 export const useRecheckPayment = () => {

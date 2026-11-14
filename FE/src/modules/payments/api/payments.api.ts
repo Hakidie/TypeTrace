@@ -1,9 +1,12 @@
 import { http } from '@/shared/api/http';
-import type { AdminPaymentListParams, AdminPaymentPage, AdminPaymentRow, MyPaymentPage, PaymentProduct, PaymentProvider, StartedPayment, VnpayReturn } from '../types/payments.types';
+import type { ChartRange } from '@/modules/profile/types/profile.types';
+import type { AdminPaymentListParams, AdminPaymentPage, AdminPaymentRow, MyPaymentPage, PaymentProduct, PaymentRevenueData, PaymentProvider, StartedPayment, VnpayReturn } from '../types/payments.types';
 
 /** Every function resolves with the response body (not the Axios response). */
 export const adminPaymentsApi = {
   list: (params: AdminPaymentListParams) => http.get<AdminPaymentPage>('/admin/payments', { params }).then((r) => r.data),
+  /** The money of each gateway over a year, a month or a week (the one that holds `date`). */
+  revenue: (range: ChartRange, date: string) => http.get<PaymentRevenueData>('/admin/payments/revenue', { params: { range, date } }).then((r) => r.data),
   /** Asks payOS again about an open payment, then gives what was bought. */
   recheck: (id: string) => http.post<AdminPaymentRow>(`/admin/payments/${id}/recheck`).then((r) => r.data),
 };
