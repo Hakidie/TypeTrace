@@ -10,6 +10,7 @@ import {
   updateAvatarSource,
   updateProfile,
   updateSecurity,
+  getSettings,
   updateSettings,
   uploadAvatar
 } from '../controllers/profile.controller';
@@ -49,5 +50,7 @@ profileRouter.get('/error-trend', authGuard, validate({ query: monthlyProgressQu
 profileRouter.get('/vowel-tone', authGuard, getVowelTone);
 /** The learner's own average WPM and errors by month, week or day: `?range=year|month|week` (SCRUM-240) and `?language=` (SCRUM-219). */
 profileRouter.get('/monthly-progress', authGuard, validate({ query: monthlyProgressQuerySchema }), getMonthlyProgress);
-/** `{ timezone?, typingLanguage? }`: the zone of the learner's days, sent by the browser (SCRUM-31), and their Practice language (SCRUM-219). */
+/** The learner's own settings (SCRUM-158). */
+profileRouter.get('/settings', authGuard, getSettings);
+/** `{ timezone?, typingLanguage?, typingFontSizeRem?, fontFamily? }`, at least one: the zone of the learner's days (SCRUM-31), their Practice language (SCRUM-219), the passage font size and the interface font (SCRUM-158). */
 profileRouter.patch('/settings', authGuard, validateBody(updateSettingsSchema), updateSettings);

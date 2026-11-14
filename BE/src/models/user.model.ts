@@ -1,5 +1,6 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import { AvatarLook, DEFAULT_AVATAR } from '../data/avatar-catalog';
+import { type AppFont, appFonts, DEFAULT_APP_FONT, TYPING_FONT_SIZE } from '../utils/app-font';
 import { type TypingLanguage, typingLanguages } from '../utils/typing-language';
 import { SubscriptionModel } from './subscription.model';
 
@@ -58,6 +59,10 @@ export interface UserDocument extends mongoose.Document {
      * error set of their practice sessions and of the stats they see. The placement test is always Vietnamese.
      */
     typingLanguage: TypingLanguage;
+    /** The size of the passage text on the typing page, in rem (SCRUM-158): 1 to 2.5 in steps of 0.125, 2 until changed. */
+    typingFontSizeRem: number;
+    /** The font of the whole interface (SCRUM-158), one of `appFonts`. */
+    fontFamily: AppFont;
   };
   /** The pixel avatar the user wears (ranked duel design, section 7). Missing on accounts saved before: `DEFAULT_AVATAR`. */
   avatar: AvatarLook;
@@ -111,7 +116,10 @@ const userSchema = new Schema<UserDocument>(
           lightTheme: { type: Schema.Types.ObjectId, ref: 'Theme', default: null },
           // Checked by `PATCH /api/profile/settings`, not here: a zone unknown to a later server must not block a save.
           timezone: { type: String, default: DEFAULT_TIMEZONE },
-          typingLanguage: { type: String, enum: typingLanguages, default: 'vi' }
+          typingLanguage: { type: String, enum: typingLanguages, default: 'vi' },
+          // Range and step are checked by `PATCH /api/profile/settings`.
+          typingFontSizeRem: { type: Number, default: TYPING_FONT_SIZE.default },
+          fontFamily: { type: String, enum: appFonts, default: DEFAULT_APP_FONT }
         },
         { _id: false }
       ),

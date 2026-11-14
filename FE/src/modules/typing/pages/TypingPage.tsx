@@ -15,6 +15,7 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
 import { redGlassTheme } from '@/shared/lib/red-glass-theme';
 import { type TypingLanguage } from '@/shared/lib/typing-language';
@@ -338,15 +339,32 @@ export const TypingPage = () => {
               and the button under the passage. */}
           {targeted && !weakSpotsCards && (
             <div className="flex min-w-0 outline outline-1 -outline-offset-1 outline-border">
-              <span className={cn(chipClass, 'truncate text-primary')}>{passageTitle ?? '—'}</span>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={cn(chipClass, 'truncate text-primary')}>{passageTitle ?? '—'}</span>
+                  </TooltipTrigger>
+                  {passageTitle && <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-normal break-words">{passageTitle}</TooltipContent>}
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
           {!game && !targeted && (
-          <DropdownMenu className="static">
-            <div className="flex outline outline-1 -outline-offset-1 outline-border">
-              <DropdownMenuTrigger disabled={complete.isPending} title={passageTitle} aria-label="Choose passage" className={cn(chipClass, randomPassage ? 'text-muted-foreground' : 'text-primary')}>
-                <span className="block break-words text-left">{passageTitle ?? '—'}</span>
-              </DropdownMenuTrigger>
+          <DropdownMenu className="static flex min-w-0 max-w-full">
+            <div className="flex min-w-0 outline outline-1 -outline-offset-1 outline-border">
+              {/* The full name in the shared tooltip (not the native `title`), in a span so it also shows while the button is disabled. */}
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex min-w-0">
+                      <DropdownMenuTrigger disabled={complete.isPending} aria-label="Choose passage" className={cn(chipClass, randomPassage ? 'text-muted-foreground' : 'text-primary')}>
+                        <span className="block truncate whitespace-nowrap text-left">{passageTitle ?? '—'}</span>
+                      </DropdownMenuTrigger>
+                    </span>
+                  </TooltipTrigger>
+                  {passageTitle && <TooltipContent className="max-w-[min(32rem,calc(100vw-2rem))] whitespace-normal break-words">{passageTitle}</TooltipContent>}
+                </Tooltip>
+              </TooltipProvider>
               <button
                 type="button"
                 onClick={() => pick(undefined)}

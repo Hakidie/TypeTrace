@@ -750,14 +750,16 @@ describe('TypingPage', () => {
     await waitFor(() => expect(passages).toHaveBeenLastCalledWith('practice', 'vi', { sort: '-createdAt', origin: 'mine', q: 'thu' }));
   });
 
-  it('does not cut the passage name in the trigger, and keeps the menu inside a phone screen (SCRUM-304)', async () => {
+  it('keeps the passage name on one line in the trigger, whose width follows it, and keeps the menu inside a phone screen (SCRUM-304)', async () => {
     const user = userEvent.setup();
     start.mockResolvedValue({ ...session, passageTitle: 'Một đoạn văn có cái tên rất dài không bị cắt ở giữa chừng' });
     renderPage();
 
     const trigger = await screen.findByRole('button', { name: 'Choose passage' });
     expect(trigger.className).not.toMatch(/max-w-48/);
-    expect(trigger.querySelector('span')?.className).not.toMatch(/truncate/);
+    // One line, never wrapped; the frame is as wide as the name, and only a name wider than the room is cut (ellipsis).
+    expect(trigger.querySelector('span')).toHaveClass('whitespace-nowrap', 'truncate');
+    expect(trigger.querySelector('span')?.className).not.toMatch(/break-words/);
     await user.click(trigger);
     // As wide as the trigger on a phone (names wrap), as wide as the longest name from `sm` up.
     const menu = await screen.findByRole('menu', { name: 'Passages' });
@@ -769,6 +771,19 @@ describe('TypingPage', () => {
     expect(menu).not.toHaveClass('sm:min-w-full');
     expect(menu.parentElement).toHaveClass('static');
     expect(menu.closest('[data-tutorial="mode-tabs"]')).toHaveClass('relative');
+  });
+
+  it('shows the full passage name in a tooltip, not in the native title', async () => {
+    const user = userEvent.setup();
+    const name = 'Một đoạn văn có cái tên rất dài không bị cắt ở giữa chừng';
+    start.mockResolvedValue({ ...session, passageTitle: name });
+    renderPage();
+
+    const trigger = await screen.findByRole('button', { name: 'Choose passage' });
+    expect(trigger).not.toHaveAttribute('title');
+    await user.hover(trigger);
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(name);
   });
 
   it('has no filter by origin in the placement test: its passages are all the system\'s', async () => {

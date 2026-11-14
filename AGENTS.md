@@ -178,7 +178,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   System at first, Mine, Others; no "All"): both show only their icon and the word with the current choice shows while they are hovered or focused (the box takes the room, `w-0 flex-1`, so the menu never changes its width), they go
   round their options when pressed and the list is asked again at once, keeping the search that was sent; the menu opens centered
   under the tabs of the page, on the Typing page (Mode tabs) and on the leaderboard alike (its `DropdownMenu` is `static`, the row of
-  the tabs is `relative`), and the trigger wraps a long name; each passage is tagged System or with its author's public name, never an email; it asks for 100 matches at most, no paging.
+  the tabs is `relative`), and the trigger keeps the name on one line, so its width follows the name and only a name wider than the room is cut with an ellipsis; each passage is tagged System or with its author's public name, never an email; it asks for 100 matches at most, no paging.
 - A completed session's replay (SCRUM-35) lives in its own `SessionReplay` collection (`models/session-replay.model.ts`),
   which a TTL index on `createdAt` empties 30 days after each save: `TypingArea` records the changes of the text on screen
   (`createReplayRecorder`, `FE/src/modules/typing/utils/session-replay.ts`), the page sends them as `replay` with
@@ -220,7 +220,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   session the set of its own (`classifyIn`, `tagIn`, `errorTypesOf` in `utils/typing-language.ts`, with a frontend copy).
   After changing a `tag…` function, run `npm run rebuild:tag-counts`.
 - Typing language (SCRUM-219): a learner types Practice in Vietnamese or English, `settings.typingLanguage` (`vi` by default,
-  saved with `PATCH /api/profile/settings`, which takes a time zone, a typing language or both). A session keeps its
+  saved with `PATCH /api/profile/settings`, which takes any of the settings below). A session keeps its
   `language`, set by the server when it starts (Practice: the learner's language then, `typingLanguageOf`; the placement test
   and Weak spots: always `vi`), and is graded and counted in its set only (its `errorCounts` / `opportunityCounts` hold the keys of that set).
   A session without `language` (from before) is Vietnamese: filter with `sessionsIn(language)` (`{ language: { $ne: 'en' } }`
@@ -240,6 +240,12 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   link) and a `?passage=` link of the Passages page (a Vietnamese passage) switch back to Vietnamese and save it. `TypingArea`, the replay and the result page check and name errors with the session's `language`; the session cards of
   the profile say VI or EN. The minigames keep their own language (`useMinigameLang`), and the word bank (`word.model.ts`) is
   Vietnamese only.
+- Typing font size and interface font (SCRUM-158): `settings.typingFontSizeRem` (1 to 2.5 rem in steps of 0.125, 2 by default) and
+  `settings.fontFamily` (`jetbrains-mono` by default, `inter`, `be-vietnam-pro`, `lexend`, `noto-serif`) of `User`, ids and limits in
+  `utils/app-font.ts` (a pure file with an identical copy in `FE/src/shared/lib/app-font.ts`). `GET /api/profile/settings` sends the four
+  settings of the Settings page with defaults filled in; `PATCH` takes any of them (at least one), saves each with its own `$set`
+  and never touches the theme fields. A new font is a new id in both copies of `app-font.ts` and a new entry in `FE/src/modules/settings/lib/fonts.ts`
+  (with a package that has the Vietnamese subset).
 - Payments (VNPay, MoMo and payOS side by side, `/api/payments`, `services/payment.service.ts`): what can be bought and its price live in `config/payment.ts`
   (`PAYMENT_PRODUCTS`: Premium terms of 1, 6 and 12 months and three coin packs, each with its `grant`); a coin pack has its own `amount`,
   a Premium term costs the price of one month an admin sets in the Plans page (`AppSettings.plans.premium.priceVnd`) times its months, less its
@@ -322,6 +328,13 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `useMinigamePlay(game)` (`modules/daily-tasks/hooks/use-minigame-play.ts`: `begin()` when the game starts, `finish()` when it runs to its
   end; Nối từ, Rain and the Bot duel use it, never the tutorial's own duel). Both calls swallow their errors without a toast: counting
   never gets in a game's way. Ranked duels need nothing here, the server counts them from the match.
+- Typing font size and interface font (SCRUM-158, `modules/settings`): the Typing tab of `/settings`: a Preview panel (a sample passage) on top, then a Font panel and a Font size panel (`PassageView` at the size being chosen). The frontend reads both
+  from the current user (`useSettings`, defaults for an old account) and saves with `PATCH /api/profile/settings`. Fonts load only through
+  `settings/lib/fonts.ts` (`FONT_OPTIONS`, self-hosted `@fontsource` files, Latin and Vietnamese, only when the font is chosen or shown);
+  `applyFont` sets `--app-font` on `<html>`, which `body` reads in `index.css`, and `FontSync` (a widget) keeps it the learner's, remembering it
+  in `localStorage` for the first paint (`main.tsx`). `font-mono` of the Rain and duel screens does not follow it. The passage text size goes to
+  `PassageView` as `fontSizeRem`; its line height, 3-row height, scroll and caret come from `typing/utils/passage-layout.ts`, never from a
+  number written in the component.
 - Plans (US11.1, `modules/plan`): `PlanBadge` (a button with the word FREE or PREMIUM between the name and the pencil on the Profile: muted on Free, red on Premium, with a tooltip) opens `PlanDialog` (a solid panel titled Plans, without the dark screen, focus on the dialog itself so no tooltip opens by itself; both plans side by side
   as `PlanOfferCard`s: name, "Your plan" on the learner's own (outlined), its `PLAN_AVATARS` avatar on a pixel floor (Premium wears the Dragon set), the price of a month
   (`formatVnd`) and its perks as a list of included / not included (a check or a dash, never switches); Free is the narrow quiet column, Premium

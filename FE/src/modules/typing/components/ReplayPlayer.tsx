@@ -1,5 +1,6 @@
 import { Pause, Play } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useSettings } from '@/modules/settings/hooks/use-settings';
 import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
@@ -37,6 +38,8 @@ interface ReplayPlayerProps {
  * on which word, clicking it goes there.
  */
 export const ReplayPlayer = ({ targetWords, language = 'vi', events, expiresAt }: ReplayPlayerProps) => {
+  // The passage text size the learner chose in Settings (SCRUM-158).
+  const { typingFontSizeRem } = useSettings();
   const replay = useMemo(() => decodeReplay(events), [events]);
   const { thresholdMs, hesitations } = useMemo(() => findHesitations(replay), [replay]);
   const [positionMs, setPositionMs] = useState(0);
@@ -74,7 +77,7 @@ export const ReplayPlayer = ({ targetWords, language = 'vi', events, expiresAt }
   return (
     <div className="space-y-6">
       {/* Like the typing area: no caret once the replay is over. */}
-      <PassageView words={targetWords} results={results} current={ended ? undefined : splitTyped(shown).current} maxRows={3} />
+      <PassageView words={targetWords} results={results} current={ended ? undefined : splitTyped(shown).current} maxRows={3} fontSizeRem={typingFontSizeRem} />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         <Button variant="ghost" size="sm" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay}>

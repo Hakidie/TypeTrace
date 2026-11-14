@@ -1,6 +1,7 @@
 import { http } from '@/shared/api/http';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import type { Paginated } from '@/shared/api/types';
+import type { AppFont } from '@/shared/lib/app-font';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
 import type {
   ChartRange,
@@ -24,12 +25,16 @@ export interface UpdateSecurityInput {
   loginOtpEnabled: boolean;
 }
 
-/** One setting or both. */
+/** Any of the settings, at least one. */
 export interface UpdateSettingsInput {
   /** An IANA time zone, e.g. `Europe/Paris`: the learner's days (streak, mission, heatmap) are counted in it. */
   timezone?: string;
   /** The language the learner types in Practice (SCRUM-219). */
   typingLanguage?: TypingLanguage;
+  /** The size of the passage text on the typing page, in rem (SCRUM-158). */
+  typingFontSizeRem?: number;
+  /** The font of the whole interface (SCRUM-158). */
+  fontFamily?: AppFont;
 }
 
 /** Every function resolves with the response body (not the Axios response). */

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { renderWithProviders } from '@/test/render-with-providers';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { TypingArea } from './TypingArea';
@@ -6,7 +7,7 @@ import { TypingArea } from './TypingArea';
 const words = ['Tiếng', 'Việt', 'đẹp.'];
 
 const renderArea = (onFinish = vi.fn()) => {
-  render(<TypingArea targetWords={words} onFinish={onFinish} />);
+  renderWithProviders(<TypingArea targetWords={words} onFinish={onFinish} />);
   return { area: screen.getByRole('textbox', { name: 'Typing area' }), onFinish };
 };
 
@@ -31,7 +32,7 @@ describe('TypingArea', () => {
   it('reports the progress once per finished word, for ranked duels', async () => {
     const user = userEvent.setup();
     const onProgress = vi.fn();
-    render(<TypingArea targetWords={words} onFinish={vi.fn()} onProgress={onProgress} />);
+    renderWithProviders(<TypingArea targetWords={words} onFinish={vi.fn()} onProgress={onProgress} />);
     const area = screen.getByRole('textbox', { name: 'Typing area' });
 
     await user.type(area, 'Tiếng Vi');
@@ -127,12 +128,12 @@ describe('TypingArea typed text', () => {
   it('checks the words by the rules of the language of the session (SCRUM-219)', async () => {
     const user = userEvent.setup();
     // In Vietnamese where the tone sits does not matter: "Thuỷ" is "Thủy". In English the letters are compared one by one.
-    const { unmount } = render(<TypingArea targetWords={['Thủy', 'tinh']} onFinish={vi.fn()} />);
+    const { unmount } = renderWithProviders(<TypingArea targetWords={['Thủy', 'tinh']} onFinish={vi.fn()} />);
     await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'Thuỷ ');
     expect(wordAt(0).className).toContain('text-foreground');
     unmount();
 
-    render(<TypingArea targetWords={['Thủy', 'tinh']} language="en" onFinish={vi.fn()} />);
+    renderWithProviders(<TypingArea targetWords={['Thủy', 'tinh']} language="en" onFinish={vi.fn()} />);
     await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'Thuỷ ');
     expect(wordAt(0).className).toContain('text-destructive');
   });
@@ -192,12 +193,12 @@ describe('TypingArea composition', () => {
 
 describe('TypingArea layout', () => {
   it('shows only 3 lines of the passage (3 x 44px and 2 gaps of 8px)', () => {
-    render(<TypingArea targetWords={words} onFinish={vi.fn()} />);
+    renderWithProviders(<TypingArea targetWords={words} onFinish={vi.fn()} />);
     expect(passage()).toHaveStyle({ height: '148px' });
   });
 
   it('shows the actions, the word count and the timer outside of the card', () => {
-    render(<TypingArea targetWords={words} onFinish={vi.fn()} actions={<button>Restart</button>} />);
+    renderWithProviders(<TypingArea targetWords={words} onFinish={vi.fn()} actions={<button>Restart</button>} />);
 
     // passage -> its relative wrapper -> card content -> the card
     const card = screen.getByLabelText('Passage to type').parentElement?.parentElement?.parentElement as HTMLElement;
@@ -213,7 +214,7 @@ describe('TypingArea timer', () => {
   it('starts only at the first key, once, and ignores modifier keys', async () => {
     const user = userEvent.setup();
     const onStart = vi.fn();
-    render(<TypingArea targetWords={words} onStart={onStart} onFinish={vi.fn()} />);
+    renderWithProviders(<TypingArea targetWords={words} onStart={onStart} onFinish={vi.fn()} />);
     const area = screen.getByRole('textbox', { name: 'Typing area' });
     expect(screen.getByLabelText('Elapsed time')).toHaveTextContent('0:00');
 
@@ -244,7 +245,7 @@ describe('TypingArea timer', () => {
 
 describe('TypingArea time limit', () => {
   it('shows only the elapsed time, without the limit', () => {
-    render(<TypingArea targetWords={words} onFinish={vi.fn()} />);
+    renderWithProviders(<TypingArea targetWords={words} onFinish={vi.fn()} />);
 
     expect(screen.getByLabelText('Elapsed time')).toHaveTextContent(/^0:00$/);
   });
@@ -255,7 +256,7 @@ describe('TypingArea time limit', () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onFinish = vi.fn();
       const onTimeUp = vi.fn();
-      render(<TypingArea targetWords={words} onFinish={onFinish} onTimeUp={onTimeUp} />);
+      renderWithProviders(<TypingArea targetWords={words} onFinish={onFinish} onTimeUp={onTimeUp} />);
 
       await user.type(screen.getByRole('textbox', { name: 'Typing area' }), `${words[0]} ${words[1]} `);
       expect(onFinish).not.toHaveBeenCalled();
@@ -276,7 +277,7 @@ describe('TypingArea time limit', () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onFinish = vi.fn();
       const onTimeUp = vi.fn();
-      render(<TypingArea targetWords={words} onFinish={onFinish} onTimeUp={onTimeUp} />);
+      renderWithProviders(<TypingArea targetWords={words} onFinish={onFinish} onTimeUp={onTimeUp} />);
 
       await user.type(screen.getByRole('textbox', { name: 'Typing area' }), 'Ti');
       vi.advanceTimersByTime(180_000);
@@ -293,7 +294,7 @@ describe('TypingArea time limit', () => {
     try {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       const onFinish = vi.fn();
-      render(<TypingArea targetWords={words} onFinish={onFinish} timeLimitSeconds={10} />);
+      renderWithProviders(<TypingArea targetWords={words} onFinish={onFinish} timeLimitSeconds={10} />);
 
       await user.type(screen.getByRole('textbox', { name: 'Typing area' }), `${words[0]} ${words[1]} `);
       vi.advanceTimersByTime(9_000);

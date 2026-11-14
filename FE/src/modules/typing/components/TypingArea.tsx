@@ -1,6 +1,7 @@
 import { CheckCircle2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, CompositionEvent, KeyboardEvent, ReactNode } from 'react';
+import { useSettings } from '@/modules/settings/hooks/use-settings';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
 import { useElapsedSeconds } from '../hooks/use-elapsed';
@@ -101,6 +102,8 @@ export const TypingArea = ({
   onProgress,
   initialTyped,
 }: TypingAreaProps) => {
+  // The passage text size the learner chose in Settings (SCRUM-158).
+  const { typingFontSizeRem } = useSettings();
   const resumedText = initialTyped?.typedWords.length ? `${initialTyped.typedWords.join(' ')} ` : '';
   const [text, setText] = useState(resumedText);
   const [committed, setCommitted] = useState(resumedText);
@@ -205,7 +208,7 @@ export const TypingArea = ({
             {header && <div className="flex justify-center">{header}</div>}
             {/* The real input is an invisible textarea laid over the passage: clicks focus it, and what is typed shows in the passage. */}
             <div className="relative" data-tutorial="typing-passage">
-              <PassageView words={targetWords} results={results} current={isFinished ? undefined : current} maxRows={3} />
+              <PassageView words={targetWords} results={results} current={isFinished ? undefined : current} maxRows={3} fontSizeRem={typingFontSizeRem} />
               <textarea
                 aria-label="Typing area"
                 className="absolute inset-0 size-full cursor-text resize-none opacity-0"

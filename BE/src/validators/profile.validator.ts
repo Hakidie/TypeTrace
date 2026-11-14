@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CHART_RANGES } from '../services/monthly-progress.service';
+import { appFonts, TYPING_FONT_SIZE } from '../utils/app-font';
 import { isValidTimeZone } from '../utils/local-date';
 import { typingLanguages } from '../utils/typing-language';
 import { languageQuerySchema } from './common.validator';
@@ -24,7 +25,9 @@ export type UpdateSecurityInput = z.infer<typeof updateSecuritySchema>;
  *   under the name this server's `Intl` gives it: Node 24 answers `Asia/Saigon` for `Asia/Ho_Chi_Minh`, and a browser that
  *   keeps its own name would see another zone and send it again on every page load.
  * - `typingLanguage` (SCRUM-219): the language the learner types in Practice.
- * Other fields are dropped, so the theme settings cannot be changed here.
+ * - `typingFontSizeRem` (SCRUM-158): the passage text size, 1 to 2.5 rem in steps of 0.125.
+ * - `fontFamily` (SCRUM-158): the font of the interface, one of `appFonts`.
+ * At least one is needed. Other fields are dropped, so the theme settings cannot be changed here.
  */
 export const updateSettingsSchema = z
   .object({
@@ -35,11 +38,18 @@ export const updateSettingsSchema = z
       .max(64, 'At most 64 characters')
       .refine(isValidTimeZone, 'Unknown time zone')
       .optional(),
-    typingLanguage: z.enum(typingLanguages).optional()
+    typingLanguage: z.enum(typingLanguages).optional(),
+    typingFontSizeRem: z
+      .number()
+      .min(TYPING_FONT_SIZE.min, `At least ${TYPING_FONT_SIZE.min}`)
+      .max(TYPING_FONT_SIZE.max, `At most ${TYPING_FONT_SIZE.max}`)
+      .refine((value) => Number.isInteger(value / TYPING_FONT_SIZE.step), `Use steps of ${TYPING_FONT_SIZE.step}`)
+      .optional(),
+    fontFamily: z.enum(appFonts).optional()
   })
   // Nothing to save: the error goes to `timezone`, the setting the browser sends on its own.
-  .refine((settings) => settings.timezone !== undefined || settings.typingLanguage !== undefined, {
-    message: 'Send a time zone or a typing language',
+  .refine((settings) => Object.values(settings).some((value) => value !== undefined), {
+    message: 'Send at least one setting',
     path: ['timezone']
   });
 
