@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
+import { TYPING_FONT_SIZE } from '@/shared/lib/app-font';
+import { passageHeightRem, scrollStepRem } from '../utils/passage-layout';
 import type { WordResult } from '../utils/typing-session';
 
 interface PassageViewProps {
@@ -11,17 +13,17 @@ interface PassageViewProps {
   current?: string;
   /** Show only this many lines and scroll as the learner types, the line being typed second. Without it the whole passage shows. */
   maxRows?: number;
+  /** The size of the text in rem: the learner's choice in Settings (SCRUM-158), 2rem by default. The height of `maxRows` lines, the scroll and the caret follow it. */
+  fontSizeRem?: number;
 }
-
-// One line of the passage: text-[2rem] with leading-snug is 2.75rem; gap-y-2 adds 0.5rem between lines.
-const LINE_REM = 2.75;
-const GAP_REM = 0.5;
 
 // The words fade in one after the other when the passage appears (`.word-reveal` in index.css). The delay stops growing
 // after 40 words: later words are not on screen yet.
 const revealStyle = (index: number) => ({ animationDelay: `${Math.min(index, 40) * 30}ms` });
 
-const Caret = () => <span aria-hidden className="mx-px inline-block h-8 w-0.5 animate-pulse bg-destructive align-middle" />;
+const Caret = ({ heightRem }: { heightRem: number }) => (
+  <span aria-hidden style={{ height: `${heightRem}rem` }} className="mx-px inline-block w-0.5 animate-pulse bg-destructive align-middle" />
+);
 
 /**
  * The passage word by word, with the learner's typing shown in it. Words not reached yet are grey. The word being typed
@@ -29,7 +31,7 @@ const Caret = () => <span aria-hidden className="mx-px inline-block h-8 w-0.5 an
  * correct; when wrong it shows what was typed in red (hover for the target). Words are graded per word, after the space,
  * by the classifier: an input method rewrites letters while it composes, so nothing is judged earlier.
  */
-export const PassageView = ({ words, results, current, maxRows }: PassageViewProps) => {
+export const PassageView = ({ words, results, current, maxRows, fontSizeRem = TYPING_FONT_SIZE.default }: PassageViewProps) => {
   const passageRef = useRef<HTMLParagraphElement>(null);
   const currentRef = useRef<HTMLSpanElement>(null);
 
@@ -39,14 +41,14 @@ export const PassageView = ({ words, results, current, maxRows }: PassageViewPro
     if (!maxRows || !passage) return;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     const lineTop = currentRef.current?.offsetTop ?? 0;
-    passage.scrollTop = Math.max(0, lineTop - (LINE_REM + GAP_REM) * rem);
-  }, [maxRows, results.length]);
+    passage.scrollTop = Math.max(0, lineTop - scrollStepRem(fontSizeRem) * rem);
+  }, [maxRows, fontSizeRem, results.length]);
 
   return (
     <p
       ref={passageRef}
-      className="relative flex flex-wrap content-start gap-x-3 gap-y-2 overflow-hidden text-[2rem] leading-snug"
-      style={maxRows ? { height: `${maxRows * LINE_REM + (maxRows - 1) * GAP_REM}rem` } : undefined}
+      className="relative flex flex-wrap content-start gap-x-3 gap-y-2 overflow-hidden leading-snug"
+      style={{ fontSize: `${fontSizeRem}rem`, ...(maxRows ? { height: `${passageHeightRem(fontSizeRem, maxRows)}rem` } : {}) }}
       aria-label="Passage to type"
     >
       {words.map((word, index) => {
@@ -72,7 +74,7 @@ export const PassageView = ({ words, results, current, maxRows }: PassageViewPro
               <span className="col-start-1 row-start-1 text-muted-foreground/60">{word}</span>
               <span className="col-start-1 row-start-1 text-foreground">
                 {current}
-                <Caret />
+                <Caret heightRem={fontSizeRem} />
               </span>
             </span>
           );

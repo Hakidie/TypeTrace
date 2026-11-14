@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GraduationCap, Moon, Palette, ShieldCheck, Shirt, Sun } from 'lucide-react';
+import { GraduationCap, Keyboard, Moon, Palette, ShieldCheck, Shirt, Sun } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { WardrobeVersionSetting } from '@/modules/avatar/components/WardrobeVersionSetting';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
@@ -19,6 +19,7 @@ import { ThemeEditor } from '../components/ThemeEditor';
 import { ThemeGrid, type ThemeOption } from '../components/ThemeGrid';
 import { ThemeTabs } from '../components/ThemeTabs';
 import { Tip } from '../components/Tip';
+import { TypingSettings } from '../components/TypingSettings';
 import { useThemeMode } from '../hooks/use-theme-mode';
 import { useActiveThemes, useChooseTheme, useCreateTheme, useDeleteTheme, useThemes, useUpdateTheme } from '../hooks/use-themes';
 import { maxThemes } from '../lib/theme-rules';
@@ -52,9 +53,10 @@ const MODE_OPTIONS = [
 ];
 
 const tabs = [
+  { value: 'typing', label: 'Typing', icon: Keyboard },
   { value: 'appearance', label: 'Appearance', icon: Palette },
-  { value: 'security', label: 'Security', icon: ShieldCheck },
   { value: 'wardrobe', label: 'Wardrobe', icon: Shirt },
+  { value: 'security', label: 'Security', icon: ShieldCheck },
   { value: 'tutorial', label: 'Tutorial', icon: GraduationCap },
 ];
 
@@ -64,6 +66,7 @@ export const SettingsPage = () => {
   const { data: user } = useCurrentUser();
   // The tab shown is kept in the URL (`?tab=security`), so a reload or a link opens the same setting.
   const [params, setParams] = useSearchParams();
+  // Appearance is the tab shown when none is chosen, though Typing comes first in the row.
   const tab = tabs.find((item) => item.value === params.get('tab'))?.value ?? 'appearance';
   const { mode } = useThemeMode();
   const active = useActiveThemes();
@@ -258,6 +261,9 @@ export const SettingsPage = () => {
           </Panel>
         </div>
       )}
+
+      {/* PANELS Font and Font size, with a sample passage under them (SCRUM-158). */}
+      {tab === 'typing' && <TypingSettings />}
 
       {/* PANEL Wardrobe: which version of the wardrobe opens. */}
       {tab === 'wardrobe' && <WardrobeVersionSetting />}

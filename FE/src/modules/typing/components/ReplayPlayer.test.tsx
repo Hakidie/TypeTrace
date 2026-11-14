@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
+import { renderWithProviders } from '@/test/render-with-providers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReplayEvent } from '../types/typing.types';
 import { ReplayPlayer } from './ReplayPlayer';
@@ -31,7 +32,7 @@ describe('ReplayPlayer', () => {
   });
 
   it('plays the typing back from the start at once, as the learner saw it', () => {
-    render(<ReplayPlayer targetWords={words} events={events} />);
+    renderWithProviders(<ReplayPlayer targetWords={words} events={events} />);
 
     expect(wordAt(0).className).toContain('bg-destructive/15'); // being typed
     expect(wordAt(0).children[1]).toHaveTextContent('Tiếng');
@@ -44,7 +45,7 @@ describe('ReplayPlayer', () => {
   });
 
   it('stops on Pause and goes on from there on Play', () => {
-    render(<ReplayPlayer targetWords={words} events={events} />);
+    renderWithProviders(<ReplayPlayer targetWords={words} events={events} />);
     wait(500);
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
@@ -57,7 +58,7 @@ describe('ReplayPlayer', () => {
   });
 
   it('plays at the speed chosen, 1× being the speed the learner typed at', () => {
-    render(<ReplayPlayer targetWords={words} events={events} />);
+    renderWithProviders(<ReplayPlayer targetWords={words} events={events} />);
     const speeds = screen.getByRole('radiogroup', { name: 'Speed' });
     expect(speeds).toHaveTextContent('0.5×1×2×4×');
     expect(screen.getByRole('radio', { name: '1×' })).toHaveAttribute('aria-checked', 'true');
@@ -72,7 +73,7 @@ describe('ReplayPlayer', () => {
   });
 
   it('moves to any moment with the time bar', () => {
-    render(<ReplayPlayer targetWords={words} events={events} />);
+    renderWithProviders(<ReplayPlayer targetWords={words} events={events} />);
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
 
     seek(2800);
@@ -84,7 +85,7 @@ describe('ReplayPlayer', () => {
   });
 
   it('marks where the learner stopped and goes there on a click', () => {
-    render(<ReplayPlayer targetWords={words} events={events} />);
+    renderWithProviders(<ReplayPlayer targetWords={words} events={events} />);
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
     seek(3000);
 
@@ -99,14 +100,14 @@ describe('ReplayPlayer', () => {
   });
 
   it('says so when the learner never stopped', () => {
-    render(<ReplayPlayer targetWords={words} events={[[0, 0, 0, 'Tiếng '], [300, 6, 0, 'Việt ']]} />);
+    renderWithProviders(<ReplayPlayer targetWords={words} events={[[0, 0, 0, 'Tiếng '], [300, 6, 0, 'Việt ']]} />);
 
     expect(screen.getByText('No hesitation: you never stopped 1.0 s or more.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Hesitation/ })).not.toBeInTheDocument();
   });
 
   it('stops at the end without a caret, and Play starts again from the beginning', () => {
-    render(<ReplayPlayer targetWords={words} events={events} />);
+    renderWithProviders(<ReplayPlayer targetWords={words} events={events} />);
 
     wait(5000);
     expect(screen.getByText('0:03 / 0:03')).toBeInTheDocument();
@@ -119,7 +120,7 @@ describe('ReplayPlayer', () => {
   });
 
   it('tells until when the replay is kept', () => {
-    render(<ReplayPlayer targetWords={words} events={events} expiresAt="2026-12-03T08:00:00.000Z" />);
+    renderWithProviders(<ReplayPlayer targetWords={words} events={events} expiresAt="2026-12-03T08:00:00.000Z" />);
 
     expect(screen.getByText('Kept until 03 Dec 2026')).toBeInTheDocument();
   });
@@ -186,7 +187,7 @@ describe('the replay of two input methods (SCRUM-35)', () => {
   /** Types the keys and notes what the passage shows after each one; returns that and what the area finished with. */
   const typeAndWatch = (keys: Key[]) => {
     const onFinish = vi.fn();
-    const view = render(<TypingArea targetWords={words} onFinish={onFinish} />);
+    const view = renderWithProviders(<TypingArea targetWords={words} onFinish={onFinish} />);
     const area = screen.getByRole('textbox', { name: 'Typing area' });
     const seen = keys.map(([ms, press]) => {
       vi.setSystemTime(T0 + ms);
@@ -201,7 +202,7 @@ describe('the replay of two input methods (SCRUM-35)', () => {
 
   /** Plays the replay back and checks that it shows, at each moment, what the passage showed while typing. */
   const expectSameAsTyping = (seen: { ms: number; html: string }[], replay: ReplayEvent[]) => {
-    render(<ReplayPlayer targetWords={words} events={replay} />);
+    renderWithProviders(<ReplayPlayer targetWords={words} events={replay} />);
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
     for (const { ms, html } of seen) {
       seek(ms);

@@ -1,5 +1,6 @@
 import type { TutorialState } from '@/modules/tutorial/types/tutorial.types';
 import type { AvatarLook } from '@/modules/avatar/types/avatar.types';
+import type { AppFont } from '@/shared/lib/app-font';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
 
 export interface AuthPayload {
@@ -31,9 +32,10 @@ export interface CurrentUser {
   premium?: { active: boolean; until: string | null };
   /**
    * Only what the frontend reads: the IANA time zone the learner's days are counted in (`Asia/Ho_Chi_Minh` until the browser
-   * sends its own), and the language they type in Practice (SCRUM-219; missing on old data: Vietnamese, `useTypingLanguage`).
+   * sends its own), the language they type in Practice (SCRUM-219; missing on old data: Vietnamese, `useTypingLanguage`), the passage
+   * font size in rem and the interface font (SCRUM-158; missing on old data: the defaults, `useSettings`).
    */
-  settings?: { timezone?: string; typingLanguage?: TypingLanguage };
+  settings?: { timezone?: string; typingLanguage?: TypingLanguage; typingFontSizeRem?: number; fontFamily?: AppFont };
   /** Ping's tutorial (`modules/tutorial`): missing on accounts from before it, which are never shown one. */
   tutorial?: TutorialState;
   createdAt: string;

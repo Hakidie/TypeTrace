@@ -125,6 +125,21 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(resetTutorial).toHaveBeenCalledOnce());
   });
 
+  it('has a Typing tab with the Font and Font size panels', async () => {
+    renderPage('typing');
+
+    expect(await screen.findByRole('radiogroup', { name: 'Interface font' })).toBeInTheDocument();
+    expect(screen.getByRole('slider', { name: 'Font size' })).toBeInTheDocument();
+  });
+
+  it('has no Font tab of its own: its panel is in the Typing tab', async () => {
+    renderPage('font');
+
+    // An unknown tab falls back to Appearance (its theme form).
+    expect(await screen.findByRole('form', { name: 'New theme' })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Interface font' })).not.toBeInTheDocument();
+  });
+
   it('has a Security panel with the email code at login switch', async () => {
     renderPage('security');
 
@@ -132,6 +147,14 @@ describe('SettingsPage', () => {
     expect(toggle).toHaveAttribute('aria-checked', 'false');
   });
 
+
+  it('lists the tabs in order: Typing, Appearance, Wardrobe, Security, Tutorial', async () => {
+    renderPage();
+    await screen.findByRole('heading', { name: 'Themes' });
+
+    const tabs = within(screen.getByRole('radiogroup', { name: 'Settings' })).getAllByRole('radio');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Typing', 'Appearance', 'Wardrobe', 'Security', 'Tutorial']);
+  });
 
   it('shows one setting at a time, chosen with the tabs', async () => {
     renderPage();
