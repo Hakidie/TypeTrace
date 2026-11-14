@@ -105,8 +105,8 @@ describe('AppLayout', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
     expect(screen.queryByRole('menuitem', { name: 'Secret' })).not.toBeInTheDocument();
-    // Wardrobe, Mode, the entries, then the `last` entries, then Logout.
-    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Wardrobe', 'Dark', 'AI chat', 'Settings', 'Logout']);
+    // Wardrobe, the entries, Mode, then the `last` entries, then Logout.
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Wardrobe', 'AI chat', 'Dark', 'Settings', 'Logout']);
     fireEvent.click(await screen.findByRole('menuitem', { name: 'AI chat' }));
     expect(onSelect).toHaveBeenCalledTimes(1);
 

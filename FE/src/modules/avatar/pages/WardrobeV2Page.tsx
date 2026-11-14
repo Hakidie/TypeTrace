@@ -304,10 +304,14 @@ const WardrobeDesktop = () => {
             Save
           </Button>
         </div>
-        {/* The coins sit at the right edge, so "Get coins" opens to their left while they are hovered or focused (grid 0fr -> 1fr animates the width). */}
+        {/* The coins sit at the right edge, so "Get coins" opens to their right (the coins move left) while they are hovered or focused (grid 0fr -> 1fr animates the width). */}
         <div className="group flex items-center lg:justify-self-end">
+          <span className="flex items-center gap-2 tabular-nums text-primary">
+            <Coins className="size-6" aria-hidden="true" />
+            {formatCoins(coins)}
+          </span>
           <span className="grid grid-cols-[0fr] opacity-0 transition-[grid-template-columns,opacity] duration-300 ease-out focus-within:grid-cols-[1fr] focus-within:opacity-100 group-hover:grid-cols-[1fr] group-hover:opacity-100 motion-reduce:transition-none">
-            <span className="overflow-hidden whitespace-nowrap pr-4">
+            <span className="overflow-hidden whitespace-nowrap pl-4">
               <Link
                 to="/store?section=coins"
                 className="inline-flex items-center gap-1.5 border border-primary/60 px-3 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
@@ -316,10 +320,6 @@ const WardrobeDesktop = () => {
                 Get coins
               </Link>
             </span>
-          </span>
-          <span className="flex items-center gap-2 tabular-nums text-primary">
-            <Coins className="size-6" aria-hidden="true" />
-            {formatCoins(coins)}
           </span>
         </div>
       </div>
