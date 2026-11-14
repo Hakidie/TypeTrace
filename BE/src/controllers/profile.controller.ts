@@ -7,7 +7,7 @@ import * as errorTrendService from '../services/error-trend.service';
 import * as vowelToneService from '../services/vowel-tone.service';
 import * as monthlyProgressService from '../services/monthly-progress.service';
 import * as userDailyTasksService from '../services/user-daily-tasks.service';
-import { updateSettings as saveSettings } from '../services/user.service';
+import { getSettings as readSettings, updateSettings as saveSettings } from '../services/user.service';
 import { badRequest, notFound } from '../utils/app-error';
 import type { LanguageQuery } from '../validators/common.validator';
 import {
@@ -91,6 +91,11 @@ export const getVowelTone = async (req: Request, res: Response) => {
 export const getMonthlyProgress = async (req: Request, res: Response) => {
   const { range, date, language } = req.query as unknown as MonthlyProgressQuery;
   res.json(await monthlyProgressService.getMonthlyProgress(req.user!.sub, range, date, language));
+};
+
+/** The learner's own settings: time zone, typing language, passage font size and interface font (SCRUM-158). */
+export const getSettings = async (req: Request, res: Response) => {
+  res.json(await readSettings(req.user!.sub));
 };
 
 /**

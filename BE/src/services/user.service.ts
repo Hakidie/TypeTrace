@@ -56,13 +56,26 @@ export const issueResetToken = async (email: string) => {
  * Saves the settings sent: the learner's time zone (SCRUM-31: their days, streak and daily mission follow it from now on)
  * and the language they type in Practice (SCRUM-219). The dotted `$set` leaves the other settings (mode and themes) as they are.
  */
-export const updateSettings = async (userId: string, { timezone, typingLanguage }: UpdateSettingsInput) => {
+/** The learner's own settings of the Settings page, with the defaults of an account saved before a setting existed. */
+export const getSettings = async (userId: string) => {
+  const user = await UserModel.findById(userId);
+  if (!user) throw notFound('User not found');
+  const { timezone, typingLanguage, typingFontSizeRem, fontFamily } = user.settings;
+  return { timezone, typingLanguage, typingFontSizeRem, fontFamily };
+};
+
+export const updateSettings = async (
+  userId: string,
+  { timezone, typingLanguage, typingFontSizeRem, fontFamily }: UpdateSettingsInput
+) => {
   const user = await UserModel.findByIdAndUpdate(
     userId,
     {
       $set: {
         ...(timezone !== undefined && { 'settings.timezone': timezone }),
-        ...(typingLanguage !== undefined && { 'settings.typingLanguage': typingLanguage })
+        ...(typingLanguage !== undefined && { 'settings.typingLanguage': typingLanguage }),
+        ...(typingFontSizeRem !== undefined && { 'settings.typingFontSizeRem': typingFontSizeRem }),
+        ...(fontFamily !== undefined && { 'settings.fontFamily': fontFamily })
       }
     },
     { returnDocument: 'after' }
