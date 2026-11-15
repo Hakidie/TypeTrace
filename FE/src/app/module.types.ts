@@ -7,6 +7,8 @@ export interface ModuleRoute {
   path: string;
   Component: ComponentType;
   roles?: UserRole[];
+  /** A guest (not signed in) may open the page too, in the main layout with the guest header (SCRUM-251). The page must not call an API that needs a sign-in. */
+  guest?: boolean;
 }
 
 /** A page anyone can open, signed in or not, with no layout around it: the page draws its own header and footer. */
@@ -21,6 +23,8 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   roles?: UserRole[];
+  /** The page is open to guests (SCRUM-251). Without it the guest header shows the link locked: "Create an account" in a tooltip. */
+  guest?: boolean;
 }
 
 /** A component in the top navigation bar in place of a link, e.g. the AI chat button. Set `roles` to hide it from other users. */

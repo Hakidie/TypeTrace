@@ -1,5 +1,5 @@
 import { AVATAR_SLOTS } from '../data/avatar-items';
-import { AVATAR_SLOT_NAMES, AvatarSlot, itemKey, OPTIONAL_SLOTS, unlockOf, unlockOfKey } from '../data/avatar-catalog';
+import { AVATAR_SLOT_NAMES, AvatarSlot, DEFAULT_AVATAR, itemKey, OPTIONAL_SLOTS, unlockOf, unlockOfKey } from '../data/avatar-catalog';
 import { UserDocument, UserModel } from '../models/user.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { AvatarLookInput } from '../validators/avatar.validator';
@@ -61,6 +61,25 @@ export const getCatalog = async (userId: string) => {
     coins: user.coins,
     premium,
     slots
+  };
+};
+
+/**
+ * The catalog for a guest (SCRUM-251): the same items and unlocks, nothing owned but the free ones, no coins, the default look,
+ * not on Premium. Nothing is read from or saved to an account: a guest only tries the items on.
+ */
+export const getGuestCatalog = () => {
+  const guest = { ownedItems: [] as string[] };
+  return {
+    avatar: DEFAULT_AVATAR,
+    coins: 0,
+    premium: { active: false, until: null },
+    slots: Object.fromEntries(
+      AVATAR_SLOT_NAMES.map((slot) => [
+        slot,
+        (AVATAR_SLOTS[slot] as readonly string[]).map((id) => ({ id, unlock: unlockOf(slot, id), owned: ownsItem(guest, false, slot, id) }))
+      ])
+    )
   };
 };
 

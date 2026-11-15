@@ -87,6 +87,17 @@ describe('GET /api/word-chain/leaderboard', () => {
     expect(all.body.items).toHaveLength(3);
   });
 
+  it('is read-only for a guest (SCRUM-256): the same board, no place of their own, no email', async () => {
+    const lan = await newUser('Lan');
+    await WordChainScoreModel.create({ user: lan._id, score: 12, links: 30 });
+
+    const res = await api().get('/api/word-chain/leaderboard');
+    expect(res.status).toBe(200);
+    expect(res.body.items).toEqual([expect.objectContaining({ rank: 1, displayName: 'Lan', score: 12, isMe: false })]);
+    expect(res.body.me).toBeNull();
+    expect(JSON.stringify(res.body)).not.toContain('@example.com');
+  });
+
   it('has no place for a player without a game', async () => {
     const user = await newUser();
     const res = await api().get('/api/word-chain/leaderboard').set('Authorization', bearerFor(user));

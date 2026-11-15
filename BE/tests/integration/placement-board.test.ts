@@ -76,13 +76,32 @@ describe('GET /api/placement/leaderboard', () => {
     expect(response.body.me.timeline.status).toBe('ok');
   });
 
-  it('needs a signed-in user and a valid passage id and range', async () => {
+  it('needs a valid passage id and range', async () => {
     const auth = bearerFor(await newUser());
 
-    expect((await api().get(`/api/placement/leaderboard?passageId=${passageId}`)).status).toBe(401);
     expect((await api().get('/api/placement/leaderboard').set('Authorization', auth)).status).toBe(400);
     expect((await api().get('/api/placement/leaderboard?passageId=nope').set('Authorization', auth)).status).toBe(400);
     expect((await getBoard(auth, '&range=month')).status).toBe(400);
+  });
+
+  it('is read-only for a guest (SCRUM-256): the board and the passage menu, names and avatars only, no place of their own', async () => {
+    const lan = await newUser('Lan');
+    await addSession(lan, { wpm: 50 });
+
+    const board = await api().get(`/api/placement/leaderboard?passageId=${passageId}`);
+    expect(board.status).toBe(200);
+    expect(board.body.items[0]).toMatchObject({ displayName: 'Lan', isMe: false });
+    expect(board.body.me).toBeNull();
+    expect(JSON.stringify(board.body)).not.toContain('@example.com');
+
+    const menu = await api().get('/api/placement/passages');
+    expect(menu.status).toBe(200);
+    expect(menu.body.items.map((item: { _id: string }) => item._id)).toEqual([passageId]);
+    expect(menu.body.items[0].content).toBeUndefined();
+    expect(JSON.stringify(menu.body)).not.toContain('"owner"');
+    // A bad token is a guest too; the other placement routes still need a sign-in.
+    expect((await api().get(`/api/placement/leaderboard?passageId=${passageId}`).set('Authorization', 'Bearer nope')).status).toBe(200);
+    expect((await api().get('/api/placement')).status).toBe(401);
   });
 
   it('answers 404 for a passage that is not a published placement passage', async () => {

@@ -11,6 +11,7 @@ describe('GuestMenu', () => {
 
     await user.click(screen.getByRole('button', { name: 'Guest menu' }));
 
+    expect(await screen.findByRole('menuitem', { name: 'Wardrobe' })).toBeInTheDocument();
     expect(await screen.findByRole('menuitem', { name: 'Login' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Register' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: /Mode:/ })).toBeInTheDocument();

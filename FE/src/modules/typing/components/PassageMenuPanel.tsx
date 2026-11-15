@@ -6,7 +6,7 @@ import { Input } from '@/shared/components/ui/input';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
 import { cn } from '@/shared/lib/utils';
 import { usePassageOptions } from '../hooks/use-typing';
-import type { PassageMenuQuery, PassageMenuSort, PassageOrigin, SessionMode } from '../types/typing.types';
+import type { PassageMenuQuery, PassageMenuSort, PassageOption, PassageOrigin, SessionMode } from '../types/typing.types';
 
 const SORT_OPTIONS: { value: PassageMenuSort; label: string }[] = [
   { value: '-createdAt', label: 'Newest' },
@@ -44,8 +44,21 @@ const CycleButton = ({ name, label, icon: Icon, onPress }: { name: string; label
   </button>
 );
 
+/** Letters without marks and case, so a search for "nang" finds "Nắng". */
+const plain = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd').toLowerCase();
+
+/** A fixed list, searched and sorted here the way the server does for the real one (`passages` of the panel). */
+const searchAndSort = (passages: PassageOption[], q: string, sort: PassageMenuSort) => {
+  const found = q ? passages.filter((passage) => plain(passage.title).includes(plain(q))) : [...passages];
+  if (sort === 'title') return found.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
+  if (sort === 'wordCount') return found.sort((a, b) => a.wordCount - b.wordCount);
+  return found;
+};
+
 interface PassageMenuPanelProps {
   mode: SessionMode;
+  /** A fixed list of passages instead of the server's (a guest's, SCRUM-251): searched and sorted in the browser, nothing is asked of the API. */
+  passages?: PassageOption[];
   language?: TypingLanguage;
   /** Practice only: a button to go round System, Mine and Others (System at first). The placement test has only system passages. */
   showOriginFilter?: boolean;
@@ -62,7 +75,7 @@ interface PassageMenuPanelProps {
  * presses Enter. Under the row, the passages that match, the picked one in red. It is only mounted while the menu is open, so the
  * list is fetched then.
  */
-export const PassageMenuPanel = ({ mode, language = 'vi', showOriginFilter = false, selectedId, onSelect, onNeedPremium }: PassageMenuPanelProps) => {
+export const PassageMenuPanel = ({ mode, passages, language = 'vi', showOriginFilter = false, selectedId, onSelect, onNeedPremium }: PassageMenuPanelProps) => {
   // `text` is what is in the box; `q` is the search that was sent (Enter). Sort and filter are asked for as soon as they change.
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
@@ -81,7 +94,10 @@ export const PassageMenuPanel = ({ mode, language = 'vi', showOriginFilter = fal
     () => ({ sort, ...(q ? { q } : {}), ...(showOriginFilter ? { origin } : {}) }),
     [q, sort, origin, showOriginFilter],
   );
-  const { data, isLoading, isError } = usePassageOptions(mode, { language, query });
+  const remote = usePassageOptions(mode, { language, query, enabled: passages === undefined });
+  const data = passages ? searchAndSort(passages, q, sort) : remote.data;
+  const isLoading = passages ? false : remote.isLoading;
+  const isError = passages ? false : remote.isError;
   // The empty bank and a search or filter without a match are not the same thing.
   const narrowed = q !== '' || (showOriginFilter && origin !== 'system');
   const sortLabel = SORT_OPTIONS.find((option) => option.value === sort)!.label;

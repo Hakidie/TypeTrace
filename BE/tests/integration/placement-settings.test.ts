@@ -90,11 +90,11 @@ describe('the placement settings of the admin', () => {
 });
 
 describe('GET /api/placement/settings', () => {
-  it('tells any signed-in learner the minimum accuracy in use, and needs a sign-in', async () => {
+  it('tells anyone, a guest too, the minimum accuracy in use', async () => {
     const admin = await signInAdmin();
     const learner = bearerFor(await createUser({ email: 'learner@example.com' }));
 
-    expect((await api().get('/api/placement/settings')).status).toBe(401);
+    expect((await api().get('/api/placement/settings')).body).toEqual({ minAccuracy: 90 });
     expect((await api().get('/api/placement/settings').set('Authorization', learner)).body).toEqual({ minAccuracy: 90 });
     await saveSetting(admin, { minAccuracy: 75 });
     expect((await api().get('/api/placement/settings').set('Authorization', learner)).body).toEqual({ minAccuracy: 75 });

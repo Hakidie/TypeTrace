@@ -9,9 +9,22 @@ const saveLook = (auth: string, look: object) => api().put('/api/avatar').set('A
 const itemOf = (body: { slots: Record<string, { id: string }[]> }, slot: string, id: string) => body.slots[slot].find((item) => item.id === id);
 
 describe('avatar API (ranked duel, phase 2)', () => {
-  it('needs a signed-in user', async () => {
-    expect((await api().get('/api/avatar/catalog')).status).toBe(401);
+  it('needs a signed-in user, except to read the catalog', async () => {
+    expect((await api().get('/api/avatar/catalog')).status).toBe(200);
     expect((await api().put('/api/avatar').send(DEFAULT_AVATAR)).status).toBe(401);
+    expect((await api().post('/api/avatar/buy').send({ item: 'hair:buns-pink' })).status).toBe(401);
+  });
+
+  it('gives a guest the catalog to try items on: the default look, no coins, only the free items owned (SCRUM-251)', async () => {
+    const response = await api().get('/api/avatar/catalog');
+
+    expect(response.body.avatar).toMatchObject(DEFAULT_AVATAR);
+    expect(response.body.coins).toBe(0);
+    expect(response.body.premium).toEqual({ active: false, until: null });
+    expect(Object.keys(response.body.slots)).toHaveLength(10);
+    expect(itemOf(response.body, 'hair', 'short-brown')).toEqual({ id: 'short-brown', unlock: { kind: 'free' }, owned: true });
+    expect(itemOf(response.body, 'hair', 'buns-pink')).toEqual({ id: 'buns-pink', unlock: { kind: 'shop', price: 100 }, owned: false });
+    expect(JSON.stringify(response.body)).not.toContain('@');
   });
 
   it('lists every slot with what is free, for sale, a reward, and owned', async () => {

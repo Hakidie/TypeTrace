@@ -8,5 +8,5 @@ export const saveScore = async (req: Request, res: Response) => {
 };
 
 export const getBoard = async (req: Request, res: Response) => {
-  res.json(await wordChainService.getWordChainBoard(req.user!.sub, req.query as unknown as WordChainBoardQuery));
+  res.json(await wordChainService.getWordChainBoard(req.user?.sub, req.query as unknown as WordChainBoardQuery));
 };

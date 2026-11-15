@@ -257,4 +257,23 @@ describe('PassageMenuPanel', () => {
     expect(box()).toHaveValue('bữa');
     expect(screen.getByText('Hà Nội vào thu')).toBeInTheDocument();
   });
+
+  it('lists a fixed list it is given (a guest\'s) without asking the API, searched without marks and sorted in the browser', async () => {
+    const user = userEvent.setup();
+    const { onSelect } = renderPanel({ passages: fixtures, showOriginFilter: false });
+
+    expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual([
+      expect.stringContaining('Hà Nội vào thu'),
+      expect.stringContaining('Bữa cơm gia đình'),
+      expect.stringContaining('Bài của tôi'),
+    ]);
+    await user.click(screen.getByRole('button', { name: 'Sort: Newest' }));
+    expect(screen.getAllByRole('menuitemradio')[0]).toHaveTextContent('Bài của tôi');
+    await user.type(screen.getByRole('textbox', { name: 'Search passages' }), 'ha noi{Enter}');
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(1);
+    await user.click(screen.getByRole('menuitemradio', { name: /Hà Nội vào thu/ }));
+
+    expect(onSelect).toHaveBeenCalledWith('p1');
+    expect(passages).not.toHaveBeenCalled();
+  });
 });

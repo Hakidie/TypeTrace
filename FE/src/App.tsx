@@ -28,16 +28,17 @@ function App() {
         <Route key={path} path={path} element={<Component />} />
       ))}
 
-      {/* Protected routes — registered by feature modules in src/app/modules.ts */}
-      <Route element={<ProtectedRoute><AppLayout navItems={navItems} menuItems={menuItems} widgets={appWidgets} /></ProtectedRoute>}>
-        {protectedRoutes.map(({ path, Component, roles }) => (
+      {/* App routes — registered by feature modules in src/app/modules.ts */}
+      {/* The layout is open to guests (a guest header, no widgets); each page that is not a `guest` page is locked by its own ProtectedRoute. */}
+      <Route element={<AppLayout navItems={navItems} menuItems={menuItems} widgets={appWidgets} />}>
+        {protectedRoutes.map(({ path, Component, roles, guest }) => (
           <Route
             key={path}
             path={path}
-            element={roles ? <ProtectedRoute roles={roles}><Component /></ProtectedRoute> : <Component />}
+            element={guest ? <Component /> : <ProtectedRoute roles={roles}><Component /></ProtectedRoute>}
           />
         ))}
-        <Route path="/me" element={<Navigate to="/profile" replace />} />
+        <Route path="/me" element={<ProtectedRoute><Navigate to="/profile" replace /></ProtectedRoute>} />
       </Route>
 
       {/* Admin area — sidebar layout; pages come from `adminRoutes` of each module. Admins only (the API checks the role too). */}

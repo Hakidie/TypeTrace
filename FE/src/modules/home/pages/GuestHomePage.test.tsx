@@ -14,7 +14,7 @@ vi.mock('../lib/guest-passages', async (importActual) => ({
   pickGuestPassage: () => {
     const passages = [['Tiếng', 'Việt'], ['Hà', 'Nội']];
     const index = next++ % passages.length;
-    return { index, words: passages[index] };
+    return { index, title: `Passage ${index}`, words: passages[index] };
   },
 }));
 

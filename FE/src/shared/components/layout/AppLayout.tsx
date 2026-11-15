@@ -5,7 +5,9 @@ import { BrandFooter } from '@/shared/components/layout/BrandFooter';
 import { BrandHeader } from '@/shared/components/layout/BrandHeader';
 import { NavLinks } from '@/shared/components/layout/NavLinks';
 import { UserMenu } from '@/shared/components/layout/UserMenu';
+import { GuestMenu } from '@/modules/auth/components/GuestMenu';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
+import { tokenStore } from '@/modules/auth/store/token.store';
 import { useThemeSync } from '@/modules/settings/hooks/use-theme-mode';
 
 interface AppLayoutProps {
@@ -22,6 +24,8 @@ export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] 
   const { data: user } = useCurrentUser();
   useThemeSync();
 
+  // A guest (no token, SCRUM-251) sees the pages open to guests; the other tabs show locked. No widget: they call APIs that need a sign-in.
+  const guest = !tokenStore.get();
   const navItems = allNavItems.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
 
   return (
@@ -30,9 +34,9 @@ export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] 
       <div className="sticky top-0 z-50 bg-background/75 backdrop-blur-xs">
         <BrandHeader
           themeToggle={false}
-          nav={<NavLinks items={navItems} />}
+          nav={<NavLinks items={navItems} guest={guest} />}
         >
-          <UserMenu user={user} menuItems={menuItems} />
+          {guest ? <GuestMenu /> : <UserMenu user={user} menuItems={menuItems} />}
         </BrandHeader>
       </div>
 
@@ -43,7 +47,7 @@ export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] 
 
       <BrandFooter />
 
-      {widgets.map((Widget, index) => (
+      {!guest && widgets.map((Widget, index) => (
         <Widget key={index} />
       ))}
     </div>

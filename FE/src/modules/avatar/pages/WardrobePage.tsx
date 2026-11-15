@@ -1,6 +1,7 @@
 import { Backpack, Check, Coins, Columns2, Footprints, Glasses, GraduationCap, Hand, Lock, Plus, Scissors, Shirt, Smile, Sparkles, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { tokenStore } from '@/modules/auth/store/token.store';
 import { formatCoins } from '@/modules/payments/lib/store';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -135,6 +136,8 @@ export const WardrobePage = () => {
   const catalog = useAvatarCatalog();
   const updateAvatar = useUpdateAvatar();
   const buyItem = useBuyItem();
+  // A guest (SCRUM-251) only tries items on: saving, buying and the Store need an account.
+  const guest = !tokenStore.get();
   const [draft, setDraft] = useState<AvatarLook | null>(null);
   const [slot, setSlot] = useState<AvatarSlot>('hair');
   const [pose, setPose] = useState<AvatarPose>('idle');
@@ -190,6 +193,7 @@ export const WardrobePage = () => {
           <WardrobeSwitch to="modern" other="Modern wardrobe" />
         </div>
         {/* The coins; "Get coins" opens to their right while they are hovered or focused (grid 0fr -> 1fr animates the width). */}
+        {!guest && (
         <div className="group flex items-center">
           <span className="flex items-center gap-2 tabular-nums text-primary">
             <Coins className="size-6" aria-hidden="true" />
@@ -207,6 +211,7 @@ export const WardrobePage = () => {
             </span>
           </span>
         </div>
+        )}
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-24">
@@ -233,19 +238,25 @@ export const WardrobePage = () => {
             </div>
             {forSale && (
               <div className="flex w-full flex-col items-center gap-1">
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled={coins < forSale.price || buyItem.isPending}
-                  onClick={() => buyItem.mutate(`${forSale.slot}:${forSale.item.id}`)}
-                >
-                  Buy {words(forSale.item.id)} for {forSale.price} coins
-                </Button>
+                {guest ? (
+                  <Button asChild className="w-full">
+                    <Link to="/register">Create an account to buy {words(forSale.item.id)}</Link>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    className="w-full"
+                    disabled={coins < forSale.price || buyItem.isPending}
+                    onClick={() => buyItem.mutate(`${forSale.slot}:${forSale.item.id}`)}
+                  >
+                    Buy {words(forSale.item.id)} for {forSale.price} coins
+                  </Button>
+                )}
               </div>
             )}
             {proLocked && (
               <Button asChild className="w-full">
-                <Link to="/store">Get Premium to wear {words(proLocked.item.id)}</Link>
+                <Link to={guest ? '/register' : '/store'}>{guest ? 'Create an account to get Premium' : `Get Premium to wear ${words(proLocked.item.id)}`}</Link>
               </Button>
             )}
             {!forSale && !proLocked && shownItem?.owned && (
@@ -258,9 +269,15 @@ export const WardrobePage = () => {
               <Button type="button" variant="outline" disabled={!dirty} onClick={() => setDraft(null)}>
                 Reset
               </Button>
-              <Button type="button" disabled={!dirty || unowned.length > 0 || updateAvatar.isPending} onClick={save}>
-                Save
-              </Button>
+              {guest ? (
+                <Button asChild>
+                  <Link to="/register">Sign up to save</Link>
+                </Button>
+              ) : (
+                <Button type="button" disabled={!dirty || unowned.length > 0 || updateAvatar.isPending} onClick={save}>
+                  Save
+                </Button>
+              )}
             </div>
           </Panel>
         </div>

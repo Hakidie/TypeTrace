@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { tokenStore } from '@/modules/auth/store/token.store';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { DEFAULT_AVATAR, type AvatarLook } from '../types/avatar.types';
 import { WardrobePage } from './WardrobePage';
@@ -40,6 +41,7 @@ const renderPage = () => renderWithProviders(<WardrobePage />, { route: '/wardro
 const openTab = (name: string) => fireEvent.click(screen.getByRole('tab', { name }));
 
 beforeEach(() => {
+  tokenStore.set('jwt-value');
   catalog.mockReset();
   update.mockReset();
   buy.mockReset();
@@ -211,5 +213,23 @@ describe('WardrobePage', () => {
     renderPage();
 
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+
+  it('lets a guest try items on but not save or buy: Create-an-account links in place of Save and Buy, and no coins to get (SCRUM-251)', async () => {
+    tokenStore.clear();
+    renderPage();
+    await screen.findByRole('img', { name: 'Your avatar' });
+
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign up to save' })).toHaveAttribute('href', '/register');
+    expect(screen.queryByRole('link', { name: /Get coins/ })).not.toBeInTheDocument();
+    openTab('Hair');
+    fireEvent.click(screen.getByRole('button', { name: 'Long pink' }));
+    fireEvent.click(screen.getByRole('button', { name: /Buns pink/ }));
+
+    expect(screen.getByRole('link', { name: /Create an account to buy Buns pink/ })).toHaveAttribute('href', '/register');
+    expect(screen.queryByRole('button', { name: /^Buy/ })).not.toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
+    expect(buy).not.toHaveBeenCalled();
   });
 });
