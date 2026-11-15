@@ -2,9 +2,9 @@ import { Request, Response } from 'express';
 import * as avatarService from '../services/avatar.service';
 import { AvatarLookInput, BuyItemInput } from '../validators/avatar.validator';
 
-// `authGuard` runs first, so `req.user` is always set here.
+// The catalog is open to guests (`optionalAuth`, SCRUM-251): a guest gets the catalog to try items on. The other handlers run after `authGuard`, so `req.user` is always set there.
 export const getCatalog = async (req: Request, res: Response) => {
-  res.json(await avatarService.getCatalog(req.user!.sub));
+  res.json(req.user ? await avatarService.getCatalog(req.user.sub) : avatarService.getGuestCatalog());
 };
 
 export const buyItem = async (req: Request, res: Response) => {

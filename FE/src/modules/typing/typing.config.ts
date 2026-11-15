@@ -68,3 +68,8 @@ export const MAX_REPLAY_BYTES = 64 * 1024;
 
 /** How long the server keeps a replay (`REPLAY_TTL_DAYS` in the backend). */
 export const REPLAY_KEPT_DAYS = 30;
+
+/** The time choices of Practice (and of a guest's Practice and Rain): the button next to them switches between seconds and minutes. */
+export type TimeUnit = 'sec' | 'min';
+export const timeChoices: Record<TimeUnit, number[]> = { sec: [10, 20, 30], min: [1, 2, 3] };
+export const unitLabels: Record<TimeUnit, string> = { sec: 'Sec', min: 'Min' };

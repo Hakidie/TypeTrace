@@ -224,9 +224,9 @@ const me = (auth: string) => api().get('/api/ranked/me').set('Authorization', au
 const leaderboard = (auth: string, query = '') => api().get(`/api/ranked/leaderboard${query}`).set('Authorization', auth);
 
 describe('ranked API (ranked duel, phase 5)', () => {
-  it('needs a signed-in user', async () => {
+  it('needs a signed-in user, except the leaderboard a guest may read (SCRUM-256)', async () => {
     expect((await api().get('/api/ranked/me')).status).toBe(401);
-    expect((await api().get('/api/ranked/leaderboard')).status).toBe(401);
+    expect((await api().get('/api/ranked/leaderboard')).status).toBe(200);
   });
 
   it('shows a new player 1000, Bronze, in the current season', async () => {

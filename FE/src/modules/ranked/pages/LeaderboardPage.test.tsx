@@ -71,6 +71,17 @@ describe('LeaderboardPage (ranked duel, phase 5)', () => {
     expect(leaderboard).toHaveBeenCalledWith({ page: 1, limit: 20, kind: 'race' });
   });
 
+  it('shows the real board to a guest, read-only: no "(you)" mark, and no sign-in needed (SCRUM-251)', async () => {
+    tokenStore.clear();
+    leaderboard.mockResolvedValue(board([row(1, 'u1', 'Minh', 1420, 'Platinum', 0.75)]));
+    renderPage();
+
+    const rows = await screen.findAllByRole('article');
+    expect(within(rows[0]).getByText('Minh')).toBeInTheDocument();
+    expect(screen.queryByText('(you)')).not.toBeInTheDocument();
+    expect(JSON.stringify(leaderboard.mock.calls)).not.toContain('@');
+  });
+
   it('says when nobody has 5 matches yet', async () => {
     leaderboard.mockResolvedValue(board([]));
     renderPage();

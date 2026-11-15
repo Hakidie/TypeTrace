@@ -1,3 +1,4 @@
+import { tokenStore } from '@/modules/auth/store/token.store';
 import { http } from '@/shared/api/http';
 import type { Paginated } from '@/shared/api/types';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
@@ -38,7 +39,8 @@ export const typingApi = {
    */
   passages: (mode: SessionMode, language: TypingLanguage = 'vi', query: PassageMenuQuery = {}) =>
     http
-      .get<Paginated<PassageOption>>('/passages', {
+      // A guest (no token) reads the placement passages of the leaderboard from the open route (SCRUM-251).
+      .get<Paginated<PassageOption>>(mode === 'placement' && !tokenStore.get() ? '/placement/passages' : '/passages', {
         params: {
           mode,
           language,

@@ -1,4 +1,4 @@
-import { LogIn, Moon, Sun, UserPlus } from 'lucide-react';
+import { LogIn, Moon, Shirt, Sun, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 /**
  * The account menu of the login pages: looks like `UserMenu` (the head of the default avatar and a name), but for a guest.
- * Its menu has Mode (only remembered in the browser here), Login and Register.
+ * Its menu has the Wardrobe (to try items on), Mode (only remembered in the browser here), Login and Register.
  */
 export const GuestMenu = () => {
   const navigate = useNavigate();
@@ -30,6 +30,10 @@ export const GuestMenu = () => {
         <span className="hidden max-w-36 truncate xl:inline">Guest</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuItem onClick={() => navigate('/wardrobe')} className="gap-2">
+          <Shirt className="size-4" />
+          Wardrobe
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')} className="gap-2">
           <ModeIcon className="size-4" />
           Mode: {mode === 'dark' ? 'Dark' : 'Light'}

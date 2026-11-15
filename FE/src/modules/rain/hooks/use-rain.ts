@@ -6,4 +6,5 @@ export const rainKeys = {
 };
 
 /** The words for word rain, asked again each time the Rain tab opens (the weak error types change with each session). */
-export const useRainWords = () => useQuery({ queryKey: rainKeys.words, queryFn: rainApi.words, staleTime: 0 });
+export const useRainWords = ({ enabled = true }: { enabled?: boolean } = {}) =>
+  useQuery({ queryKey: rainKeys.words, queryFn: rainApi.words, staleTime: 0, enabled });

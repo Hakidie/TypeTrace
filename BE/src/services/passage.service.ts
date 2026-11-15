@@ -173,6 +173,17 @@ export const listPassages = async (userId: string, { mode, language, q, visibili
 };
 
 /**
+ * The placement passages, for a guest's leaderboard menu (SCRUM-256): the same ones every learner sees (`learnerPassageFilter`
+ * does not depend on the learner in placement), the fields of a list item and never the text.
+ */
+export const listPlacementPassages = async ({ q, ...pagination }: Pick<ListPassagesQuery, 'q' | 'page' | 'limit' | 'sort'>) => {
+  const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter('', 'placement')];
+  if (q) conditions.push({ title: titleSearchPattern(q) });
+  const page = await paginate(PassageModel, { $and: conditions }, pagination, { select: listFields, collation: { locale: 'vi' } });
+  return { ...page, items: page.items.map(toListItem('')) };
+};
+
+/**
  * The passage creations still running in this server, per learner. Each one waits for the one before, so requests
  * sent at the same time (a script, two tabs) cannot all see the same last free place.
  */

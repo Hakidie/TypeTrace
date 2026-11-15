@@ -36,9 +36,9 @@ export const useRainGame = (frozen = false) => {
     return () => clearInterval(timer);
   }, [playing, paused, frozen]);
 
-  const start = useCallback((words: string[], lanes: number) => {
+  const start = useCallback((words: string[], lanes: number, roundMs?: number) => {
     setHeld(false);
-    dispatch({ type: 'start', words, lanes });
+    dispatch({ type: 'start', words, lanes, roundMs });
   }, []);
   const input = useCallback((text: string) => dispatch({ type: 'input', text }), []);
   const land = useCallback((id: string) => dispatch({ type: 'land', id }), []);

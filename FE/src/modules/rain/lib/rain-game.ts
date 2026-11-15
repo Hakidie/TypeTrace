@@ -1,6 +1,6 @@
 import type { GameDrop, RainAction, RainState } from '../types/rain.types';
 
-/** A round lasts a minute; three words on the ground end it sooner. */
+/** A round lasts a minute (a guest may pick another time, `RainState.roundMs`; the words speed up over the first minute either way); three words on the ground end it sooner. */
 export const ROUND_MS = 60_000;
 export const LIVES = 3;
 /** A new word goes into a lane only once the newest word there has fallen this share of its way, so words never overlap. */
@@ -36,6 +36,7 @@ export const initialRainState: RainState = {
   input: '',
   nextSpawnAt: 0,
   lanes: 6,
+  roundMs: ROUND_MS,
   reaction: null,
   lastId: 0,
 };
@@ -80,10 +81,10 @@ const spawn = (state: RainState, rand: number): RainState => {
 };
 
 const tick = (state: RainState, dt: number, rand: number): RainState => {
-  const elapsed = Math.min(ROUND_MS, state.elapsed + Math.min(dt, MAX_TICK_MS));
+  const elapsed = Math.min(state.roundMs, state.elapsed + Math.min(dt, MAX_TICK_MS));
   const drops = state.drops.filter((drop) => drop.settledAt === undefined || elapsed - drop.settledAt < SETTLE_MS);
   const next = spawn({ ...state, elapsed, drops }, rand);
-  return elapsed >= ROUND_MS ? { ...next, phase: 'won' } : next;
+  return elapsed >= state.roundMs ? { ...next, phase: 'won' } : next;
 };
 
 /**
@@ -124,7 +125,7 @@ const land = (state: RainState, id: string): RainState => {
 
 /** The rules of word rain. Pure: the clock (`tick`), the keyboard (`input`) and the stage (`land`) feed it. */
 export const rainReducer = (state: RainState, action: RainAction): RainState => {
-  if (action.type === 'start') return { ...initialRainState, phase: 'playing', words: action.words, lanes: action.lanes };
+  if (action.type === 'start') return { ...initialRainState, phase: 'playing', words: action.words, lanes: action.lanes, roundMs: action.roundMs ?? ROUND_MS };
   if (state.phase !== 'playing') return state;
   if (action.type === 'tick') return tick(state, action.dt, action.rand);
   if (action.type === 'input') return input(state, action.text);

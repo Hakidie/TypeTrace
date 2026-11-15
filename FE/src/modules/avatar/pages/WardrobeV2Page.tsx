@@ -1,6 +1,7 @@
 import { Backpack, Coins, Columns2, Footprints, Glasses, GraduationCap, Hand, Lock, Plus, Scissors, Shirt, Smile, Sparkles, X, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { tokenStore } from '@/modules/auth/store/token.store';
 import { formatCoins } from '@/modules/payments/lib/store';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -153,6 +154,8 @@ const WardrobeDesktop = () => {
   const catalog = useAvatarCatalog();
   const updateAvatar = useUpdateAvatar();
   const buyItem = useBuyItem();
+  // A guest (SCRUM-251) only tries items on: saving, buying and the Store need an account.
+  const guest = !tokenStore.get();
   const [draft, setDraft] = useState<AvatarLook | null>(null);
   const [slot, setSlot] = useState<AvatarSlot | null>(null);
   const [pose, setPose] = useState<AvatarPose>('idle');
@@ -292,19 +295,27 @@ const WardrobeDesktop = () => {
           <h1 className="text-primary/70">Wardrobe</h1>
           <WardrobeSwitch to="classic" other="Classic wardrobe" />
         </div>
-        <div className="flex items-stretch gap-3 text-base font-normal">
-          <Button type="button" variant="outline" className="h-auto px-3 py-1.5 text-[1.125rem] leading-normal" disabled={!dirty} onClick={() => setDraft(null)}>
+        {/* Reset and Save sit in two equal columns, so the Pose tabs are in the exact center whatever the width of the Save button (a guest's is longer). */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-3 text-base font-normal">
+          <Button type="button" variant="outline" className="h-auto justify-self-end px-3 py-1.5 text-[1.125rem] leading-normal" disabled={!dirty} onClick={() => setDraft(null)}>
             Reset
           </Button>
           {/* A flex wrapper, so the tabs stretch to the height of the row like the two buttons. */}
           <div className="flex">
             <TabGroup label="Pose" tabs={POSES.map(({ pose: value, label }) => ({ value, label }))} value={pose} onChange={(value) => setPose(value as AvatarPose)} />
           </div>
-          <Button type="button" className="h-auto px-3 py-1.5 text-[1.125rem] leading-normal" disabled={!dirty || unowned.length > 0 || updateAvatar.isPending} onClick={save}>
-            Save
-          </Button>
+          {guest ? (
+            <Button asChild className="h-auto justify-self-start px-3 py-1.5 text-[1.125rem] leading-normal">
+              <Link to="/register">Sign up to save</Link>
+            </Button>
+          ) : (
+            <Button type="button" className="h-auto justify-self-start px-3 py-1.5 text-[1.125rem] leading-normal" disabled={!dirty || unowned.length > 0 || updateAvatar.isPending} onClick={save}>
+              Save
+            </Button>
+          )}
         </div>
         {/* The coins sit at the right edge, so "Get coins" opens to their right (the coins move left) while they are hovered or focused (grid 0fr -> 1fr animates the width). */}
+        {guest ? <div /> : (
         <div className="group flex items-center lg:justify-self-end">
           <span className="flex items-center gap-2 tabular-nums text-primary">
             <Coins className="size-6" aria-hidden="true" />
@@ -322,6 +333,7 @@ const WardrobeDesktop = () => {
             </span>
           </span>
         </div>
+        )}
       </div>
 
       <div className="mx-auto grid w-full max-w-5xl items-center gap-x-6 gap-y-4 md:grid-cols-[1fr_auto_1fr]">
@@ -345,14 +357,18 @@ const WardrobeDesktop = () => {
       {/* Only when the preview wears something to buy: at the bottom of the page, in view while it scrolls. */}
       {(forSale || proLocked) && (
         <div className="sticky bottom-0 z-30 mx-auto -mb-8 mt-auto flex w-full max-w-sm flex-col gap-3 bg-background/80 pb-12 pt-3 backdrop-blur-sm">
-        {forSale && (
+        {forSale && (guest ? (
+          <Button asChild className="w-full">
+            <Link to="/register"><span>Sign up to buy</span></Link>
+          </Button>
+        ) : (
           <Button type="button" className="w-full" disabled={coins < forSale.price || buyItem.isPending} onClick={() => buyItem.mutate(`${forSale.slot}:${forSale.item.id}`)}>
             <span>Buy {words(forSale.item.id)} for {forSale.price} coins</span>
           </Button>
-        )}
+        ))}
         {proLocked && (
           <Button asChild className="w-full">
-            <Link to="/store"><span>Get Premium to wear {words(proLocked.item.id)}</span></Link>
+            <Link to={guest ? '/register' : '/store'}><span>{guest ? 'Sign up to get Premium' : `Get Premium to wear ${words(proLocked.item.id)}`}</span></Link>
           </Button>
         )}
         </div>

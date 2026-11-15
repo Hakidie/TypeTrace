@@ -4,8 +4,8 @@ import { cn } from '@/shared/lib/utils';
 
 interface TabGroupProps {
   label: string;
-  /** `hint` explains the option in the shared tooltip, on hover or keyboard focus. */
-  tabs: { value: string; label: string; icon?: LucideIcon; disabled?: boolean; hint?: string }[];
+  /** `hint` explains the option in the shared tooltip, on hover or keyboard focus. `locked` dims a tab that needs an account (a guest's Typing page) but keeps it clickable. */
+  tabs: { value: string; label: string; icon?: LucideIcon; disabled?: boolean; locked?: boolean; hint?: string }[];
   value: string;
   onChange: (value: string) => void;
   /** `false` leaves the border to the parent, which puts more controls in the same frame. */
@@ -20,7 +20,7 @@ interface TabGroupProps {
 /** A row of switch buttons, same look as the Theme tabs in Settings (the border is an inside outline so the height is the same as the word count's). */
 export const TabGroup = ({ label, tabs, value, onChange, framed = true, iconsOnPhones = false }: TabGroupProps) => (
   <div role="radiogroup" aria-label={label} className={cn('flex text-[1.125rem]', framed && 'outline outline-1 -outline-offset-1 outline-border')}>
-    {tabs.map(({ icon: Icon, hint, ...tab }) => {
+    {tabs.map(({ icon: Icon, hint, locked, ...tab }) => {
       const selected = value === tab.value;
       // Only the icon on a phone (the label stays for screen readers); the selected tab keeps its label on one line.
       const iconOnly = iconsOnPhones && Icon !== undefined && !selected;
@@ -37,6 +37,7 @@ export const TabGroup = ({ label, tabs, value, onChange, framed = true, iconsOnP
           className={cn(
             'inline-flex items-center gap-2 px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
             iconOnly && 'max-sm:px-2.5',
+            locked && 'opacity-50',
             selected ? 'text-primary' : 'text-muted-foreground enabled:hover:bg-muted enabled:hover:text-foreground',
           )}
         >

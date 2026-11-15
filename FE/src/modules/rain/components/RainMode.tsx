@@ -20,12 +20,20 @@ const HOLD_AT = 0.35;
 /** Fewer lanes on a phone, so the words are not squeezed. */
 const laneCount = () => (window.matchMedia?.('(max-width: 639px)').matches ? 4 : 6);
 
+const noop = () => undefined;
+
 const shuffled = (words: string[]) => [...words].sort(() => Math.random() - 0.5);
 
 const clock = (ms: number) => {
   const seconds = Math.ceil(ms / 1000);
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 };
+
+/** What a guest's round is made of: the words (no API) and how long it lasts. */
+export interface GuestRain {
+  words: string[];
+  roundMs: number;
+}
 
 /** A glass card over the stage, for the start, pause and result screens. */
 const Overlay = ({ children }: { children: ReactNode }) => (
@@ -39,23 +47,28 @@ const Overlay = ({ children }: { children: ReactNode }) => (
 /**
  * The Rain game of the Minigames tab of the Typing page (`?mode=minigames&game=rain`): a round of word rain. The words come from `GET /api/rain/words`, the
  * rules from `useRainGame`, the drawing from `RainStage`. Enter starts, Escape pauses, space or Enter sends the word in the box.
+ * With `guest` (SCRUM-251) the words are the fixed list and the round lasts `roundMs`: no API call, no play counted for the daily task.
  */
-export const RainMode = () => {
-  const words = useRainWords();
-  const { data: me } = useCurrentUser();
+export const RainMode = ({ guest }: { guest?: GuestRain } = {}) => {
+  // A guest plays with a fixed list from the frontend and a time of their choice; nothing is asked of the server or counted (SCRUM-251).
+  const words = useRainWords({ enabled: !guest });
+  const { data: me } = useCurrentUser(); // a guest has no user: the default avatar
   // Ping's tutorial step "type the framed word": the first falling word is framed and the rain stands still (the box
   // still takes words) until it is typed.
   const hold = useTutorialHold() === 'rain-word';
   const [heldId, setHeldId] = useState<string | null>(null);
   const { state, paused, start, input, land, togglePause } = useRainGame(hold && heldId !== null);
   // A round that runs to its end counts for the daily task `minigames` (SCRUM-300).
-  const { begin: beginPlay, finish: finishPlay } = useMinigamePlay('rain');
+  const play = useMinigamePlay('rain');
+  const beginPlay = guest ? noop : play.begin;
+  const finishPlay = guest ? noop : play.finish;
   const ended = state.phase === 'won' || state.phase === 'lost';
   useEffect(() => {
     if (ended) finishPlay();
   }, [ended, finishPlay]);
   const box = useRef<HTMLInputElement>(null);
-  const list = useMemo(() => words.data?.words ?? [], [words.data]);
+  const list = useMemo(() => guest?.words ?? words.data?.words ?? [], [guest?.words, words.data]);
+  const roundMs = guest?.roundMs ?? ROUND_MS;
   const playing = state.phase === 'playing';
   const lowest = state.drops.filter((drop) => drop.state === 'falling').sort((a, b) => a.bornAt + a.fallMs - (b.bornAt + b.fallMs))[0];
   // It stops once the word has fallen a third of its way: in the middle of the stage, clear of Ping at the top.
@@ -68,8 +81,8 @@ export const RainMode = () => {
 
   const begin = useCallback(() => {
     beginPlay();
-    start(shuffled(list), laneCount());
-  }, [beginPlay, start, list]);
+    start(shuffled(list), laneCount(), roundMs);
+  }, [beginPlay, start, list, roundMs]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -85,8 +98,8 @@ export const RainMode = () => {
     if (playing && !paused) box.current?.focus();
   }, [playing, paused]);
 
-  if (words.isLoading) return <LoadingState rows={2} />;
-  if (words.isError) return <ErrorState error={words.error} onRetry={() => words.refetch()} />;
+  if (!guest && words.isLoading) return <LoadingState rows={2} />;
+  if (!guest && words.isError) return <ErrorState error={words.error} onRetry={() => words.refetch()} />;
   if (!list.length) return <EmptyState icon={CloudRain} title="No words to rain yet" description="Ask an admin to add words to the word bank." />;
 
   const missing = state.input !== '' && !targetOf(state);
@@ -112,7 +125,7 @@ export const RainMode = () => {
         >
           {paused ? <Play className="size-5" /> : <Pause className="size-5" />}
           <span aria-label="Time left" className="text-xl font-semibold">
-            {clock(ROUND_MS - state.elapsed)}
+            {clock(state.phase === 'ready' ? roundMs : state.roundMs - state.elapsed)}
           </span>
         </Button>
         <span className="justify-self-end text-muted-foreground">

@@ -142,6 +142,16 @@ describe('rainReducer', () => {
     expect(tickTo(popped, settledAt + SETTLE_MS).drops.some((drop) => drop.text === 'nhà' && drop.state === 'popped')).toBe(false);
   });
 
+  it('lasts the time the start asks for (a guest picks one), a minute without it', () => {
+    const short = rainReducer(initialRainState, { type: 'start', words: ['nhà', 'cửa'], lanes: 6, roundMs: 10_000 });
+
+    expect(short.roundMs).toBe(10_000);
+    expect(play(['nhà']).roundMs).toBe(ROUND_MS);
+    const won = tickTo(short, 10_000);
+    expect(won.phase).toBe('won');
+    expect(won.elapsed).toBe(10_000);
+  });
+
   it('wins when the time is up with lives left', () => {
     const state = tickTo(play(['nhà', 'cửa']), ROUND_MS);
 

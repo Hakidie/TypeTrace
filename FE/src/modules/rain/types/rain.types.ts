@@ -46,12 +46,14 @@ export interface RainState {
   input: string;
   nextSpawnAt: number;
   lanes: number;
+  /** How long the round lasts: a minute (`ROUND_MS`) unless the start asks for another time (a guest picks one). */
+  roundMs: number;
   reaction: RainReaction | null;
   lastId: number;
 }
 
 export type RainAction =
-  | { type: 'start'; words: string[]; lanes: number }
+  | { type: 'start'; words: string[]; lanes: number; roundMs?: number }
   /** `rand` (0 to 1) picks the lane of a new word, so the reducer stays pure. */
   | { type: 'tick'; dt: number; rand: number }
   | { type: 'input'; text: string }

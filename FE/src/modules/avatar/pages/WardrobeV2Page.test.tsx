@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { tokenStore } from '@/modules/auth/store/token.store';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { DEFAULT_AVATAR, type AvatarLook } from '../types/avatar.types';
 import { WardrobeV2Page } from './WardrobeV2Page';
@@ -33,6 +34,7 @@ const slots = {
 const renderPage = () => renderWithProviders(<WardrobeV2Page />, { route: '/wardrobe' });
 
 beforeEach(() => {
+  tokenStore.set('jwt-value');
   catalog.mockReset().mockResolvedValue({ avatar: DEFAULT_AVATAR, coins: 150, premium: { active: false, until: null }, slots });
   update.mockReset().mockImplementation(async (look: AvatarLook) => ({ _id: 'u1', email: 'demo@example.com', avatar: look }));
   buy.mockReset();
@@ -142,5 +144,23 @@ describe('WardrobeV2Page', () => {
     expect(screen.getByRole('complementary', { name: 'Hair' })).toHaveClass('right-0');
     openSlot('Headwear');
     expect(screen.getByRole('complementary', { name: 'Headwear' })).toHaveClass('right-0');
+  });
+
+  it('lets a guest try items on but not save or buy: Create-an-account links in place of Save and Buy, and no coins to get (SCRUM-251)', async () => {
+    tokenStore.clear();
+    renderPage();
+    await screen.findByRole('img', { name: 'Your avatar' });
+
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign up to save' })).toHaveAttribute('href', '/register');
+    expect(screen.queryByRole('link', { name: /Get coins/ })).not.toBeInTheDocument();
+    openSlot('Hair');
+    fireEvent.click(screen.getByRole('button', { name: 'Long pink' }));
+    fireEvent.click(screen.getByRole('button', { name: /Buns pink/ }));
+
+    expect(screen.getByRole('link', { name: "Sign up to buy" })).toHaveAttribute('href', '/register');
+    expect(screen.queryByRole('button', { name: /^Buy/ })).not.toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
+    expect(buy).not.toHaveBeenCalled();
   });
 });

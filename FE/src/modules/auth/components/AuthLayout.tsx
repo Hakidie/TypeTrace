@@ -11,7 +11,7 @@ import { GuestMenu } from "./GuestMenu";
 // The theme (maroon fields, blood-red dark mode) lives in shared/lib/red-glass-theme.ts.
 // From the `lg` breakpoint the typing demo sits on the left and the form on the right; on phones only the form shows.
 interface AuthLayoutProps {
-  /** The navigation of the signed-in pages; the guest header shows the tabs that have no role. They need an account: a guest who opens one is sent back to Login. */
+  /** The navigation of the signed-in pages; the guest header shows the tabs that have no role: the ones open to guests as links, the others locked ("Create an account"). */
   navItems?: (NavItem | NavWidget)[];
 }
 
@@ -22,7 +22,7 @@ export const AuthLayout = ({ navItems = [] }: AuthLayoutProps) => (
       <BrandHeader
         to="/login"
         themeToggle={false}
-        nav={<NavLinks items={navItems.filter((item) => !item.roles)} />}
+        nav={<NavLinks items={navItems.filter((item) => !item.roles)} guest />}
       >
         <GuestMenu />
       </BrandHeader>

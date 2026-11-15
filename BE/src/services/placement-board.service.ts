@@ -83,11 +83,11 @@ const buildRanking = (passageId: string, from: Date | null) => {
 
 /**
  * The board of one placement passage: the best session of each active learner that went on it (`isOnPlacementBoard`),
- * the top `PLACEMENT_BOARD_SIZE`, and the place of the learner. Names and avatars only, never an email. The ranking is kept for an
+ * the top `PLACEMENT_BOARD_SIZE`, and the place of the learner (a guest, `userId` missing, has none). Names and avatars only, never an email. The ranking is kept for an
  * hour (`cachedBoardRows`); the names and avatars of the lines shown are read at every request, so they are always the current ones.
  */
-export const getPlacementBoard = async (userId: string, { passageId, range }: PlacementBoardQuery) => {
-  const passage = await PassageModel.exists({ _id: passageId, ...learnerPassageFilter(userId, 'placement') });
+export const getPlacementBoard = async (userId: string | undefined, { passageId, range }: PlacementBoardQuery) => {
+  const passage = await PassageModel.exists({ _id: passageId, ...learnerPassageFilter(userId ?? '', 'placement') });
   if (!passage) throw notFound('Placement passage not found');
 
   const from = range === 'week' ? placementWeekStart(new Date()) : null;

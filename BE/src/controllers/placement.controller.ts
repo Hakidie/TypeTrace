@@ -1,14 +1,19 @@
 import { Request, Response } from 'express';
 import * as passageService from '../services/passage.service';
 import * as boardService from '../services/placement-board.service';
+import type { ListPassagesQuery } from '../validators/passage.validator';
 import type { PlacementBoardQuery, PlacementSettingsInput } from '../validators/placement.validator';
 
 export const getPlacementPassage = async (_req: Request, res: Response) => {
   res.json(await passageService.getPlacementPassage());
 };
 
+export const listPlacementPassages = async (req: Request, res: Response) => {
+  res.json(await passageService.listPlacementPassages(req.query as unknown as ListPassagesQuery));
+};
+
 export const getPlacementBoard = async (req: Request, res: Response) => {
-  res.json(await boardService.getPlacementBoard(req.user!.sub, req.query as unknown as PlacementBoardQuery));
+  res.json(await boardService.getPlacementBoard(req.user?.sub, req.query as unknown as PlacementBoardQuery));
 };
 
 export const getPlacementSettings = async (_req: Request, res: Response) => {

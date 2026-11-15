@@ -204,4 +204,25 @@ describe('AppLayout', () => {
     expect(await screen.findByText('login page')).toBeInTheDocument();
     expect(tokenStore.get()).toBeNull();
   });
+
+  describe('for a guest (no token, SCRUM-251)', () => {
+    const guestItems = [
+      { to: '/typing', label: 'Typing', icon: Home, guest: true },
+      { to: '/profile', label: 'Profile', icon: Shield },
+    ];
+
+    it('shows the guest menu in place of the account menu, the pages for guests as links and the other tabs locked, and asks the server nothing', async () => {
+      tokenStore.clear();
+      const Widget = () => <div>floating widget</div>;
+      renderWithProviders(<AppLayout navItems={guestItems} menuItems={menuItems} widgets={[Widget]} />, { route: '/typing' });
+
+      expect(await screen.findByRole('button', { name: 'Guest menu' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Account menu' })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Typing' })).toHaveAttribute('href', '/typing');
+      expect(screen.getByRole('link', { name: /Profile/ })).toHaveAttribute('href', '/register');
+      // Widgets call APIs that need a sign-in.
+      expect(screen.queryByText('floating widget')).not.toBeInTheDocument();
+      expect(getMe).not.toHaveBeenCalled();
+    });
+  });
 });

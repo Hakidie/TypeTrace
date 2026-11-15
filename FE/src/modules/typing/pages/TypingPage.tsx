@@ -26,7 +26,7 @@ import { TypingArea, TypingStatus } from '../components/TypingArea';
 import { WeakSpotsMode, type WeakSpotsFocus } from '../components/WeakSpotsMode';
 import { useBeginSession, useCompleteSession, useStartSession } from '../hooks/use-typing';
 import type { ReplayEvent, SessionMode, StartSessionInput } from '../types/typing.types';
-import { errorLabels, languageNames, modeIcons, modeLabels, SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
+import { errorLabels, languageNames, modeIcons, modeLabels, SESSION_TIME_LIMIT_SECONDS, timeChoices, unitLabels, type TimeUnit } from '../typing.config';
 
 // The buttons around the passage: Restart, and in the bottom row the language switch (Practice) or in a Weak spots lesson the way back to its cards.
 const actionClass = 'h-auto gap-2 px-4 py-2 text-[1.125rem] text-muted-foreground';
@@ -63,9 +63,6 @@ const IME_HINT_ID = 'ime-hint';
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
 // second choice (20 seconds) is the one selected at first in Practice, 1 minute in the placement test and Weak spots
 // (`defaultTimeOf`); the longest, 3 minutes, is the most the server accepts.
-type TimeUnit = 'sec' | 'min';
-const timeChoices: Record<TimeUnit, number[]> = { sec: [10, 20, 30], min: [1, 2, 3] };
-const unitLabels: Record<TimeUnit, string> = { sec: 'Sec', min: 'Min' };
 
 /**
  * The time selected when a mode opens: 20 seconds in Practice; 1 minute in the placement test and in Weak spots, whose lesson

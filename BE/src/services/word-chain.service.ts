@@ -31,7 +31,7 @@ interface RankedRow {
  * active player, best first (the earlier game first on a tie), the top `WORD_CHAIN_BOARD_SIZE` and the player's own place.
  * Names and avatars only, never an email.
  */
-export const getWordChainBoard = async (userId: string, { range }: WordChainBoardQuery) => {
+export const getWordChainBoard = async (userId: string | undefined, { range }: WordChainBoardQuery) => {
   const from = range === 'week' ? placementWeekStart(new Date()) : null;
   // ponytail: ranks every player at each request; cache it like placement-board-cache.ts if the games grow large
   const rows = await WordChainScoreModel.aggregate<RankedRow>([
