@@ -158,7 +158,7 @@ describe('WardrobeV2Page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Long pink' }));
     fireEvent.click(screen.getByRole('button', { name: /Buns pink/ }));
 
-    expect(screen.getByRole('link', { name: /Create an account to buy Buns pink/ })).toHaveAttribute('href', '/register');
+    expect(screen.getByRole('link', { name: "Sign up to buy" })).toHaveAttribute('href', '/register');
     expect(screen.queryByRole('button', { name: /^Buy/ })).not.toBeInTheDocument();
     expect(update).not.toHaveBeenCalled();
     expect(buy).not.toHaveBeenCalled();

@@ -359,7 +359,7 @@ const WardrobeDesktop = () => {
         <div className="sticky bottom-0 z-30 mx-auto -mb-8 mt-auto flex w-full max-w-sm flex-col gap-3 bg-background/80 pb-12 pt-3 backdrop-blur-sm">
         {forSale && (guest ? (
           <Button asChild className="w-full">
-            <Link to="/register"><span>Create an account to buy {words(forSale.item.id)}</span></Link>
+            <Link to="/register"><span>Sign up to buy</span></Link>
           </Button>
         ) : (
           <Button type="button" className="w-full" disabled={coins < forSale.price || buyItem.isPending} onClick={() => buyItem.mutate(`${forSale.slot}:${forSale.item.id}`)}>
@@ -368,7 +368,7 @@ const WardrobeDesktop = () => {
         ))}
         {proLocked && (
           <Button asChild className="w-full">
-            <Link to={guest ? '/register' : '/store'}><span>{guest ? 'Create an account to get Premium' : `Get Premium to wear ${words(proLocked.item.id)}`}</span></Link>
+            <Link to={guest ? '/register' : '/store'}><span>{guest ? 'Sign up to get Premium' : `Get Premium to wear ${words(proLocked.item.id)}`}</span></Link>
           </Button>
         )}
         </div>

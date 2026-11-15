@@ -240,7 +240,7 @@ export const WardrobePage = () => {
               <div className="flex w-full flex-col items-center gap-1">
                 {guest ? (
                   <Button asChild className="w-full">
-                    <Link to="/register">Create an account to buy {words(forSale.item.id)}</Link>
+                    <Link to="/register">Sign up to buy</Link>
                   </Button>
                 ) : (
                   <Button
@@ -256,7 +256,7 @@ export const WardrobePage = () => {
             )}
             {proLocked && (
               <Button asChild className="w-full">
-                <Link to={guest ? '/register' : '/store'}>{guest ? 'Create an account to get Premium' : `Get Premium to wear ${words(proLocked.item.id)}`}</Link>
+                <Link to={guest ? '/register' : '/store'}>{guest ? 'Sign up to get Premium' : `Get Premium to wear ${words(proLocked.item.id)}`}</Link>
               </Button>
             )}
             {!forSale && !proLocked && shownItem?.owned && (
