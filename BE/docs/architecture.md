@@ -371,3 +371,6 @@ All API routes are under `/api`. Health check: `GET /health` → `{ ok: true }`.
 - ❌ Don't read `process.env` outside `config/env.ts`.
 - ❌ Don't return documents with private fields that `toJSON` does not strip.
 - ❌ Don't add new top-level folders without a clear layer justification.
+
+### 7l. Interface language (SCRUM-325, SCRUM-326, US8.3)
+`User.settings.uiLanguage` (`vi` | `en`, `uiLanguages` in `utils/typing-language.ts`) is the language of the app's pages; it is not `typingLanguage` (what a learner types). It has no default: `GET /api/profile/settings` sends `null` when it was never chosen and the frontend keeps the browser's language. `PATCH /api/profile/settings` accepts it (validated by `updateSettingsSchema`, one of the optional settings, at least one needed) and saves it with its own `$set`. The backend does not translate: error messages, validation texts and OTP/reset emails stay English.
