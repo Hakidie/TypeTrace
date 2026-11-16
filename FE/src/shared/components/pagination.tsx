@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
@@ -18,6 +19,7 @@ interface PaginationProps {
 
 /** Previous / next controls for list pages. Hidden when everything fits on one page. */
 export const Pagination = ({ page, totalPages, onPageChange, variant = 'default', accent = false, plain = false, flushRight = false }: PaginationProps) => {
+  const { t } = useTranslation();
   if (totalPages <= 1) return null;
 
   const toolbar = variant === 'toolbar';
@@ -26,17 +28,16 @@ export const Pagination = ({ page, totalPages, onPageChange, variant = 'default'
     : ({ variant: 'outline', size: 'sm' } as const);
 
   return (
-    <nav className={cn('flex items-center gap-3', toolbar ? 'justify-end gap-1' : 'justify-center')} aria-label="Pagination">
-      <Button {...buttonProps} aria-label="Previous" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+    <nav className={cn('flex items-center gap-3', toolbar ? 'justify-end gap-1' : 'justify-center')} aria-label={t('pagination.label')}>
+      <Button {...buttonProps} aria-label={t('actions.previous')} disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
         <ChevronLeft className="size-4" />
-        {!plain && 'Previous'}
+        {!plain && t('actions.previous')}
       </Button>
       <span className={cn('text-base', accent ? 'text-primary' : 'text-muted-foreground', toolbar && (plain ? 'px-1' : 'px-4'))}>
-        {plain ? '' : 'Page '}
-        {page} of {totalPages}
+        {t(plain ? 'pagination.pagePlain' : 'pagination.page', { page, total: totalPages })}
       </span>
-      <Button {...buttonProps} aria-label="Next" className={cn(buttonProps.className, flushRight && 'pr-0')} disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
-        {!plain && 'Next'}
+      <Button {...buttonProps} aria-label={t('actions.next')} className={cn(buttonProps.className, flushRight && 'pr-0')} disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+        {!plain && t('actions.next')}
         <ChevronRight className="size-4" />
       </Button>
     </nav>

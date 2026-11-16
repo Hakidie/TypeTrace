@@ -2,6 +2,7 @@ import { http } from '@/shared/api/http';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import type { Paginated } from '@/shared/api/types';
 import type { AppFont } from '@/shared/lib/app-font';
+import type { UiLanguage } from '@/shared/i18n/ui-language';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
 import type {
   ChartRange,
@@ -31,6 +32,8 @@ export interface UpdateSettingsInput {
   timezone?: string;
   /** The language the learner types in Practice (SCRUM-219). */
   typingLanguage?: TypingLanguage;
+  /** The language of the interface (SCRUM-327). */
+  uiLanguage?: UiLanguage;
   /** The size of the passage text on the typing page, in rem (SCRUM-158). */
   typingFontSizeRem?: number;
   /** The font of the whole interface (SCRUM-158). */

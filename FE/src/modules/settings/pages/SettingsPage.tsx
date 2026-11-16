@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { GraduationCap, Keyboard, Moon, Palette, ShieldCheck, Shirt, Sun } from 'lucide-react';
+import { GraduationCap, Keyboard, Languages, Moon, Palette, ShieldCheck, Shirt, Sun } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { WardrobeVersionSetting } from '@/modules/avatar/components/WardrobeVersionSetting';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
@@ -14,6 +15,7 @@ import { Panel } from '@/shared/components/panel';
 import { TabGroup } from '@/shared/components/tab-group';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { fallbackThemes, readCurrentColors } from '@/shared/lib/theme';
+import { LanguageSettings } from '../components/LanguageSettings';
 import { SecuritySettings } from '../components/SecuritySettings';
 import { ThemeEditor } from '../components/ThemeEditor';
 import { ThemeGrid, type ThemeOption } from '../components/ThemeGrid';
@@ -36,33 +38,33 @@ type ModeOption = ThemeOption & { mode: ThemeMode };
 // The grid of themes: 3 columns and 2 rows.
 const PAGE_SIZE = 6;
 
-const SORT_OPTIONS = [
-  { value: 'default', label: 'Default' },
-  { value: 'name', label: 'Name A–Z' },
-  { value: '-name', label: 'Name Z–A' },
-];
-
-const SOURCE_OPTIONS = [
-  { value: 'system', label: 'System' },
-  { value: 'mine', label: 'Mine' },
-];
-
-const MODE_OPTIONS = [
-  { value: 'dark', label: 'Dark' },
-  { value: 'light', label: 'Light' },
-];
-
 const tabs = [
-  { value: 'typing', label: 'Typing', icon: Keyboard },
-  { value: 'appearance', label: 'Appearance', icon: Palette },
-  { value: 'wardrobe', label: 'Wardrobe', icon: Shirt },
-  { value: 'security', label: 'Security', icon: ShieldCheck },
-  { value: 'tutorial', label: 'Tutorial', icon: GraduationCap },
+  { value: 'typing', icon: Keyboard },
+  { value: 'appearance', icon: Palette },
+  { value: 'wardrobe', icon: Shirt },
+  { value: 'language', icon: Languages },
+  { value: 'security', icon: ShieldCheck },
+  { value: 'tutorial', icon: GraduationCap },
 ];
 
 const toOption = (theme: Theme): ModeOption => ({ id: theme._id, name: theme.name, colors: theme.colors, own: !theme.published, mode: theme.isDark ? 'dark' : 'light' });
 
 export const SettingsPage = () => {
+  const { t } = useTranslation('settings');
+  const sortOptions = [
+    { value: 'default', label: t('appearance.sortDefault') },
+    { value: 'name', label: t('appearance.sortNameAsc') },
+    { value: '-name', label: t('appearance.sortNameDesc') },
+  ];
+  const sourceOptions = [
+    { value: 'system', label: t('appearance.sourceSystem') },
+    { value: 'mine', label: t('appearance.sourceMine') },
+  ];
+  const modeOptions = [
+    { value: 'dark', label: t('appearance.dark') },
+    { value: 'light', label: t('appearance.light') },
+  ];
+  const tabItems = tabs.map((item) => ({ ...item, label: t(`tabs.${item.value}`) }));
   const { data: user } = useCurrentUser();
   // The tab shown is kept in the URL (`?tab=security`), so a reload or a link opens the same setting.
   const [params, setParams] = useSearchParams();
@@ -167,7 +169,7 @@ export const SettingsPage = () => {
       key={`${beingEdited?._id ?? 'new'}-${formMode}-${round}`}
       mode={formMode}
       large
-      label={beingEdited ? 'Edit theme' : 'New theme'}
+      label={beingEdited ? t('appearance.editTheme') : t('appearance.newTheme')}
       initialName={draft?.name}
       initialColors={draft?.colors ?? (formMode === mode ? readCurrentColors(mode) : fallbackThemes[formMode].colors)}
       takenNames={mine.filter((theme) => theme._id !== editing).map((theme) => theme.name)}
@@ -182,10 +184,10 @@ export const SettingsPage = () => {
       // One button for the mode, like the admin Themes page: it shows the mode of the form and switches the form to the other. It does not change the page's mode. Only for a new theme: the mode of an existing one cannot change.
       actions={(colors) =>
         !beingEdited && (
-          <Tip label={`Switch to ${formMode === 'dark' ? 'Light' : 'Dark'}`}>
+          <Tip label={t('appearance.switchTo', { mode: formMode === 'dark' ? t('appearance.light') : t('appearance.dark') })}>
             <button
               type="button"
-              aria-label={`Mode: ${formMode === 'dark' ? 'Dark' : 'Light'}`}
+              aria-label={`${t('appearance.mode')}: ${formMode === 'dark' ? t('appearance.dark') : t('appearance.light')}`}
               onClick={() => {
                 setPicked(formMode === 'dark' ? 'light' : 'dark');
                 // The colors made for one mode do not fit the other.
@@ -206,16 +208,16 @@ export const SettingsPage = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-center">
-        <TabGroup label="Settings" tabs={tabs} value={tab} onChange={(value) => setParams({ tab: value }, { replace: true })} iconsOnPhones />
+        <TabGroup label={t('title')} tabs={tabItems} value={tab} onChange={(value) => setParams({ tab: value }, { replace: true })} iconsOnPhones />
       </div>
 
       {tab === 'appearance' && (
         <div className="flex flex-col gap-8">
           {/* PANEL Theme form: no visible title (the editor says what it is); screen readers still get one. */}
           <div ref={editorRef} className="scroll-mt-4">
-            <Panel title={beingEdited ? 'Edit theme' : 'Theme'} bare titleClassName={sectionTitleClass} className="flex flex-col gap-3" actions={<ThemeTabs />}>
+            <Panel title={beingEdited ? t('appearance.editTheme') : t('appearance.themeTitle')} bare titleClassName={sectionTitleClass} className="flex flex-col gap-3" actions={<ThemeTabs />}>
               {full && !beingEdited ? (
-                <p className="text-lg text-muted-foreground">You can have at most {maxThemes} themes. Delete one to make another.</p>
+                <p className="text-lg text-muted-foreground">{t('appearance.maxThemes', { max: maxThemes })}</p>
               ) : (
                 editor
               )}
@@ -224,30 +226,30 @@ export const SettingsPage = () => {
 
           {/* PANEL Themes */}
           <Panel
-            title="Themes"
+            title={t('appearance.themes')}
             bare
             titleClassName={sectionTitleClass}
             className="flex flex-col gap-3"
             actions={
               <div className="flex flex-wrap items-center gap-3">
                 <CompactToolbar
-                  search={{ label: 'Search themes', placeholder: 'Search name…', defaultValue: search, onSearch: (value) => { setSearch(value); setPage(1); } }}
-                  sort={{ value: sort, options: SORT_OPTIONS, onChange: (value) => { setSort(value); setPage(1); } }}
+                  search={{ label: t('appearance.searchLabel'), placeholder: t('appearance.searchPlaceholder'), defaultValue: search, onSearch: (value) => { setSearch(value); setPage(1); } }}
+                  sort={{ value: sort, options: sortOptions, onChange: (value) => { setSort(value); setPage(1); } }}
                   filters={[
-                    { label: 'Mode', value: shownMode, options: MODE_OPTIONS, onChange: (value) => { setModeFilter(value); setPage(1); } },
-                    { label: 'Source', value: source, options: SOURCE_OPTIONS, onChange: (value) => { setSource(value); setPage(1); } },
+                    { label: t('appearance.mode'), value: shownMode, options: modeOptions, onChange: (value) => { setModeFilter(value); setPage(1); } },
+                    { label: t('appearance.source'), value: source, options: sourceOptions, onChange: (value) => { setSource(value); setPage(1); } },
                   ]}
-                  count={{ icon: Palette, value: shown.length, label: 'Themes' }}
+                  count={{ icon: Palette, value: shown.length, label: t('appearance.themes') }}
                 />
               </div>
             }
           >
             {shown.length === 0 ? (
-              <EmptyState icon={Palette} title="No matching themes" description="Try another search." />
+              <EmptyState icon={Palette} title={t('appearance.noMatch')} description={t('appearance.tryAnother')} />
             ) : (
               <>
                 <ThemeGrid
-                  label="Themes"
+                  label={t('appearance.themes')}
                   themes={pageThemes}
                   columnsClass="grid-cols-3"
                   currentId={currentIds}
@@ -265,6 +267,9 @@ export const SettingsPage = () => {
       {/* PANELS Font and Font size, with a sample passage under them (SCRUM-158). */}
       {tab === 'typing' && <TypingSettings />}
 
+      {/* PANEL Language: the language of the interface (SCRUM-327). */}
+      {tab === 'language' && <LanguageSettings />}
+
       {/* PANEL Wardrobe: which version of the wardrobe opens. */}
       {tab === 'wardrobe' && <WardrobeVersionSetting />}
 
@@ -277,9 +282,9 @@ export const SettingsPage = () => {
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
-        title="Delete this theme?"
-        description={deleting ? `"${deleting.name}" will be removed from your themes.${currentIds.includes(deleting.id) ? ` You will go back to ${fallbackThemes[deleting.mode].name}.` : ''}` : undefined}
-        confirmLabel="Delete"
+        title={t('appearance.deleteTitle')}
+        description={deleting ? t('appearance.deleteDescription', { name: deleting.name }) + (currentIds.includes(deleting.id) ? t('appearance.deleteBackTo', { name: fallbackThemes[deleting.mode].name }) : '') : undefined}
+        confirmLabel={t('common:actions.delete')}
         destructive
         onConfirm={() => deleting && remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
       />

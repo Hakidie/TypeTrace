@@ -1,5 +1,6 @@
 import { Check, Save, X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ThemeColorField, ThemeColors } from '@/shared/lib/theme';
 import { cn } from '@/shared/lib/utils';
 import { Tip } from './Tip';
@@ -34,6 +35,7 @@ interface ThemeCardProps {
 
 /** One theme previewed in its own colors: a title in the muted color with a plain text line, a button on its background, a strip of the four colors, the name at the bottom right (or `nameSlot`), a check at the top right when it is the chosen one. */
 export const ThemeCard = ({ theme, current = false, className, nameSlot, onColorPick, submitLabel, onCancel, actions, plain, large }: ThemeCardProps) => {
+  const { t } = useTranslation('settings');
   const { background, text, muted, accent } = theme.colors;
   // The buttons at the top right: bigger on a large card.
   const buttonSize = large ? 'size-9' : 'size-6';
@@ -53,10 +55,10 @@ export const ThemeCard = ({ theme, current = false, className, nameSlot, onColor
         <div className="absolute right-2 top-2 flex gap-1">
           {actions}
           {onCancel && (
-            <Tip label="Cancel">
+            <Tip label={t('theme.cancel')}>
               <button
                 type="button"
-                aria-label="Cancel"
+                aria-label={t('theme.cancel')}
                 onClick={onCancel}
                 className={cn('flex items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', buttonSize)}
                 style={{ backgroundColor: `color-mix(in srgb, ${text} 15%, transparent)`, color: text }}
@@ -80,9 +82,9 @@ export const ThemeCard = ({ theme, current = false, className, nameSlot, onColor
       <div className="flex flex-1 flex-col items-start gap-2 p-3" style={{ backgroundColor: background, color: text }}>
         <div>
           <p className={cn('font-medium', large ? 'text-3xl' : 'text-xl')} style={{ color: muted }}>
-            Passage
+            {t('theme.passage')}
           </p>
-          <p className={large ? 'text-2xl' : 'text-lg'}>Sample text</p>
+          <p className={large ? 'text-2xl' : 'text-lg'}>{t('theme.sampleText')}</p>
         </div>
         {/* Same look as the selected ThemeTabs option: accent text on a 15% accent fill. */}
         <span
@@ -92,17 +94,17 @@ export const ThemeCard = ({ theme, current = false, className, nameSlot, onColor
             backgroundColor: `color-mix(in srgb, ${accent} 15%, transparent)`,
           }}
         >
-          Button
+          {t('theme.button')}
         </span>
       </div>
       <div className={cn('flex shrink-0', onColorPick ? (large ? 'h-8' : 'h-5') : 'h-3')}>
-        {themeColorFields.map(({ name, label }) =>
+        {themeColorFields.map(({ name }) =>
           onColorPick ? (
-            <Tip key={name} label={`${label} color`}>
+            <Tip key={name} label={t('theme.colorOf', { label: t(`theme.fields.${name}`) })}>
               <label className="relative flex-1 cursor-pointer hover:brightness-125" style={{ backgroundColor: theme.colors[name] }}>
                 <input
                   type="color"
-                  aria-label={`${label} picker`}
+                  aria-label={t('theme.pickerOf', { label: t(`theme.fields.${name}`) })}
                   value={theme.colors[name]}
                   onChange={(event) => onColorPick(name, event.target.value)}
                   className="absolute inset-0 size-full cursor-pointer opacity-0"

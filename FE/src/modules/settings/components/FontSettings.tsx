@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -8,10 +9,10 @@ import { cn } from '@/shared/lib/utils';
 import { useSaveFontFamily, useSettings } from '../hooks/use-settings';
 import { FONT_OPTIONS } from '../lib/fonts';
 
-const description = 'Choose the font of the whole interface. It applies at once and goes with your account.';
-
 /** In Settings, the Font tab: the font of the whole interface (SCRUM-158), each choice shown in its own font. */
 export const FontSettings = () => {
+  const { t } = useTranslation('settings');
+  const description = t('typing.fontDescription');
   const { isLoading, error, refetch } = useCurrentUser();
   const { fontFamily } = useSettings();
   const save = useSaveFontFamily();
@@ -25,9 +26,9 @@ export const FontSettings = () => {
   if (isLoading) return <LoadingState rows={3} />;
 
   return (
-    <Panel title="Font" titleTip={description} bare titleClassName={sectionTitleClass} className="flex flex-col gap-4 pt-3">
+    <Panel title={t('typing.fontTitle')} titleTip={description} bare titleClassName={sectionTitleClass} className="flex flex-col gap-4 pt-3">
       <p className="text-lg text-muted-foreground">{description}</p>
-      <div role="radiogroup" aria-label="Interface font" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div role="radiogroup" aria-label={t('typing.fontGroup')} className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {FONT_OPTIONS.map((option) => {
           const checked = option.id === fontFamily;
           return (

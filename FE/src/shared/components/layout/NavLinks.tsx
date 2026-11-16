@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 import type { NavItem, NavWidget } from '@/app/module.types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
@@ -12,6 +13,8 @@ const linkClass = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-base transi
  */
 export const NavLinks = ({ items, guest = false }: { items: (NavItem | NavWidget)[]; guest?: boolean }) => {
   const location = useLocation();
+  const { t } = useTranslation();
+  const nameOf = (item: NavItem) => (item.labelKey ? t(item.labelKey) : item.label);
 
   return (
     <nav className="flex items-center gap-1">
@@ -24,11 +27,11 @@ export const NavLinks = ({ items, guest = false }: { items: (NavItem | NavWidget
                 <TooltipTrigger asChild>
                   <Link to="/register" className={cn(linkClass, 'text-muted-foreground/60 hover:text-foreground')}>
                     <item.icon className="size-4" />
-                    <span className="hidden sm:inline">{item.label}</span>
-                    <span className="sr-only">(locked)</span>
+                    <span className="hidden sm:inline">{nameOf(item)}</span>
+                    <span className="sr-only">{t('nav.locked')}</span>
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent>Create an account</TooltipContent>
+                <TooltipContent>{t('nav.createAccount')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           );
@@ -40,7 +43,7 @@ export const NavLinks = ({ items, guest = false }: { items: (NavItem | NavWidget
             className={cn(linkClass, location.pathname === item.to ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}
           >
             <item.icon className="size-4" />
-            <span className="hidden sm:inline">{item.label}</span>
+            <span className="hidden sm:inline">{nameOf(item)}</span>
           </Link>
         );
       })}

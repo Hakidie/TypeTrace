@@ -5,7 +5,7 @@ import { ProfilePage } from './pages/ProfilePage';
 
 export const profileModule: AppModule = {
   routes: [{ path: '/profile', Component: ProfilePage }],
-  navItems: [{ to: '/profile', label: 'Profile', icon: User }],
+  navItems: [{ to: '/profile', label: 'Profile', labelKey: 'nav.profile', icon: User }],
   // Sends the browser's time zone, so the learner's days are their own (SCRUM-31).
   widgets: [TimezoneSync],
 };

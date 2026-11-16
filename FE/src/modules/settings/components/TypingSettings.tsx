@@ -1,5 +1,6 @@
 import { RotateCcw } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -12,7 +13,6 @@ import { useSaveTypingFontSize, useSettings } from '../hooks/use-settings';
 import { FontSettings } from './FontSettings';
 import { TypingPreview } from './TypingPreview';
 
-const description = 'Choose how big the passage is on the typing page. The height of its 3 lines follows the size.';
 /** The px of 1 rem in this browser (16 unless the learner changed their browser's font size). */
 const rootPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 
@@ -21,6 +21,8 @@ const rootPx = () => parseFloat(getComputedStyle(document.documentElement).fontS
  * text on the typing page, 1 to 2.5 rem) and, above them, a sample passage drawn like the typing page's at the size being chosen.
  */
 export const TypingSettings = () => {
+  const { t } = useTranslation('settings');
+  const description = t('typing.sizeDescription');
   const { isLoading, error, refetch } = useCurrentUser();
   const { typingFontSizeRem } = useSettings();
   const save = useSaveTypingFontSize();
@@ -51,7 +53,7 @@ export const TypingSettings = () => {
     <div className="flex flex-col gap-8">
       <TypingPreview fontSizeRem={size} />
       <FontSettings />
-      <Panel title="Font size" titleTip={description} bare titleClassName={sectionTitleClass} className="flex flex-col gap-4 pt-3">
+      <Panel title={t('typing.sizeTitle')} titleTip={description} bare titleClassName={sectionTitleClass} className="flex flex-col gap-4 pt-3">
         {/* The reset button is at the right end of the description line. */}
         <div className="flex items-center justify-between gap-4">
           <p className="min-w-0 text-lg text-muted-foreground">{description}</p>
@@ -60,12 +62,12 @@ export const TypingSettings = () => {
               <TooltipTrigger asChild>
                 {/* A span, so the tooltip also shows while the button is off. */}
                 <span className="shrink-0">
-                  <Button variant="ghost" size="sm" aria-label="Reset font size" disabled={size === TYPING_FONT_SIZE.default || save.isPending} onClick={reset}>
+                  <Button variant="ghost" size="sm" aria-label={t('typing.resetSize')} disabled={size === TYPING_FONT_SIZE.default || save.isPending} onClick={reset}>
                     <RotateCcw className="size-4" aria-hidden />
                   </Button>
                 </span>
               </TooltipTrigger>
-              <TooltipContent>Reset to {TYPING_FONT_SIZE.default} rem</TooltipContent>
+              <TooltipContent>{t('typing.resetTip', { size: TYPING_FONT_SIZE.default })}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -74,7 +76,7 @@ export const TypingSettings = () => {
           <div className="relative h-4 min-w-0 flex-1">
             <input
               type="range"
-              aria-label="Font size"
+              aria-label={t('typing.sizeLabel')}
               min={TYPING_FONT_SIZE.min}
               max={TYPING_FONT_SIZE.max}
               step={TYPING_FONT_SIZE.step}

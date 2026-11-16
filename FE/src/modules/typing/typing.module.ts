@@ -9,5 +9,5 @@ export const typingModule: AppModule = {
     { path: '/typing', Component: TypingRoute, guest: true },
     { path: '/typing/result/:id', Component: TypingResultPage },
   ],
-  navItems: [{ to: '/typing', label: 'Typing', icon: Keyboard, guest: true }],
+  navItems: [{ to: '/typing', label: 'Typing', labelKey: 'nav.typing', icon: Keyboard, guest: true }],
 };

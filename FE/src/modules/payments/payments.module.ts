@@ -23,7 +23,7 @@ export const paymentsModule: AppModule = {
   adminRoutes: [{ path: '/admin/payments', Component: AdminPaymentsPage }],
   adminNavItems: [{ to: '/admin/payments', label: 'Payments', icon: CreditCard }],
   menuItems: [
-    { label: 'Store', icon: ShoppingBag, to: '/store' },
-    { label: 'Payment', icon: Receipt, to: '/store/history' },
+    { label: 'Store', labelKey: 'menu.store', icon: ShoppingBag, to: '/store' },
+    { label: 'Payment', labelKey: 'menu.payment', icon: Receipt, to: '/store/history' },
   ],
 };

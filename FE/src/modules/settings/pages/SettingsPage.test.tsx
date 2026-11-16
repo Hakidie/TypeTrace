@@ -148,12 +148,12 @@ describe('SettingsPage', () => {
   });
 
 
-  it('lists the tabs in order: Typing, Appearance, Wardrobe, Security, Tutorial', async () => {
+  it('lists the tabs in order: Typing, Appearance, Wardrobe, Language, Security, Tutorial', async () => {
     renderPage();
     await screen.findByRole('heading', { name: 'Themes' });
 
     const tabs = within(screen.getByRole('radiogroup', { name: 'Settings' })).getAllByRole('radio');
-    expect(tabs.map((tab) => tab.textContent)).toEqual(['Typing', 'Appearance', 'Wardrobe', 'Security', 'Tutorial']);
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Typing', 'Appearance', 'Wardrobe', 'Language', 'Security', 'Tutorial']);
   });
 
   it('shows one setting at a time, chosen with the tabs', async () => {

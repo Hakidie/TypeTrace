@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertTriangle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import type { ThemeColors, ThemeMode } from '@/shared/lib/theme';
@@ -9,8 +10,6 @@ import { cn } from '@/shared/lib/utils';
 import { themeProblems } from '../lib/theme-rules';
 import type { ThemeInput } from '../types/theme.types';
 import { ThemeCard } from './ThemeCard';
-
-const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Use a color like #1a2b3c');
 
 type ThemeFormValues = { name: string } & ThemeColors;
 
@@ -41,17 +40,19 @@ interface ThemeEditorProps {
 }
 
 /** Create or edit a theme right in the grid: a live card to type the name on and to pick the four colors on, with a save and a cancel icon. */
-export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'New theme', takenNames, onSave, onPreview, onChange, onCancel, actions, plain, large }: ThemeEditorProps) => {
+export const ThemeEditor = ({ mode, initialName = '', initialColors, label, takenNames, onSave, onPreview, onChange, onCancel, actions, plain, large }: ThemeEditorProps) => {
+  const { t } = useTranslation('settings');
   const schema = useMemo(
-    () =>
-      z
+    () => {
+      const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, t('theme.errors.color'));
+      return z
         .object({
           name: z
             .string()
             .trim()
-            .min(1, 'Theme name is required')
-            .max(30, 'At most 30 characters')
-            .refine((name) => !takenNames.some((taken) => taken.toLowerCase() === name.toLowerCase()), 'You already have a theme with this name'),
+            .min(1, t('theme.errors.nameRequired'))
+            .max(30, t('theme.errors.nameMax'))
+            .refine((name) => !takenNames.some((taken) => taken.toLowerCase() === name.toLowerCase()), t('theme.errors.nameTaken')),
           background: hexColor,
           text: hexColor,
           muted: hexColor,
@@ -61,8 +62,9 @@ export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'Ne
         .superRefine((values, ctx) => {
           const colors = { background: values.background, text: values.text, muted: values.muted, accent: values.accent };
           for (const { field, message } of themeProblems(mode, colors)) ctx.addIssue({ code: 'custom', message, path: [field] });
-        }),
-    [takenNames, mode],
+        });
+    },
+    [takenNames, mode, t],
   );
 
   const {
@@ -82,10 +84,10 @@ export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'Ne
   );
 
   return (
-    <form onSubmit={submit} noValidate aria-label={label} className="space-y-2">
+    <form onSubmit={submit} noValidate aria-label={label ?? t('appearance.newTheme')} className="space-y-2">
       <ThemeCard
-        theme={{ name: values.name.trim() || 'Theme name', colors }}
-        submitLabel="Save theme"
+        theme={{ name: values.name.trim() || t('theme.themeName'), colors }}
+        submitLabel={t('theme.saveTheme')}
         onCancel={onCancel}
         actions={actions?.(colors)}
         plain={plain}
@@ -99,8 +101,8 @@ export const ThemeEditor = ({ mode, initialName = '', initialColors, label = 'Ne
           // Type the name right on the card: same spot, size and color as the saved name.
           <input
             id="theme-name"
-            aria-label="Name"
-            placeholder="Theme name"
+            aria-label={t('theme.name')}
+            placeholder={t('theme.themeName')}
             autoComplete="off"
             aria-invalid={!!errors.name}
             className={cn('absolute right-2 w-[55%] bg-transparent text-right font-medium placeholder:text-current focus-visible:outline-none', large ? 'bottom-10 text-2xl' : 'bottom-6 text-lg')}
