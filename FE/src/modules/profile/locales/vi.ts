@@ -81,11 +81,18 @@ export const profileVi: typeof profileEn = {
     coinsPaid: '+{{count}} xu',
     sessions_one: '{{progress}} / {{target}} lượt gõ',
     sessions_other: '{{progress}} / {{target}} lượt gõ',
-    minutes: '{{progress}} / {{target}} phút',
-    wpm: '{{progress}} / {{target}} WPM',
-    accuracy: '{{progress}}% / {{target}}%',
     minigames_one: '{{progress}} / {{target}} minigame',
     minigames_other: '{{progress}} / {{target}} minigame',
+    taskTitle: {
+      sessions: 'Luyện gõ {{count}}',
+      minigames: 'Minigame {{count}}',
+    },
+    goal: {
+      sessions_one: 'Hoàn thành {{count}} lượt gõ tính điểm trong ngày',
+      sessions_other: 'Hoàn thành {{count}} lượt gõ tính điểm trong ngày',
+      minigames_one: 'Hoàn thành {{count}} minigame trong ngày',
+      minigames_other: 'Hoàn thành {{count}} minigame trong ngày',
+    },
   },
   errorProfile: {
     title: 'Hồ sơ lỗi',

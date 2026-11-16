@@ -1,102 +1,34 @@
-// A learner's daily tasks (SCRUM-112): each of their days gets `dailyTaskCount` of the active DailyTask templates, the
-// ones that focus on their weakest error types first, copied once into UserDailyTasks and measured on the counted
-// sessions of that day, like the daily mission. typing-session.service.ts imports this file, so it never imports that one.
+// A learner's daily tasks (SCRUM-112): each of their days gets `dailyTaskCount` of the active DailyTask templates, picked at
+// random, copied once into UserDailyTasks and measured on the counted sessions and minigames of that day, like the daily
+// mission. typing-session.service.ts imports this file, so it never imports that one.
 import type { Types } from 'mongoose';
 import { DailyTaskModel } from '../models/daily-task.model';
-import { ErrorCounts, TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
+import { TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
 import { DayNumbers, UserDailyTask, UserDailyTasksDocument, UserDailyTasksModel } from '../models/user-daily-tasks.model';
 import { UserModel } from '../models/user.model';
 import { notFound } from '../utils/app-error';
 import { addDays, localDateKey } from '../utils/local-date';
-import { sessionsIn } from '../utils/typing-language';
-import { WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { getAppSettings } from './app-setting.service';
 import { learnerTimeZone, usableTimeZone } from './daily-progress.service';
 import { minigameFinishTimes } from './minigame-times.service';
 
-/** The error profile behind the picks: the learner's last counted sessions, so it follows them as they improve. */
-export const WEAKNESS_SESSIONS = 20;
-/** An error type is weak only with at least this many chances in those sessions (fewer say little) and an error. */
-export const MIN_WEAKNESS_CHANCES = 10;
-/** A session counts for a task that focuses on an error type only with at least this many chances of that type. */
-export const MIN_FOCUS_CHANCES = 5;
-
 type OwnerId = string | Types.ObjectId;
 
-const round1 = (value: number) => Math.round(value * 10) / 10;
-
-const emptyCounts = (): ErrorCounts =>
-  Object.fromEntries(Object.values(WordError).map((type) => [type, 0])) as ErrorCounts;
-
 /**
- * The weak error types of a learner, weakest first, from their errors and chances of each type in all: the types with
- * at least `MIN_WEAKNESS_CHANCES` chances and at least one error, by error rate (errors / chances). A tie goes to the
- * type with more errors, then to the order of WordError.
- */
-export const rankWeakErrorTypes = (errors: ErrorCounts, chances: ErrorCounts): WordErrorType[] => {
-  const order = Object.values(WordError);
-  const rate = (type: WordErrorType) => errors[type] / chances[type];
-  return order
-    .filter((type) => chances[type] >= MIN_WEAKNESS_CHANCES && errors[type] > 0)
-    .sort((a, b) => rate(b) - rate(a) || errors[b] - errors[a] || order.indexOf(a) - order.indexOf(b));
-};
-
-/**
- * The learner's weak error types (`rankWeakErrorTypes`) in their last `WEAKNESS_SESSIONS` counted Vietnamese sessions (the
- * tasks focus on Vietnamese error types: English sessions, SCRUM-219, would only take places with no chance of them). A
- * session adds its errors and chances of a type only with at least `MIN_FOCUS_CHANCES` chances of it, the sessions that can
- * move a task focused on that type (`dayNumbersOf`): a type met only a few times in each of them would otherwise be ranked
- * weak and handed out as a task that sessions like theirs never move.
- */
-const weakErrorTypesOf = async (owner: OwnerId) => {
-  const sessions = await TypingSessionModel.find({ owner, status: 'completed', isCounted: true, ...sessionsIn('vi') })
-    .sort({ completedAt: -1 })
-    .limit(WEAKNESS_SESSIONS)
-    .select('errorCounts opportunityCounts')
-    .lean();
-  const errors = emptyCounts();
-  const chances = emptyCounts();
-  for (const session of sessions) {
-    for (const type of Object.values(WordError)) {
-      const sessionChances = session.opportunityCounts?.[type] ?? 0;
-      if (sessionChances < MIN_FOCUS_CHANCES) continue;
-      errors[type] += session.errorCounts?.[type] ?? 0;
-      chances[type] += sessionChances;
-    }
-  }
-  return rankWeakErrorTypes(errors, chances);
-};
-
-/**
- * Picks the tasks of a day from `templates`: first, for each weak error type in order, one of the templates that focus
- * on it (at random among them; a type no template focuses on is skipped), then the places left at random from all the
- * other templates. Never a template twice, at most `count`. `random` returns a number from 0 up to 1, like `Math.random`;
+ * Picks `count` of `templates` at random, never one twice. `random` returns a number from 0 up to 1, like `Math.random`;
  * the unit tests pass their own.
  */
-export const pickDailyTasks = <T extends { errorType?: WordErrorType }>(
-  templates: readonly T[],
-  weakTypes: readonly WordErrorType[],
-  count: number,
-  random = Math.random
-): T[] => {
+export const pickDailyTasks = <T>(templates: readonly T[], count: number, random = Math.random): T[] => {
   const left = [...templates];
   const picked: T[] = [];
-  const pickFrom = (candidates: T[]) => {
-    const choice = candidates[Math.floor(random() * candidates.length)];
-    picked.push(choice);
-    left.splice(left.indexOf(choice), 1);
-  };
-  for (const type of weakTypes) {
-    if (picked.length >= count) break;
-    const focused = left.filter((template) => template.errorType === type);
-    if (focused.length > 0) pickFrom(focused);
+  while (picked.length < count && left.length > 0) {
+    picked.push(...left.splice(Math.floor(random() * left.length), 1));
   }
-  while (picked.length < count && left.length > 0) pickFrom(left);
   return picked;
 };
 
 /** What the numbers of a day are made of: the fields of a counted session that `countedSessionsOf` reads. */
-export type DaySession = Pick<TypingSessionDocument, 'durationMs' | 'wpm' | 'accuracy' | 'errorCounts' | 'opportunityCounts'>;
+export type DaySession = Pick<TypingSessionDocument, 'completedAt'>;
 
 /**
  * The learner's counted sessions completed on `date`, a day in `timeZone`. The query reads whole UTC days, from the one
@@ -111,7 +43,7 @@ const countedSessionsOf = async (owner: OwnerId, date: string, timeZone: string)
     isCounted: true,
     completedAt: { $gte: new Date(`${addDays(date, -1)}T00:00:00Z`), $lt: new Date(`${addDays(date, 2)}T00:00:00Z`) }
   })
-    .select('completedAt durationMs wpm accuracy errorCounts opportunityCounts')
+    .select('completedAt')
     .lean();
   return sessions.filter((session) => localDateKey(session.completedAt!, timeZone) === date);
 };
@@ -126,80 +58,31 @@ const minigameCountOf = async (owner: OwnerId, date: string, timeZone: string) =
 };
 
 /**
- * The numbers of a day from its counted sessions: how many, their time in all, the best WPM and the best accuracy of one
- * of them, and for each error type the best accuracy on it, `100 * (1 - errors / chances)` to one decimal, of one session
- * with at least `MIN_FOCUS_CHANCES` chances of it. A field a session lacks counts as 0. `minigames` is the number of minigames
- * and ranked duels the learner finished that day (minigame-times.service.ts), which are not sessions.
+ * The numbers of a day: how many counted sessions it has, and how many minigames and ranked duels the learner finished
+ * that day (minigame-times.service.ts), which are not sessions.
  */
-export const dayNumbersOf = (sessions: readonly DaySession[], minigames = 0): DayNumbers => {
-  const bestErrorAccuracy: DayNumbers['bestErrorAccuracy'] = {};
-  for (const { errorCounts, opportunityCounts } of sessions) {
-    for (const type of Object.values(WordError)) {
-      const chances = opportunityCounts?.[type] ?? 0;
-      if (chances < MIN_FOCUS_CHANCES) continue;
-      // Not below 0: a word without a vowel mark can still be typed with one, so MARK_WRONG can have more errors than chances.
-      const accuracy = Math.max(0, round1(100 * (1 - (errorCounts?.[type] ?? 0) / chances)));
-      bestErrorAccuracy[type] = Math.max(bestErrorAccuracy[type] ?? 0, accuracy);
-    }
-  }
-  return {
-    sessions: sessions.length,
-    durationMs: sessions.reduce((total, session) => total + (session.durationMs ?? 0), 0),
-    bestWpm: Math.max(0, ...sessions.map((session) => session.wpm ?? 0)),
-    bestAccuracy: Math.max(0, ...sessions.map((session) => session.accuracy ?? 0)),
-    minigames,
-    bestErrorAccuracy
-  };
+export const dayNumbersOf = (sessions: readonly unknown[], minigames = 0): DayNumbers => ({ sessions: sessions.length, minigames });
+
+/** How far a task is on the numbers of its day, in the unit of its target, and whether it is completed. */
+export const taskProgressOf = ({ type, target }: Pick<UserDailyTask, 'type' | 'target'>, numbers: DayNumbers) => {
+  // A day stored before minigames existed has no number: 0.
+  const done = type === 'sessions' ? numbers.sessions : (numbers.minigames ?? 0);
+  return { progress: done, completed: done >= target };
 };
 
 /**
- * How far a task is on the numbers of its day, in the unit of its target, and whether it is completed. `minutes` has one
- * decimal rounded down, so it never shows the target before the task is completed (at the exact millisecond). A focused
- * accuracy task is 0 until a session has `MIN_FOCUS_CHANCES` chances of its error type.
- */
-export const taskProgressOf = (
-  { type, target, errorType }: Pick<UserDailyTask, 'type' | 'target' | 'errorType'>,
-  numbers: DayNumbers
-) => {
-  switch (type) {
-    case 'sessions':
-      return { progress: numbers.sessions, completed: numbers.sessions >= target };
-    case 'minutes':
-      return { progress: Math.floor(numbers.durationMs / 6000) / 10, completed: numbers.durationMs >= target * 60_000 };
-    case 'wpm':
-      return { progress: numbers.bestWpm, completed: numbers.bestWpm >= target };
-    case 'accuracy': {
-      const best = errorType ? (numbers.bestErrorAccuracy[errorType] ?? 0) : numbers.bestAccuracy;
-      return { progress: best, completed: best >= target };
-    }
-    case 'minigames': {
-      // A day stored before this type existed has no number: 0.
-      const finished = numbers.minigames ?? 0;
-      return { progress: finished, completed: finished >= target };
-    }
-  }
-};
-
-/**
- * When a learner's day completed `task`: the `completedAt` of the counted session that first brought it to its target,
- * the day's `sessions` (oldest first) added up one by one as `dayNumbersOf` adds them; `undefined` when they never do. A
- * `minigames` task is completed at the finish time of its `target`th minigame, from `minigameTimes` (oldest first).
+ * When a learner's day completed `task`: the time of its `target`th counted session (`sessions`, oldest first) or of its
+ * `target`th minigame (`minigameTimes`, oldest first); `undefined` when the day never gets there.
  */
 export const completedAtOf = (
-  task: Pick<UserDailyTask, 'type' | 'target' | 'errorType'>,
-  sessions: readonly (DaySession & Pick<TypingSessionDocument, 'completedAt'>)[],
+  task: Pick<UserDailyTask, 'type' | 'target'>,
+  sessions: readonly DaySession[],
   minigameTimes: readonly Date[] = []
-) => {
-  if (task.type === 'minigames') return minigameTimes[task.target - 1];
-  for (let count = 1; count <= sessions.length; count += 1) {
-    if (taskProgressOf(task, dayNumbersOf(sessions.slice(0, count))).completed) return sessions[count - 1].completedAt;
-  }
-  return undefined;
-};
+) => (task.type === 'minigames' ? minigameTimes[task.target - 1] : sessions[task.target - 1]?.completedAt);
 
 /**
  * The learner's tasks of `date` (a day in `timeZone`), made the first time they are needed: `dailyTaskCount` of the
- * active templates (`pickDailyTasks`, weak error types first), with the numbers of the sessions already counted that day,
+ * active templates (`pickDailyTasks`), with the numbers of the sessions already counted that day,
  * cut in `timeZone`, which the day keeps. Stored once with `$setOnInsert` on the unique `{ owner, date }`: of two requests
  * at the same time, one makes the snapshot and the other gets it, maybe cut in another zone (`updateDayNumbers`). The
  * stored tasks are never changed, so template edits and a new `dailyTaskCount` apply from the next day. `null` while no
@@ -209,23 +92,19 @@ const tasksOfDay = async (owner: OwnerId, date: string, timeZone: string) => {
   const stored = await UserDailyTasksModel.findOne({ owner, date });
   if (stored) return stored;
 
-  const [{ dailyTaskCount }, templates, weakTypes] = await Promise.all([
+  const [{ dailyTaskCount }, templates] = await Promise.all([
     getAppSettings(),
     // In the order they were made, so the picks depend on `random` alone.
-    DailyTaskModel.find({ isActive: true }).sort({ _id: 1 }).select('title description type target errorType coins').lean(),
-    weakErrorTypesOf(owner)
+    DailyTaskModel.find({ isActive: true }).sort({ _id: 1 }).select('title description type target coins').lean()
   ]);
-  const tasks: UserDailyTask[] = pickDailyTasks(templates, weakTypes, dailyTaskCount).map(
-    ({ _id, title, description, type, target, errorType, coins }) => ({
-      taskId: _id,
-      title,
-      description,
-      type,
-      target,
-      coins: coins ?? 0,
-      ...(errorType && { errorType })
-    })
-  );
+  const tasks: UserDailyTask[] = pickDailyTasks(templates, dailyTaskCount).map(({ _id, title, description, type, target, coins }) => ({
+    taskId: _id,
+    title,
+    description,
+    type,
+    target,
+    coins: coins ?? 0
+  }));
   if (tasks.length === 0) return null;
 
   const [sessions, minigames] = await Promise.all([countedSessionsOf(owner, date, timeZone), minigameCountOf(owner, date, timeZone)]);
@@ -293,7 +172,7 @@ export const hourlyCompletionsOf = async (taskIds: readonly unknown[], now = new
       completedAt: { $gte: new Date(`${addDays(firstDate, -1)}T00:00:00Z`), $lte: now }
     })
       .sort({ completedAt: 1 })
-      .select('owner completedAt durationMs wpm accuracy errorCounts opportunityCounts')
+      .select('owner completedAt')
       .lean();
     // Their minigames and duels over the same time, for the `minigames` tasks.
     const owners = [...new Set(completed.map(({ day }) => String(day.owner)))];
@@ -326,11 +205,7 @@ export const hourlyCompletionsOf = async (taskIds: readonly unknown[], now = new
 };
 
 /** `$max` of each number of the day, on the dotted paths of `progress`. */
-const maxOfNumbers = ({ bestErrorAccuracy, ...totals }: DayNumbers) =>
-  Object.fromEntries([
-    ...Object.entries(totals).map(([field, value]) => [`progress.${field}`, value]),
-    ...Object.entries(bestErrorAccuracy).map(([type, value]) => [`progress.bestErrorAccuracy.${type}`, value])
-  ]);
+const maxOfNumbers = (numbers: DayNumbers) => Object.fromEntries(Object.entries(numbers).map(([field, value]) => [`progress.${field}`, value]));
 
 /**
  * Pays the coins (SCRUM-301) of every task of `day` that is completed on `numbers` and not paid yet. A task is marked
@@ -429,7 +304,6 @@ export const getTodayDailyTasks = async (userId: string) => {
       target: task.target,
       coins: task.coins ?? 0,
       rewarded: rewarded.has(String(task.taskId)),
-      ...(task.errorType && { errorType: task.errorType }),
       ...taskProgressOf(task, progress)
     }))
   };

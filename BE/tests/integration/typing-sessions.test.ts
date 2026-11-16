@@ -655,10 +655,10 @@ describe('GET /api/sessions/activity (the profile page, SCRUM-157 and SCRUM-31)'
       { owner: me._id, date: '2026-03-10', sessions: 2 },
       { owner: me._id, date: '2026-03-09', sessions: 1 }
     ]);
-    const task = (type: 'sessions' | 'wpm', target: number) => ({ taskId: new Types.ObjectId(), title: `${type} ${target}`, type, target });
+    const task = (type: 'sessions' | 'minigames', target: number) => ({ taskId: new Types.ObjectId(), title: `${type} ${target}`, type, target });
     await UserDailyTasksModel.create([
-      // Two sessions and a best of 40 WPM: the sessions task is done, the WPM one is not.
-      { owner: me._id, date: '2026-03-10', timeZone: 'Asia/Ho_Chi_Minh', tasks: [task('sessions', 2), task('wpm', 60)], progress: { sessions: 2, bestWpm: 40 } },
+      // Two sessions and one minigame: the sessions task is done, the minigames one is not.
+      { owner: me._id, date: '2026-03-10', timeZone: 'Asia/Ho_Chi_Minh', tasks: [task('sessions', 2), task('minigames', 3)], progress: { sessions: 2, minigames: 1 } },
       // Another learner's day is never mixed in.
       { owner: other._id, date: '2026-03-09', timeZone: 'Asia/Ho_Chi_Minh', tasks: [task('sessions', 1)], progress: { sessions: 5 } }
     ]);

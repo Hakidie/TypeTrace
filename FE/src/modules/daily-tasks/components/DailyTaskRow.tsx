@@ -1,4 +1,4 @@
-import { Ban, CircleCheck, Crosshair, Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
+import { Ban, CircleCheck, Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
 import { LabeledTag } from '@/shared/components/labeled-tag';
 import { ListRow, ListRowMenu, ListRowStat } from '@/shared/components/list-row';
 import { RowContextMenu } from '@/shared/components/row-context-menu';
@@ -6,7 +6,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
-import { DAILY_TASK_TYPE_INFO, ERROR_FOCUS_LABELS, formatTarget, goalOf } from '../daily-tasks.config';
+import { DAILY_TASK_TYPE_INFO, formatTarget, goalOf } from '../daily-tasks.config';
 import type { DailyTask, DailyTaskListItem } from '../types/daily-task.types';
 import { DailyTaskCompletions } from './DailyTaskCompletions';
 
@@ -35,7 +35,7 @@ interface DailyTaskRowProps {
  * the icon of its type, the title and under it the description (the goal in words, `goalOf`, when it has none); where a
  * session card has its speed line, the learners who completed it in each of the last 24 hours (`DailyTaskCompletions`, from
  * `xl`); then the learners of those 24 hours (DONE) and the target. Its actions are in a kebab menu that shows while the row is hovered,
- * and in the same menu on a right click (`RowContextMenu`). Under them the type and the focus error of an accuracy task as `LabeledTag`s and the status as a badge with an icon, as on the user rows (no date).
+ * and in the same menu on a right click (`RowContextMenu`). Under them the type as a `LabeledTag` and the status as a badge with an icon, as on the user rows (no date).
  */
 export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTaskRowProps) => {
   const { label, stat, icon: Icon } = DAILY_TASK_TYPE_INFO[task.type];
@@ -98,7 +98,6 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
         tags={
           <>
             <LabeledTag icon={Icon} text={label} hint="The kind of task" />
-            {task.errorType && <LabeledTag icon={Crosshair} text={`Focus: ${ERROR_FOCUS_LABELS[task.errorType]}`} hint="The error type the task is about" />}
             <Badge variant={task.isActive ? 'default' : 'outline'} className={task.isActive ? undefined : 'border-primary text-primary'}>
               {task.isActive ? <CircleCheck className="mr-1.5 size-4" aria-hidden /> : <Ban className="mr-1.5 size-4" aria-hidden />}
               {task.isActive ? 'Active' : 'Inactive'}

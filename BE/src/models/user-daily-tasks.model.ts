@@ -1,7 +1,6 @@
 // A learner's daily tasks of one of their days (SCRUM-112): the DailyTask templates picked for them that day, copied once,
 // and the numbers of that day's counted sessions the tasks are measured on. Written by user-daily-tasks.service.ts only.
 import mongoose, { Schema, Types } from 'mongoose';
-import { WordError, WordErrorType } from '../utils/vietnamese-errors';
 import { DAILY_TASK_TYPES, DailyTaskType } from './daily-task.model';
 
 /** One task of the day: its template as it was when the day's tasks were made. */
@@ -13,29 +12,16 @@ export interface UserDailyTask {
   description: string;
   type: DailyTaskType;
   target: number;
-  /** The error type of an accuracy task with a focus; absent otherwise. */
-  errorType?: WordErrorType;
   /** The coins the template gave for completing it when the day was made (SCRUM-301). Days stored before it have none: 0. */
   coins: number;
 }
 
-/** The numbers of the counted sessions of one learner's day, which every task of that day is measured on. */
+/** The numbers of one learner's day, which every task of that day is measured on. */
 export interface DayNumbers {
   /** How many counted sessions the day has. */
   sessions: number;
-  /** Their time in all. */
-  durationMs: number;
-  /** The best WPM of one of them. */
-  bestWpm: number;
-  /** The best accuracy (%) of one of them. */
-  bestAccuracy: number;
   /** How many minigames and ranked duels the learner finished that day (SCRUM-300). Missing on days stored before it: read as 0. */
   minigames: number;
-  /**
-   * The best accuracy (%) on each error type of one of them, only from the sessions with at least `MIN_FOCUS_CHANCES`
-   * chances of that type (user-daily-tasks.service.ts): a type without such a session has no key.
-   */
-  bestErrorAccuracy: Partial<Record<WordErrorType, number>>;
 }
 
 export interface UserDailyTasksDocument extends mongoose.Document {
@@ -70,22 +56,15 @@ const taskSchema = new Schema<UserDailyTask>(
     description: { type: String, default: '' },
     type: { type: String, enum: DAILY_TASK_TYPES, required: true },
     target: { type: Number, required: true },
-    errorType: { type: String, enum: Object.values(WordError) },
     coins: { type: Number, default: 0, min: 0 }
   },
   { _id: false }
 );
 
-const errorAccuracyDefinition = Object.fromEntries(Object.values(WordError).map((type) => [type, Number]));
-
 const numbersSchema = new Schema<DayNumbers>(
   {
     sessions: { type: Number, default: 0, min: 0 },
-    durationMs: { type: Number, default: 0, min: 0 },
-    bestWpm: { type: Number, default: 0, min: 0 },
-    bestAccuracy: { type: Number, default: 0, min: 0 },
-    minigames: { type: Number, default: 0, min: 0 },
-    bestErrorAccuracy: { type: new Schema(errorAccuracyDefinition, { _id: false }), default: () => ({}) }
+    minigames: { type: Number, default: 0, min: 0 }
   },
   { _id: false }
 );

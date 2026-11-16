@@ -72,7 +72,7 @@ describe('POST /api/admin/daily-tasks', () => {
 
   it('takes a description, an inactive task and the largest target of each type', async () => {
     const auth = await signInAdmin();
-    const largest = { sessions: 20, minutes: 120, wpm: 200, accuracy: 100, minigames: 10 };
+    const largest = { sessions: 20, minigames: 10 };
 
     for (const [type, target] of Object.entries(largest)) {
       const response = await create(auth, { title: `Max ${type}`, type, target, description: ' Cố lên ', isActive: false });
@@ -84,12 +84,12 @@ describe('POST /api/admin/daily-tasks', () => {
   it('refuses a target above the most of its type, naming the field', async () => {
     const auth = await signInAdmin();
 
-    for (const [type, target] of [['sessions', 21], ['minutes', 121], ['wpm', 201], ['accuracy', 101], ['minigames', 11]] as const) {
+    for (const [type, target] of [['sessions', 21], ['minigames', 11]] as const) {
       const response = await create(auth, { ...input, type, target });
       expect(response.status).toBe(400);
       expect(fieldsOf(response)).toEqual(['target']);
     }
-    expect((await create(auth, { ...input, type: 'accuracy', target: 101 })).body.errors[0].message).toBe('At most 100 for type accuracy');
+    expect((await create(auth, { ...input, type: 'sessions', target: 21 })).body.errors[0].message).toBe('At most 20 for type sessions');
     expect((await create(auth, { ...input, type: 'minigames', target: 11 })).body.errors[0].message).toBe('At most 10 for type minigames');
     expect(await DailyTaskModel.countDocuments()).toBe(0);
   });
@@ -116,9 +116,9 @@ describe('POST /api/admin/daily-tasks', () => {
 describe('GET /api/admin/daily-tasks', () => {
   const seed = async () => {
     const auth = await signInAdmin();
-    await create(auth, { title: 'Gõ nhanh', type: 'wpm', target: 40 });
-    await create(auth, { title: 'Chính xác', type: 'accuracy', target: 95, description: 'Gõ cẩn thận từng chữ' });
-    await create(auth, { title: 'Luyện đều', type: 'minutes', target: 10, isActive: false });
+    await create(auth, { title: 'Gõ nhanh', type: 'sessions', target: 4 });
+    await create(auth, { title: 'Chính xác', type: 'minigames', target: 5, description: 'Gõ cẩn thận từng chữ' });
+    await create(auth, { title: 'Luyện đều', type: 'sessions', target: 10, isActive: false });
     return auth;
   };
 
@@ -144,7 +144,7 @@ describe('GET /api/admin/daily-tasks', () => {
     expect(await titles(auth, `q=${encodeURIComponent('go nhanh')}`)).toEqual(['Gõ nhanh']);
     expect(await titles(auth, `q=${encodeURIComponent('can than')}`)).toEqual(['Chính xác']);
     expect(await titles(auth, 'q=.*')).toEqual([]);
-    expect(await titles(auth, 'type=accuracy')).toEqual(['Chính xác']);
+    expect(await titles(auth, 'type=minigames')).toEqual(['Chính xác']);
     expect(await titles(auth, 'isActive=false')).toEqual(['Luyện đều']);
     expect(await titles(auth, 'isActive=true&sort=title')).toEqual(['Chính xác', 'Gõ nhanh']);
   });
@@ -229,22 +229,22 @@ describe('GET /api/admin/daily-tasks: the learners who completed each task in th
   it('counts each learner in the hour of the session that completed the task, never in a later one', async () => {
     const auth = await signInAdmin();
     await create(auth, { title: 'Hai phiên', type: 'sessions', target: 2 });
-    await create(auth, { title: 'Gõ nhanh', type: 'wpm', target: 40 });
-    await create(auth, { title: 'Chăm chỉ', type: 'minutes', target: 120 });
+    await create(auth, { title: 'Một phiên', type: 'sessions', target: 1 });
+    await create(auth, { title: 'Chăm chỉ', type: 'sessions', target: 20 });
     await updateAppSettings({ dailyTaskCount: 3 });
     const an = await createUser({ email: 'an@example.com' });
     const binh = await createUser({ email: 'binh@example.com' });
 
-    await typeAt(an, '2026-03-10T01:10:00.000Z', { wpm: 30 });
-    // Her second session completes both of her tasks; the third one changes nothing.
-    await typeAt(an, '2026-03-10T03:20:00.000Z', { wpm: 45 });
-    await typeAt(an, '2026-03-10T07:00:00.000Z', { wpm: 50 });
+    // Her first session completes one of her tasks, her second the other one; the third changes nothing.
+    await typeAt(an, '2026-03-10T01:10:00.000Z');
+    await typeAt(an, '2026-03-10T03:20:00.000Z');
+    await typeAt(an, '2026-03-10T07:00:00.000Z');
     // In the current hour.
-    await typeAt(binh, '2026-03-10T08:10:00.000Z', { wpm: 50 });
+    await typeAt(binh, '2026-03-10T08:10:00.000Z');
 
     expect(await completionsOf(auth)).toEqual({
       'Hai phiên': { learners: 1, hours: { '2026-03-10T03:00:00.000Z': 1 } },
-      'Gõ nhanh': { learners: 2, hours: { '2026-03-10T03:00:00.000Z': 1, '2026-03-10T08:00:00.000Z': 1 } },
+      'Một phiên': { learners: 2, hours: { '2026-03-10T01:00:00.000Z': 1, '2026-03-10T08:00:00.000Z': 1 } },
       'Chăm chỉ': { learners: 0, hours: {} }
     });
   });
@@ -333,19 +333,19 @@ describe('PATCH /api/admin/daily-tasks/:id', () => {
 
   it('checks the target against the type the task ends up with', async () => {
     const auth = await signInAdmin();
-    const task = (await create(auth, { ...input, type: 'wpm', target: 150 })).body;
+    const task = (await create(auth, { ...input, type: 'sessions', target: 15 })).body;
 
-    // Only the type: 150 % accuracy cannot be reached.
-    const typeOnly = await update(auth, task._id, { type: 'accuracy' });
+    // Only the type: 15 minigames cannot be played in a day.
+    const typeOnly = await update(auth, task._id, { type: 'minigames' });
     expect(typeOnly.status).toBe(400);
     expect(fieldsOf(typeOnly)).toEqual(['target']);
     // Only the target, above the most of the type the task has.
-    expect((await update(auth, task._id, { target: 201 })).status).toBe(400);
-    expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject({ type: 'wpm', target: 150 });
+    expect((await update(auth, task._id, { target: 21 })).status).toBe(400);
+    expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject({ type: 'sessions', target: 15 });
 
-    const both = await update(auth, task._id, { type: 'accuracy', target: 95 });
+    const both = await update(auth, task._id, { type: 'minigames', target: 5 });
     expect(both.status).toBe(200);
-    expect(both.body).toMatchObject({ type: 'accuracy', target: 95 });
+    expect(both.body).toMatchObject({ type: 'minigames', target: 5 });
   });
 
   it('refuses an empty or bad body, and answers 404 for an unknown task', async () => {
@@ -358,105 +358,6 @@ describe('PATCH /api/admin/daily-tasks/:id', () => {
     expect((await update(auth, task._id, { isActive: 'no' })).status).toBe(400);
     expect((await update(auth, '64b7f0a5c2a5f1a1a1a1a1a1', { title: 'Ghost' })).status).toBe(404);
     expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject(input);
-  });
-});
-
-describe('the error type an accuracy task focuses on (SCRUM-112)', () => {
-  const focused = { title: 'Hỏi hay ngã', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' };
-  const onlyAccuracy = { message: 'Validation failed', errors: [{ field: 'errorType', message: 'Only accuracy tasks can focus on an error type' }] };
-
-  it('lets an accuracy task focus on an error type', async () => {
-    const auth = await signInAdmin();
-
-    const response = await create(auth, focused);
-
-    expect(response.status).toBe(201);
-    expect(response.body).toMatchObject(focused);
-    expect((await api().get(`/api/admin/daily-tasks/${response.body._id}`).set('Authorization', auth)).body).toMatchObject(focused);
-  });
-
-  it('stores and sends no errorType for a task without a focus, also when it is created with null', async () => {
-    const auth = await signInAdmin();
-    const unfocused = { title: 'Chính xác', type: 'accuracy', target: 95 };
-
-    for (const body of [unfocused, { ...focused, errorType: null }, { ...input, errorType: null }]) {
-      const response = await create(auth, body);
-      expect(response.status).toBe(201);
-      expect(response.body).not.toHaveProperty('errorType');
-    }
-    expect(await DailyTaskModel.countDocuments()).toBe(3);
-    expect(await DailyTaskModel.countDocuments({ errorType: { $exists: true } })).toBe(0);
-  });
-
-  it('refuses an error type on a task of another type, naming the field', async () => {
-    const auth = await signInAdmin();
-
-    for (const type of ['sessions', 'minutes', 'wpm', 'minigames']) {
-      const response = await create(auth, { title: 'Ba phiên', type, target: 3, errorType: 'TONE_WRONG' });
-      expect(response.status).toBe(400);
-      expect(response.body).toEqual(onlyAccuracy);
-    }
-    const task = (await create(auth)).body;
-    const response = await update(auth, task._id, { errorType: 'TONE_WRONG' });
-    expect(response.status).toBe(400);
-    expect(response.body).toEqual(onlyAccuracy);
-    expect(await DailyTaskModel.countDocuments({ errorType: { $exists: true } })).toBe(0);
-  });
-
-  it('refuses an error type it does not know', async () => {
-    const auth = await signInAdmin();
-    const task = (await create(auth, focused)).body;
-
-    for (const errorType of ['SPELLING', 'hoi_nga_confusion', '', 3, true]) {
-      expect((await create(auth, { ...focused, errorType })).status).toBe(400);
-      expect((await update(auth, task._id, { errorType })).status).toBe(400);
-    }
-    expect(await DailyTaskModel.countDocuments()).toBe(1);
-    expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject({ errorType: 'HOI_NGA_CONFUSION' });
-  });
-
-  it('checks the focus against the type the task ends up with', async () => {
-    const auth = await signInAdmin();
-    // A target a sessions task may have too, so only the focus stands in the way of the new type.
-    const task = (await create(auth, { ...focused, target: 20 })).body;
-
-    const typeOnly = await update(auth, task._id, { type: 'sessions' });
-    expect(typeOnly.status).toBe(400);
-    expect(typeOnly.body).toEqual(onlyAccuracy);
-    expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject({ type: 'accuracy', errorType: 'HOI_NGA_CONFUSION' });
-
-    const withoutFocus = await update(auth, task._id, { type: 'sessions', errorType: null });
-    expect(withoutFocus.status).toBe(200);
-    expect(withoutFocus.body).toMatchObject({ type: 'sessions', target: 20 });
-    expect(withoutFocus.body).not.toHaveProperty('errorType');
-    expect(await DailyTaskModel.findById(task._id).lean()).not.toHaveProperty('errorType');
-  });
-
-  it('keeps the focus when errorType is not sent, takes it away with null and changes it', async () => {
-    const auth = await signInAdmin();
-    const task = (await create(auth, focused)).body;
-
-    expect((await update(auth, task._id, { title: 'Hỏi ngã' })).body).toMatchObject({ title: 'Hỏi ngã', errorType: 'HOI_NGA_CONFUSION' });
-
-    // `{ errorType }` alone is a field to update.
-    const cleared = await update(auth, task._id, { errorType: null });
-    expect(cleared.status).toBe(200);
-    expect(cleared.body).toMatchObject({ title: 'Hỏi ngã', type: 'accuracy', target: 90 });
-    expect(cleared.body).not.toHaveProperty('errorType');
-    expect(await DailyTaskModel.findById(task._id).lean()).not.toHaveProperty('errorType');
-
-    expect((await update(auth, task._id, { errorType: 'TONE_WRONG' })).body).toMatchObject({ errorType: 'TONE_WRONG' });
-  });
-
-  it('deactivates a focused task with { isActive: false } alone and keeps its type, target and focus', async () => {
-    const auth = await signInAdmin();
-    const task = (await create(auth, focused)).body;
-
-    const response = await update(auth, task._id, { isActive: false });
-
-    expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ ...focused, isActive: false });
-    expect(await DailyTaskModel.findById(task._id).lean()).toMatchObject({ ...focused, isActive: false });
   });
 });
 
@@ -474,23 +375,22 @@ describe('two saves of one task at the same time', () => {
     return DailyTaskModel.findById(id).lean();
   };
 
-  const wpmTask = { title: 'Gõ nhanh', type: 'wpm', target: 150 };
-  const toAccuracy: UpdateDailyTaskInput = { type: 'accuracy', target: 95, errorType: 'TONE_WRONG' };
-  const faster: UpdateDailyTaskInput = { target: 180 };
+  const sessionsTask = { title: 'Luyện gõ', type: 'sessions', target: 15 };
+  const toMinigames: UpdateDailyTaskInput = { type: 'minigames', target: 5 };
+  const more: UpdateDailyTaskInput = { target: 18 };
 
-  it('keeps the type, target and focus of one of them, never the type of one with the target of the other', async () => {
-    // Each save is valid on the task it read, but 180 % accuracy is not: the task keeps the whole set of the last save.
-    const accuracyFirst = await saveBoth(wpmTask, toAccuracy, faster);
-    expect(accuracyFirst).toMatchObject({ type: 'wpm', target: 180 });
-    expect(accuracyFirst).not.toHaveProperty('errorType');
+  it('keeps the type and target of one of them, never the type of one with the target of the other', async () => {
+    // Each save is valid on the task it read, but 18 minigames is not: the task keeps the whole set of the last save.
+    const minigamesFirst = await saveBoth(sessionsTask, toMinigames, more);
+    expect(minigamesFirst).toMatchObject({ type: 'sessions', target: 18 });
 
-    expect(await saveBoth(wpmTask, faster, toAccuracy)).toMatchObject({ type: 'accuracy', target: 95, errorType: 'TONE_WRONG' });
+    expect(await saveBoth(sessionsTask, more, toMinigames)).toMatchObject({ type: 'minigames', target: 5 });
   });
 
-  it('leaves the type, target and focus to the other save when a save changes none of them', async () => {
-    const stored = await saveBoth(wpmTask, toAccuracy, { isActive: false, title: 'Chính xác' });
+  it('leaves the type and target to the other save when a save changes none of them', async () => {
+    const stored = await saveBoth(sessionsTask, toMinigames, { isActive: false, title: 'Chơi game' });
 
-    expect(stored).toMatchObject({ title: 'Chính xác', type: 'accuracy', target: 95, errorType: 'TONE_WRONG', isActive: false });
+    expect(stored).toMatchObject({ title: 'Chơi game', type: 'minigames', target: 5, isActive: false });
   });
 });
 

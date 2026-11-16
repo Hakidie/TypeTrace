@@ -98,7 +98,7 @@ describe('paying the coins of a completed task', () => {
     const learner = await createUser({});
     await DailyTaskModel.create([
       template('Một phiên', 'sessions', 1, 10),
-      template('Gõ nhanh', 'wpm', 100, 40),
+      template('Hai phiên', 'sessions', 2, 40),
       template('Không thưởng', 'sessions', 1)
     ]);
     await updateAppSettings({ dailyTaskCount: 3 });
@@ -156,7 +156,7 @@ describe('the coins of a snapshot', () => {
       date: '2026-03-10',
       timeZone: 'Asia/Ho_Chi_Minh',
       tasks: [{ taskId: task._id, title: 'Một phiên', description: '', type: 'sessions', target: 1 }],
-      progress: { sessions: 0, durationMs: 0, bestWpm: 0, bestAccuracy: 0, minigames: 0, bestErrorAccuracy: {} }
+      progress: { sessions: 0, minigames: 0 }
     });
 
     await countSession(learner);

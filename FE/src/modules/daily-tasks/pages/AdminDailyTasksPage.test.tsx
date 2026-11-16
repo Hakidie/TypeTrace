@@ -59,12 +59,11 @@ const statOf = (card: HTMLElement, label: string) => within(card).getByText(labe
 const cardOf = (title: string) => screen.getByText(title).closest('article') as HTMLElement;
 
 const warmUp = task('t1', 'Warm-up');
-const speed = task('t2', 'Speed run', { type: 'wpm', target: 40, coins: 25, description: 'Type fast but clean.' });
-const focus = task('t3', 'Focus', { type: 'accuracy', target: 95 });
-const slowDay = task('t4', 'Slow day', { type: 'minutes', target: 10, isActive: false });
-const hoiNga = task('t5', 'Phân biệt hỏi/ngã', { type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' });
-/** The goal of `hoiNga`: only some words have hỏi or ngã, so it says how many a session needs. */
-const hoiNgaGoal = 'Reach 90% accuracy on hỏi and ngã in a session with at least 5 words with hỏi or ngã';
+const speed = task('t2', 'Speed run', { type: 'minigames', target: 4, coins: 25, description: 'Play fast but clean.' });
+const focus = task('t3', 'Focus', { type: 'minigames', target: 5 });
+const slowDay = task('t4', 'Slow day', { type: 'sessions', target: 10, isActive: false });
+/** A task with a long goal and no description, to cut. */
+const longGoal = task('t5', 'Long goal', { type: 'sessions', target: 20 });
 
 const page = (items: DailyTaskListItem[]) => ({ items, page: 1, limit: 10, total: items.length, totalPages: 1 });
 
@@ -116,17 +115,11 @@ const pickAction = async (title: string, action: 'Edit' | 'Activate' | 'Deactiva
   fireEvent.click(within(cards).getByRole('menuitem', { name: action }));
 };
 
-/** Picks an option of the form's strip: Focus opens a menu inside the form, Type goes round with clicks. */
-const pickOption = (form: ReturnType<typeof formOf>, menu: 'Type' | 'Focus', option: string) => {
-  if (menu === 'Type') {
-    // Type has no menu: each click shows the next one (at most one lap).
-    for (let click = 0; click < 5 && !form.queryByRole('button', { name: `Type: ${option}` }); click += 1) {
-      fireEvent.click(form.getByRole('button', { name: /^Type:/ }));
-    }
-    return;
+/** Picks the type in the form's strip: it has no menu, each click shows the next one (at most one lap). */
+const pickType = (form: ReturnType<typeof formOf>, option: string) => {
+  for (let click = 0; click < 3 && !form.queryByRole('button', { name: `Type: ${option}` }); click += 1) {
+    fireEvent.click(form.getByRole('button', { name: /^Type:/ }));
   }
-  fireEvent.click(form.getByRole('button', { name: new RegExp(`^${menu}:`) }));
-  fireEvent.click(form.getByRole('menuitemradio', { name: option }));
 };
 
 /** The form of the top panel: New task, or Edit task while a task is being edited. */
@@ -177,14 +170,13 @@ describe('AdminDailyTasksPage', () => {
 
     const cards = await screen.findByLabelText('Daily task cards');
     expect(within(cards).getByText('Warm-up')).toBeInTheDocument();
-    for (const goal of ['Finish 3 counted sessions', 'Reach 95% accuracy in one session', 'Type 10 minutes in all']) {
+    for (const goal of ['Finish 3 counted sessions', 'Finish 5 minigames', 'Finish 10 counted sessions']) {
       expect(within(cards).getByText(goal)).toBeInTheDocument();
     }
     // Speed run has a description: it takes the place of the goal.
-    expect(within(cards).getByText('Type fast but clean.')).toBeInTheDocument();
-    expect(within(cards).queryByText('Reach 40 WPM in one session')).not.toBeInTheDocument();
-    expect(within(cards).getByText('95%')).toBeInTheDocument();
-    expect(within(cards).getByText('Speed')).toBeInTheDocument();
+    expect(within(cards).getByText('Play fast but clean.')).toBeInTheDocument();
+    expect(within(cards).queryByText('Finish 4 minigames')).not.toBeInTheDocument();
+    expect(within(cards).getAllByText('Minigames').length).toBeGreaterThan(0);
     expect(within(cards).getAllByText('Active')).toHaveLength(3);
     expect(within(cards).getAllByText('Inactive')).toHaveLength(1);
     expect(screen.getByLabelText('Search tasks').closest('div.flex')).toHaveTextContent('4Tasks');
@@ -255,7 +247,7 @@ describe('AdminDailyTasksPage', () => {
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Precise', description: '', type: 'sessions', target: 18, errorType: null, coins: 0, isActive: true }),
+      expect(create).toHaveBeenCalledWith({ title: 'Precise', description: '', type: 'sessions', target: 18, coins: 0, isActive: true }),
     );
     await waitFor(() => expect(form.getByLabelText('Title')).toHaveValue(''));
     expect(form.getByRole('button', { name: 'Type: Sessions' })).toBeInTheDocument();
@@ -282,7 +274,7 @@ describe('AdminDailyTasksPage', () => {
     fireEvent.change(form.getByLabelText('Coins'), { target: { value: '100' } });
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Rewarded', description: '', type: 'sessions', target: 1, errorType: null, coins: 100, isActive: true }),
+      expect(create).toHaveBeenCalledWith({ title: 'Rewarded', description: '', type: 'sessions', target: 1, coins: 100, isActive: true }),
     );
   });
 
@@ -310,7 +302,7 @@ describe('AdminDailyTasksPage', () => {
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Quiet', description: '', type: 'sessions', target: 1, errorType: null, coins: 0, isActive: false }),
+      expect(create).toHaveBeenCalledWith({ title: 'Quiet', description: '', type: 'sessions', target: 1, coins: 0, isActive: false }),
     );
   });
 
@@ -335,24 +327,23 @@ describe('AdminDailyTasksPage', () => {
   });
 
   it('edits a task in the top panel from the menu of its card, then goes back to a new task', async () => {
-    update.mockResolvedValue({ ...speed, target: 45 });
+    update.mockResolvedValue({ ...speed, target: 4 });
     renderPage();
 
     await pickAction('Speed run', 'Edit');
     const form = formOf('Edit task');
     expect(form.getByLabelText('Title')).toHaveValue('Speed run');
-    expect(form.getByRole('button', { name: 'Type: Speed' })).toBeInTheDocument();
-    expect(form.getByLabelText('Description')).toHaveValue('Type fast but clean.');
-    fireEvent.change(form.getByLabelText('Target'), { target: { value: '45' } });
+    expect(form.getByRole('button', { name: 'Type: Minigames' })).toBeInTheDocument();
+    expect(form.getByLabelText('Description')).toHaveValue('Play fast but clean.');
+    fireEvent.change(form.getByLabelText('Target'), { target: { value: '4' } });
     fireEvent.click(form.getByRole('button', { name: 'Update task' }));
 
     await waitFor(() =>
       expect(update).toHaveBeenCalledWith('t2', {
         title: 'Speed run',
-        description: 'Type fast but clean.',
-        type: 'wpm',
-        target: 45,
-        errorType: null,
+        description: 'Play fast but clean.',
+        type: 'minigames',
+        target: 4,
         coins: 25,
         isActive: true,
       }),
@@ -385,32 +376,18 @@ describe('AdminDailyTasksPage', () => {
     expect(await screen.findByRole('form', { name: 'New task' })).toBeInTheDocument();
   });
 
-  it('names the focus error of an accuracy task in a badge, and in the goal under the title when it has no description', async () => {
-    const tones = task('t6', 'Steady tones', { type: 'accuracy', target: 85, errorType: 'TONE_WRONG', description: 'Mind every tone.' });
-    listWith([hoiNga, tones, focus]);
-    renderPage();
-
-    await screen.findByLabelText('Daily task cards');
-    expect(within(cardOf('Phân biệt hỏi/ngã')).getByText(hoiNgaGoal)).toBeInTheDocument();
-    expect(within(cardOf('Phân biệt hỏi/ngã')).getByText('Focus: hỏi and ngã')).toBeInTheDocument();
-    // With a description, the badge alone names the focus.
-    expect(within(cardOf('Steady tones')).getByText('Mind every tone.')).toBeInTheDocument();
-    expect(within(cardOf('Steady tones')).getByText('Focus: tone marks')).toBeInTheDocument();
-    expect(within(cardOf('Focus')).queryByText(/^Focus:/)).not.toBeInTheDocument();
-  });
-
   it('cuts the title and the line under it to one line each, the whole text in the project tooltip on hover', async () => {
-    listWith([hoiNga]);
+    listWith([longGoal]);
     renderPage();
 
     await screen.findByLabelText('Daily task cards');
-    const goal = within(cardOf('Phân biệt hỏi/ngã')).getByText(hoiNgaGoal);
+    const goal = within(cardOf('Long goal')).getByText('Finish 20 counted sessions');
     expect(goal).toHaveClass('truncate');
     // The shared Tooltip, never the native title attribute.
     expect(goal).not.toHaveAttribute('title');
 
     await userEvent.setup().hover(goal);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent(hoiNgaGoal);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Finish 20 counted sessions');
   });
 
   it('puts the description under the title, in the same column', async () => {
@@ -418,8 +395,8 @@ describe('AdminDailyTasksPage', () => {
 
     await screen.findByLabelText('Daily task cards');
     const title = screen.getByText('Speed run');
-    expect(title.parentElement).toContainElement(screen.getByText('Type fast but clean.'));
-    expect(title.nextElementSibling).toHaveTextContent('Type fast but clean.');
+    expect(title.parentElement).toContainElement(screen.getByText('Play fast but clean.'));
+    expect(title.nextElementSibling).toHaveTextContent('Play fast but clean.');
   });
 
   it('charts the learners who completed each task in each of the last 24 hours, with the learners of the 24 hours', async () => {
@@ -450,7 +427,7 @@ describe('AdminDailyTasksPage', () => {
     expect(done.compareDocumentPosition(within(cardOf('Warm-up')).getByText('SESSIONS')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('offers only Sessions and Minigames for a new task, and no Focus error', async () => {
+  it('offers only Sessions and Minigames for a task, going round with clicks', async () => {
     renderPage(FORM_ROUTE);
 
     const form = formOf('New task');
@@ -460,45 +437,6 @@ describe('AdminDailyTasksPage', () => {
     expect(type()).toBe('Type: Minigames');
     fireEvent.click(form.getByRole('button', { name: /^Type:/ }));
     expect(type()).toBe('Type: Sessions');
-    expect(form.queryByRole('button', { name: /^Focus:/ })).not.toBeInTheDocument();
-  });
-
-  it('keeps the type of a task saved with Minutes, Speed or Accuracy while it is edited: its Focus error is still offered, and none once the type is changed', async () => {
-    listWith([hoiNga]);
-    update.mockResolvedValue({ ...hoiNga, type: 'sessions', errorType: undefined });
-    renderPage();
-
-    await pickAction('Phân biệt hỏi/ngã', 'Edit');
-    const form = formOf('Edit task');
-    expect(form.getByRole('button', { name: 'Type: Accuracy' })).toBeInTheDocument();
-    fireEvent.click(await form.findByRole('button', { name: 'Focus: Hỏi / ngã confusion' }));
-    expect(within(form.getByRole('menu', { name: 'Focus' })).getAllByRole('menuitemradio').map((option) => option.textContent)).toEqual([
-      'None',
-      'Wrong letter',
-      'Missing stroke on đ',
-      'Wrong vowel mark (â ê ô ă ơ ư)',
-      'Wrong tone',
-      'Hỏi / ngã confusion',
-    ]);
-    fireEvent.keyDown(form.getByRole('menu', { name: 'Focus' }), { key: 'Escape' });
-
-    // Another type: the Focus goes away and nothing is sent for it.
-    pickOption(form, 'Type', 'Sessions');
-    await waitFor(() => expect(form.queryByRole('button', { name: /^Focus:/ })).not.toBeInTheDocument());
-    fireEvent.change(form.getByLabelText('Target'), { target: { value: '5' } });
-    fireEvent.click(form.getByRole('button', { name: 'Update task' }));
-
-    await waitFor(() =>
-      expect(update).toHaveBeenCalledWith('t5', {
-        title: 'Phân biệt hỏi/ngã',
-        description: '',
-        type: 'sessions',
-        target: 5,
-        errorType: null,
-        coins: 0,
-        isActive: true,
-      }),
-    );
   });
 
   it('adds a minigames task: the goal in words, a target of at most 10 (SCRUM-300)', async () => {
@@ -507,7 +445,7 @@ describe('AdminDailyTasksPage', () => {
 
     const form = formOf('New task');
     fireEvent.change(form.getByLabelText('Title'), { target: { value: 'Play games' } });
-    pickOption(form, 'Type', 'Minigames');
+    pickType(form, 'Minigames');
     fireEvent.change(form.getByLabelText('Target'), { target: { value: '11' } });
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
     expect(await form.findByText('At most 10 for this type')).toBeInTheDocument();
@@ -518,38 +456,8 @@ describe('AdminDailyTasksPage', () => {
     fireEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
-      expect(create).toHaveBeenCalledWith({ title: 'Play games', description: '', type: 'minigames', target: 3, errorType: null, coins: 0, isActive: true }),
+      expect(create).toHaveBeenCalledWith({ title: 'Play games', description: '', type: 'minigames', target: 3, coins: 0, isActive: true }),
     );
-  });
-
-  it('prefills the focus error of the task being edited, and None takes it away', async () => {
-    listWith([hoiNga, warmUp]);
-    update.mockResolvedValue({ ...hoiNga, errorType: undefined });
-    renderPage();
-
-    await pickAction('Phân biệt hỏi/ngã', 'Edit');
-    const form = formOf('Edit task');
-    expect(form.getByRole('button', { name: 'Type: Accuracy' })).toBeInTheDocument();
-    expect(form.getByRole('button', { name: 'Focus: Hỏi / ngã confusion' })).toBeInTheDocument();
-    expect(form.getByText(hoiNgaGoal)).toBeInTheDocument();
-
-    pickOption(form, 'Focus', 'None');
-    expect(await form.findByText('Reach 90% accuracy in one session')).toBeInTheDocument();
-    fireEvent.click(form.getByRole('button', { name: 'Update task' }));
-
-    await waitFor(() =>
-      expect(update).toHaveBeenCalledWith('t5', {
-        title: 'Phân biệt hỏi/ngã',
-        description: '',
-        type: 'accuracy',
-        target: 90,
-        errorType: null,
-        coins: 0,
-        isActive: true,
-      }),
-    );
-    // Saved: back to the list.
-    expect(await screen.findByLabelText('Daily task cards')).toBeInTheDocument();
   });
 
   it('deactivates an active task and activates an inactive one from the menu of its row', async () => {
@@ -578,11 +486,11 @@ describe('AdminDailyTasksPage', () => {
   });
 
   it('sends the search, filters and sort of the URL to the API', async () => {
-    renderPage('/admin/daily-tasks?q=fast&type=wpm&isActive=false&sort=title');
+    renderPage('/admin/daily-tasks?q=fast&type=minigames&isActive=false&sort=title');
     await screen.findByLabelText('Daily task cards');
 
     expect(list).toHaveBeenCalledWith(
-      expect.objectContaining({ q: 'fast', type: 'wpm', isActive: 'false', sort: 'title', page: 1, limit: 3 }),
+      expect.objectContaining({ q: 'fast', type: 'minigames', isActive: 'false', sort: 'title', page: 1, limit: 3 }),
     );
   });
 
@@ -591,9 +499,9 @@ describe('AdminDailyTasksPage', () => {
     await screen.findByLabelText('Daily task cards');
 
     fireEvent.click(screen.getByRole('button', { name: /Filter/ }));
-    fireEvent.click(within(screen.getByRole('group', { name: 'Type' })).getByRole('menuitemradio', { name: 'Speed' }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Type' })).getByRole('menuitemradio', { name: 'Minigames' }));
 
-    await waitFor(() => expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'wpm' })));
+    await waitFor(() => expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'minigames' })));
   });
 
   it('shows an empty state without tasks, and another one when the filters match none', async () => {
@@ -602,7 +510,7 @@ describe('AdminDailyTasksPage', () => {
     expect(await screen.findByText('No daily tasks yet')).toBeInTheDocument();
     unmount();
 
-    renderPage('/admin/daily-tasks?type=wpm');
+    renderPage('/admin/daily-tasks?type=minigames');
     expect(await screen.findByText('No matching tasks')).toBeInTheDocument();
   });
 
