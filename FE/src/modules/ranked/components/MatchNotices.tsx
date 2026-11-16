@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Flag, WifiOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
@@ -30,17 +31,18 @@ interface MatchNoticesProps {
  * connection with the seconds before their DNF, and Forfeit (after a confirmation: leaving is a DNF, a lost match).
  */
 export const MatchNotices = ({ match, myId, connected, away }: MatchNoticesProps) => {
+  const { t } = useTranslation('ranked');
   const [confirming, setConfirming] = useState(false);
   const leave = useLeaveMatch();
   const awayPlayers = match.players.filter((player) => player.userId !== myId && away[player.userId]);
   const now = useNow(awayPlayers.length > 0);
 
   const notice = !connected
-    ? 'Connection lost — reconnecting…'
+    ? t('notices.lost')
     : awayPlayers
         .map((player) => {
           const seconds = Math.max(0, Math.ceil((Date.parse(away[player.userId]) - now) / 1000));
-          return `${player.displayName} lost the connection: DNF in ${seconds} s unless they come back.`;
+          return t('notices.away', { name: player.displayName, seconds });
         })
         .join(' ');
 
@@ -56,15 +58,15 @@ export const MatchNotices = ({ match, myId, connected, away }: MatchNoticesProps
       </div>
       <Button variant="outline" size="sm" className="border-primary/40 text-primary" onClick={() => setConfirming(true)}>
         <Flag aria-hidden="true" />
-        Forfeit
+        {t('notices.forfeit')}
       </Button>
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title="Forfeit this match?"
-        description="You will not finish (DNF): the match counts as a loss and your opponent wins."
-        confirmLabel="Forfeit the match"
-        cancelLabel="Keep playing"
+        title={t('notices.forfeitTitle')}
+        description={t('notices.forfeitDescription')}
+        confirmLabel={t('notices.forfeitConfirm')}
+        cancelLabel={t('notices.keepPlaying')}
         destructive
         pending={leave.isPending}
         onConfirm={() => leave.mutate(match.code, { onSuccess: () => setConfirming(false) })}

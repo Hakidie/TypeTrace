@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { CSSProperties } from 'react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import type { AvatarPose } from '@/modules/avatar/types/avatar.types';
@@ -19,7 +20,9 @@ interface PlayerCardProps {
 }
 
 /** One seat of a room (it fills the height its grid row gives it, so two seats side by side are equally high): the avatar on a floor line, the name ("you" for the user) and a line under it. */
-export const PlayerCard = ({ player, isMe = false, pose = 'idle', highlight = false, children, className, style }: PlayerCardProps) => (
+export const PlayerCard = ({ player, isMe = false, pose = 'idle', highlight = false, children, className, style }: PlayerCardProps) => {
+  const { t } = useTranslation('ranked');
+  return (
   <div
     className={cn(
       'flex flex-col items-center gap-2 border bg-card/60 p-4 text-center text-primary backdrop-blur-sm transition-[outline-color] duration-300',
@@ -32,16 +35,17 @@ export const PlayerCard = ({ player, isMe = false, pose = 'idle', highlight = fa
     {player ? (
       <>
         <div className="w-full border-b border-primary/30">
-          <AvatarSprite look={player.avatar} pose={pose} scale={2} label={`${player.displayName}'s avatar`} className="mx-auto" />
+          <AvatarSprite look={player.avatar} pose={pose} scale={2} label={t('avatarOf', { name: player.displayName })} className="mx-auto" />
         </div>
         <p className="text-lg font-semibold text-foreground">
           {player.displayName}
-          {isMe && <span className="ml-2 text-sm font-normal text-muted-foreground">(you)</span>}
+          {isMe && <span className="ml-2 text-sm font-normal text-muted-foreground">{t('you')}</span>}
         </p>
         {children}
       </>
     ) : (
-      <LoadingRing label="Waiting for an opponent…" className="min-h-48 flex-1 justify-center" />
+      <LoadingRing label={t('room.waiting')} className="min-h-48 flex-1 justify-center" />
     )}
   </div>
-);
+  );
+};

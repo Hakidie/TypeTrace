@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Bot, CloudRain, Link2, Signal, Swords, Timer, Trophy, User, Zap, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Signal, Swords, Timer, Trophy, User, Zap, type LucideIcon } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 import { RainMode } from '@/modules/rain/components/RainMode';
 import { RainPreview } from '@/modules/rain/components/RainPreview';
@@ -7,7 +7,8 @@ import { BotDuelPreview } from '@/modules/tutorial/components/BotDuelPreview';
 import { WordChainMode } from '@/modules/word-chain/components/WordChainMode';
 import { WordChainPreview, WordChainWeekBadge } from '@/modules/word-chain/components/WordChainPreview';
 import { Button } from '@/shared/components/ui/button';
-import { useMinigameLang, type MinigameLang } from '@/shared/hooks/use-minigame-lang';
+import { useTranslation } from 'react-i18next';
+import type { MinigameLang } from '@/shared/hooks/use-minigame-lang';
 import { cn } from '@/shared/lib/utils';
 
 export type MinigameId = 'rain' | 'bot' | 'chain';
@@ -26,7 +27,7 @@ interface FactItem {
 
 /** One fact of a game: its icon beside the value over a small label, two lines as tall as the Play button (`h-9`). */
 const Fact = ({ icon: Icon, value, label }: FactItem) => (
-  <span className="flex h-9 items-center gap-2">
+  <span className="flex h-9 items-center gap-2 lg:max-xl:h-7">
     <Icon className="size-7 shrink-0 text-primary" strokeWidth={1.5} aria-hidden="true" />
     <span className="flex flex-col text-xs leading-4">
       <span className="text-sm font-semibold text-foreground">{value}</span>
@@ -133,8 +134,9 @@ const rise = (index: number): CSSProperties => ({ animationDelay: `${index * 70}
  * under it, in the center, back to them.
  */
 export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; onSelect: (id: MinigameId) => void; onBack: () => void }) => {
-  const { lang } = useMinigameLang();
-  const t = TEXT[lang];
+  // The tiles follow the language of the interface (SCRUM-332); inside a game its own button switches the game's texts.
+  const { i18n } = useTranslation();
+  const t = TEXT[i18n.language.startsWith('vi') ? 'vi' : 'en'];
   if (game) {
     const Game = GAMES[game];
     return (
@@ -152,17 +154,18 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
     );
   }
 
-  const side = (id: MinigameId, index: number, Icon: LucideIcon, title: string, description: string, facts: FactItem[], art: ReactNode, artWidth = 'sm:w-40') => (
-    <button type="button" onClick={() => onSelect(id)} style={rise(index)} className={cn(tile, 'duel-rise flex-col-reverse items-stretch gap-5 p-5 sm:flex-row')}>
+  const side = (id: MinigameId, index: number, title: string, description: string, facts: FactItem[], art: ReactNode, artWidth = 'sm:w-40', badge?: ReactNode) => (
+    <button type="button" onClick={() => onSelect(id)} style={rise(index)} className={cn(tile, 'duel-rise flex-col-reverse items-stretch gap-5 p-5 sm:flex-row lg:min-h-0 lg:gap-4 lg:p-4')}>
       {/* left: title, description, facts and the Play button */}
-      <span className="flex min-w-0 flex-1 flex-col gap-3">
-        <span className="flex items-center gap-2.5 text-2xl font-bold text-primary">
-          <Icon className="size-6" aria-hidden="true" /> {title}
+      <span className="flex min-w-0 flex-1 flex-col gap-3 lg:gap-2">
+        <span className="flex items-center gap-3 text-2xl font-bold text-primary">
+          {title}
+          {badge}
         </span>
-        <span className="text-base text-muted-foreground">{description}</span>
+        <span className="text-base text-muted-foreground lg:line-clamp-2">{description}</span>
         {/* the facts sit right above the button, at the bottom of the column */}
-        <span className="mt-auto flex flex-col gap-3 pt-3">
-          <span className="flex flex-wrap gap-x-5 gap-y-2 text-muted-foreground">
+        <span className="mt-auto flex flex-col gap-3 pt-3 lg:gap-2 lg:pt-1">
+          <span className="flex flex-col gap-y-1 text-muted-foreground">
             {facts.map((fact) => (
               <Fact key={fact.label} {...fact} />
             ))}
@@ -180,27 +183,24 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
   );
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-5 py-8 lg:grid-cols-[1.25fr_1fr] lg:grid-rows-2">
+    // The grid is as tall as the screen leaves it (from `lg`); no icon before the titles.
+    <div className="mx-auto grid w-full max-w-6xl flex-1 content-center gap-5 py-4 lg:h-[calc(100svh-15rem)] lg:min-h-[30rem] lg:flex-none lg:grid-cols-[1.25fr_1fr] lg:grid-rows-[repeat(2,minmax(0,1fr))] lg:py-0">
       {/* Nối từ: the large tile */}
       <button
         type="button"
         onClick={() => onSelect('chain')}
         style={rise(0)}
-        className={cn(tile, 'duel-rise flex-col gap-6 p-5 lg:row-span-2')}
+        className={cn(tile, 'duel-rise flex-col gap-6 p-5 lg:row-span-2 lg:min-h-0 lg:gap-4')}
       >
         <span className="flex flex-wrap items-start justify-between gap-3">
           <span className="flex flex-col gap-2">
-            <span className="flex items-center gap-3 text-3xl font-bold text-primary lg:text-4xl">
-              <Link2 className="size-7 lg:size-8" aria-hidden="true" /> {t.chain.title}
-            </span>
-            <span className="max-w-[40ch] text-base text-muted-foreground">
-              {t.chain.about}
-            </span>
+            <span className="text-3xl font-bold text-primary lg:text-4xl">{t.chain.title}</span>
+            <span className="max-w-[40ch] text-base text-muted-foreground">{t.chain.about}</span>
           </span>
           <WordChainWeekBadge />
         </span>
         {/* how a game goes, drawn with the pieces of the game */}
-        <span className="flex flex-1 items-center justify-center py-2">
+        <span className="flex min-h-0 flex-1 items-center justify-center overflow-hidden py-2">
           <span className="w-full max-w-md">
             <WordChainPreview />
           </span>
@@ -215,11 +215,9 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
           <Play label={t.play} className="w-full justify-center" />
         </span>
       </button>
-
       {side(
         'rain',
         1,
-        CloudRain,
         t.rain.title,
         t.rain.about,
         factsOf(t.rain.facts, [Timer, User]),
@@ -230,7 +228,6 @@ export const MinigamesMode = ({ game, onSelect, onBack }: { game?: MinigameId; o
       {side(
         'bot',
         2,
-        Bot,
         t.bot.title,
         t.bot.about,
         factsOf(t.bot.facts, [Timer, Swords, Signal]),

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, type FormEvent } from 'react';
 import { CloudRain, DoorOpen, Gamepad2, Swords, Trophy, type LucideIcon } from 'lucide-react';
 import { Panel } from '@/shared/components/panel';
@@ -18,10 +19,9 @@ export const titleClass = 'text-[1.5rem] text-primary';
 const ROOM_CODE_LENGTH = 6;
 
 const KINDS = [
-  { value: 'race', label: 'Race', icon: Swords },
-  { value: 'rain', label: 'Rain', icon: CloudRain },
+  { value: 'race', icon: Swords },
+  { value: 'rain', icon: CloudRain },
 ];
-/** The kind chosen last in this tab (sessionStorage; storage can be blocked, then it is Race). */
 const KIND_KEY = 'ranked.kind';
 const lastKind = (): MatchKind => {
   try {
@@ -38,18 +38,6 @@ const rememberKind = (kind: MatchKind) => {
   }
 };
 /** What a room of each kind is, under the title of the create panel. */
-const KIND_TIPS: Record<MatchKind, string> = {
-  race: 'Open a room and share its code. You both type the same English passage.',
-  rain: 'Open a room and share its code. Words rain on both of you; every word you type falls on your friend. Three misses and you are out.',
-};
-
-/** What each mode is, on its card in the Mode modal. */
-const MODE_TIPS: Record<MatchKind, string> = {
-  race: 'Type the same English passage as your friend. The faster and more accurate one wins.',
-  rain: 'Words rain on both of you; every word you type falls on your friend. Three misses and you are out.',
-};
-
-// The frame of the other panels (the normal border color, the thin red while hovered) around a bare panel, which has no padding of its own: it is as wide as the season bar above it.
 export const hoverFrame = 'flex flex-col border border-border p-3 transition-colors hover:border-destructive/40';
 
 /**
@@ -64,8 +52,8 @@ export const PanelArt = ({ icon: Icon }: { icon: LucideIcon }) => (
 
 /** An icon button (beside the leaderboard button) that opens a modal with a card for each mode of play; picking one chooses it. */
 const ModeButton = ({ kind, onChoose, hoverOnly = false }: { kind: MatchKind; onChoose: (kind: MatchKind) => void; hoverOnly?: boolean }) => {
+  const { t } = useTranslation('ranked');
   const [open, setOpen] = useState(false);
-  const current = KINDS.find((item) => item.value === kind);
   return (
     <>
       <TooltipProvider delayDuration={200}>
@@ -73,7 +61,7 @@ const ModeButton = ({ kind, onChoose, hoverOnly = false }: { kind: MatchKind; on
           <TooltipTrigger asChild>
             <button
               type="button"
-              aria-label="Mode"
+              aria-label={t('lobby.mode')}
               onClick={() => setOpen(true)}
               className={cn(
                 'flex size-[2.3rem] shrink-0 items-center justify-center text-primary transition hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -84,19 +72,19 @@ const ModeButton = ({ kind, onChoose, hoverOnly = false }: { kind: MatchKind; on
               <Gamepad2 className="size-6" aria-hidden="true" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>Mode: {current?.label}</TooltipContent>
+          <TooltipContent>{t('lobby.modeTip', { kind: t(`kinds.${kind}`) })}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       {/* MODAL Mode: a card for each mode of play. */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle className={titleClass}>Mode</DialogTitle>
-            <DialogDescription>Pick the kind of duel. Each mode has its own rating and leaderboard.</DialogDescription>
+            <DialogTitle className={titleClass}>{t('lobby.mode')}</DialogTitle>
+            <DialogDescription>{t('lobby.pickKind')}</DialogDescription>
           </DialogHeader>
           {/* The cards of the Minigames tab: a framed panel with a big icon, the description opens while hovered. */}
-          <div role="radiogroup" aria-label="Kind of match" className="grid items-start gap-6 sm:grid-cols-2">
-            {KINDS.map(({ value, label, icon }) => (
+          <div role="radiogroup" aria-label={t('leaderboard.kindOfMatch')} className="grid items-start gap-6 sm:grid-cols-2">
+            {KINDS.map(({ value, icon }) => (
               <button
                 key={value}
                 type="button"
@@ -112,11 +100,11 @@ const ModeButton = ({ kind, onChoose, hoverOnly = false }: { kind: MatchKind; on
                   kind === value && 'border-destructive/60',
                 )}
               >
-                <Panel title={label} bare centerTitle titleClassName={titleClass} fill>
+                <Panel title={t(`kinds.${value}`)} bare centerTitle titleClassName={titleClass} fill>
                   <PanelArt icon={icon} />
                   <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-hover:grid-rows-[1fr] group-focus-visible:grid-rows-[1fr] pointer-coarse:grid-rows-[1fr]">
                     <div className="overflow-hidden">
-                      <p className="px-4 pb-4 text-center text-base text-muted-foreground">{MODE_TIPS[value as MatchKind]}</p>
+                      <p className="px-4 pb-4 text-center text-base text-muted-foreground">{t(value === 'rain' ? 'lobby.rainTip' : 'lobby.raceTip')}</p>
                     </div>
                   </div>
                 </Panel>
@@ -131,6 +119,7 @@ const ModeButton = ({ kind, onChoose, hoverOnly = false }: { kind: MatchKind; on
 
 /** No room yet: the kind of match (Race or Rain), the own season rating of that kind, then create a room of that kind (the code is shared with a friend) or join one with its code. */
 export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
+  const { t } = useTranslation('ranked');
   const createMatch = useCreateMatch();
   const joinMatch = useJoinMatch();
   const [kind, setKind] = useState<MatchKind>(lastKind);
@@ -174,7 +163,7 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
             endsAt={ranking.data.season.endsAt}
             lead={
               // The mode in play, so it shows without opening the modal.
-              <span data-tutorial="rank-kind" role="img" aria-label={`Mode: ${kind}`} className="flex items-center">
+              <span data-tutorial="rank-kind" role="img" aria-label={t('lobby.modeIs', { kind: t(`kinds.${kind}`) })} className="flex items-center">
                 {kind === 'rain' ? <CloudRain className="size-12" aria-hidden="true" /> : <Swords className="size-12" aria-hidden="true" />}
               </span>
             }
@@ -192,27 +181,27 @@ export const RankLobby = ({ onEnter }: { onEnter: (code: string) => void }) => {
             }
             subline={`${ranking.data.wins}W · ${ranking.data.losses}L · ${ranking.data.draws}D`}
             value={ranking.data.rating}
-            valueLabel="Your rating"
+            valueLabel={t('lobby.yourRating')}
           />
         </div>
       )}
       {/* PANEL Duel a friend: create a room of the chosen mode. */}
       <div className={hoverFrame}>
-        <Panel title="Duel a friend" bare centerTitle titleClassName={titleClass} titleTip={KIND_TIPS[kind]} fill className="justify-end">
+        <Panel title={t('lobby.duel')} bare centerTitle titleClassName={titleClass} titleTip={t(kind === 'rain' ? 'lobby.rainRoomTip' : 'lobby.raceRoomTip')} fill className="justify-end">
           <PanelArt icon={kind === 'rain' ? CloudRain : Swords} />
           <Button disabled={pending} onClick={() => createMatch.mutate(kind, { onSuccess: (match) => onEnter(match.code) })}>
             <Swords className="size-4" aria-hidden="true" />
-            Create room
+            {t('lobby.createRoom')}
           </Button>
         </Panel>
       </div>
       {/* PANEL Join a room: type the code of a friend's room. */}
       <div className={hoverFrame}>
-        <Panel title="Join a room" bare centerTitle titleClassName={titleClass} titleTip="Type the 6-character code of a friend's room to join their duel." fill>
+        <Panel title={t('lobby.join')} bare centerTitle titleClassName={titleClass} titleTip={t('lobby.joinTip')} fill>
           <PanelArt icon={DoorOpen} />
           <form onSubmit={join} className="flex flex-col gap-3">
             <Input
-              aria-label="Room code"
+              aria-label={t('lobby.roomCode')}
               value={code}
               onChange={(event) => changeCode(event.target.value)}
               maxLength={ROOM_CODE_LENGTH}

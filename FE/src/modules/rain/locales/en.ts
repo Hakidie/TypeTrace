@@ -1,0 +1,21 @@
+/** The Word rain minigame's interface words (namespace `rain`, SCRUM-332). The falling words are Vietnamese whatever the interface language. */
+export const rainEn = {
+  title: 'Word rain',
+  rules: 'Type a falling word and press space before it reaches your head. Three misses end the round.',
+  start: 'Start',
+  paused: 'Paused',
+  resume: 'Resume',
+  pause: 'Pause',
+  won: 'You beat the rain',
+  lost: 'The rain won',
+  words: 'Words',
+  wpm: 'WPM',
+  playAgain: 'Play again',
+  noWords: 'No words to rain yet',
+  noWordsHint: 'Ask an admin to add words to the word bank.',
+  lives_one: '{{count}} life left',
+  lives_other: '{{count}} lives left',
+  timeLeft: 'Time left',
+  score: 'Score',
+  typeWord: 'Type a falling word',
+};

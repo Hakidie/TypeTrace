@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Heart } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { RainStage } from '@/modules/rain/components/RainStage';
@@ -25,13 +26,16 @@ const useTimeLeft = (endsAt?: string) => {
   return endsAt ? Date.parse(endsAt) - now : undefined;
 };
 
-const Lives = ({ who, lives }: { who: string; lives: number }) => (
-  <div role="img" aria-label={`${who}: ${lives} ${lives === 1 ? 'life' : 'lives'} left`} className="flex gap-0.5 text-primary">
+const Lives = ({ who, lives }: { who: string; lives: number }) => {
+  const { t } = useTranslation('ranked');
+  return (
+  <div role="img" aria-label={t('duel.lives', { who, count: lives })} className="flex gap-0.5 text-primary">
     {Array.from({ length: LIVES }, (_, index) => (
       <Heart key={index} aria-hidden="true" className={cn('size-4', index < lives ? 'fill-current' : 'opacity-40')} />
     ))}
   </div>
-);
+  );
+};
 
 /** The falling word that starts with what is typed and lands first (English only: no marks to ignore). */
 const targetOf = (side: RainDuelSide | undefined, typed: string) => {
@@ -60,6 +64,7 @@ interface RainDuelViewProps {
  * (`clockNow`), the hits and the landings; the box only sends a word on space or Enter.
  */
 export const RainDuelView = ({ match, myId }: RainDuelViewProps) => {
+  const { t } = useTranslation('ranked');
   const { state, clock: serverClock } = useRainDuel(match.code);
   const send = useSendRainWord();
   const [input, setInput] = useState('');
@@ -101,25 +106,25 @@ export const RainDuelView = ({ match, myId }: RainDuelViewProps) => {
   return (
     <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-3 py-4">
       <div className="grid gap-3 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)]">
-        <section aria-label="Your field" className="relative order-2 flex min-w-0 flex-col gap-2 lg:order-1">
+        <section aria-label={t('duel.yourField')} className="relative order-2 flex min-w-0 flex-col gap-2 lg:order-1">
           {incoming && <div key={`flash-${incoming.at}`} aria-hidden="true" className="rain-incoming pointer-events-none absolute inset-x-0 top-7 z-10 h-2 bg-primary" />}
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span className="flex shrink-0 items-center gap-2 font-semibold text-foreground">
-              You <Lives who="You" lives={mine?.lives ?? LIVES} />
+              {t('duel.you')} <Lives who={t('duel.you')} lives={mine?.lives ?? LIVES} />
             </span>
             {/* The throw is told in the HUD line, never over the field where it would hide the top words. The live region
                 stays, so a screen reader hears each throw; the words inside fade and come back with the next one. */}
             <p role="status" className="min-w-0 flex-1 truncate text-center">
               {incoming && (
                 <span key={incoming.at} className="rain-banner bg-primary/80 px-2 py-0.5 font-semibold text-primary-foreground">
-                  {other?.displayName ?? 'Your opponent'} threw: {incoming.text}
+                  {t('duel.threw', { name: other?.displayName ?? t('duel.opponent'), word: incoming.text })}
                 </span>
               )}
             </p>
-            <span className="shrink-0 tabular-nums">{mine?.hits ?? 0} words</span>
-            {match.rainTier && <span className="shrink-0" aria-label={`${match.rainTier} rain`}>{match.rainTier}</span>}
+            <span className="shrink-0 tabular-nums">{t('duel.words', { count: mine?.hits ?? 0 })}</span>
+            {match.rainTier && <span className="shrink-0" aria-label={t('duel.rainTier', { tier: match.rainTier })}>{match.rainTier}</span>}
             {timeLeft !== undefined && (
-              <span aria-label="Time left" className="shrink-0 font-semibold tabular-nums text-foreground">
+              <span aria-label={t('duel.timeLeft')} className="shrink-0 font-semibold tabular-nums text-foreground">
                 {clock(timeLeft)}
               </span>
             )}
@@ -134,13 +139,13 @@ export const RainDuelView = ({ match, myId }: RainDuelViewProps) => {
           />
         </section>
         {other && (
-          <section aria-label={`${other.displayName}'s field`} className="relative order-1 flex min-w-0 flex-col gap-2 lg:order-2">
+          <section aria-label={t('duel.fieldOf', { name: other.displayName })} className="relative order-1 flex min-w-0 flex-col gap-2 lg:order-2">
             {opponentHit && <div key={opponentHit.at} aria-hidden="true" className="rain-opponent-hit pointer-events-none absolute inset-0 z-10 bg-primary/25" />}
             <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
               <span className="flex items-center gap-2 truncate font-semibold text-foreground">
                 {other.displayName} <Lives who={other.displayName} lives={theirs?.lives ?? LIVES} />
               </span>
-              <span className="tabular-nums">{theirs?.hits ?? 0} words</span>
+              <span className="tabular-nums">{t('duel.words', { count: theirs?.hits ?? 0 })}</span>
             </div>
             <RainStage
               drops={theirs?.drops ?? []}
@@ -156,7 +161,7 @@ export const RainDuelView = ({ match, myId }: RainDuelViewProps) => {
       </div>
       <input
         ref={box}
-        aria-label="Type a falling word"
+        aria-label={t('duel.typeWord')}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"

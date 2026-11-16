@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
@@ -41,6 +42,7 @@ const forgetRoom = () => {
  * back to the same room and its stream reconnects. Without a room: create or join one; then the room as its status says.
  */
 export const RankMode = () => {
+  const { t } = useTranslation('ranked');
   const [params, setParams] = useSearchParams();
   const code = params.get('room') ?? undefined;
   const { data: me } = useCurrentUser();
@@ -80,7 +82,7 @@ export const RankMode = () => {
   if (!match) {
     return (
       <div className="mx-auto my-auto w-full max-w-3xl">
-        {error ? <ErrorState error={error} onRetry={() => void refetch()} /> : isLoading && <LoadingRing label="Opening the room…" />}
+        {error ? <ErrorState error={error} onRetry={() => void refetch()} /> : isLoading && <LoadingRing label={t('lobby.opening')} />}
       </div>
     );
   }
@@ -89,8 +91,8 @@ export const RankMode = () => {
   if (match.status === 'cancelled') {
     return (
       <div className="mx-auto my-auto flex flex-col items-center gap-4 text-primary">
-        <p className="text-lg">This room was closed.</p>
-        <Button onClick={() => setRoom(undefined)}>Back to lobby</Button>
+        <p className="text-lg">{t('lobby.closed')}</p>
+        <Button onClick={() => setRoom(undefined)}>{t('lobby.back')}</Button>
       </div>
     );
   }

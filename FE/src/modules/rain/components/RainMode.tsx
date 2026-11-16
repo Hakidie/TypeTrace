@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { CloudRain, Heart, Pause, Play } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
@@ -50,6 +51,7 @@ const Overlay = ({ children }: { children: ReactNode }) => (
  * With `guest` (SCRUM-251) the words are the fixed list and the round lasts `roundMs`: no API call, no play counted for the daily task.
  */
 export const RainMode = ({ guest }: { guest?: GuestRain } = {}) => {
+  const { t } = useTranslation('rain');
   // A guest plays with a fixed list from the frontend and a time of their choice; nothing is asked of the server or counted (SCRUM-251).
   const words = useRainWords({ enabled: !guest });
   const { data: me } = useCurrentUser(); // a guest has no user: the default avatar
@@ -100,7 +102,7 @@ export const RainMode = ({ guest }: { guest?: GuestRain } = {}) => {
 
   if (!guest && words.isLoading) return <LoadingState rows={2} />;
   if (!guest && words.isError) return <ErrorState error={words.error} onRetry={() => words.refetch()} />;
-  if (!list.length) return <EmptyState icon={CloudRain} title="No words to rain yet" description="Ask an admin to add words to the word bank." />;
+  if (!list.length) return <EmptyState icon={CloudRain} title={t('noWords')} description={t('noWordsHint')} />;
 
   const missing = state.input !== '' && !targetOf(state);
   const minutes = state.elapsed / 60_000;
@@ -110,7 +112,7 @@ export const RainMode = ({ guest }: { guest?: GuestRain } = {}) => {
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 py-4">
       {/* Lives on the left, one Pause button with the clock in the center (under the mode tabs; the icon on the left of the time), the score on the right. The button is red like the lives and the score. */}
       <div className={cn('grid grid-cols-[1fr_auto_1fr] items-center gap-4 text-[1.125rem] tabular-nums', state.phase === 'ready' && 'invisible')}>
-        <div role="img" aria-label={`${state.lives} lives left`} className="flex gap-1 text-primary">
+        <div role="img" aria-label={t('lives', { count: state.lives })} className="flex gap-1 text-primary">
           {Array.from({ length: LIVES }, (_, index) => (
             <Heart key={index} aria-hidden="true" className={cn('size-5', index < state.lives ? 'fill-current' : 'opacity-40')} />
           ))}
@@ -118,18 +120,18 @@ export const RainMode = ({ guest }: { guest?: GuestRain } = {}) => {
         <Button
           variant="ghost"
           className="h-auto gap-2 px-3 py-1 text-primary hover:bg-primary hover:text-primary-foreground"
-          aria-label="Pause"
+          aria-label={t('pause')}
           aria-pressed={paused}
           disabled={!playing}
           onClick={togglePause}
         >
           {paused ? <Play className="size-5" /> : <Pause className="size-5" />}
-          <span aria-label="Time left" className="text-xl font-semibold">
+          <span aria-label={t('timeLeft')} className="text-xl font-semibold">
             {clock(state.phase === 'ready' ? roundMs : state.roundMs - state.elapsed)}
           </span>
         </Button>
         <span className="justify-self-end text-muted-foreground">
-          Score <span aria-label="Score" className="font-semibold text-primary">{state.score}</span>
+          {t('score')} <span aria-label={t('score')} className="font-semibold text-primary">{state.score}</span>
         </span>
       </div>
 
@@ -146,31 +148,31 @@ export const RainMode = ({ guest }: { guest?: GuestRain } = {}) => {
         />
         {state.phase === 'ready' && (
           <Overlay>
-            <h2 className="text-2xl font-black text-primary">Word rain</h2>
-            <p className="text-muted-foreground">Type a falling word and press space before it reaches your head. Three misses end the round.</p>
-            <Button onClick={begin}>Start</Button>
+            <h2 className="text-2xl font-black text-primary">{t('title')}</h2>
+            <p className="text-muted-foreground">{t('rules')}</p>
+            <Button onClick={begin}>{t('start')}</Button>
           </Overlay>
         )}
         {paused && (
           <Overlay>
-            <h2 className="text-2xl font-black text-primary">Paused</h2>
-            <Button onClick={togglePause}>Resume</Button>
+            <h2 className="text-2xl font-black text-primary">{t('paused')}</h2>
+            <Button onClick={togglePause}>{t('resume')}</Button>
           </Overlay>
         )}
         {(state.phase === 'won' || state.phase === 'lost') && (
           <Overlay>
-            <h2 className="text-2xl font-black text-primary">{state.phase === 'won' ? 'You beat the rain' : 'The rain won'}</h2>
+            <h2 className="text-2xl font-black text-primary">{state.phase === 'won' ? t('won') : t('lost')}</h2>
             <dl className="grid w-full grid-cols-2 gap-2">
               <div className="border border-foreground/10 p-3">
-                <dt className="text-sm text-muted-foreground">Words</dt>
+                <dt className="text-sm text-muted-foreground">{t('words')}</dt>
                 <dd className="text-3xl font-black tabular-nums text-primary">{state.score}</dd>
               </div>
               <div className="border border-foreground/10 p-3">
-                <dt className="text-sm text-muted-foreground">WPM</dt>
+                <dt className="text-sm text-muted-foreground">{t('wpm')}</dt>
                 <dd className="text-3xl font-black tabular-nums text-primary">{wpm}</dd>
               </div>
             </dl>
-            <Button onClick={begin}>Play again</Button>
+            <Button onClick={begin}>{t('playAgain')}</Button>
           </Overlay>
         )}
       </div>
@@ -178,7 +180,7 @@ export const RainMode = ({ guest }: { guest?: GuestRain } = {}) => {
       {playing && (
         <input
           ref={box}
-          aria-label="Type a falling word"
+          aria-label={t('typeWord')}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"

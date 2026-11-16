@@ -3,7 +3,7 @@ import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { BotSprite } from '@/modules/tutorial/components/BotSprite';
-import { useMinigameLang } from '@/shared/hooks/use-minigame-lang';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import { useWordChainBoard } from '../hooks/use-word-chain';
 
@@ -30,7 +30,7 @@ const PENALTY = { en: { hint: 'Hint −3s', wrong: 'Wrong −3s' }, vi: { hint: 
  */
 export const WordChainPreview = () => {
   const { data: me } = useCurrentUser();
-  const { lang } = useMinigameLang();
+  const lang = useTranslation().i18n.language.startsWith('vi') ? 'vi' : 'en';
   return (
     <span aria-hidden="true" className="relative grid gap-1">
       {SAMPLE.map((word, i) => {
@@ -76,7 +76,7 @@ export const WordChainPreview = () => {
 /** The player's place on this week's board, as a small badge (nothing before their first game of the week). */
 export const WordChainWeekBadge = () => {
   const board = useWordChainBoard('week');
-  const { lang } = useMinigameLang();
+  const lang = useTranslation().i18n.language.startsWith('vi') ? 'vi' : 'en';
   const me = board.data?.me;
   if (!me) return null;
   return (

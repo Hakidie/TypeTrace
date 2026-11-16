@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { LabeledTag } from '@/shared/components/labeled-tag';
 import { Badge } from '@/shared/components/ui/badge';
@@ -103,12 +104,15 @@ const statusIcons: Record<string, LucideIcon> = {
 };
 
 /** The icon and the name of a state, as the content of the status badge. */
-const StatusContent = ({ status }: { status: string }) => {
-  const Icon = statusIcons[status.toLowerCase()] ?? FileText;
+/** `translate` is for a learner's own passage; the admin lists show the raw status, in English (SCRUM-336). */
+const StatusContent = ({ status, translate = false }: { status: string; translate?: boolean }) => {
+  const { t } = useTranslation('passages');
+  const key = status.toLowerCase();
+  const Icon = statusIcons[key] ?? FileText;
   return (
     <>
       <Icon className="mr-1.5 size-4" aria-hidden />
-      {status}
+      {translate ? t(`status.${key}`, { defaultValue: status }) : status}
     </>
   );
 };
@@ -165,9 +169,10 @@ const FitText = ({ children }: { children: string }) => {
   );
 };
 
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+const formatDate = (iso: string, locale: string) => new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 
 export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }: PassageCardProps) => {
+  const { t } = useTranslation('passages');
   // The admin's passage has `updatedAt`; the learner's list item has not. `review` and `onEdit` come with the first, `own`
   // with the second.
   const full = 'updatedAt' in passage ? passage : undefined;
@@ -215,11 +220,11 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }:
           <div className="flex shrink-0 items-center gap-1">
             {/* One icon for the kind of passage, the icons of the Typing tabs: Rank (used in ranked duels), else Placement, else Regular (Practice). */}
             {isRanked ? (
-              <PassageTag icon={Trophy} label="Rank: used in ranked duels" />
+              <PassageTag icon={Trophy} label={t('card.rank')} />
             ) : isPlacement ? (
-              <PassageTag icon={ClipboardCheck} label="Placement passage" />
+              <PassageTag icon={ClipboardCheck} label={t('card.placement')} />
             ) : (
-              <PassageTag icon={Keyboard} label="Regular passage" />
+              <PassageTag icon={Keyboard} label={t('card.regular')} />
             )}
           </div>
           <CardTitle className="line-clamp-2 min-w-0 text-[1.5rem] leading-tight text-primary/80">{shown.title}</CardTitle>
@@ -243,12 +248,12 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }:
         {(onEdit || onDelete) && full && !review && (
           // Shown on hover or keyboard focus; always on touch screens, which cannot hover.
           <div className="-mr-1 -mt-1 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
-            {onEdit && <IconButton icon={Pencil} hint="Edit" label={`Edit ${passage.title}`} onClick={() => onEdit(full)} />}
+            {onEdit && <IconButton icon={Pencil} hint={t('card.edit')} label={t('card.editNamed', { title: passage.title })} onClick={() => onEdit(full)} />}
             {onDelete && canHardDelete(full) && (
               <IconButton
                 icon={Trash2}
-                hint="Delete"
-                label={`Delete ${passage.title}`}
+                hint={t('card.delete')}
+                label={t('card.deleteNamed', { title: passage.title })}
                 onClick={() => onDelete(full)}
                 className="hover:bg-destructive/20 hover:text-destructive"
               />
@@ -259,18 +264,18 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }:
           // Shown on hover or keyboard focus; always on touch screens, which cannot hover.
           <div className="-mr-1 -mt-1 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
             {!learner.locked && learner.status !== 'archived' && (
-              <Link to={`/typing?passage=${passage._id}`} aria-label={`Practice ${passage.title}`} title="Practice" className={iconButtonClass}>
+              <Link to={`/typing?passage=${passage._id}`} aria-label={t('card.practiceNamed', { title: passage.title })} title={t('card.practice')} className={iconButtonClass}>
                 <Keyboard className="size-4" aria-hidden />
               </Link>
             )}
-            {own.onEdit && <IconButton icon={Pencil} hint="Edit" label={`Edit ${passage.title}`} onClick={() => own.onEdit?.(learner)} />}
+            {own.onEdit && <IconButton icon={Pencil} hint={t('card.edit')} label={t('card.editNamed', { title: passage.title })} onClick={() => own.onEdit?.(learner)} />}
             {own.onRequestPublic && (
-              <IconButton icon={Globe} hint="Request public" label={`Request public ${passage.title}`} onClick={() => own.onRequestPublic?.(learner)} />
+              <IconButton icon={Globe} hint={t('card.requestPublic')} label={t('card.requestPublicNamed', { title: passage.title })} onClick={() => own.onRequestPublic?.(learner)} />
             )}
             {own.onWithdraw && (
-              <IconButton icon={Undo2} hint="Withdraw request" label={`Withdraw request ${passage.title}`} onClick={() => own.onWithdraw?.(learner)} />
+              <IconButton icon={Undo2} hint={t('card.withdraw')} label={t('card.withdrawNamed', { title: passage.title })} onClick={() => own.onWithdraw?.(learner)} />
             )}
-            {own.onDelete && <IconButton icon={Trash2} hint="Delete" label={`Delete ${passage.title}`} onClick={() => own.onDelete?.(learner)} />}
+            {own.onDelete && <IconButton icon={Trash2} hint={t('card.delete')} label={t('card.deleteNamed', { title: passage.title })} onClick={() => own.onDelete?.(learner)} />}
           </div>
         )}
       </CardHeader>
@@ -278,31 +283,31 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }:
         {review && full && (
           // A request is a learner's own text: check where it comes from before it becomes public.
           <p className="truncate text-sm text-primary/70" title={shown.source}>
-            by {passage.ownerName} · {shown.source} · asked {formatDate(full.updatedAt)}
+            by {passage.ownerName} · {shown.source} · asked {formatDate(full.updatedAt, 'en-GB')}
           </p>
         )}
         {shown.content &&
           (own || fitText ? <FitText>{shown.content}</FitText> : <p className="line-clamp-3 min-h-[4.5rem] text-base text-muted-foreground">{shown.content}</p>)}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <span className="text-sm text-primary/70">{passage.wordCount} words</span>
+          <span className="text-sm text-primary/70">{t('card.words', { count: passage.wordCount })}</span>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {isEnglish ? (
-              <LabeledTag icon={Languages} text="English" hint="English passage, used in ranked duels" />
+              <LabeledTag icon={Languages} text={t('card.english')} hint={t('card.englishHint')} />
             ) : (
-              <LabeledTag icon={Languages} text="Vietnamese" hint="Vietnamese passage, for practice and the placement test" />
+              <LabeledTag icon={Languages} text={t('card.vietnamese')} hint={t('card.vietnameseHint')} />
             )}
             {review && full?.pendingEdit && <LabeledTag icon={PencilLine} text="Edited" />}
-            {own && learner.locked && <LabeledTag icon={Lock} text="Locked" hint="Over your plan's limit: upgrade to Premium or delete some passages to open it again" />}
+            {own && learner.locked && <LabeledTag icon={Lock} text={t('card.locked')} hint={t('card.lockedHint')} />}
             {own ? (
               own.onShowReason && learner.reviewNote ? (
                 <Badge asChild className={chipClass}>
-                  <button type="button" onClick={() => own.onShowReason?.(learner)} aria-label={`Show reason ${passage.title}`} title="Show the reason">
-                    <StatusContent status={ownStatus(learner)} />
+                  <button type="button" onClick={() => own.onShowReason?.(learner)} aria-label={t('card.showReasonNamed', { title: passage.title })} title={t('card.showReason')}>
+                    <StatusContent status={ownStatus(learner)} translate />
                   </button>
                 </Badge>
               ) : (
                 <Badge>
-                  <StatusContent status={ownStatus(learner)} />
+                  <StatusContent status={ownStatus(learner)} translate />
                 </Badge>
               )
             ) : (

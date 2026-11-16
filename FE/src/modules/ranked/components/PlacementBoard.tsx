@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ClipboardCheck } from 'lucide-react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { EmptyState } from '@/shared/components/empty-state';
@@ -25,6 +26,7 @@ const Stats = ({ wpm, accuracy, durationMs }: StatsProps) => (
 
 /** The top 50 of one placement passage (US10.1), and the place of the learner when they are not among them. Names and avatars only. */
 export const PlacementBoard = ({ passageId, range }: { passageId: string; range: PlacementRange }) => {
+  const { t } = useTranslation('ranked');
   const board = usePlacementBoard({ passageId, range });
   const minAccuracy = usePlacementMinAccuracy();
 
@@ -34,8 +36,8 @@ export const PlacementBoard = ({ passageId, range }: { passageId: string; range:
     return (
       <EmptyState
         icon={ClipboardCheck}
-        title="No placement results yet"
-        description={`Finish this passage in a 3-minute placement session with ${minAccuracy}% accuracy or more to be on the board.`}
+        title={t('board.noResultsTitle')}
+        description={t('board.noResultsHint', { min: minAccuracy })}
       />
     );
   }
@@ -50,10 +52,10 @@ export const PlacementBoard = ({ passageId, range }: { passageId: string; range:
           identity={
             <div className="flex min-w-0 items-center gap-3">
               <span className="w-12 shrink-0 text-2xl font-black">#{row.rank}</span>
-              <AvatarSprite look={row.avatar} crop="head" scale={1} label={`${row.displayName}'s avatar`} />
+              <AvatarSprite look={row.avatar} crop="head" scale={1} label={t('avatarOf', { name: row.displayName })} />
               <p className="min-w-0 truncate text-lg font-semibold">
                 {row.displayName}
-                {row.isMe && <span className="ml-2 text-sm text-muted-foreground">(you)</span>}
+                {row.isMe && <span className="ml-2 text-sm text-muted-foreground">{t('you')}</span>}
               </p>
             </div>
           }
@@ -62,13 +64,13 @@ export const PlacementBoard = ({ passageId, range }: { passageId: string; range:
         />
       ))}
       {me && !items.some((row) => row.isMe) && (
-        <section aria-label="Your place" className="pt-4">
+        <section aria-label={t('board.yourPlace')} className="pt-4">
           <ListRow
             plain
             identity={
               <div className="flex min-w-0 items-center gap-3">
                 <span className="w-12 shrink-0 text-2xl font-black">#{me.rank}</span>
-                <p className="text-lg font-semibold">You</p>
+                <p className="text-lg font-semibold">{t('board.you')}</p>
               </div>
             }
             center={<SessionLine timeline={me.timeline} />}

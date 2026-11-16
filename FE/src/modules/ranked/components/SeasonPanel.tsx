@@ -1,13 +1,14 @@
+import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import { Panel } from '@/shared/components/panel';
-import { MONTHS } from '@/shared/lib/local-date';
+import { monthShort } from '@/shared/lib/local-date';
 import { cn } from '@/shared/lib/utils';
 
 /** The days a season runs, e.g. `{ from: '1 Oct 2026', to: '31 Dec 2026' }`; `undefined` when the dates are missing. */
 const seasonDays = ({ startsAt, endsAt }: { startsAt: string; endsAt: string }) => {
   const [start, end] = [new Date(startsAt), new Date(endsAt)];
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return undefined;
-  const day = (date: Date) => `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+  const day = (date: Date) => `${date.getUTCDate()} ${monthShort(date.getUTCMonth() + 1)} ${date.getUTCFullYear()}`;
   return { from: day(start), to: day(end) };
 };
 
@@ -51,6 +52,7 @@ export const SeasonPanel = ({
   trailing,
   className,
 }: SeasonPanelProps) => {
+  const { t } = useTranslation('ranked');
   const days = seasonDays({ startsAt, endsAt });
   return (
     <article className={cn('group', className)}>
@@ -58,12 +60,12 @@ export const SeasonPanel = ({
       <Panel className="flex items-center gap-6 text-primary">
         <div className="mr-auto flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
           {lead}
-          <span className="text-[3.25rem] font-black uppercase leading-none">Season {number}</span>
+          <span className="text-[3.25rem] font-black uppercase leading-none">{t('season.season', { number })}</span>
           {/* 2.3rem = the height of the capitals of SEASON (0.7 of its 3.25rem), so FROM sits at their top and TO on their baseline. */}
           {days && (
             <div className="flex h-[2.3rem] flex-col items-start justify-between text-base leading-none text-muted-foreground">
-              <span>FROM {days.from}</span>
-              <span>TO {days.to}</span>
+              <span>{t('season.from', { day: days.from })}</span>
+              <span>{t('season.to', { day: days.to })}</span>
             </div>
           )}
           {actions}
