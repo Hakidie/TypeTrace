@@ -55,8 +55,8 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     getDailyTasks.mockResolvedValue(
       today(
         task('t1', 'Warm-up', { progress: 2, description: 'Finish three sessions.' }),
-        task('t2', 'Long practice', { type: 'minutes', target: 15, progress: 12.5, description: 'Take your time.' }),
-        task('t3', 'Speed run', { type: 'wpm', target: 40, progress: 38.5, description: 'Go fast once.' }),
+        task('t2', 'Long practice', { type: 'minigames', target: 5, progress: 3, description: 'Take your time.' }),
+        task('t3', 'Big day', { target: 10, progress: 4, description: 'Go on.' }),
       ),
     );
     renderWithProviders(<ProfileDailyTasks />);
@@ -66,8 +66,8 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
 
     const expected = [
       { title: 'Warm-up', description: 'Finish three sessions.', numbers: '2 / 3 sessions', now: '2', max: '3', filled: 2 / 3 },
-      { title: 'Long practice', description: 'Take your time.', numbers: '12.5 / 15 min', now: '12.5', max: '15', filled: 12.5 / 15 },
-      { title: 'Speed run', description: 'Go fast once.', numbers: '38.5 / 40 WPM', now: '38.5', max: '40', filled: 38.5 / 40 },
+      { title: 'Long practice', description: 'Take your time.', numbers: '3 / 5 minigames', now: '3', max: '5', filled: 3 / 5 },
+      { title: 'Big day', description: 'Go on.', numbers: '4 / 10 sessions', now: '4', max: '10', filled: 4 / 10 },
     ];
     for (const { title, description, numbers, now, max, filled } of expected) {
       const item = itemOf(title);
@@ -85,7 +85,7 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     expect(within(tasksRegion()).getAllByRole('listitem').map((item) => within(item).getByRole('progressbar').getAttribute('aria-label'))).toEqual([
       'Warm-up',
       'Long practice',
-      'Speed run',
+      'Big day',
     ]);
     expect(screen.getAllByText('Take your time.')).toHaveLength(1);
     expect(within(itemOf('Long practice')).getByText('Take your time.')).toBeInTheDocument();
@@ -95,7 +95,7 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     getDailyTasks.mockResolvedValue(
       today(
         task('t1', 'Warm-up', { progress: 4, completed: true }),
-        task('t2', 'Speed run', { type: 'wpm', target: 40, progress: 41.2, completed: true }),
+        task('t2', 'Two games', { type: 'minigames', target: 2, progress: 3, completed: true }),
         task('t3', 'One more', { target: 1, progress: 0 }),
       ),
     );
@@ -108,27 +108,14 @@ describe('ProfileDailyTasks (SCRUM-112)', () => {
     expect(within(itemOf('Warm-up')).getByText('4 / 3 sessions')).toBeInTheDocument();
     expect(within(itemOf('Warm-up')).getByText('Done')).toHaveClass('text-primary');
 
-    expect(barOf('Speed run')).toHaveAttribute('aria-valuenow', '40');
-    expect(barOf('Speed run').firstElementChild).toHaveStyle({ width: '100%' });
-    expect(within(itemOf('Speed run')).getByText('41.2 / 40 WPM')).toBeInTheDocument();
-    expect(within(itemOf('Speed run')).getByText('Done')).toBeInTheDocument();
+    expect(barOf('Two games')).toHaveAttribute('aria-valuenow', '2');
+    expect(barOf('Two games').firstElementChild).toHaveStyle({ width: '100%' });
+    expect(within(itemOf('Two games')).getByText('3 / 2 minigames')).toBeInTheDocument();
+    expect(within(itemOf('Two games')).getByText('Done')).toBeInTheDocument();
 
     expect(barOf('One more').firstElementChild).toHaveStyle({ width: '0%' });
     expect(within(itemOf('One more')).getByText('0 / 1 session')).toBeInTheDocument();
     expect(within(itemOf('One more')).queryByText('Done')).not.toBeInTheDocument();
-  });
-
-  it('shows the description of a focused accuracy task in place of the goal sentence', async () => {
-    getDailyTasks.mockResolvedValue(
-      today(task('t1', 'Phân biệt hỏi/ngã', { type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION', description: 'Practise hỏi and ngã.' })),
-    );
-    renderWithProviders(<ProfileDailyTasks />);
-
-    expect(await screen.findAllByRole('progressbar')).toHaveLength(1);
-    const item = itemOf('Phân biệt hỏi/ngã');
-    expect(within(item).getByText('Practise hỏi and ngã.')).toBeInTheDocument();
-    expect(within(item).queryByText(/Reach 90% accuracy/)).not.toBeInTheDocument();
-    expect(within(item).getByText('0% / 90%')).toBeInTheDocument();
   });
 
   it('cuts a long title on its line, keeps it whole in its tooltip, and keeps the one column of phones on the screen', async () => {

@@ -11,14 +11,7 @@ import {
 import type { ReactNode } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
-import { errorLabels } from "@/modules/typing/typing.config";
-import { MenuOption } from "@/shared/components/list-toolbar";
 import { Button } from "@/shared/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu";
 import { Input } from "@/shared/components/ui/input";
 import {
   Tooltip,
@@ -28,7 +21,6 @@ import {
 } from "@/shared/components/ui/tooltip";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/utils";
-import { WordError } from "@/shared/lib/vietnamese-errors";
 import {
   DAILY_TASK_COINS_MAX,
   DAILY_TASK_TYPE_INFO,
@@ -56,8 +48,6 @@ const schema = z
       .number({ error: "Enter a number" })
       .int("Use a whole number")
       .min(1, "At least 1"),
-    // The Focus error select: '' is None. Sent as `null` then, and whenever the type is not accuracy.
-    errorType: z.union([z.enum(WordError), z.literal("")]),
     // The reward for completing it (SCRUM-301); 0 = none.
     coins: z
       .number({ error: "Enter a number" })
@@ -83,12 +73,9 @@ const emptyValues: FormValues = {
   description: "",
   type: "sessions",
   target: 1,
-  errorType: "",
   coins: 0,
   isActive: true,
 };
-
-const ERROR_TYPES = Object.values(WordError);
 
 /** The most digits the target field takes. */
 const TARGET_DIGITS = 2;
@@ -104,59 +91,6 @@ const partClass = "inline-flex items-center gap-2 px-3 py-1.5 text-[1.125rem]";
 // As wide as the value shown (`field-sizing-content`). The number field has no spin arrows: the target is typed.
 const controlClass =
   "field-sizing-content h-8 bg-transparent font-normal text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
-
-/** A picker of the strip: the value on a button that opens the shared menu (the chosen option checked), not a native select. */
-const StripMenu = <T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  triggerClassName,
-  align,
-  icon: Icon,
-}: {
-  label: string;
-  /** Drawn before the value. */
-  icon?: LucideIcon;
-  triggerClassName?: string;
-  /** Which edge of the button the menu lines up with; `end` for a button at the right edge of the page. */
-  align?: "start" | "end";
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (value: T) => void;
-}) => {
-  const current = options.find((option) => option.value === value);
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={`${label}: ${current?.label}`}
-        className={cn(
-          "h-8 gap-1.5 px-2 font-normal text-primary transition-colors hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          triggerClassName,
-        )}
-      >
-        {Icon && <Icon className="size-5 shrink-0" aria-hidden="true" />}
-        {current?.label}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        role="menu"
-        aria-label={label}
-        align={align}
-        className="min-w-44"
-      >
-        {options.map((option) => (
-          <MenuOption
-            key={option.value}
-            selected={option.value === value}
-            onSelect={() => onChange(option.value)}
-          >
-            {option.label}
-          </MenuOption>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
 
 /** A picker of the strip that has no menu: a click goes to the next option and, after the last, back to the first. */
 const CycleButton = <T extends string>({
@@ -188,23 +122,11 @@ const CycleButton = <T extends string>({
   );
 };
 
-// What a new task can be: Sessions or Minigames. Minutes, Speed and Accuracy are no longer offered; a task saved with one
-// of them keeps working, and while it is edited its type is still on the button.
-const OFFERED_TYPES: DailyTask["type"][] = ["sessions", "minigames"];
-const typeOptionsFor = (current?: DailyTask["type"]) =>
-  [...OFFERED_TYPES, ...(current && !OFFERED_TYPES.includes(current) ? [current] : [])].map((value) => ({
-    value,
-    label: DAILY_TASK_TYPE_INFO[value].label,
-  }));
+const TYPE_OPTIONS = DAILY_TASK_TYPES.map((value) => ({ value, label: DAILY_TASK_TYPE_INFO[value].label }));
 const ACTIVE_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
 ];
-const FOCUS_OPTIONS: { value: FormValues["errorType"]; label: string }[] = [
-  { value: "", label: "None" },
-  ...ERROR_TYPES.map((value) => ({ value, label: errorLabels[value] })),
-];
-
 /** No visible labels on the text fields: the placeholders say what each is, `aria-label` serves screen readers. */
 const FieldError = ({ message }: { message?: string }) =>
   message ? (
@@ -224,7 +146,7 @@ interface DailyTaskFormProps {
 
 /**
  * The top panel of the daily tasks page, built like the passage forms: the title, the description,
- * then, in one row, the goal in words (with the focus error, accuracy only) on the left, the type, the target, the coins and the Active button in the middle (Type and Active have no menu: a click shows the next value, round and round), and Cancel and Add task on the right.
+ * then, in one row, the goal in words on the left, the type, the target, the coins and the Active button in the middle (Type and Active have no menu: a click shows the next value, round and round), and Cancel and Add task on the right.
  * With `task` it edits that task (Update task and Cancel); remount it (`key`) to switch task.
  */
 export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps) => {
@@ -246,37 +168,26 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
           description: task.description,
           type: task.type,
           target: task.target,
-          errorType: task.errorType ?? "",
           coins: task.coins,
           isActive: task.isActive,
         }
       : emptyValues,
   });
-  const typeOptions = typeOptionsFor(task?.type);
-  const [type, target, errorType, coins] = useWatch({
+  const [type, target, coins] = useWatch({
     control,
-    name: ["type", "target", "errorType", "coins"],
+    name: ["type", "target", "coins"],
   });
   const { max } = DAILY_TASK_TYPE_INFO[type];
   // What learners will be asked, while the target fits the type.
   const goal =
     Number.isInteger(target) && target >= 1 && target <= max
-      ? goalOf({ type, target, errorType: errorType || null })
+      ? goalOf({ type, target })
       : "";
 
   const targetField = register("target", { valueAsNumber: true });
   const coinsField = register("coins", { valueAsNumber: true });
 
-  const submit = handleSubmit((values) => {
-    // Only an accuracy task may have a focus. The form keeps the one picked while another type is chosen (switching back
-    // finds it) but sends `null` then, which also takes away the focus of a task that was an accuracy task.
-    const input = {
-      ...values,
-      errorType:
-        values.type === "accuracy" && values.errorType
-          ? values.errorType
-          : null,
-    };
+  const submit = handleSubmit((input) => {
     if (task) updateTask.mutate({ id: task._id, input }, { onSuccess: onDone });
     else createTask.mutate(input, { onSuccess: () => reset(emptyValues) });
   });
@@ -318,30 +229,10 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
         <FieldError message={errors.description?.message} />
       </div>
 
-      {/* PANEL Bottom row, like the passage form: Focus and the goal in words on the left, Type, Target, Coins and Active in the middle, Cancel and Add task on the right. */}
+      {/* PANEL Bottom row, like the passage form: The goal in words on the left, Type, Target, Coins and Active in the middle, Cancel and Add task on the right. */}
       <div className="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
         <div className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            {/* Only an accuracy task can focus on one error type (without it no empty box is left, whose gap would push the goal to the right). */}
-            {type === "accuracy" && (
-              <div className="flex w-fit flex-wrap">
-                <div className={cn(partClass, "px-3")}>
-                  <span className="text-primary">Focus</span>
-                  <Controller
-                    control={control}
-                    name="errorType"
-                    render={({ field }) => (
-                      <StripMenu
-                        label="Focus"
-                        value={field.value}
-                        options={FOCUS_OPTIONS}
-                        onChange={field.onChange}
-                      />
-                    )}
-                  />
-                </div>
-              </div>
-            )}
             {/* The goal in words, in the look of the word count of a passage. */}
             <p className="w-fit bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
               {goal}
@@ -360,7 +251,7 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
               <CycleButton label="Type"
                 icon={DAILY_TASK_TYPE_INFO[field.value].icon}
                 value={field.value}
-                options={typeOptions}
+                options={TYPE_OPTIONS}
                 onChange={field.onChange} />
             )}
           />

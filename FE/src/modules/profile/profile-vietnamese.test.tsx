@@ -14,7 +14,7 @@ const getDailyTasks = vi.fn();
 vi.mock('@/modules/profile/api/profile.api', () => ({ profileApi: { getDailyTasks: () => getDailyTasks() } }));
 
 const task = (extra: Partial<DailyTaskProgress>): DailyTaskProgress => ({
-  id: 'a', title: 'Gõ 3 lượt', description: '', type: 'sessions', target: 3, coins: 20, rewarded: false, progress: 3, completed: true, ...extra,
+  id: 'a', title: 'Warm-up', description: '', type: 'sessions', target: 3, coins: 20, rewarded: false, progress: 3, completed: true, ...extra,
 });
 
 describe('the Profile and Progress modules in Vietnamese (SCRUM-331)', () => {
@@ -48,5 +48,26 @@ describe('the Profile and Progress modules in Vietnamese (SCRUM-331)', () => {
     expect(screen.getByText('Xong')).toBeInTheDocument();
     expect(screen.getByText('Đã xong nhiệm vụ hôm nay')).toBeInTheDocument();
     expect(screen.getByText('20 xu')).toBeInTheDocument();
+  });
+
+  it('shows a short title and the full goal in Vietnamese instead of the English words the admin wrote', async () => {
+    getDailyTasks.mockResolvedValue({
+      date: '2026-03-10',
+      tasks: [
+        task({ id: 'a', title: 'Warm-up', description: 'Finish three sessions.' }),
+        task({ id: 'b', title: 'Games', type: 'minigames', target: 2, progress: 0, completed: false }),
+        task({ id: 'c', title: 'One game', type: 'minigames', target: 1, progress: 0, completed: false }),
+      ],
+    });
+    renderWithProviders(<ProfileDailyTasks />);
+
+    expect(await screen.findByText('Luyện gõ 3')).toBeInTheDocument();
+    expect(screen.getByText('Hoàn thành 3 lượt gõ tính điểm trong ngày')).toBeInTheDocument();
+    expect(screen.getByText('Minigame 2')).toBeInTheDocument();
+    expect(screen.getByText('Hoàn thành 2 minigame trong ngày')).toBeInTheDocument();
+    expect(screen.getByText('Minigame 1')).toBeInTheDocument();
+    expect(screen.getByText('Hoàn thành 1 minigame trong ngày')).toBeInTheDocument();
+    expect(screen.queryByText('Warm-up')).not.toBeInTheDocument();
+    expect(screen.queryByText('Finish three sessions.')).not.toBeInTheDocument();
   });
 });

@@ -2,14 +2,14 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { PASSAGE_LIST } from '../../src/data/passages';
 import { DailyProgressModel } from '../../src/models/daily-progress.model';
 import { DailyTaskModel, DailyTaskType } from '../../src/models/daily-task.model';
+import { MinigamePlayModel } from '../../src/models/minigame-play.model';
 import { PassageModel } from '../../src/models/passage.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
 import { UserDailyTasksModel } from '../../src/models/user-daily-tasks.model';
 import { UserModel } from '../../src/models/user.model';
 import { updateAppSettings } from '../../src/services/app-setting.service';
 import { seedPassages } from '../../src/services/passage-seed.service';
-import { MIN_FOCUS_CHANCES, recordDailyTaskProgress, WEAKNESS_SESSIONS } from '../../src/services/user-daily-tasks.service';
-import type { WordErrorType } from '../../src/utils/vietnamese-errors';
+import { recordDailyTaskProgress } from '../../src/services/user-daily-tasks.service';
 import { api } from '../helpers/api';
 import { bearerFor, createUser } from '../helpers/user-factory';
 
@@ -33,7 +33,6 @@ interface TemplateInput {
   type: DailyTaskType;
   target: number;
   description?: string;
-  errorType?: WordErrorType;
   isActive?: boolean;
 }
 
@@ -105,12 +104,12 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
     const learner = await createUser({});
     await createTemplates(
       { title: 'Ba phiên', type: 'sessions', target: 3 },
-      { title: 'Mười phút', type: 'minutes', target: 10, description: 'Gõ đều tay' },
-      { title: 'Gõ nhanh', type: 'wpm', target: 40 },
-      { title: 'Chính xác', type: 'accuracy', target: 95 },
-      { title: 'Hỏi hay ngã', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' },
+      { title: 'Hai trò', type: 'minigames', target: 2, description: 'Chơi vài trò' },
+      { title: 'Năm phiên', type: 'sessions', target: 5 },
+      { title: 'Ba trò', type: 'minigames', target: 3 },
+      { title: 'Bảy phiên', type: 'sessions', target: 7 },
       { title: 'Nghỉ', type: 'sessions', target: 1, isActive: false },
-      { title: 'Dấu thanh', type: 'accuracy', target: 80, errorType: 'TONE_WRONG', isActive: false }
+      { title: 'Nghỉ chơi', type: 'minigames', target: 1, isActive: false }
     );
     await updateAppSettings({ dailyTaskCount: 4 });
 
@@ -124,7 +123,7 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
     for (const task of response.body.tasks) {
       const template = active.find((item) => String(item._id) === task.id);
       expect(template).toBeDefined();
-      // Only these fields: never the owner or the stored numbers, `errorType` only on a focused task.
+      // Only these fields: never the owner or the stored numbers.
       expect(task).toEqual({
         id: String(template!._id),
         title: template!.title,
@@ -133,7 +132,6 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
         target: template!.target,
         coins: 0,
         rewarded: false,
-        ...(template!.errorType && { errorType: template!.errorType }),
         progress: 0,
         completed: false
       });
@@ -146,31 +144,24 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
     expect(stored[0]).toMatchObject({
       date: '2026-03-10',
       timeZone: 'Asia/Ho_Chi_Minh',
-      progress: { sessions: 0, durationMs: 0, bestWpm: 0, bestAccuracy: 0 }
+      progress: { sessions: 0, minigames: 0 }
     });
     expect(stored[0].tasks.map((task) => String(task.taskId))).toEqual(response.body.tasks.map((task: TaskBody) => task.id));
   });
 
-  it('sends the description and the error type of a task as the template has them', async () => {
+  it('sends the description of a task as the template has it', async () => {
     const learner = await createUser({});
-    const [template] = await createTemplates({
-      title: 'Hỏi hay ngã',
-      type: 'accuracy',
-      target: 90,
-      errorType: 'HOI_NGA_CONFUSION',
-      description: 'Chú ý dấu hỏi và dấu ngã'
-    });
+    const [template] = await createTemplates({ title: 'Chơi game', type: 'minigames', target: 2, description: 'Chơi hai trò' });
 
     expect((await tasksOf(learner)).body).toEqual({
       date: '2026-03-10',
       tasks: [
         {
           id: String(template._id),
-          title: 'Hỏi hay ngã',
-          description: 'Chú ý dấu hỏi và dấu ngã',
-          type: 'accuracy',
-          target: 90,
-          errorType: 'HOI_NGA_CONFUSION',
+          title: 'Chơi game',
+          description: 'Chơi hai trò',
+          type: 'minigames',
+          target: 2,
           coins: 0,
           rewarded: false,
           progress: 0,
@@ -184,10 +175,10 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
     const learner = await createUser({});
     await createTemplates(
       { title: 'Ba phiên', type: 'sessions', target: 3 },
-      { title: 'Mười phút', type: 'minutes', target: 10 },
-      { title: 'Gõ nhanh', type: 'wpm', target: 40 },
-      { title: 'Chính xác', type: 'accuracy', target: 95 },
-      { title: 'Hỏi hay ngã', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' }
+      { title: 'Hai trò', type: 'minigames', target: 2 },
+      { title: 'Năm phiên', type: 'sessions', target: 5 },
+      { title: 'Ba trò', type: 'minigames', target: 3 },
+      { title: 'Bảy phiên', type: 'sessions', target: 7 }
     );
 
     const first = await tasksOf(learner);
@@ -200,10 +191,10 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
     const learner = await createUser({});
     await createTemplates(
       { title: 'Ba phiên', type: 'sessions', target: 3 },
-      { title: 'Mười phút', type: 'minutes', target: 10 },
-      { title: 'Gõ nhanh', type: 'wpm', target: 40 },
-      { title: 'Chính xác', type: 'accuracy', target: 95 },
-      { title: 'Hỏi hay ngã', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' }
+      { title: 'Hai trò', type: 'minigames', target: 2 },
+      { title: 'Năm phiên', type: 'sessions', target: 5 },
+      { title: 'Ba trò', type: 'minigames', target: 3 },
+      { title: 'Bảy phiên', type: 'sessions', target: 7 }
     );
 
     const responses = await Promise.all([tasksOf(learner), tasksOf(learner)]);
@@ -217,13 +208,13 @@ describe('GET /api/profile/daily-tasks (SCRUM-112)', () => {
     const learner = await createUser({});
     await createTemplates(
       { title: 'Ba phiên', type: 'sessions', target: 3 },
-      { title: 'Gõ nhanh', type: 'wpm', target: 40 },
+      { title: 'Hai trò', type: 'minigames', target: 2 },
       { title: 'Nghỉ', type: 'sessions', target: 1, isActive: false }
     );
 
     const response = await tasksOf(learner);
 
-    expect(response.body.tasks.map((task: TaskBody) => task.title).sort()).toEqual(['Ba phiên', 'Gõ nhanh']);
+    expect(response.body.tasks.map((task: TaskBody) => task.title).sort()).toEqual(['Ba phiên', 'Hai trò']);
   });
 
   it('answers no task and stores nothing while no template is active, and makes the tasks once one is', async () => {
@@ -273,26 +264,23 @@ describe('a snapshot of the day', () => {
     const adminAuth = bearerFor(await createUser({ email: 'admin@example.com', role: 'admin' }));
     const [deleted, edited, deactivated] = await createTemplates(
       { title: 'Ba phiên', type: 'sessions', target: 3 },
-      { title: 'Gõ nhanh', type: 'wpm', target: 40 },
-      { title: 'Chính xác', type: 'accuracy', target: 95 }
+      { title: 'Hai trò', type: 'minigames', target: 2 },
+      { title: 'Bốn trò', type: 'minigames', target: 4 }
     );
     const today = await tasksOf(learner);
     expect(today.body.tasks.map((task: TaskBody) => [task.title, task.target]).sort()).toEqual([
       ['Ba phiên', 3],
-      ['Chính xác', 95],
-      ['Gõ nhanh', 40]
+      ['Bốn trò', 4],
+      ['Hai trò', 2]
     ]);
 
     // An admin edits a template, deactivates one, deletes one, adds two and asks for 5 tasks a day.
     const changes = await Promise.all([
-      api().patch(`/api/admin/daily-tasks/${edited._id}`).set('Authorization', adminAuth).send({ title: 'Gõ thật nhanh', target: 60 }),
+      api().patch(`/api/admin/daily-tasks/${edited._id}`).set('Authorization', adminAuth).send({ title: 'Hai trò nữa', target: 6 }),
       api().patch(`/api/admin/daily-tasks/${deactivated._id}`).set('Authorization', adminAuth).send({ isActive: false }),
       api().delete(`/api/admin/daily-tasks/${deleted._id}`).set('Authorization', adminAuth),
-      api().post('/api/admin/daily-tasks').set('Authorization', adminAuth).send({ title: 'Mười phút', type: 'minutes', target: 10 }),
-      api()
-        .post('/api/admin/daily-tasks')
-        .set('Authorization', adminAuth)
-        .send({ title: 'Hỏi hay ngã', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' }),
+      api().post('/api/admin/daily-tasks').set('Authorization', adminAuth).send({ title: 'Sáu phiên', type: 'sessions', target: 6 }),
+      api().post('/api/admin/daily-tasks').set('Authorization', adminAuth).send({ title: 'Tám trò', type: 'minigames', target: 8 }),
       api().put('/api/admin/daily-tasks/settings').set('Authorization', adminAuth).send({ dailyTaskCount: 5 })
     ]);
     expect(changes.map((response) => response.status)).toEqual([200, 200, 204, 201, 201, 200]);
@@ -304,93 +292,12 @@ describe('a snapshot of the day', () => {
     const tomorrow = await tasksOf(learner);
     expect(tomorrow.body.date).toBe('2026-03-11');
     expect(tomorrow.body.tasks.map((task: TaskBody) => [task.title, task.target]).sort()).toEqual([
-      ['Gõ thật nhanh', 60],
-      ['Hỏi hay ngã', 90],
-      ['Mười phút', 10]
+      ['Hai trò nữa', 6],
+      ['Sáu phiên', 6],
+      ['Tám trò', 8]
     ]);
     expect(await UserDailyTasksModel.countDocuments({ owner: learner._id })).toBe(2);
-    expect((await storedDay(learner._id))!.tasks.map((task) => task.title).sort()).toEqual(['Ba phiên', 'Chính xác', 'Gõ nhanh']);
-  });
-});
-
-describe('the weak error types of the learner', () => {
-  const templates: TemplateInput[] = [
-    { title: 'Ba phiên', type: 'sessions', target: 3 },
-    { title: 'Mười phút', type: 'minutes', target: 10 },
-    { title: 'Gõ nhanh', type: 'wpm', target: 40 },
-    { title: 'Chính xác', type: 'accuracy', target: 95 },
-    { title: 'Dấu thanh', type: 'accuracy', target: 90, errorType: 'TONE_WRONG' },
-    { title: 'Chữ đ', type: 'accuracy', target: 90, errorType: 'D_MISSING' },
-    { title: 'Hỏi hay ngã', type: 'accuracy', target: 90, errorType: 'HOI_NGA_CONFUSION' }
-  ];
-
-  const titlesOf = async (learner: Learner) => (await tasksOf(learner)).body.tasks.map((task: TaskBody) => task.title);
-
-  it('gives the template of the weakest error type first, then the one of the next weak type', async () => {
-    const weak = await createUser({ email: 'weak@example.com' });
-    const fresh = await createUser({ email: 'fresh@example.com' });
-    await createTemplates(...templates);
-    // Yesterday: 8 hỏi/ngã mix-ups in 20 chances (40 %), 4 wrong tones in 80 (5 %), no đ missed in 20.
-    await TypingSessionModel.create(
-      [1, 2].map(() =>
-        countedSession(weak._id, new Date('2026-03-09T08:00:00.000Z'), {
-          errorCounts: { HOI_NGA_CONFUSION: 4, TONE_WRONG: 2 },
-          opportunityCounts: { BASE_LETTER: 40, TONE_WRONG: 40, D_MISSING: 10, HOI_NGA_CONFUSION: 10 }
-        })
-      )
-    );
-    // A random pick takes the first template left: without the weak types, the first three would be picked.
-    vi.spyOn(Math, 'random').mockReturnValue(0);
-
-    expect(await titlesOf(weak)).toEqual(['Hỏi hay ngã', 'Dấu thanh', 'Ba phiên']);
-    // A learner without a session has no weak type: random picks only.
-    expect(await titlesOf(fresh)).toEqual(['Ba phiên', 'Mười phút', 'Gõ nhanh']);
-  });
-
-  it('reads the weak types from the last 20 counted sessions only', async () => {
-    const learner = await createUser({});
-    await createTemplates(...templates);
-    const mixUps = { errorCounts: { HOI_NGA_CONFUSION: 10 }, opportunityCounts: { HOI_NGA_CONFUSION: 10 } };
-    const lastSessions = Array.from({ length: WEAKNESS_SESSIONS }, (_, minute) => new Date(Date.UTC(2026, 2, 9, 0, minute)));
-    await TypingSessionModel.create([
-      // Weeks ago, full of hỏi/ngã mix-ups.
-      countedSession(learner._id, new Date('2026-02-01T08:00:00.000Z'), mixUps),
-      // The last 20 counted sessions, without a mix-up.
-      ...lastSessions.map((completedAt) => countedSession(learner._id, completedAt, { opportunityCounts: { HOI_NGA_CONFUSION: 10 } })),
-      // Newer, but not counted or not completed: never part of it.
-      countedSession(learner._id, new Date('2026-03-09T12:00:00.000Z'), { ...mixUps, isCounted: false }),
-      countedSession(learner._id, new Date('2026-03-09T13:00:00.000Z'), { ...mixUps, status: 'abandoned' })
-    ]);
-    vi.spyOn(Math, 'random').mockReturnValue(0);
-
-    expect(await titlesOf(learner)).toEqual(['Ba phiên', 'Mười phút', 'Gõ nhanh']);
-
-    // One session fewer: the old one is among the last 20 again, so the next day starts with hỏi/ngã.
-    await TypingSessionModel.deleteOne({ owner: learner._id, completedAt: lastSessions[0] });
-    vi.setSystemTime(new Date('2026-03-11T08:00:00.000Z'));
-    expect(await titlesOf(learner)).toEqual(['Hỏi hay ngã', 'Ba phiên', 'Mười phút']);
-  });
-
-  it('reads an error type only from the sessions with at least 5 chances of it, the ones that can move its task', async () => {
-    const few = await createUser({ email: 'few@example.com' });
-    const enough = await createUser({ email: 'enough@example.com' });
-    await createTemplates(...templates);
-    const lastSessions = Array.from({ length: WEAKNESS_SESSIONS }, (_, minute) => new Date(Date.UTC(2026, 2, 9, 0, minute)));
-    await TypingSessionModel.create(
-      lastSessions.flatMap((completedAt, index) => {
-        const errorCounts = { D_MISSING: index === 0 ? 1 : 0 };
-        return [
-          // 1 to 4 chances of a missed đ in each session, 50 in all, and one đ missed: no session counts for Chữ đ.
-          countedSession(few._id, completedAt, { errorCounts, opportunityCounts: { D_MISSING: 1 + (index % 4) } }),
-          // The same miss in sessions with 5 chances each, which can move it.
-          countedSession(enough._id, completedAt, { errorCounts, opportunityCounts: { D_MISSING: MIN_FOCUS_CHANCES } })
-        ];
-      })
-    );
-    vi.spyOn(Math, 'random').mockReturnValue(0);
-
-    expect(await titlesOf(few)).toEqual(['Ba phiên', 'Mười phút', 'Gõ nhanh']);
-    expect(await titlesOf(enough)).toEqual(['Chữ đ', 'Ba phiên', 'Mười phút']);
+    expect((await storedDay(learner._id))!.tasks.map((task) => task.title).sort()).toEqual(['Ba phiên', 'Bốn trò', 'Hai trò']);
   });
 });
 
@@ -400,112 +307,53 @@ describe('the progress of the tasks', () => {
     await seedPassages(PASSAGE_LIST);
   });
 
-  it('moves the sessions, minutes, wpm and accuracy tasks after each counted session', async () => {
+  it('moves the sessions task after each counted session, and the minigames task after each minigame', async () => {
     const learner = await createUser({});
-    await createTemplates(
-      { title: 'Hai phiên', type: 'sessions', target: 2 },
-      { title: 'Bốn phút', type: 'minutes', target: 4 },
-      { title: 'Gõ đều', type: 'wpm', target: 11 },
-      { title: 'Chính xác', type: 'accuracy', target: 96 }
-    );
-    await updateAppSettings({ dailyTaskCount: 4 });
-    expect(await progressOf(learner)).toEqual({
-      'Hai phiên': [0, false],
-      'Bốn phút': [0, false],
-      'Gõ đều': [0, false],
-      'Chính xác': [0, false]
-    });
+    await createTemplates({ title: 'Hai phiên', type: 'sessions', target: 2 }, { title: 'Hai trò', type: 'minigames', target: 2 });
+    expect(await progressOf(learner)).toEqual({ 'Hai phiên': [0, false], 'Hai trò': [0, false] });
 
-    // One wrong word of 23 in two minutes: 22 correct words, 11.1 WPM (characters / 5), 95.7 % accuracy.
     await typeCounted(learner, 1);
-    expect(await progressOf(learner)).toEqual({
-      'Hai phiên': [1, false],
-      'Bốn phút': [2, false],
-      'Gõ đều': [11.1, true],
-      'Chính xác': [95.7, false]
-    });
+    expect(await progressOf(learner)).toEqual({ 'Hai phiên': [1, false], 'Hai trò': [0, false] });
 
-    // All 23 words right: 11.7 WPM and 100 %.
     await typeCounted(learner);
-    expect(await progressOf(learner)).toEqual({
-      'Hai phiên': [2, true],
-      'Bốn phút': [4, true],
-      'Gõ đều': [11.7, true],
-      'Chính xác': [100, true]
-    });
+    expect(await progressOf(learner)).toEqual({ 'Hai phiên': [2, true], 'Hai trò': [0, false] });
+
+    // Two minigames finished: what `finishPlay` does is recorded the same way as a session.
+    const finishedAt = new Date();
+    await MinigamePlayModel.create(
+      ['rain', 'chain'].map((game) => ({ owner: learner._id, game, startedAt: new Date(finishedAt.getTime() - 60_000), finished: true, finishedAt }))
+    );
+    await recordDailyTaskProgress(String(learner._id), finishedAt);
+    expect(await progressOf(learner)).toEqual({ 'Hai phiên': [2, true], 'Hai trò': [2, true] });
   });
 
   it('changes nothing for a session that is not counted', async () => {
     const learner = await createUser({});
-    await createTemplates({ title: 'Một phiên', type: 'sessions', target: 1 }, { title: 'Gõ chậm', type: 'wpm', target: 5 });
+    await createTemplates({ title: 'Một phiên', type: 'sessions', target: 1 });
     await tasksOf(learner);
     const auth = bearerFor(learner);
     const session = await start(auth);
 
-    // 10 words only (5 WPM): saved, not counted.
+    // 10 words only: saved, not counted.
     expect((await complete(auth, session._id, session.targetWords.slice(0, 10))).body.isCounted).toBe(false);
 
-    expect(await progressOf(learner)).toEqual({ 'Một phiên': [0, false], 'Gõ chậm': [0, false] });
-    expect((await storedDay(learner._id))!.progress).toMatchObject({ sessions: 0, durationMs: 0, bestWpm: 0, bestAccuracy: 0 });
+    expect(await progressOf(learner)).toEqual({ 'Một phiên': [0, false] });
+    expect((await storedDay(learner._id))!.progress).toMatchObject({ sessions: 0, minigames: 0 });
   });
 
   it('counts the sessions completed that day before the tasks were made', async () => {
     const learner = await createUser({});
-    await createTemplates(
-      { title: 'Ba phiên', type: 'sessions', target: 3 },
-      { title: 'Hai phút', type: 'minutes', target: 2 },
-      { title: 'Gõ nhanh', type: 'wpm', target: 40 },
-      { title: 'Chính xác', type: 'accuracy', target: 98 }
-    );
-    await updateAppSettings({ dailyTaskCount: 4 });
+    await createTemplates({ title: 'Ba phiên', type: 'sessions', target: 3 });
     await TypingSessionModel.create([
       // This morning in Vietnam: two counted sessions.
-      countedSession(learner._id, new Date('2026-03-10T01:00:00.000Z'), { durationMs: 90_000, wpm: 35, accuracy: 97 }),
-      countedSession(learner._id, new Date('2026-03-10T02:00:00.000Z'), { durationMs: 45_000, wpm: 41.5, accuracy: 92 }),
+      countedSession(learner._id, new Date('2026-03-10T01:00:00.000Z')),
+      countedSession(learner._id, new Date('2026-03-10T02:00:00.000Z')),
       // 23:59:59.999 yesterday in Vietnam, and a session that is not counted: left out.
-      countedSession(learner._id, new Date('2026-03-09T16:59:59.999Z'), { durationMs: 600_000, wpm: 80, accuracy: 100 }),
-      countedSession(learner._id, new Date('2026-03-10T03:00:00.000Z'), { isCounted: false, durationMs: 600_000, wpm: 90, accuracy: 100 })
+      countedSession(learner._id, new Date('2026-03-09T16:59:59.999Z')),
+      countedSession(learner._id, new Date('2026-03-10T03:00:00.000Z'), { isCounted: false })
     ]);
 
-    // 135 000 ms are 2.25 minutes, shown as 2.2.
-    expect(await progressOf(learner)).toEqual({
-      'Ba phiên': [2, false],
-      'Hai phút': [2.2, true],
-      'Gõ nhanh': [41.5, true],
-      'Chính xác': [97, false]
-    });
-  });
-
-  it('measures a focused accuracy task only on the sessions with at least 5 chances of its error type', async () => {
-    const learner = await createUser({});
-    await createTemplates(
-      { title: 'Hỏi hay ngã', type: 'accuracy', target: 80, errorType: 'HOI_NGA_CONFUSION' },
-      { title: 'Dấu thanh', type: 'accuracy', target: 90, errorType: 'TONE_WRONG' },
-      { title: 'Chính xác', type: 'accuracy', target: 90 }
-    );
-
-    // The passage gives 23 chances of a wrong tone but only 2 of a hỏi/ngã mix-up (khuỷu, thuỷ): too few for that task.
-    await typeCounted(learner);
-    expect(await progressOf(learner)).toEqual({ 'Hỏi hay ngã': [0, false], 'Dấu thanh': [100, true], 'Chính xác': [100, true] });
-
-    // Then 4 chances without a mix-up (too few again), 8 chances with 2 mix-ups (75 %), 5 with 1 (80 %, the target).
-    const sessions = [
-      { chances: 4, errors: 0, shown: [0, false] },
-      { chances: 8, errors: 2, shown: [75, false] },
-      { chances: 5, errors: 1, shown: [80, true] }
-    ];
-    for (const { chances, errors, shown } of sessions) {
-      const completedAt = new Date();
-      await TypingSessionModel.create(
-        countedSession(learner._id, completedAt, {
-          errorCounts: { HOI_NGA_CONFUSION: errors },
-          opportunityCounts: { HOI_NGA_CONFUSION: chances }
-        })
-      );
-      // What `completeSession` does once it has saved a counted session.
-      await recordDailyTaskProgress(String(learner._id), completedAt);
-      expect((await progressOf(learner))['Hỏi hay ngã']).toEqual(shown);
-    }
+    expect(await progressOf(learner)).toEqual({ 'Ba phiên': [2, false] });
   });
 });
 
@@ -518,44 +366,33 @@ describe('recording a session again', () => {
     const learner = await createUser({});
     await createTemplates({ title: 'Ba phiên', type: 'sessions', target: 3 });
     const completedAt = new Date();
-    await TypingSessionModel.create(
-      countedSession(learner._id, completedAt, {
-        durationMs: 75_000,
-        wpm: 33,
-        accuracy: 96,
-        errorCounts: { TONE_WRONG: 1 },
-        opportunityCounts: { TONE_WRONG: 20 }
-      })
-    );
+    await TypingSessionModel.create(countedSession(learner._id, completedAt));
 
     await recordDailyTaskProgress(String(learner._id), completedAt);
     const once = (await storedDay(learner._id))!.progress;
     await recordDailyTaskProgress(String(learner._id), completedAt);
 
     expect((await storedDay(learner._id))!.progress).toEqual(once);
-    expect(once).toEqual({ sessions: 1, durationMs: 75_000, bestWpm: 33, bestAccuracy: 96, minigames: 0, bestErrorAccuracy: { TONE_WRONG: 95 } });
+    expect(once).toEqual({ sessions: 1, minigames: 0 });
   });
 
   it('never takes the numbers of the day back', async () => {
     const learner = await createUser({});
     await createTemplates({ title: 'Ba phiên', type: 'sessions', target: 3 });
     const completedAt = new Date();
-    const [, faster] = await TypingSessionModel.create([
-      countedSession(learner._id, completedAt),
-      countedSession(learner._id, completedAt, { wpm: 50 })
-    ]);
+    const [, later] = await TypingSessionModel.create([countedSession(learner._id, completedAt), countedSession(learner._id, completedAt)]);
     await recordDailyTaskProgress(String(learner._id), completedAt);
 
-    // A late write from a request that read the day before the faster session was saved: here, the day without it.
-    await TypingSessionModel.deleteOne({ _id: faster._id });
+    // A late write from a request that read the day before the second session was saved: here, the day without it.
+    await TypingSessionModel.deleteOne({ _id: later._id });
     await recordDailyTaskProgress(String(learner._id), completedAt);
 
-    expect((await storedDay(learner._id))!.progress).toMatchObject({ sessions: 2, durationMs: 120_000, bestWpm: 50 });
+    expect((await storedDay(learner._id))!.progress).toMatchObject({ sessions: 2 });
   });
 
   it('counts a session completed twice in a row once (200, then 409)', async () => {
     const learner = await createUser({});
-    await createTemplates({ title: 'Ba phiên', type: 'sessions', target: 3 }, { title: 'Năm phút', type: 'minutes', target: 5 });
+    await createTemplates({ title: 'Ba phiên', type: 'sessions', target: 3 }, { title: 'Ba trò', type: 'minigames', target: 3 });
     const auth = bearerFor(learner);
     const session = await start(auth);
 
@@ -563,13 +400,13 @@ describe('recording a session again', () => {
     const again = await complete(auth, session._id, session.targetWords);
 
     expect(again.status).toBe(409);
-    expect((await storedDay(learner._id))!.progress).toMatchObject({ sessions: 1, durationMs: 120_000 });
-    expect(await progressOf(learner)).toEqual({ 'Ba phiên': [1, false], 'Năm phút': [2, false] });
+    expect((await storedDay(learner._id))!.progress).toMatchObject({ sessions: 1 });
+    expect(await progressOf(learner)).toEqual({ 'Ba phiên': [1, false], 'Ba trò': [0, false] });
   });
 
   it('counts once a session completed by two requests at the same time (one 200, one 409)', async () => {
     const learner = await createUser({});
-    await createTemplates({ title: 'Ba phiên', type: 'sessions', target: 3 }, { title: 'Năm phút', type: 'minutes', target: 5 });
+    await createTemplates({ title: 'Ba phiên', type: 'sessions', target: 3 }, { title: 'Ba trò', type: 'minigames', target: 3 });
     const auth = bearerFor(learner);
     const session = await start(auth);
 
@@ -579,7 +416,7 @@ describe('recording a session again', () => {
     ]);
 
     expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
-    expect((await storedDay(learner._id))!.progress).toMatchObject({ sessions: 1, durationMs: 120_000 });
+    expect((await storedDay(learner._id))!.progress).toMatchObject({ sessions: 1 });
     expect(await UserDailyTasksModel.countDocuments()).toBe(1);
   });
 });
@@ -735,22 +572,22 @@ describe('a change of time zone', () => {
 
   it('shows numbers of the new zone at once when a request made the day before the zone was saved', async () => {
     const learner = await createUser({});
-    await createTemplates({ title: 'Hai phiên', type: 'sessions', target: 2 }, { title: 'Gõ nhanh', type: 'wpm', target: 40 });
+    await createTemplates({ title: 'Hai phiên', type: 'sessions', target: 2 });
     await TypingSessionModel.create([
       // 01:00 on 10 March in Vietnam, still 9 March in UTC.
-      countedSession(learner._id, new Date('2026-03-09T18:00:00.000Z'), { wpm: 50 }),
+      countedSession(learner._id, new Date('2026-03-09T18:00:00.000Z')),
       // 10 March in both zones.
-      countedSession(learner._id, new Date('2026-03-10T07:00:00.000Z'), { wpm: 30 })
+      countedSession(learner._id, new Date('2026-03-10T07:00:00.000Z'))
     ]);
     // The page asks for the tasks while the browser's zone is on its way: the day is made in Vietnam.
-    expect(await progressOf(learner)).toEqual({ 'Hai phiên': [2, true], 'Gõ nhanh': [50, true] });
+    expect(await progressOf(learner)).toEqual({ 'Hai phiên': [2, true] });
 
     expect((await setZone(learner, 'UTC')).status).toBe(200);
 
-    // The refresh after the save: 10 March of UTC, without the session of 9 March and its speed.
+    // The refresh after the save: 10 March of UTC, without the session of 9 March.
     expect((await tasksOf(learner)).body.date).toBe('2026-03-10');
-    expect(await progressOf(learner)).toEqual({ 'Hai phiên': [1, false], 'Gõ nhanh': [30, false] });
-    expect(await storedDay(learner._id)).toMatchObject({ timeZone: 'UTC', progress: { sessions: 1, bestWpm: 30 } });
+    expect(await progressOf(learner)).toEqual({ 'Hai phiên': [1, false] });
+    expect(await storedDay(learner._id)).toMatchObject({ timeZone: 'UTC', progress: { sessions: 1 } });
   });
 
   it('works the same numbers out again under another name of the same zone', async () => {

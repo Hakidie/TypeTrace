@@ -80,11 +80,20 @@ export const profileEn = {
     coinsPaid: '+{{count}} coins',
     sessions_one: '{{progress}} / {{target}} session',
     sessions_other: '{{progress}} / {{target}} sessions',
-    minutes: '{{progress}} / {{target}} min',
-    wpm: '{{progress}} / {{target}} WPM',
-    accuracy: '{{progress}}% / {{target}}%',
     minigames_one: '{{progress}} / {{target}} minigame',
     minigames_other: '{{progress}} / {{target}} minigames',
+    // Shown when the interface is not English (the admin's own title and description are English): built from the task's
+    // type and target. `title` is the short name, `goal` the full sentence under it.
+    taskTitle: {
+      sessions: 'Practice {{count}}',
+      minigames: 'Minigames {{count}}',
+    },
+    goal: {
+      sessions_one: 'Finish {{count}} counted session today',
+      sessions_other: 'Finish {{count}} counted sessions today',
+      minigames_one: 'Finish {{count}} minigame today',
+      minigames_other: 'Finish {{count}} minigames today',
+    },
   },
   errorProfile: {
     title: 'Error profile',

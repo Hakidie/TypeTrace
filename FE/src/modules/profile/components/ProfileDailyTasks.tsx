@@ -29,24 +29,20 @@ const TASKS_PER_PAGE = 3;
  */
 const oldestFirst = (tasks: DailyTaskProgress[]) => [...tasks].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
-/** How far a task is, in the unit of its target: "2 / 3 sessions", "12.5 / 15 min", "38.5 / 40 WPM", "85.5% / 90%", "1 / 3 minigames". */
-const numbersOf = ({ type, progress, target }: DailyTaskProgress, t: TFunction<'profile'>) => {
-  switch (type) {
-    case 'sessions':
-      return t('dailyTasks.sessions', { progress, target, count: target });
-    case 'minutes':
-      return t('dailyTasks.minutes', { progress, target });
-    case 'wpm':
-      return t('dailyTasks.wpm', { progress, target });
-    case 'accuracy':
-      return t('dailyTasks.accuracy', { progress, target });
-    case 'minigames':
-      return t('dailyTasks.minigames', { progress, target, count: target });
-  }
-};
+/** How far a task is, in the unit of its target: "2 / 3 sessions", "1 / 3 minigames". */
+const numbersOf = ({ type, progress, target }: DailyTaskProgress, t: TFunction<'profile'>) =>
+  t(type === 'sessions' ? 'dailyTasks.sessions' : 'dailyTasks.minigames', { progress, target, count: target });
 
-const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
-  const { t } = useTranslation('profile');
+/** The short name and the full goal of a task in the interface language, built from its type and target (no translating). */
+const wordsOf = ({ type, target }: DailyTaskProgress, t: TFunction<'profile'>) =>
+  type === 'sessions'
+    ? { title: t('dailyTasks.taskTitle.sessions', { count: target }), description: t('dailyTasks.goal.sessions', { count: target }) }
+    : { title: t('dailyTasks.taskTitle.minigames', { count: target }), description: t('dailyTasks.goal.minigames', { count: target }) };
+
+const DailyTaskItem = ({ task: stored }: { task: DailyTaskProgress }) => {
+  const { t, i18n } = useTranslation('profile');
+  // The admin's title and description are English: in another interface language the words built from the task take their place.
+  const task = i18n.language.startsWith('en') ? stored : { ...stored, ...wordsOf(stored, t) };
   const { icon: Icon } = DAILY_TASK_TYPE_INFO[task.type];
   const numbers = numbersOf(task, t);
   const filled = task.completed ? 100 : Math.min(task.progress / task.target, 1) * 100;

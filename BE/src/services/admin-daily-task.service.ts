@@ -40,24 +40,18 @@ export const getDailyTask = async (id: string) => {
   return task;
 };
 
-/** `errorType: null` is no focus: nothing is stored, so the task's JSON has no `errorType`. */
-export const createDailyTask = ({ errorType, ...input }: CreateDailyTaskInput) =>
-  DailyTaskModel.create({ ...input, ...(errorType && { errorType }) });
+export const createDailyTask = (input: CreateDailyTaskInput) => DailyTaskModel.create(input);
 
-/** The fields the model checks together (its `pre('validate')` hook): the target and the error type against the type. */
-const CHECKED_TOGETHER = ['type', 'target', 'errorType'] as const;
-
-export const updateDailyTask = async (id: string, { errorType, ...input }: UpdateDailyTaskInput) => {
+export const updateDailyTask = async (id: string, input: UpdateDailyTaskInput) => {
   const task = await getDailyTask(id);
-  // save() (not findByIdAndUpdate) so the model checks the target and the error type against the type the task ends up with.
+  // save() (not findByIdAndUpdate) so the model checks the target against the type the task ends up with.
   task.set(input);
-  // `null` takes the focus away: save() removes a field set to undefined, where null would be stored.
-  if (errorType !== undefined) task.errorType = errorType ?? undefined;
   // save() writes only the fields that changed. Of two saves at the same time, one changing the type and the other the
-  // target, the task could then keep the type of one with the target of the other, a pair nobody checked (a wpm target of
-  // 150 on an accuracy task). Written together, the three are always the set of one save, which the model checked.
-  if (CHECKED_TOGETHER.some((field) => task.isModified(field))) {
-    for (const field of CHECKED_TOGETHER) task.markModified(field);
+  // target, the task could keep the type of one with the target of the other, a pair nobody checked. Written together,
+  // the two are always the set of one save, which the model checked.
+  if (task.isModified('type') || task.isModified('target')) {
+    task.markModified('type');
+    task.markModified('target');
   }
   return task.save();
 };

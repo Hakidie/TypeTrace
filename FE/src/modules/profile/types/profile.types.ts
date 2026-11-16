@@ -1,6 +1,5 @@
 import type { ActivityDay } from '@/shared/components/activity-heatmap';
 import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
-import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 import type { DailyTaskType } from '@/modules/daily-tasks/types/daily-task.types';
 import type { SessionMode, SessionStatus, SessionTimeline } from '@/modules/typing/types/typing.types';
 
@@ -90,16 +89,12 @@ export interface DailyTaskProgress {
   description: string;
   type: DailyTaskType;
   target: number;
-  /** Only on an accuracy task that focuses on one error type. */
-  errorType?: WordErrorType;
   /** The coins completing it pays (SCRUM-301), as the template had them when the day was made; 0 = no reward. */
   coins: number;
   /** Whether those coins were already added to the learner's account. Only the server pays. */
   rewarded: boolean;
   /**
-   * In the unit of the target, from today's counted sessions only: sessions, minutes (one decimal, rounded down), the best
-   * WPM or the best accuracy (%) of one session; for a focused task, the best accuracy on its error type in a session
-   * that gave it at least `MIN_FOCUS_CHANCES` chances (daily-tasks.config.ts; 0 until one did).
+   * In the unit of the target: today's counted sessions, or the minigames and ranked duels finished today.
    */
   progress: number;
   completed: boolean;
