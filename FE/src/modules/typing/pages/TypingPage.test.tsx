@@ -1,10 +1,10 @@
 import userEvent from '@testing-library/user-event';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
-import { resetMinigameLang } from '@/shared/hooks/use-minigame-lang';
+import { i18n } from '@/shared/i18n/i18n';
 import { createTestQueryClient, renderWithProviders } from '@/test/render-with-providers';
 import { decodeReplay, replayTextAt } from '../utils/session-replay';
 import { TypingPage } from './TypingPage';
@@ -369,8 +369,8 @@ describe('TypingPage', () => {
     expect(start).not.toHaveBeenCalled();
   });
 
-  it('writes the minigame tiles in Vietnamese when the player chose it in a game', async () => {
-    resetMinigameLang('vi');
+  it('writes the minigame tiles in the language of the interface', async () => {
+    await act(() => i18n.changeLanguage('vi'));
     renderWithUrl('/typing?mode=minigames');
 
     expect(await screen.findByRole('button', { name: /^Nối từ/ })).toBeInTheDocument();

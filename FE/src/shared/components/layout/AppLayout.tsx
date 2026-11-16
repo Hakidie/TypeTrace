@@ -1,4 +1,5 @@
-import type { ComponentType } from 'react';
+import { type ComponentType, Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet } from 'react-router-dom';
 import type { MenuItem, NavItem, NavWidget } from '@/app/module.types';
 import { BrandFooter } from '@/shared/components/layout/BrandFooter';
@@ -22,6 +23,7 @@ export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] 
   // An expired or rejected token answers 401, which the http interceptor turns
   // into a redirect to /logout. Other failures (server down) keep the user signed in.
   const { data: user } = useCurrentUser();
+  const { i18n } = useTranslation();
   useThemeSync();
 
   // A guest (no token, SCRUM-251) sees the pages open to guests; the other tabs show locked. No widget: they call APIs that need a sign-in.
@@ -42,7 +44,10 @@ export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] 
 
       {/* At least one screen tall below the header (about 61px), so the footer is only seen after scrolling down. */}
       <main className="mx-auto flex min-h-[calc(100vh-61px)] w-full max-w-7xl flex-col px-4 pb-8 pt-12">
-        <Outlet />
+        {/* The page is drawn again when the language changes, so the names it reads without a hook (the label maps of a module) follow it (SCRUM-330). */}
+        <Fragment key={i18n.language}>
+          <Outlet />
+        </Fragment>
       </main>
 
       <BrandFooter />

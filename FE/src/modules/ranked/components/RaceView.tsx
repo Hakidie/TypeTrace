@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useMemo } from 'react';
 import { TypingArea } from '@/modules/typing/components/TypingArea';
 import { useSendProgress } from '../hooks/use-match';
@@ -15,6 +16,7 @@ const secondsUntil = (endsAt?: string) => (endsAt ? Math.max(1, Math.ceil((new D
  * (the words the server kept) fills the typing area again so the race goes on from there.
  */
 export const RaceView = ({ match, myId, resume }: { match: PublicMatch; myId?: string; resume?: RaceResume }) => {
+  const { t } = useTranslation('ranked');
   const sendProgress = useSendProgress();
   // Once per race: the typing area counts its own seconds, so a limit recomputed on every update would shrink twice as fast.
   const timeLimitSeconds = useMemo(() => secondsUntil(match.endsAt), [match.endsAt]);
@@ -31,7 +33,7 @@ export const RaceView = ({ match, myId, resume }: { match: PublicMatch; myId?: s
         </div>
       )}
       {match.status === 'running' && me?.finished && (
-        <LoadingRing label="Finished — waiting for your opponent" className="my-auto text-xl text-primary" />
+        <LoadingRing label={t('duel.finished')} className="my-auto text-xl text-primary" />
       )}
       {match.status === 'running' && !me?.finished && match.targetWords && (
         <TypingArea

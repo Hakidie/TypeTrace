@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { BookOpen, CalendarCheck, Coins, Crown, Shirt, Sparkles, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -29,10 +30,7 @@ const SLOT_ORDER: AvatarSlot[] = ['headwear', 'accessory', 'back', 'effect'];
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-const STORE_TABS = [
-  { value: 'premium', label: 'Premium' },
-  { value: 'coins', label: 'Coins' },
-] as const;
+const STORE_TABS = ['premium', 'coins'] as const;
 
 /** The logos are the gateways' own (`public/payments`) and keep their colors, like the avatar sprites. */
 const GATEWAYS: { provider: PaymentProvider; name: string; logo: string }[] = [
@@ -42,7 +40,9 @@ const GATEWAYS: { provider: PaymentProvider; name: string; logo: string }[] = [
 ];
 
 /** One pay button per gateway (payOS first, the main one), three equal columns from `sm` up whose text wraps to fit the panel. While one is opening, all wait. */
-const PayButtons = ({ what, disabled, opening, onPay }: { what: string; disabled: boolean; opening?: PaymentProvider; onPay: (provider: PaymentProvider) => void }) => (
+const PayButtons = ({ what, disabled, opening, onPay }: { what: string; disabled: boolean; opening?: PaymentProvider; onPay: (provider: PaymentProvider) => void }) => {
+  const { t } = useTranslation('store');
+  return (
   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
     {GATEWAYS.map(({ provider, name, logo }) => (
       <Button
@@ -54,11 +54,12 @@ const PayButtons = ({ what, disabled, opening, onPay }: { what: string; disabled
         onClick={() => onPay(provider)}
       >
         <img src={logo} alt="" aria-hidden="true" className="size-6 shrink-0 object-contain" />
-        {opening === provider ? `Opening ${name}...` : `${what} with ${name}`}
+        {opening === provider ? t('page.opening', { gateway: name }) : t('page.pay', { what, gateway: name })}
       </Button>
     ))}
   </div>
-);
+  );
+};
 
 /**
  * An item tile shows its layer (a whole 76px avatar frame with only the item drawn) zoomed on where that slot sits on the
@@ -88,6 +89,7 @@ const PIXEL_FLOOR =
  * that gateway; `/payments/<gateway>/return` brings it back.
  */
 export const StorePage = () => {
+  const { t } = useTranslation('store');
   const products = usePaymentProducts();
   const catalog = useAvatarCatalog();
   const startPayment = useStartPayment();
@@ -139,22 +141,23 @@ export const StorePage = () => {
   const perks = [
     ...(premiumPlan
       ? [
-          { icon: BookOpen, text: `Up to ${premiumPlan.maxPassages} passages of your own` },
-          ...(premiumPlan.canUsePublicPassages ? [{ icon: Users, text: "Practice with other learners' public passages" }] : []),
-          ...(premiumPlan.canCreateErrorPractice ? [{ icon: Sparkles, text: 'AI-assisted training lessons built around your weak spots' }] : []),
+          { icon: BookOpen, text: t('page.perkPassages', { count: premiumPlan.maxPassages }) },
+          ...(premiumPlan.canUsePublicPassages ? [{ icon: Users, text: t('page.perkPublic') }] : []),
+          ...(premiumPlan.canCreateErrorPractice ? [{ icon: Sparkles, text: t('page.perkTrain') }] : []),
         ]
       : []),
-    { icon: Crown, text: 'A Premium badge beside your name' },
-    ...(proItems.length > 0 ? [{ icon: Shirt, text: `The Dragon set: ${proItems.length} items to wear while your plan lasts` }] : []),
-    { icon: CalendarCheck, text: 'One payment. Nothing renews, and nothing is taken away when it ends.' },
+    { icon: Crown, text: t('page.perkBadge') },
+    ...(proItems.length > 0 ? [{ icon: Shirt, text: t('page.perkDragon', { count: proItems.length }) }] : []),
+    { icon: CalendarCheck, text: t('page.perkOnce') },
   ];
 
   return (
     <div className="flex flex-1 flex-col gap-10">
       {/* The tabs read as the titles of the Progress page's panels (`sectionTitleClass`): no border, no background. */}
       <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
-        <div role="radiogroup" aria-label="Store section" className="flex items-center gap-6">
-          {STORE_TABS.map(({ value, label }) => {
+        <div role="radiogroup" aria-label={t('page.section')} className="flex items-center gap-6">
+          {STORE_TABS.map((value) => {
+            const label = value === 'coins' ? t('page.coinsTab') : t('page.premium');
             const selected = section === value;
             return (
               <button
@@ -190,7 +193,7 @@ export const StorePage = () => {
             </Tooltip>
             </TooltipProvider>
           ) : (
-            <span className="text-muted-foreground">You are on Free.</span>
+            <span className="text-muted-foreground">{t('page.onFree')}</span>
           )}
         </div>
       </div>
@@ -199,10 +202,10 @@ export const StorePage = () => {
       <section aria-labelledby="store-premium" className="grid gap-8 lg:grid-cols-[minmax(0,6fr)_minmax(0,6fr)]">
         <div className="relative flex flex-col items-center justify-end gap-6 overflow-hidden">
           <div aria-hidden="true" className={PIXEL_FLOOR} />
-          <AvatarSprite look={look} pose={pose} scale={5} label="Your avatar with the Dragon set" className="relative" />
+          <AvatarSprite look={look} pose={pose} scale={5} label={t('page.avatarDragon')} className="relative" />
           <span aria-hidden="true" className="relative -mt-6 h-px w-2/3 bg-primary/40" />
           {proItems.length > 0 && (
-            <div role="group" aria-label="Preview items" className="relative flex w-full justify-center gap-2 overflow-x-auto">
+            <div role="group" aria-label={t('page.previewItems')} className="relative flex w-full justify-center gap-2 overflow-x-auto">
               {proItems.map(({ slot, id }) => {
                 const shown = !hidden.includes(id);
                 return (
@@ -237,7 +240,7 @@ export const StorePage = () => {
         <div className="flex flex-col gap-6">
           <div className="space-y-3">
             <h2 id="store-premium" className="flex items-center gap-3 text-3xl font-semibold tracking-tight">
-              Premium <Crown className="size-7 text-primary" aria-hidden="true" />
+              {t('page.premium')} <Crown className="size-7 text-primary" aria-hidden="true" />
             </h2>
             <ul className="space-y-2">
               {perks.map(({ icon: Icon, text }) => (
@@ -249,7 +252,7 @@ export const StorePage = () => {
             </ul>
           </div>
 
-          <div role="radiogroup" aria-label="Premium plan" className="grid gap-2 sm:grid-cols-3">
+          <div role="radiogroup" aria-label={t('page.premiumPlan')} className="grid gap-2 sm:grid-cols-3">
             {plans.map((entry) => {
               const saving = savingPercent(entry, plans[0]);
               return (
@@ -261,18 +264,18 @@ export const StorePage = () => {
                   checked={entry.id === plan?.id}
                   onSelect={() => setPlanId(entry.id)}
                   title={planTitle(entry)}
-                  detail={`${formatVnd(pricePerMonth(entry))} a month`}
+                  detail={t('aMonth', { price: formatVnd(pricePerMonth(entry)) })}
                   price={formatVnd(entry.amount)}
-                  badge={saving > 0 ? `Save ${saving}%` : undefined}
+                  badge={saving > 0 ? t('page.save', { percent: saving }) : undefined}
                 />
               );
             })}
           </div>
 
           <div className="space-y-3">
-            {premium.active && <p className="text-sm text-muted-foreground">The time is added after your current end date.</p>}
+            {premium.active && <p className="text-sm text-muted-foreground">{t('page.extendNote')}</p>}
             <PayButtons
-              what={premium.active ? 'Extend' : 'Get'}
+              what={premium.active ? t('page.extend') : t('page.get')}
               disabled={!plan}
               opening={opening}
               onPay={(provider) => plan && startPayment.mutate({ product: plan.id, provider })}
@@ -283,9 +286,9 @@ export const StorePage = () => {
       )}
 
       {section === 'coins' && (
-      <section aria-label="Coins" className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <section aria-label={t('page.coinsSection')} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="flex flex-col gap-5">
-          <div role="radiogroup" aria-label="Coin pack" className="grid flex-1 auto-rows-fr gap-2 sm:grid-cols-3">
+          <div role="radiogroup" aria-label={t('page.coinPack')} className="grid flex-1 auto-rows-fr gap-2 sm:grid-cols-3">
             {packs.map((entry, index) => {
               const bonus = bonusPercent(entry, packs[0]);
               return (
@@ -297,7 +300,7 @@ export const StorePage = () => {
                   onSelect={() => setPackId(entry.id)}
                   title={formatCoins(entry.grant.coins)}
                   price={formatVnd(entry.amount)}
-                  badge={bonus > 0 ? `+${bonus}% coins` : undefined}
+                  badge={bonus > 0 ? t('page.bonus', { percent: bonus }) : undefined}
                   // One, two, three coins: the bigger the pack, the more of them.
                   stack={index + 1}
                   pile={COIN_PILES[index] ?? 4}
@@ -308,7 +311,7 @@ export const StorePage = () => {
             })}
           </div>
           <PayButtons
-            what="Get coins"
+            what={t('page.getCoins')}
             disabled={!pack}
             opening={opening}
             onPay={(provider) => pack && startPayment.mutate({ product: pack.id, provider })}
@@ -318,11 +321,11 @@ export const StorePage = () => {
         <aside className="flex items-center gap-4 border bg-primary/5 p-5 lg:flex-col lg:items-start lg:justify-end">
           <Ping move="point" size={2} className="shrink-0 lg:self-center" />
           <div className="space-y-3">
-            <p className="text-muted-foreground">Coins buy avatar items in the wardrobe. They never change a rating or a duel.</p>
+            <p className="text-muted-foreground">{t('page.coinsNote')}</p>
             <Button asChild variant="outline">
               <Link to="/wardrobe">
                 <Shirt className="size-4" aria-hidden="true" />
-                Open wardrobe
+                {t('page.openWardrobe')}
               </Link>
             </Button>
           </div>
@@ -332,7 +335,7 @@ export const StorePage = () => {
 
       {/* The way to the history is a button at the bottom of the page, as on the Progress page: `mb-4` and the 32px of the page make 48px under it. */}
       <div className="mt-auto mb-4 flex shrink-0 items-center justify-center">
-        <PanelTitleSwitch other="Payment history" showLabel onClick={() => navigate('/store/history')} />
+        <PanelTitleSwitch other={t('page.history')} showLabel onClick={() => navigate('/store/history')} />
       </div>
     </div>
   );

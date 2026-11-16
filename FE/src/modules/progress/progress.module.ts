@@ -4,5 +4,5 @@ import { ProgressPage } from './pages/ProgressPage';
 
 export const progressModule: AppModule = {
   routes: [{ path: '/progress', Component: ProgressPage }],
-  navItems: [{ to: '/progress', label: 'Progress', icon: ChartLine }],
+  navItems: [{ to: '/progress', label: 'Progress', labelKey: 'nav.progress', icon: ChartLine }],
 };

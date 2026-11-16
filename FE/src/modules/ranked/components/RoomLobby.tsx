@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Copy, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Panel } from '@/shared/components/panel';
@@ -19,6 +20,7 @@ interface RoomLobbyProps {
  * the tab bar in Rank: `-mt-8` makes it 4rem here too.
  */
 export const RoomLobby = ({ match, myId, onLeft }: RoomLobbyProps) => {
+  const { t } = useTranslation('ranked');
   const ready = useReady();
   const leave = useLeaveMatch();
   const me = match.players.find((player) => player.userId === myId);
@@ -26,15 +28,15 @@ export const RoomLobby = ({ match, myId, onLeft }: RoomLobbyProps) => {
 
   const copy = () =>
     void navigator.clipboard?.writeText(match.code).then(
-      () => toast.success('Code copied.'),
-      () => toast.error('Could not copy the code.'),
+      () => toast.success(t('room.copied')),
+      () => toast.error(t('room.copyFailed')),
     );
 
   const seat = (player: MatchPlayerView | undefined, index: number) => (
     <PlayerCard key={player?.userId ?? `empty-${index}`} player={player} isMe={player !== undefined && player === me} highlight={player?.ready}>
       {player && (
         <p className={player.ready ? 'text-sm font-semibold uppercase tracking-widest' : 'text-sm text-muted-foreground'}>
-          {player.ready ? 'Ready' : 'Not ready'}
+          {player.ready ? t('room.ready') : t('room.notReady')}
         </p>
       )}
     </PlayerCard>
@@ -45,17 +47,17 @@ export const RoomLobby = ({ match, myId, onLeft }: RoomLobbyProps) => {
       <div className="w-full">
         {/* PANEL Room code */}
         <Panel bare className="flex flex-col items-center gap-2 text-primary">
-          <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground">Room code</p>
+          <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground">{t('room.code')}</p>
           <div className="flex items-center gap-2 border border-dashed border-primary/50 bg-card/60 py-2 pl-5 pr-2 backdrop-blur-sm">
             <span className="text-4xl font-bold tracking-[0.3em] tabular-nums">{match.code}</span>
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" aria-label="Copy code" onClick={copy}>
+                  <Button variant="ghost" size="sm" aria-label={t('room.copy')} onClick={copy}>
                     <Copy className="size-5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Copy code</TooltipContent>
+                <TooltipContent>{t('room.copy')}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
@@ -83,11 +85,11 @@ export const RoomLobby = ({ match, myId, onLeft }: RoomLobbyProps) => {
           onClick={() => leave.mutate(match.code, { onSuccess: onLeft })}
         >
           <LogOut className="size-4" aria-hidden="true" />
-          Leave room
+          {t('room.leave')}
         </Button>
         {opponent && me && (
           <Button size="lg" className="min-w-44" disabled={ready.isPending} onClick={() => ready.mutate({ code: match.code, ready: !me.ready })}>
-            {me.ready ? 'Not ready' : 'Ready'}
+            {me.ready ? t('room.notReady') : t('room.ready')}
           </Button>
         )}
       </div>

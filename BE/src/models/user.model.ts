@@ -1,7 +1,7 @@
 import mongoose, { Schema, Types } from 'mongoose';
 import { AvatarLook, DEFAULT_AVATAR } from '../data/avatar-catalog';
 import { type AppFont, appFonts, DEFAULT_APP_FONT, TYPING_FONT_SIZE } from '../utils/app-font';
-import { type TypingLanguage, typingLanguages } from '../utils/typing-language';
+import { type TypingLanguage, typingLanguages, type UiLanguage, uiLanguages } from '../utils/typing-language';
 import { SubscriptionModel } from './subscription.model';
 
 export const USER_ROLES = ['user', 'admin'] as const;
@@ -59,6 +59,8 @@ export interface UserDocument extends mongoose.Document {
      * error set of their practice sessions and of the stats they see. The placement test is always Vietnamese.
      */
     typingLanguage: TypingLanguage;
+    /** The language of the interface (SCRUM-326, US8.3). Missing until chosen: the frontend then follows the browser. */
+    uiLanguage?: UiLanguage;
     /** The size of the passage text on the typing page, in rem (SCRUM-158): 1 to 2.5 in steps of 0.125, 2 until changed. */
     typingFontSizeRem: number;
     /** The font of the whole interface (SCRUM-158), one of `appFonts`. */
@@ -117,6 +119,8 @@ const userSchema = new Schema<UserDocument>(
           // Checked by `PATCH /api/profile/settings`, not here: a zone unknown to a later server must not block a save.
           timezone: { type: String, default: DEFAULT_TIMEZONE },
           typingLanguage: { type: String, enum: typingLanguages, default: 'vi' },
+          // No default: not chosen yet means "follow the browser".
+          uiLanguage: { type: String, enum: uiLanguages },
           // Range and step are checked by `PATCH /api/profile/settings`.
           typingFontSizeRem: { type: Number, default: TYPING_FONT_SIZE.default },
           fontFamily: { type: String, enum: appFonts, default: DEFAULT_APP_FONT }

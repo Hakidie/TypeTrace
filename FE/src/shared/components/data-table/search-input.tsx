@@ -1,5 +1,6 @@
 import { Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/shared/components/ui/input';
 import { cn } from '@/shared/lib/utils';
 
@@ -29,8 +30,8 @@ interface SearchInputProps {
 export const SearchInput = ({
   defaultValue = '',
   onSearch,
-  placeholder = 'Search…',
-  label = 'Search',
+  placeholder,
+  label,
   delay = 300,
   searchOn = 'type',
   icon = true,
@@ -39,6 +40,9 @@ export const SearchInput = ({
   alwaysShowLabel = false,
   className,
 }: SearchInputProps) => {
+  const { t } = useTranslation();
+  const placeholderText = placeholder ?? t('toolbar.searchPlaceholder');
+  const labelText = label ?? t('toolbar.search');
   const [text, setText] = useState(defaultValue);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // A collapsible box starts open only when it already holds a search (e.g. from the URL).
@@ -65,7 +69,7 @@ export const SearchInput = ({
       <div className={cn('relative h-10 shrink-0', className)}>
         <button
           type="button"
-          aria-label={label}
+          aria-label={labelText}
           className="group flex h-full items-center px-4 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={() => {
             focusOnMount.current = true;
@@ -94,9 +98,9 @@ export const SearchInput = ({
     <div className={cn('relative w-full sm:max-w-xs', collapsible && 'search-extend sm:w-56', className)}>
       {icon && <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />}
       <Input
-        aria-label={label}
+        aria-label={labelText}
         className={cn('pr-9', icon ? 'pl-9' : 'pl-3')}
-        placeholder={placeholder}
+        placeholder={placeholderText}
         value={text}
         ref={(input) => {
           if (input && focusOnMount.current) {
@@ -115,7 +119,7 @@ export const SearchInput = ({
       {text && (
         <button
           type="button"
-          aria-label="Clear search"
+          aria-label={t('toolbar.clearSearch')}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           onClick={clear}
         >

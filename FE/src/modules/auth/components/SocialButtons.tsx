@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/shared/components/ui/button';
 import { GoogleSignInButton } from './GoogleSignInButton';
@@ -18,7 +19,9 @@ const GithubMark = () => (
  * The icon buttons above the Login and Register forms: one row of equal cells that fill the width. Only Google works;
  * Facebook and GitHub are placeholders that say they are not available yet (the backend has no such login).
  */
-export const SocialButtons = () => (
+export const SocialButtons = () => {
+  const { t } = useTranslation('auth');
+  return (
   <div className="grid grid-cols-3 gap-6">
     <GoogleSignInButton />
     {[
@@ -29,12 +32,13 @@ export const SocialButtons = () => (
         key={name}
         type="button"
         variant="outline"
-        aria-label={`Continue with ${name}`}
+        aria-label={t('social.continueWith', { name })}
         className="h-12 w-full p-0 hover:bg-destructive/90 hover:text-destructive-foreground"
-        onClick={() => toast.info(`${name} login is not available yet.`)}
+        onClick={() => toast.info(t('social.notAvailable', { name }))}
       >
         <Icon />
       </Button>
     ))}
   </div>
-);
+  );
+};

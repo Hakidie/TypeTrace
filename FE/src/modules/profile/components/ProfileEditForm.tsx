@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -21,32 +24,31 @@ const optionalTrimmed = z
   .optional()
   .transform((v) => (v === '' ? undefined : v));
 
-const schema = z.object({
-  displayName: z
-    .string()
-    .trim()
-    .min(2, 'Display name must be at least 2 characters')
-    .max(100, 'Max 100 characters'),
-  bio: optionalTrimmed.pipe(z.string().max(200, 'Max 200 characters').optional()),
-  phone: optionalTrimmed.pipe(
-    z
-      .string()
-      .min(7, 'Phone must be at least 7 characters')
-      .max(20, 'Max 20 characters')
-      .regex(phoneRegex, 'Enter a valid phone number')
-      .optional(),
-  ),
-});
+const schemaOf = (t: TFunction<'profile'>) =>
+  z.object({
+    displayName: z.string().trim().min(2, t('header.nameMin')).max(100, t('header.nameMax')),
+    bio: optionalTrimmed.pipe(z.string().max(200, t('editForm.bioMax')).optional()),
+    phone: optionalTrimmed.pipe(
+      z
+        .string()
+        .min(7, t('editForm.phoneMin'))
+        .max(20, t('editForm.phoneMax'))
+        .regex(phoneRegex, t('editForm.phoneInvalid'))
+        .optional(),
+    ),
+  });
 
-type FormValues = z.input<typeof schema>;
-type SubmitValues = z.output<typeof schema>;
+type FormValues = z.input<ReturnType<typeof schemaOf>>;
+type SubmitValues = z.output<ReturnType<typeof schemaOf>>;
 
 interface ProfileEditFormProps {
   defaultValues: FormValues;
 }
 
 export const ProfileEditForm = ({ defaultValues }: ProfileEditFormProps) => {
+  const { t } = useTranslation('profile');
   const setCurrentUser = useSetCurrentUser();
+  const schema = useMemo(() => schemaOf(t), [t]);
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<FormValues, unknown, SubmitValues>({
     resolver: zodResolver(schema),
@@ -58,7 +60,7 @@ export const ProfileEditForm = ({ defaultValues }: ProfileEditFormProps) => {
     mutationFn: profileApi.updateProfile,
     onSuccess: (user) => {
       setCurrentUser(user);
-      toast.success('Profile updated successfully.');
+      toast.success(t('editForm.updated'));
     },
   });
 
@@ -68,20 +70,20 @@ export const ProfileEditForm = ({ defaultValues }: ProfileEditFormProps) => {
     <form className="space-y-5" onSubmit={handleSubmit((values) => updateProfile.mutate(values))}>
       {/* The two short fields side by side from `md` up, the bio under them. */}
       <div className="grid gap-5 md:grid-cols-2">
-        <FormField id="displayName" label="Display name" error={errors.displayName?.message}>
-          <Input id="displayName" placeholder="Your name" {...register('displayName')} />
+        <FormField id="displayName" label={t('editForm.displayName')} error={errors.displayName?.message}>
+          <Input id="displayName" placeholder={t('editForm.yourName')} {...register('displayName')} />
         </FormField>
 
-        <FormField id="phone" label="Phone" error={errors.phone?.message}>
+        <FormField id="phone" label={t('editForm.phone')} error={errors.phone?.message}>
           <Input id="phone" placeholder="+84 912 345 678" {...register('phone')} />
         </FormField>
       </div>
 
-      <FormField id="bio" label="Bio" error={errors.bio?.message} hint={`${bioValue.length}/200`}>
+      <FormField id="bio" label={t('editForm.bio')} error={errors.bio?.message} hint={`${bioValue.length}/200`}>
         <Textarea
           id="bio"
           rows={3}
-          placeholder="Tell us a little about yourself..."
+          placeholder={t('editForm.bioPlaceholder')}
           className="resize-none"
           {...register('bio')}
         />
@@ -89,7 +91,7 @@ export const ProfileEditForm = ({ defaultValues }: ProfileEditFormProps) => {
 
       <div className="flex justify-end">
         <Button type="submit" disabled={updateProfile.isPending}>
-          {updateProfile.isPending ? 'Saving…' : 'Save changes'}
+          {updateProfile.isPending ? t('editForm.saving') : t('editForm.save')}
         </Button>
       </div>
     </form>

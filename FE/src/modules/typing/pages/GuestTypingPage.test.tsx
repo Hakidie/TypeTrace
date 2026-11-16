@@ -44,12 +44,12 @@ describe('GuestTypingPage', () => {
     renderPage();
 
     const tabs = screen.getByRole('radiogroup', { name: 'Passage' });
-    expect(tabs).toHaveTextContent('Manual');
-    expect(tabs).toHaveTextContent('Random');
-    expect(tabs).toHaveTextContent('Train');
+    // Only the selected tab keeps its word; the others are their icon (the name stays for screen readers).
     expect(screen.getByRole('radio', { name: 'Random' })).toBeChecked();
-    // Train has no icon in front of its name.
-    expect(screen.getByRole('radio', { name: 'Train' }).querySelector('svg')).toBeNull();
+    expect(screen.getByRole('radio', { name: 'Random' })).toHaveTextContent('Random');
+    expect(screen.getByRole('radio', { name: 'Manual' }).querySelector('svg')).not.toBeNull();
+    expect(screen.getByRole('radio', { name: 'Train' }).querySelector('svg')).not.toBeNull();
+    expect(tabs.querySelectorAll('.sr-only')).toHaveLength(2);
 
     await user.click(screen.getByRole('radio', { name: 'Train' }));
     expect(await screen.findByText('login page')).toBeInTheDocument();

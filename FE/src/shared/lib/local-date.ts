@@ -1,3 +1,5 @@
+import { i18n } from '@/shared/i18n/i18n';
+
 // Calendar days (`YYYY-MM-DD`) in a time zone, for the learner's activity: their days are days in their own zone
 // (`User.settings.timezone`), not UTC days.
 
@@ -5,7 +7,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Fixed three-letter names: `toLocaleDateString` gives "Sept" for September in some locales.
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** The short name of a month (1 to 12) in the language of the interface: `Nov`, `Thg 11`. */
+export const monthShort = (month: number) => i18n.t(`date.monthShort.${month}`);
 
 /**
  * The calendar day (`YYYY-MM-DD`) of `date` in the IANA `timeZone` (e.g. `Asia/Ho_Chi_Minh`). Without a zone, or with
@@ -30,7 +34,7 @@ export const addDays = (key: string, days: number) => new Date(Date.parse(key) +
 /** A day in words, e.g. `Tue, 27 Oct 2026` for `2026-10-27`. */
 export const dayInWords = (key: string) => {
   const date = new Date(Date.parse(key));
-  return `${WEEKDAYS[date.getUTCDay()]}, ${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+  return `${i18n.t(`date.weekdayShort.${date.getUTCDay()}`)}, ${date.getUTCDate()} ${monthShort(date.getUTCMonth() + 1)} ${date.getUTCFullYear()}`;
 };
 
 /** The browser's time zone (an IANA name), or `''` when it does not say. */

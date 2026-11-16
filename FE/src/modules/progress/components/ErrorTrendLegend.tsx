@@ -1,10 +1,13 @@
+import { useTranslation } from 'react-i18next';
 import { errorLabels } from '@/modules/typing/typing.config';
 import type { SessionErrorType } from '@/shared/lib/typing-language';
 import { ERROR_TREND_STYLES } from '../lib/error-trend';
 
 /** The legend of the error rate chart, centered under it: a sample of the line and the name of each type whose line shows. */
-export const ErrorTrendLegend = ({ types }: { types: readonly SessionErrorType[] }) => (
-  <ul aria-label="Error types shown" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-base">
+export const ErrorTrendLegend = ({ types }: { types: readonly SessionErrorType[] }) => {
+  const { t } = useTranslation('progress');
+  return (
+  <ul aria-label={t('trend.typesShown')} className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-base">
     {types.map((type) => (
       <li key={type} className="inline-flex h-10 items-center gap-2 whitespace-nowrap">
         <svg width="24" height="4" aria-hidden className="shrink-0">
@@ -14,4 +17,5 @@ export const ErrorTrendLegend = ({ types }: { types: readonly SessionErrorType[]
       </li>
     ))}
   </ul>
-);
+  );
+};

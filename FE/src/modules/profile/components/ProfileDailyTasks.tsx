@@ -1,5 +1,7 @@
 import { CircleCheck, Coins } from 'lucide-react';
 import { useState } from 'react';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { DAILY_TASK_TYPE_INFO } from '@/modules/daily-tasks/daily-tasks.config';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Pagination } from '@/shared/components/pagination';
@@ -28,30 +30,25 @@ const TASKS_PER_PAGE = 3;
 const oldestFirst = (tasks: DailyTaskProgress[]) => [...tasks].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
 /** How far a task is, in the unit of its target: "2 / 3 sessions", "12.5 / 15 min", "38.5 / 40 WPM", "85.5% / 90%", "1 / 3 minigames". */
-const numbersOf = ({ type, progress, target }: DailyTaskProgress) => {
+const numbersOf = ({ type, progress, target }: DailyTaskProgress, t: TFunction<'profile'>) => {
   switch (type) {
     case 'sessions':
-      return `${progress} / ${target} ${target === 1 ? 'session' : 'sessions'}`;
+      return t('dailyTasks.sessions', { progress, target, count: target });
     case 'minutes':
-      return `${progress} / ${target} min`;
+      return t('dailyTasks.minutes', { progress, target });
     case 'wpm':
-      return `${progress} / ${target} WPM`;
+      return t('dailyTasks.wpm', { progress, target });
     case 'accuracy':
-      return `${progress}% / ${target}%`;
+      return t('dailyTasks.accuracy', { progress, target });
     case 'minigames':
-      return `${progress} / ${target} ${target === 1 ? 'minigame' : 'minigames'}`;
+      return t('dailyTasks.minigames', { progress, target, count: target });
   }
 };
 
-/**
- * One task: the icon of its type, the title (on one line, cut with an ellipsis; the whole title is its tooltip), the goal
- * in words (`goalOf`, with the focus error of an accuracy task) and the description, then the bar and the numbers, pushed
- * to the bottom so the bars of a row line up. A done task has a full bar and a Done mark; the numbers keep what was
- * reached, which can be more than the target.
- */
 const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
+  const { t } = useTranslation('profile');
   const { icon: Icon } = DAILY_TASK_TYPE_INFO[task.type];
-  const numbers = numbersOf(task);
+  const numbers = numbersOf(task, t);
   const filled = task.completed ? 100 : Math.min(task.progress / task.target, 1) * 100;
 
   return (
@@ -69,7 +66,7 @@ const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
             {task.coins > 0 && (
               <span className={cn('shrink-0 text-lg font-extrabold transition-opacity pointer-fine:opacity-0 pointer-fine:group-focus-within:opacity-100 pointer-fine:group-hover:opacity-100', task.rewarded ? 'text-primary/80' : 'text-muted-foreground')}>
                 <Coins className="mr-1.5 inline size-[18px] align-text-bottom" aria-hidden />
-                {task.rewarded ? `+${task.coins} coins` : `${task.coins} coins`}
+                {task.rewarded ? t('dailyTasks.coinsPaid', { count: task.coins }) : t('dailyTasks.coins', { count: task.coins })}
               </span>
             )}
           </div>
@@ -93,7 +90,7 @@ const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
           {task.completed && (
             <span className="text-primary">
               <CircleCheck className="mr-1.5 inline size-4 align-text-bottom" aria-hidden />
-              Done
+              {t('dailyTasks.done')}
             </span>
           )}
         </div>
@@ -111,6 +108,7 @@ const DailyTaskItem = ({ task }: { task: DailyTaskProgress }) => {
  * in its place (`PanelTitleSwitch`, the profile page).
  */
 export const ProfileDailyTasks = ({ onSwitch }: { onSwitch?: () => void } = {}) => {
+  const { t } = useTranslation('profile');
   const dailyTasks = useDailyTasks();
   const [page, setPage] = useState(1);
 
@@ -127,14 +125,14 @@ export const ProfileDailyTasks = ({ onSwitch }: { onSwitch?: () => void } = {}) 
     if (dailyTasks.isError) {
       return (
         <p role="alert" className="text-base text-muted-foreground">
-          <span className="text-destructive">Daily tasks could not load.</span> {getApiErrorMessage(dailyTasks.error, 'Please try again.')} ·{' '}
+          <span className="text-destructive">{t('dailyTasks.couldNotLoad')}</span> {getApiErrorMessage(dailyTasks.error, t('dailyTasks.tryAgainText'))} ·{' '}
           <button type="button" onClick={() => void dailyTasks.refetch()} className={linkClass}>
-            Try again
+            {t('dailyTasks.tryAgain')}
           </button>
         </p>
       );
     }
-    if (dailyTasks.data.tasks.length === 0) return <p className="text-base text-muted-foreground">No daily tasks today.</p>;
+    if (dailyTasks.data.tasks.length === 0) return <p className="text-base text-muted-foreground">{t('dailyTasks.none')}</p>;
     const ordered = oldestFirst(dailyTasks.data.tasks);
     const totalPages = Math.ceil(ordered.length / TASKS_PER_PAGE);
     // A page past the end (the tasks changed) shows the last one.
@@ -157,11 +155,11 @@ export const ProfileDailyTasks = ({ onSwitch }: { onSwitch?: () => void } = {}) 
   const allDone = tasks.length > 0 && done === tasks.length;
 
   return (
-    <section aria-label="Daily tasks" aria-busy={dailyTasks.isPending}>
+    <section aria-label={t('dailyTasks.title')} aria-busy={dailyTasks.isPending}>
       {/* PANEL Daily tasks */}
       <Panel
-        title="Daily tasks"
-        titleAction={onSwitch && <PanelTitleSwitch other="Error profile" onClick={onSwitch} />}
+        title={t('dailyTasks.title')}
+        titleAction={onSwitch && <PanelTitleSwitch other={t('errorProfile.switchTo')} onClick={onSwitch} />}
         bare
         titleClassName={sectionTitleClass}
         className="space-y-4"
@@ -170,7 +168,7 @@ export const ProfileDailyTasks = ({ onSwitch }: { onSwitch?: () => void } = {}) 
             <p className="inline-flex items-center gap-2 text-base font-medium text-primary">
               <CircleCheck className="size-4" aria-hidden />
               {done} / {tasks.length}
-              <span className="sr-only"> done</span>
+              <span className="sr-only">{t('dailyTasks.doneSr')}</span>
             </p>
           )
         }
@@ -179,7 +177,7 @@ export const ProfileDailyTasks = ({ onSwitch }: { onSwitch?: () => void } = {}) 
         {allDone && (
           <p className="text-base text-primary">
             <CircleCheck className="mr-1.5 inline size-4 align-text-bottom" aria-hidden />
-            Daily mission done
+            {t('dailyTasks.missionDone')}
           </p>
         )}
       </Panel>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components/empty-state';
 import { Panel } from '@/shared/components/panel';
 import { errorLabels } from '../typing.config';
@@ -10,22 +11,23 @@ interface ResultsPanelProps {
 
 /** Mistakes so far (target word | typed word | error types) and how often each error type happened. */
 export const ResultsPanel = ({ results, stats }: ResultsPanelProps) => {
+  const { t } = useTranslation('typing');
   const mistakes = results.filter((result) => result.errors.length > 0);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {/* PANEL Mistakes */}
-      <Panel bare title="Mistakes">
+      <Panel bare title={t('result.mistakes')}>
         {mistakes.length === 0 ? (
-          <EmptyState title="No mistakes yet" description="Words you type wrongly show up here with their error type." />
+          <EmptyState title={t('result.noMistakes')} description={t('result.noMistakesHint')} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-base">
               <thead className="text-muted-foreground">
                 <tr>
-                  <th className="py-2 pr-4 font-medium">Target</th>
-                  <th className="py-2 pr-4 font-medium">Typed</th>
-                  <th className="py-2 font-medium">Error</th>
+                  <th className="py-2 pr-4 font-medium">{t('result.target')}</th>
+                  <th className="py-2 pr-4 font-medium">{t('result.typed')}</th>
+                  <th className="py-2 font-medium">{t('result.error')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -43,9 +45,9 @@ export const ResultsPanel = ({ results, stats }: ResultsPanelProps) => {
       </Panel>
 
       {/* PANEL Error rate by type */}
-      <Panel bare title="Error rate by type">
+      <Panel bare title={t('result.rateByType')}>
         {stats.length === 0 ? (
-          <p className="text-muted-foreground">Finish a word to see the rates.</p>
+          <p className="text-muted-foreground">{t('result.finishWord')}</p>
         ) : (
           <ul className="space-y-2">
             {stats.map(({ type, count, chances }) => (

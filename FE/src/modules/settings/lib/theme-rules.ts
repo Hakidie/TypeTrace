@@ -1,5 +1,6 @@
 // What makes a theme acceptable. The backend has the same rules in `BE/src/utils/theme-colors.ts` and rejects what breaks
 // them; keep the two in sync (the tests use the same sample colors). Colors are `#rrggbb`.
+import { i18n } from '@/shared/i18n/i18n';
 import type { ThemeColorField, ThemeColors, ThemeMode } from '@/shared/lib/theme';
 
 /** How many themes of their own a user may have. The built-in palette of each mode is not counted. */
@@ -39,14 +40,14 @@ export const themeProblems = (mode: ThemeMode, colors: ThemeColors) => {
   if (isDarkBackground(colors.background) !== (mode === 'dark')) {
     problems.push({
       field: 'background',
-      message: mode === 'dark' ? 'The background is too light for Dark mode.' : 'The background is too dark for Light mode.',
+      message: i18n.t(mode === 'dark' ? 'settings:theme.errors.tooLight' : 'settings:theme.errors.tooDark'),
     });
   }
-  for (const { name, label } of themeColorFields) {
+  for (const { name } of themeColorFields) {
     if (name === 'background') continue;
     const ratio = contrastRatio(colors[name], colors.background);
     if (ratio < minContrast[name]) {
-      problems.push({ field: name, message: `${label} is hard to read on this background (${ratio.toFixed(1)}:1, needs ${minContrast[name]}:1).` });
+      problems.push({ field: name, message: i18n.t('settings:theme.errors.hardToRead', { label: i18n.t(`settings:theme.fields.${name}`), ratio: ratio.toFixed(1), needs: minContrast[name] }) });
     }
   }
   return problems;

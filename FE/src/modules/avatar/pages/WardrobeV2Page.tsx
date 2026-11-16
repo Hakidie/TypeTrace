@@ -1,5 +1,7 @@
 import { Backpack, Coins, Columns2, Footprints, Glasses, GraduationCap, Hand, Lock, Plus, Scissors, Shirt, Smile, Sparkles, X, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { i18n } from '@/shared/i18n/i18n';
 import { Link } from 'react-router-dom';
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { formatCoins } from '@/modules/payments/lib/store';
@@ -9,11 +11,12 @@ import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
 import { useMediaQuery } from '@/shared/hooks/use-media-query';
 import { cn } from '@/shared/lib/utils';
+import { lockText, poseName, slotName } from '../lib/wardrobe-text';
 import { AvatarSprite } from '../components/AvatarSprite';
 import { WardrobeSwitch } from '../components/WardrobeSwitch';
 import { WardrobePage } from './WardrobePage';
 import { useAvatarCatalog, useBuyItem, useUpdateAvatar } from '../hooks/use-avatar';
-import type { AvatarItem, AvatarLook, AvatarPose, AvatarSlot, AvatarUnlock } from '../types/avatar.types';
+import type { AvatarItem, AvatarLook, AvatarPose, AvatarSlot } from '../types/avatar.types';
 
 interface SlotEntry {
   slot: AvatarSlot;
@@ -55,13 +58,6 @@ const POSES: { pose: AvatarPose; label: string }[] = [
 const words = (id: string) => id.replace(/-/g, ' ').replace(/^./, (first) => first.toUpperCase());
 
 /** What a locked item costs: its price in coins, or the season tier that gives it. */
-const lockText = (unlock: AvatarUnlock) => {
-  if (unlock.kind === 'shop') return `${unlock.price} coins`;
-  if (unlock.kind === 'tier') return `${unlock.tier[0].toUpperCase()}${unlock.tier.slice(1)} reward`;
-  if (unlock.kind === 'season') return 'Season reward';
-  if (unlock.kind === 'premium') return 'Premium';
-  return '';
-};
 // A Premium item can be previewed without Premium, like an item for sale; the left panel then leads to the Store.
 const pickable = (item: AvatarItem) => item.owned || item.unlock.kind === 'shop' || item.unlock.kind === 'premium';
 
@@ -86,7 +82,7 @@ const groupItems = (items: AvatarItem[]): Group[] => {
   }
   return [...byStyle].flatMap(([style, list]) =>
     list.length > 1 || style === ''
-      ? [{ key: style, label: style ? words(style) : 'Basic', items: list }]
+      ? [{ key: style, label: style ? words(style) : i18n.t('wardrobe:basic'), items: list }]
       : list.map((item) => ({ key: item.id, label: words(item.id), items: [item] })),
   );
 };
@@ -151,6 +147,7 @@ export const WardrobeV2Page = () => (useMediaQuery('(max-width: 767px)') ? <Ward
  * pick at once. Picking only changes the preview; Save puts the look on (`PUT /api/avatar`).
  */
 const WardrobeDesktop = () => {
+  const { t } = useTranslation('wardrobe');
   const catalog = useAvatarCatalog();
   const updateAvatar = useUpdateAvatar();
   const buyItem = useBuyItem();
@@ -199,7 +196,7 @@ const WardrobeDesktop = () => {
   const base = slot === 'hair' ? { ...look, headwear: null } : look;
 
   // The tab of the first wardrobe: icon and name, a line under it, red when it is the one open.
-  const tab = ({ slot: name, icon: Icon, label }: SlotEntry) => {
+  const tab = ({ slot: name, icon: Icon }: SlotEntry) => {
     // What the preview wears in this slot, so the groups say the whole look without opening them.
     const wornItem = catalog.data.slots[name].find((entry) => entry.id === look[name]);
     return (
@@ -218,8 +215,8 @@ const WardrobeDesktop = () => {
       >
         <Icon className="size-7 shrink-0 text-primary" aria-hidden="true" />
         <span className="flex flex-col leading-tight">
-          {label}
-          <span className="max-w-40 truncate text-sm font-normal text-muted-foreground">{wornItem ? words(wornItem.id) : 'None'}</span>
+          {slotName(name)}
+          <span className="max-w-40 truncate text-sm font-normal text-muted-foreground">{wornItem ? words(wornItem.id) : t('none')}</span>
         </span>
       </button>
     );
@@ -228,7 +225,7 @@ const WardrobeDesktop = () => {
   const drawer =
     current && slot ? (
       <aside
-        aria-label={current.label}
+        aria-label={slotName(current.slot)}
         className={cn(
           'flex flex-col bg-background p-4 duration-300 animate-in motion-reduce:animate-none',
           'fixed z-40 gap-4 overflow-y-auto',
@@ -236,14 +233,14 @@ const WardrobeDesktop = () => {
         )}
       >
         <div className="flex items-center justify-between gap-4">
-          <h2 className="shrink-0 text-[1.5rem] font-semibold text-primary/70">{current.label}</h2>
-          <button type="button" aria-label="Close" onClick={() => setSlot(null)} className="shrink-0 p-1 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+          <h2 className="shrink-0 text-[1.5rem] font-semibold text-primary/70">{slotName(current.slot)}</h2>
+          <button type="button" aria-label={t('close')} onClick={() => setSlot(null)} className="shrink-0 p-1 text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
             <X className="size-5" aria-hidden="true" />
           </button>
         </div>
         {!oneStyle && open && open.items.length > 1 && (
-          <section aria-label={`${open.label} colors`} className="flex flex-col gap-2 border bg-primary/5 p-3">
-            <h3 className="text-sm font-semibold text-foreground">{open.label}: colors</h3>
+          <section aria-label={t('colorsAria', { label: open.label })} className="flex flex-col gap-2 border bg-primary/5 p-3">
+            <h3 className="text-sm font-semibold text-foreground">{t('colorsOf', { label: open.label })}</h3>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] gap-2">
               {open.items.map((item) => (
                 <PickCard
@@ -262,7 +259,7 @@ const WardrobeDesktop = () => {
           </section>
         )}
         <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
-          {current.optional && <PickCard label="None" preview={{ ...base, [slot]: null }} focus={current.focus} selected={!look[slot]} onPick={() => pick(null)} />}
+          {current.optional && <PickCard label={t('none')} preview={{ ...base, [slot]: null }} focus={current.focus} selected={!look[slot]} onPick={() => pick(null)} />}
           {oneStyle
             ? groups[0].items.map((item) => (
                 <PickCard key={item.id} label={words(item.id)} item={item} preview={{ ...base, [slot]: item.id }} focus={current.focus} selected={look[slot] === item.id} onPick={() => pick(item.id)} />
@@ -279,7 +276,7 @@ const WardrobeDesktop = () => {
                     focus={current.focus}
                     selected={single ? look[slot] === single.id : group === worn}
                     onPick={() => (single ? pick(single.id) : openStyle(group))}
-                    note={single ? undefined : `${group.items.length} colors`}
+                    note={single ? undefined : t('colorsCount', { count: group.items.length })}
                   />
                 );
               })}
@@ -292,25 +289,25 @@ const WardrobeDesktop = () => {
       {/* From `lg` up the three columns make the middle one (Reset, Pose, Save) the center of the screen, whatever the width of the title and the coins. */}
       <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-[1.5rem] font-semibold lg:grid lg:grid-cols-[1fr_auto_1fr]">
         <div className="flex items-center gap-4">
-          <h1 className="text-primary/70">Wardrobe</h1>
-          <WardrobeSwitch to="classic" other="Classic wardrobe" />
+          <h1 className="text-primary/70">{t('title')}</h1>
+          <WardrobeSwitch to="classic" other={t('classic')} />
         </div>
         {/* Reset and Save sit in two equal columns, so the Pose tabs are in the exact center whatever the width of the Save button (a guest's is longer). */}
         <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-3 text-base font-normal">
           <Button type="button" variant="outline" className="h-auto justify-self-end px-3 py-1.5 text-[1.125rem] leading-normal" disabled={!dirty} onClick={() => setDraft(null)}>
-            Reset
+            {t('reset')}
           </Button>
           {/* A flex wrapper, so the tabs stretch to the height of the row like the two buttons. */}
           <div className="flex">
-            <TabGroup label="Pose" tabs={POSES.map(({ pose: value, label }) => ({ value, label }))} value={pose} onChange={(value) => setPose(value as AvatarPose)} />
+            <TabGroup label={t('pose')} tabs={POSES.map(({ pose: value }) => ({ value, label: poseName(value) }))} value={pose} onChange={(value) => setPose(value as AvatarPose)} />
           </div>
           {guest ? (
             <Button asChild className="h-auto justify-self-start px-3 py-1.5 text-[1.125rem] leading-normal">
-              <Link to="/register">Sign up to save</Link>
+              <Link to="/register">{t('signSave')}</Link>
             </Button>
           ) : (
             <Button type="button" className="h-auto justify-self-start px-3 py-1.5 text-[1.125rem] leading-normal" disabled={!dirty || unowned.length > 0 || updateAvatar.isPending} onClick={save}>
-              Save
+              {t('save')}
             </Button>
           )}
         </div>
@@ -328,7 +325,7 @@ const WardrobeDesktop = () => {
                 className="inline-flex items-center gap-1.5 border border-primary/60 px-3 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
               >
                 <Plus className="size-4" aria-hidden="true" />
-                Get coins
+                {t('getCoins')}
               </Link>
             </span>
           </span>
@@ -337,19 +334,19 @@ const WardrobeDesktop = () => {
       </div>
 
       <div className="mx-auto grid w-full max-w-5xl items-center gap-x-6 gap-y-4 md:grid-cols-[1fr_auto_1fr]">
-        <div role="group" aria-label="Clothes" className="flex flex-wrap justify-center gap-1 md:order-1 md:flex-col md:items-start md:justify-self-start">
+        <div role="group" aria-label={t('clothes')} className="flex flex-wrap justify-center gap-1 md:order-1 md:flex-col md:items-start md:justify-self-start">
           {CLOTHES.map(tab)}
         </div>
         <div className="flex flex-col items-center gap-4 max-md:order-first md:order-2">
-          <AvatarSprite look={look} pose={pose} scale={6} label="Your avatar" />
+          <AvatarSprite look={look} pose={pose} scale={6} label={t('avatar')} />
         </div>
-        <div role="group" aria-label="Extras" className="flex flex-wrap justify-center gap-1 md:order-3 md:flex-col md:items-start md:justify-self-end">
+        <div role="group" aria-label={t('extras')} className="flex flex-wrap justify-center gap-1 md:order-3 md:flex-col md:items-start md:justify-self-end">
           {EXTRAS.map(tab)}
         </div>
       </div>
       {/* A fixed 72px under the avatar (24px of the page's gap + 48px here), whatever the screen's height. */}
       <div className="flex justify-center pt-12">
-        <div role="group" aria-label="Looks" className="flex flex-wrap justify-center gap-1">
+        <div role="group" aria-label={t('looks')} className="flex flex-wrap justify-center gap-1">
           {LOOKS.map(tab)}
         </div>
       </div>
@@ -359,16 +356,16 @@ const WardrobeDesktop = () => {
         <div className="sticky bottom-0 z-30 mx-auto -mb-8 mt-auto flex w-full max-w-sm flex-col gap-3 bg-background/80 pb-12 pt-3 backdrop-blur-sm">
         {forSale && (guest ? (
           <Button asChild className="w-full">
-            <Link to="/register"><span>Sign up to buy</span></Link>
+            <Link to="/register"><span>{t('signBuy')}</span></Link>
           </Button>
         ) : (
           <Button type="button" className="w-full" disabled={coins < forSale.price || buyItem.isPending} onClick={() => buyItem.mutate(`${forSale.slot}:${forSale.item.id}`)}>
-            <span>Buy {words(forSale.item.id)} for {forSale.price} coins</span>
+            <span>{t('buy', { name: words(forSale.item.id), price: forSale.price })}</span>
           </Button>
         ))}
         {proLocked && (
           <Button asChild className="w-full">
-            <Link to={guest ? '/register' : '/store'}><span>{guest ? 'Sign up to get Premium' : `Get Premium to wear ${words(proLocked.item.id)}`}</span></Link>
+            <Link to={guest ? '/register' : '/store'}><span>{guest ? t('signPremium') : t('getPremium', { name: words(proLocked.item.id) })}</span></Link>
           </Button>
         )}
         </div>

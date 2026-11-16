@@ -1,5 +1,6 @@
 import { forwardRef, useState } from 'react';
 import type { ComponentProps } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CircleAlert, Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
@@ -16,6 +17,7 @@ interface AuthInputProps extends ComponentProps<'input'> {
  */
 export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
   ({ type, className, warning, ...props }, ref) => {
+    const { t } = useTranslation('auth');
     const [shown, setShown] = useState(false);
     const isPassword = type === 'password';
 
@@ -46,7 +48,7 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
         {isPassword && (
           <button
             type="button"
-            aria-label={shown ? 'Hide password' : 'Show password'}
+            aria-label={shown ? t('fields.hidePassword') : t('fields.showPassword')}
             aria-pressed={shown}
             onClick={() => setShown((value) => !value)}
             className="absolute right-0 top-0 flex size-11 items-center justify-center text-muted-foreground opacity-0 transition hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"

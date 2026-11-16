@@ -1,3 +1,4 @@
+import { i18n } from '@/shared/i18n/i18n';
 import type { AdminPaymentRow, PaymentProduct } from '../types/payments.types';
 
 const number = new Intl.NumberFormat('vi-VN');
@@ -6,7 +7,7 @@ const number = new Intl.NumberFormat('vi-VN');
 export const formatVnd = (amount: number) => `${number.format(amount)} ₫`;
 
 /** `1400` → `1.400 coins`. */
-export const formatCoins = (coins: number) => `${number.format(coins)} coins`;
+export const formatCoins = (coins: number) => i18n.t('store:coins', { amount: number.format(coins) });
 
 /** `dragon-horns` → `Dragon horns`. */
 export const itemLabel = (id: string) => id.replace(/-/g, ' ').replace(/^./, (first) => first.toUpperCase());
@@ -24,7 +25,7 @@ export const coinPacks = (products: PaymentProduct[]) =>
 
 export const monthsOf = (plan: PremiumProduct) => plan.grant.months;
 
-export const planTitle = (plan: PremiumProduct) => `${monthsOf(plan)} ${monthsOf(plan) === 1 ? 'month' : 'months'}`;
+export const planTitle = (plan: PremiumProduct) => i18n.t('store:planMonths', { count: monthsOf(plan) });
 
 /** What a month costs. */
 export const pricePerMonth = (plan: PremiumProduct) => Math.round(plan.amount / monthsOf(plan));
@@ -38,50 +39,25 @@ export const bonusPercent = (pack: CoinProduct, smallest: CoinProduct) =>
   Math.max(0, Math.round((pack.grant.coins / pack.amount / (smallest.grant.coins / smallest.amount) - 1) * 100));
 
 /** What VNPay's `vnp_ResponseCode` means for a learner whose payment did not go through. */
-export const failureMessage = (code: string | null) => {
-  switch (code) {
-    case '24':
-      return 'You cancelled the payment on VNPay.';
-    case '11':
-      return 'The payment window expired.';
-    case '51':
-      return 'The account does not have enough balance.';
-    case '65':
-      return 'The account reached its daily limit.';
-    default:
-      return 'VNPay did not complete the payment.';
-  }
-};
+export const failureMessage = (code: string | null) =>
+  i18n.t(`store:failure.vnpay.${code === '24' || code === '11' || code === '51' || code === '65' ? code : 'other'}`);
 
-/** The same for MoMo's `resultCode`. */
-export const momoFailureMessage = (code: string | null) => {
-  switch (code) {
-    case '1003':
-    case '1006':
-      return 'You cancelled the payment on MoMo.';
-    case '1005':
-      return 'The payment window expired.';
-    case '1001':
-      return 'The MoMo wallet does not have enough balance.';
-    case '1004':
-      return 'The payment is over the MoMo limit.';
-    default:
-      return 'MoMo did not complete the payment.';
-  }
-};
+const MOMO_FAILURES: Record<string, string> = { '1003': 'cancelled', '1006': 'cancelled', '1005': 'expired', '1001': 'balance', '1004': 'limit' };
 
-/** The same for payOS: its return URL only says whether the learner cancelled (`cancel=true`); the server asks payOS the rest. */
-export const payosFailureMessage = (cancel: string | null) =>
-  cancel === 'true' ? 'You cancelled the payment on payOS.' : 'payOS did not complete the payment.';
+export const momoFailureMessage = (code: string | null) => i18n.t(`store:failure.momo.${MOMO_FAILURES[code ?? ''] ?? 'other'}`);
+
+export const payosFailureMessage = (cancel: string | null) => i18n.t(`store:failure.payos.${cancel === 'true' ? 'cancelled' : 'other'}`);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /** The whole days until a Premium ends, a started day counting as a day; at least 1 while it lasts. */
 const daysUntil = (until: string, now: Date) => Math.max(1, Math.ceil((new Date(until).getTime() - now.getTime()) / DAY_MS));
 
 /** "69 days": what is left of a Premium, for the Store's top row. */
-export const daysLeftText = (until: string, now = new Date()) => plural(daysUntil(until, now), 'day');
+const dayCount = (count: number) => i18n.t('store:days', { count });
+const monthCount = (count: number) => i18n.t('store:months', { count });
+
+export const daysLeftText = (until: string, now = new Date()) => dayCount(daysUntil(until, now));
 
 /** "2 months 9 days left": the same time in calendar months and days, for the tooltip. Under a month it is only days. */
 export const timeLeftDetail = (until: string, now = new Date()) => {
@@ -89,9 +65,9 @@ export const timeLeftDetail = (until: string, now = new Date()) => {
   const stepped = (count: number) => new Date(now.getFullYear(), now.getMonth() + count, now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds());
   let months = (end.getFullYear() - now.getFullYear()) * 12 + end.getMonth() - now.getMonth();
   if (months > 0 && stepped(months) > end) months -= 1;
-  if (months <= 0) return `${plural(daysUntil(until, now), 'day')} left`;
+  if (months <= 0) return i18n.t('store:left', { what: dayCount(daysUntil(until, now)) });
   const days = Math.ceil((end.getTime() - stepped(months).getTime()) / DAY_MS);
-  return `${[plural(months, 'month'), days > 0 ? plural(days, 'day') : ''].filter(Boolean).join(' ')} left`;
+  return i18n.t('store:left', { what: [monthCount(months), days > 0 ? dayCount(days) : ''].filter(Boolean).join(' ') });
 };
 
 /** The gateways' names, as the admin payment list shows them. */
@@ -111,5 +87,5 @@ export const shouldAskToRenew = (premium: { active: boolean; until: string | nul
 export const purchaseLabel = (productId: string, products: PaymentProduct[] | undefined) => {
   const grant = products?.find((product) => product.id === productId)?.grant;
   if (!grant) return productId;
-  return grant.kind === 'premium' ? `Premium ${plural(grant.months, 'month')}` : formatCoins(grant.coins);
+  return grant.kind === 'premium' ? i18n.t('store:premiumTerm', { what: monthCount(grant.months) }) : formatCoins(grant.coins);
 };

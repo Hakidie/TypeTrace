@@ -1,8 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { ChevronsDown, ChevronsUp } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 
 /** The "Expand" / "Collapse" button at the bottom left of a list panel (with `Pagination` on the right): the list shows more rows a page while it is expanded. */
-export const ExpandButton = ({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) => (
+export const ExpandButton = ({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) => {
+  const { t } = useTranslation();
+  return (
   <Button
     type="button"
     variant="ghost"
@@ -11,6 +14,7 @@ export const ExpandButton = ({ expanded, onToggle }: { expanded: boolean; onTogg
     onClick={onToggle}
   >
     {expanded ? <ChevronsUp className="size-4" aria-hidden="true" /> : <ChevronsDown className="size-4" aria-hidden="true" />}
-    {expanded ? 'Collapse' : 'Expand'}
+    {expanded ? t('actions.collapse') : t('actions.expand')}
   </Button>
-);
+  );
+};

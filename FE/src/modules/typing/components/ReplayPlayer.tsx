@@ -1,5 +1,6 @@
 import { Pause, Play } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSettings } from '@/modules/settings/hooks/use-settings';
 import { TabGroup } from '@/shared/components/tab-group';
 import { Button } from '@/shared/components/ui/button';
@@ -38,6 +39,7 @@ interface ReplayPlayerProps {
  * on which word, clicking it goes there.
  */
 export const ReplayPlayer = ({ targetWords, language = 'vi', events, expiresAt }: ReplayPlayerProps) => {
+  const { t, i18n } = useTranslation('typing');
   // The passage text size the learner chose in Settings (SCRUM-158).
   const { typingFontSizeRem } = useSettings();
   const replay = useMemo(() => decodeReplay(events), [events]);
@@ -80,7 +82,7 @@ export const ReplayPlayer = ({ targetWords, language = 'vi', events, expiresAt }
       <PassageView words={targetWords} results={results} current={ended ? undefined : splitTyped(shown).current} maxRows={3} fontSizeRem={typingFontSizeRem} />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <Button variant="ghost" size="sm" aria-label={isPlaying ? 'Pause' : 'Play'} onClick={togglePlay}>
+        <Button variant="ghost" size="sm" aria-label={isPlaying ? t('replay.pause') : t('replay.play')} onClick={togglePlay}>
           {isPlaying ? <Pause className="size-5" /> : <Play className="size-5" />}
         </Button>
         <span className="text-[1.125rem] tabular-nums text-muted-foreground">
@@ -94,8 +96,8 @@ export const ReplayPlayer = ({ targetWords, language = 'vi', events, expiresAt }
           </div>
           <input
             type="range"
-            aria-label="Replay position"
-            aria-valuetext={`${clock(positionMs)} of ${clock(replay.durationMs)}`}
+            aria-label={t('replay.position')}
+            aria-valuetext={t('replay.positionText', { at: clock(positionMs), total: clock(replay.durationMs) })}
             min={0}
             // Whole steps up to the end or past it, so the end can be reached.
             max={Math.ceil(replay.durationMs / STEP_MS) * STEP_MS}
@@ -106,13 +108,13 @@ export const ReplayPlayer = ({ targetWords, language = 'vi', events, expiresAt }
           />
           <TooltipProvider delayDuration={200}>
             {hesitations.map((pause) => {
-              const where = `${formatPause(pause.ms)} on “${targetWords[pause.wordIndex] ?? ''}”`;
+              const where = t('replay.pauseOn', { pause: formatPause(pause.ms), word: targetWords[pause.wordIndex] ?? '' });
               return (
                 <Tooltip key={pause.atMs}>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      aria-label={`Hesitation at ${clock(pause.atMs)}: ${where}`}
+                      aria-label={t('replay.hesitationAt', { at: clock(pause.atMs), where })}
                       onClick={() => seek(pause.atMs)}
                       className="group absolute top-0 flex h-6 w-3 -translate-x-1/2 justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       style={{ left: share(pause.atMs) }}
@@ -120,24 +122,24 @@ export const ReplayPlayer = ({ targetWords, language = 'vi', events, expiresAt }
                       <span className="mt-1 h-4 w-1 bg-foreground transition-colors group-hover:bg-primary" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Stopped {where}</TooltipContent>
+                  <TooltipContent>{t('replay.stopped', { where })}</TooltipContent>
                 </Tooltip>
               );
             })}
           </TooltipProvider>
         </div>
-        <TabGroup label="Speed" tabs={speedTabs} value={String(speed)} onChange={(value) => setSpeed(Number(value))} />
+        <TabGroup label={t('replay.speed')} tabs={speedTabs} value={String(speed)} onChange={(value) => setSpeed(Number(value))} />
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-base text-muted-foreground">
         <p className="flex items-center gap-2">
           <span aria-hidden className="h-4 w-1 shrink-0 bg-foreground" />
           {hesitations.length === 0
-            ? `No hesitation: you never stopped ${formatPause(thresholdMs)} or more.`
-            : `${hesitations.length} ${hesitations.length === 1 ? 'hesitation' : 'hesitations'}: stops of ${formatPause(thresholdMs)} or more.`}
+            ? t('replay.noHesitation', { pause: formatPause(thresholdMs) })
+            : t('replay.hesitation', { count: hesitations.length, pause: formatPause(thresholdMs) })}
         </p>
         {expiresAt && (
-          <p>Kept until {new Date(expiresAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+          <p>{t('replay.keptUntil', { date: new Date(expiresAt).toLocaleDateString(i18n.language === 'vi' ? 'vi-VN' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) })}</p>
         )}
       </div>
     </div>

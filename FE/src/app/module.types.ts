@@ -21,6 +21,8 @@ export interface PublicRoute {
 export interface NavItem {
   to: string;
   label: string;
+  /** The key of the name in the `common` namespace (SCRUM-328); `label` is the English fallback the admin sidebar shows. */
+  labelKey?: string;
   icon: LucideIcon;
   roles?: UserRole[];
   /** The page is open to guests (SCRUM-251). Without it the guest header shows the link locked: "Create an account" in a tooltip. */
@@ -36,6 +38,8 @@ export interface NavWidget {
 /** An entry in the account menu (the avatar menu in the header): a link (`to`) or an action (`onSelect`). Set `roles` to hide it from other users. */
 export interface MenuItem {
   label: string;
+  /** The key of the name in the `common` namespace (SCRUM-328). */
+  labelKey?: string;
   icon: LucideIcon;
   to?: string;
   onSelect?: () => void;

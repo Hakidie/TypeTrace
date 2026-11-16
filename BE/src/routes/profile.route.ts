@@ -52,5 +52,5 @@ profileRouter.get('/vowel-tone', authGuard, getVowelTone);
 profileRouter.get('/monthly-progress', authGuard, validate({ query: monthlyProgressQuerySchema }), getMonthlyProgress);
 /** The learner's own settings (SCRUM-158). */
 profileRouter.get('/settings', authGuard, getSettings);
-/** `{ timezone?, typingLanguage?, typingFontSizeRem?, fontFamily? }`, at least one: the zone of the learner's days (SCRUM-31), their Practice language (SCRUM-219), the passage font size and the interface font (SCRUM-158). */
+/** `{ timezone?, typingLanguage?, uiLanguage?, typingFontSizeRem?, fontFamily? }`, at least one: the zone of the learner's days (SCRUM-31), their Practice language (SCRUM-219), the passage font size and the interface font (SCRUM-158). */
 profileRouter.patch('/settings', authGuard, validateBody(updateSettingsSchema), updateSettings);

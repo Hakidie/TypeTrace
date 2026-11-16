@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CircleCheck, Lock, Minus, TrendingDown, TrendingUp, TriangleAlert, type LucideIcon } from 'lucide-react';
 import { errorLabels } from '@/modules/typing/typing.config';
 import { LabeledTag } from '@/shared/components/labeled-tag';
@@ -11,10 +12,10 @@ import type { ErrorProfile, ErrorTrend, ErrorTypeProfile } from '../types/profil
 const hintFocusClass = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** The words and the icon of each trend: the error rate going down is the learner getting better. */
-const TREND_INFO: Record<Exclude<ErrorTrend, 'insufficient_data'>, { label: string; icon: LucideIcon; className: string }> = {
-  improved: { label: 'Improving', icon: TrendingDown, className: 'text-primary' },
-  worse: { label: 'Getting worse', icon: TrendingUp, className: 'text-destructive' },
-  unchanged: { label: 'Steady', icon: Minus, className: 'text-muted-foreground' },
+const TREND_INFO: Record<Exclude<ErrorTrend, 'insufficient_data'>, { icon: LucideIcon; className: string }> = {
+  improved: { icon: TrendingDown, className: 'text-primary' },
+  worse: { icon: TrendingUp, className: 'text-destructive' },
+  unchanged: { icon: Minus, className: 'text-muted-foreground' },
 };
 
 /** A hint on hover or keyboard focus, in the shared tooltip. */
@@ -34,38 +35,40 @@ interface ItemProps {
 
 /** Weak (a red tag), OK, or what the type still needs before it has a level. */
 const LevelMark = ({ item, profile }: ItemProps) => {
+  const { t } = useTranslation('profile');
   if (item.level === 'weak') {
-    return <LabeledTag icon={TriangleAlert} text="Weak" hint={`Wrong in ${profile.weakRate}% or more of the ${chanceWords(item.type)}`} />;
+    return <LabeledTag icon={TriangleAlert} text={t('errorCard.weak')} hint={t('errorCard.weakHint', { rate: profile.weakRate, what: chanceWords(item.type) })} />;
   }
   if (item.level === 'ok') {
     return (
       <span className="inline-flex items-center gap-1.5 text-muted-foreground">
         <CircleCheck className="size-4" aria-hidden />
-        OK
+        {t('errorCard.ok')}
       </span>
     );
   }
-  return <span className="text-muted-foreground">Needs {missingWords(item.type, profile.minOpportunities - item.opportunities)}</span>;
+  return <span className="text-muted-foreground">{t('errorCard.needs', { what: missingWords(item.type, profile.minOpportunities - item.opportunities) })}</span>;
 };
 
 /** The trend against the sessions before, its rates in a tooltip. A type without a level has none: the level says what it needs. */
 const TrendMark = ({ item, profile }: ItemProps) => {
+  const { t } = useTranslation('profile');
   if (item.level === 'insufficient_data') return null;
   if (item.trend === 'insufficient_data') {
     return (
-      <Hint text={`A trend needs ${profile.minOpportunities} ${chanceWords(item.type)} in the ${profile.window} sessions before too`}>
+      <Hint text={t('errorCard.noTrendHint', { min: profile.minOpportunities, what: chanceWords(item.type), window: profile.window })}>
         <span tabIndex={0} className={cn('text-muted-foreground', hintFocusClass)}>
-          No trend yet
+          {t('errorCard.noTrend')}
         </span>
       </Hint>
     );
   }
-  const { label, icon: Icon, className } = TREND_INFO[item.trend];
+  const { icon: Icon, className } = TREND_INFO[item.trend];
   return (
-    <Hint text={`${item.previousRate}% → ${item.rate}% against the ${profile.window} sessions before`}>
+    <Hint text={t('errorCard.trendHint', { previous: item.previousRate, rate: item.rate, window: profile.window })}>
       <span tabIndex={0} className={cn('inline-flex items-center gap-1.5', className, hintFocusClass)}>
         <Icon className="size-4" aria-hidden />
-        {label}
+        {t(`errorCard.${item.trend}`)}
       </span>
     </Hint>
   );
@@ -88,6 +91,7 @@ interface ErrorTypeCardProps extends ItemProps {
  * the Weak spots tab, where `onSelect` makes it a button (one laid over the card, under its hints, so the tooltips still open).
  */
 export const ErrorTypeCard = ({ item, profile, onSelect, locked = false, action }: ErrorTypeCardProps) => {
+  const { t } = useTranslation('profile');
   const hasLevel = item.level !== 'insufficient_data';
   const filled = hasLevel ? Math.min(item.rate / (profile.weakRate * 2), 1) * 100 : 0;
 
@@ -97,7 +101,7 @@ export const ErrorTypeCard = ({ item, profile, onSelect, locked = false, action 
         <button
           type="button"
           onClick={onSelect}
-          aria-label={`Practice ${errorLabels[item.type]}${locked ? ' (Premium)' : ''}`}
+          aria-label={t('errorCard.practiceNamed', { name: errorLabels[item.type] }) + (locked ? t('errorProfile.premium') : '')}
           className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       )}

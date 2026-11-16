@@ -1,5 +1,6 @@
 import { Languages, Lock } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { PlanDialog } from '@/modules/plan/components/PlanDialog';
 import { usePlan } from '@/modules/plan/hooks/use-plan';
@@ -35,18 +36,19 @@ interface PracticeButtonProps {
  * in the Train tab), also for a type without enough data yet, whose lesson says so. Its name says the type.
  */
 const PracticeButton = ({ type, locked, onLocked }: PracticeButtonProps) => {
-  const name = `Practice this error: ${errorLabels[type]}${locked ? ' (Premium)' : ''}`;
+  const { t } = useTranslation('profile');
+  const name = t('errorProfile.practiceNamed', { name: errorLabels[type] }) + (locked ? t('errorProfile.premium') : '');
   if (locked) {
     return (
       <Button variant="outline" size="sm" className={practiceButtonClass} aria-label={name} onClick={onLocked}>
-        <Lock className="size-4" aria-hidden /> Practice this error
+        <Lock className="size-4" aria-hidden /> {t('errorProfile.practice')}
       </Button>
     );
   }
   return (
     <Button asChild variant="outline" size="sm" className={practiceButtonClass}>
       <Link to={`/typing?mode=targeted&focus=${type}`} aria-label={name}>
-        Practice this error
+        {t('errorProfile.practice')}
       </Link>
     </Button>
   );
@@ -62,7 +64,8 @@ const PracticeButton = ({ type, locked, onLocked }: PracticeButtonProps) => {
  * first counted session, one muted line. With `onSwitch` a button next to the title shows another panel in its place
  * (`switchTo`, My Sessions by default) (`PanelTitleSwitch`, the Progress page).
  */
-export const ProfileErrorProfile = ({ onSwitch, switchTo = 'My Sessions' }: { onSwitch?: () => void; switchTo?: string } = {}) => {
+export const ProfileErrorProfile = ({ onSwitch, switchTo }: { onSwitch?: () => void; switchTo?: string } = {}) => {
+  const { t } = useTranslation('profile');
   // The language shown: the learner's own until they press the switch (a view only, the account's typing language is not saved).
   const [picked, setPicked] = useState<TypingLanguage>();
   const errorProfile = useErrorProfile(picked);
@@ -88,15 +91,15 @@ export const ProfileErrorProfile = ({ onSwitch, switchTo = 'My Sessions' }: { on
     if (errorProfile.isError) {
       return (
         <p role="alert" className="text-base text-muted-foreground">
-          <span className="text-destructive">Error profile could not load.</span> {getApiErrorMessage(errorProfile.error, 'Please try again.')} ·{' '}
+          <span className="text-destructive">{t('errorProfile.couldNotLoad')}</span> {getApiErrorMessage(errorProfile.error, t('dailyTasks.tryAgainText'))} ·{' '}
           <button type="button" onClick={() => void errorProfile.refetch()} className={linkClass}>
-            Try again
+            {t('dailyTasks.tryAgain')}
           </button>
         </p>
       );
     }
     if (errorProfile.data.sessionsUsed === 0) {
-      return <p className="text-base text-muted-foreground">No counted {language} sessions yet: your error profile starts with your first one.</p>;
+      return <p className="text-base text-muted-foreground">{t('errorProfile.noSessions', { language })}</p>;
     }
     // Only the Vietnamese types can be practiced: the Train lessons are made of the Vietnamese word bank.
     const practicable = errorProfile.data.language === 'vi';
@@ -115,14 +118,14 @@ export const ProfileErrorProfile = ({ onSwitch, switchTo = 'My Sessions' }: { on
   };
 
   return (
-    <section aria-label="Error profile" aria-busy={errorProfile.isPending}>
+    <section aria-label={t('errorProfile.title')} aria-busy={errorProfile.isPending}>
       {/* PANEL Error profile */}
       <Panel
-        title="Error profile"
-        titleAction={onSwitch && <PanelTitleSwitch other={switchTo} onClick={onSwitch} />}
+        title={t('errorProfile.title')}
+        titleAction={onSwitch && <PanelTitleSwitch other={switchTo ?? t('errorProfile.mySessions')} onClick={onSwitch} />}
         titleTip={
           errorProfile.data &&
-          `Your last ${errorProfile.data.window} counted ${language} sessions: a type is weak from ${errorProfile.data.weakRate}% wrong, and its trend compares them with the ${errorProfile.data.window} sessions before. Use the language button to see the other language.`
+          t('errorProfile.tip', { window: errorProfile.data.window, language, weakRate: errorProfile.data.weakRate })
         }
         bare
         titleClassName={sectionTitleClass}
@@ -131,7 +134,7 @@ export const ProfileErrorProfile = ({ onSwitch, switchTo = 'My Sessions' }: { on
           <CompactToolbar
             buttons={[
               {
-                label: `Error profile language: ${language}. Switch to ${languageNames[other]}`,
+                label: t('errorProfile.languageButton', { language, other: languageNames[other] }),
                 icon: Languages,
                 valueLabel: language,
                 onClick: () => setPicked(other),

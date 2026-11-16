@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { PassageMenuPanel } from '@/modules/typing/components/PassageMenuPanel';
 import type { PassageOption } from '@/modules/typing/types/typing.types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
@@ -15,6 +16,7 @@ interface PlacementPassageMenuProps {
  * origin: they are all TypeTrace's). The row of the page must be `relative`: the wrapper of the menu is `static`.
  */
 export const PlacementPassageMenu = ({ passages, selectedId, onSelect }: PlacementPassageMenuProps) => {
+  const { t } = useTranslation('ranked');
   const selected = passages?.find((passage) => passage._id === selectedId);
   return (
     <DropdownMenu className="static">
@@ -22,13 +24,13 @@ export const PlacementPassageMenu = ({ passages, selectedId, onSelect }: Placeme
         <DropdownMenuTrigger
           disabled={!passages?.length}
           title={selected?.title}
-          aria-label="Choose passage"
+          aria-label={t('board.choosePassage')}
           className="min-w-0 px-3 py-1.5 text-left text-[1.125rem] text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span className="block break-words">{selected?.title ?? '—'}</span>
         </DropdownMenuTrigger>
       </div>
-      <DropdownMenuContent role="menu" aria-label="Placement passages" className="left-1/2 w-full -translate-x-1/2 sm:w-max sm:min-w-[24rem] sm:max-w-[min(32rem,calc(100vw-2rem))]">
+      <DropdownMenuContent role="menu" aria-label={t('board.passages')} className="left-1/2 w-full -translate-x-1/2 sm:w-max sm:min-w-[24rem] sm:max-w-[min(32rem,calc(100vw-2rem))]">
         <PassageMenuPanel mode="placement" selectedId={selectedId} onSelect={onSelect} />
       </DropdownMenuContent>
     </DropdownMenu>

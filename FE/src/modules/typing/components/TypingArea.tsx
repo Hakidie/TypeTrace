@@ -1,5 +1,6 @@
 import { CheckCircle2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ChangeEvent, CompositionEvent, KeyboardEvent, ReactNode } from 'react';
 import { useSettings } from '@/modules/settings/hooks/use-settings';
 import { Card, CardContent } from '@/shared/components/ui/card';
@@ -72,21 +73,24 @@ interface TypingStatusProps {
 }
 
 /** Bottom of the page: words typed on the left, the timer on the right, and `center` between them. Full screen width, not the card's. The page shows it with zeros while the next session loads, so it never disappears. */
-export const TypingStatus = ({ typed, total, seconds, finished, center }: TypingStatusProps) => (
+export const TypingStatus = ({ typed, total, seconds, finished, center }: TypingStatusProps) => {
+  const { t } = useTranslation('typing');
+  return (
   <div data-tutorial="typing-stats" className="relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-[1fr_auto_1fr] items-center px-4 text-[1.125rem] md:px-8">
     <span className={`${statusFrame} justify-self-start`}>
-      Words {Math.min(typed, total)} / {total}
+      {t('area.words', { typed: Math.min(typed, total), total })}
     </span>
     <div className="col-start-2">{center}</div>
     {finished ? (
       <span className={`${statusFrame} col-start-3 flex items-center gap-2 justify-self-end font-medium`}>
-        <CheckCircle2 className="size-5" /> Finished
+        <CheckCircle2 className="size-5" /> {t('area.finished')}
       </span>
     ) : (
-      <span aria-label="Elapsed time" className={`${statusFrame} col-start-3 justify-self-end`}>{formatDuration(seconds)}</span>
+      <span aria-label={t('area.elapsed')} className={`${statusFrame} col-start-3 justify-self-end`}>{formatDuration(seconds)}</span>
     )}
   </div>
-);
+  );
+};
 
 export const TypingArea = ({
   targetWords,
@@ -105,6 +109,7 @@ export const TypingArea = ({
   // The passage text size the learner chose in Settings (SCRUM-158).
   const { typingFontSizeRem } = useSettings();
   const resumedText = initialTyped?.typedWords.length ? `${initialTyped.typedWords.join(' ')} ` : '';
+  const { t } = useTranslation('typing');
   const [text, setText] = useState(resumedText);
   const [committed, setCommitted] = useState(resumedText);
   const [lastWordDone, setLastWordDone] = useState(false);
@@ -210,7 +215,7 @@ export const TypingArea = ({
             <div className="relative" data-tutorial="typing-passage">
               <PassageView words={targetWords} results={results} current={isFinished ? undefined : current} maxRows={3} fontSizeRem={typingFontSizeRem} />
               <textarea
-                aria-label="Typing area"
+                aria-label={t('area.label')}
                 className="absolute inset-0 size-full cursor-text resize-none opacity-0"
                 value={text}
                 onChange={handleChange}

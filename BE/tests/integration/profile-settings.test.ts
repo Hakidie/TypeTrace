@@ -83,6 +83,38 @@ describe('PATCH /api/profile/settings: typing font size and app font', () => {
   });
 });
 
+describe('PATCH /api/profile/settings: interface language (SCRUM-326)', () => {
+  it.each(['vi', 'en'])('saves %s alone, keeping the typing language', async (uiLanguage) => {
+    const learner = await createUser();
+    await patch(learner, { typingLanguage: 'en' });
+
+    const response = await patch(learner, { uiLanguage });
+
+    expect(response.status).toBe(200);
+    expect(response.body.settings).toMatchObject({ uiLanguage, typingLanguage: 'en' });
+    expect((await UserModel.findById(learner._id))!.settings.uiLanguage).toBe(uiLanguage);
+  });
+
+  it.each(['fr', '', null, 1])('rejects the interface language %j', async (uiLanguage) => {
+    const learner = await createUser();
+
+    expect((await patch(learner, { uiLanguage })).status).toBe(400);
+  });
+
+  it('is not chosen until saved, and GET and /me tell it', async () => {
+    const learner = await createUser();
+    const read = () => api().get('/api/profile/settings').set('Authorization', bearerFor(learner));
+
+    expect((await read()).body.uiLanguage).toBeNull();
+
+    await patch(learner, { uiLanguage: 'en' });
+
+    expect((await read()).body.uiLanguage).toBe('en');
+    const me = await api().get('/api/auth/me').set('Authorization', bearerFor(learner));
+    expect(me.body.settings.uiLanguage).toBe('en');
+  });
+});
+
 describe('GET /api/profile/settings', () => {
   it('returns the defaults for a new account and nothing private', async () => {
     const learner = await createUser();
@@ -94,7 +126,8 @@ describe('GET /api/profile/settings', () => {
       timezone: 'Asia/Ho_Chi_Minh',
       typingLanguage: 'vi',
       typingFontSizeRem: 2,
-      fontFamily: 'jetbrains-mono'
+      fontFamily: 'jetbrains-mono',
+      uiLanguage: null
     });
   });
 

@@ -2,13 +2,14 @@ import { Palette, Settings } from 'lucide-react';
 import type { AppModule } from '@/app/module.types';
 import { AdminThemesPage } from '@/modules/admin/pages/AdminThemesPage';
 import { FontSync } from './components/FontSync';
+import { LanguageSync } from './components/LanguageSync';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 export const settingsModule: AppModule = {
   routes: [{ path: '/settings', Component: SettingsPage }],
-  widgets: [FontSync],
-  menuItems: [{ to: '/settings', label: 'Settings', icon: Settings, last: true }],
+  widgets: [FontSync, LanguageSync],
+  menuItems: [{ to: '/settings', label: 'Settings', labelKey: 'menu.settings', icon: Settings, last: true }],
   // Themes come before Settings in the admin sidebar (right below Passages).
   adminRoutes: [
     { path: '/admin/themes', Component: AdminThemesPage },

@@ -41,4 +41,18 @@ describe('TabGroup', () => {
     expect(screen.getByText('No icon')).not.toHaveClass('max-sm:sr-only');
     for (const name of ['Practice', 'Rank', 'Minigames', 'No icon']) expect(screen.getByRole('radio', { name })).toBeInTheDocument();
   });
+
+  it('with compact shows only the icon of the unselected tabs on every screen size, and names them in the tooltip', async () => {
+    const user = userEvent.setup();
+    render(<TabGroup label="Passage" compact tabs={tabs.map((tab) => ({ ...tab, hint: `About ${tab.label}` }))} value="rank" onChange={() => undefined} />);
+
+    // The selected tab keeps its word; the others hide it for everyone but screen readers.
+    expect(screen.getByRole('radio', { name: 'Rank' }).querySelector('.sr-only')).toBeNull();
+    expect(screen.getByRole('radio', { name: 'Practice' }).querySelector('span')).toHaveClass('sr-only');
+    // A tab without an icon has no icon to fall back on, so it keeps its word.
+    expect(screen.getByRole('radio', { name: 'No icon' })).toHaveTextContent('No icon');
+
+    await user.hover(screen.getByRole('radio', { name: 'Practice' }));
+    expect((await screen.findAllByText('Practice: About Practice')).length).toBeGreaterThan(0);
+  });
 });

@@ -1,4 +1,5 @@
 import { LogOut, Moon, Shield, Shirt, Sun } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { MenuItem } from '@/app/module.types';
 import { useLogout } from '@/modules/auth/hooks/use-current-user';
@@ -13,6 +14,7 @@ import { useThemeMode } from '@/modules/settings/hooks/use-theme-mode';
 
 /** The avatar and the user's name as a button: it opens a menu with Wardrobe, the entries of the modules (Store, Payment, AI chat), Light or Dark, the current mode (each press switches it), Admin (admins only: the link to the admin area), Settings and Logout (the entries modules add are `menuItems`; `last` ones come after Admin). */
 export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuItems?: MenuItem[] }) => {
+  const { t } = useTranslation();
   const handleLogout = useLogout();
   const navigate = useNavigate();
   const { mode, setMode } = useThemeMode();
@@ -22,7 +24,7 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
   const ModeIcon = mode === 'dark' ? Moon : Sun;
   // A page that lives in this menu (Wardrobe, Store, Settings) is named beside the button while it is open: nothing else in the header says where it is.
   const { pathname } = useLocation();
-  const menuPage = [{ label: 'Wardrobe', icon: Shirt, to: '/wardrobe' }, ...menuItems.filter((item) => item.to)].find(
+  const menuPage = [{ label: 'Wardrobe', labelKey: 'menu.wardrobe', icon: Shirt, to: '/wardrobe' }, ...menuItems.filter((item) => item.to)].find(
     (item) => pathname === item.to || pathname.startsWith(`${item.to}/`),
   );
 
@@ -30,10 +32,10 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
   const renderItems = (last: boolean) =>
     menuItems
       .filter((item) => !!item.last === last && (!item.roles || (user && item.roles.includes(user.role))))
-      .map(({ label, icon: Icon, to, onSelect }) => (
+      .map(({ label, labelKey, icon: Icon, to, onSelect }) => (
         <DropdownMenuItem key={label} onClick={() => (to ? navigate(to) : onSelect?.())} className="gap-2">
           <Icon className="size-4" />
-          {label}
+          {labelKey ? t(labelKey) : label}
         </DropdownMenuItem>
       ));
 
@@ -42,12 +44,12 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
     {menuPage && (
       <span className="hidden items-center gap-2 text-sm font-semibold text-primary md:flex">
         <menuPage.icon className="size-4" aria-hidden="true" />
-        {menuPage.label}
+        {menuPage.labelKey ? t(menuPage.labelKey) : menuPage.label}
       </span>
     )}
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Account menu"
+        aria-label={t('menu.account')}
         className="group flex items-center py-1 pl-1 pr-1 text-sm font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Avatar className="size-9">
@@ -71,24 +73,24 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
       <DropdownMenuContent align="end" className="min-w-40">
         <DropdownMenuItem onClick={() => navigate('/wardrobe')} className="gap-2">
           <Shirt className="size-4" />
-          Wardrobe
+          {t('menu.wardrobe')}
         </DropdownMenuItem>
         {renderItems(false)}
         <DropdownMenuItem onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')} className="gap-2">
           <ModeIcon className="size-4" />
-          {mode === 'dark' ? 'Dark' : 'Light'}
+          {mode === 'dark' ? t('menu.dark') : t('menu.light')}
         </DropdownMenuItem>
         {user?.role === 'admin' && (
           <DropdownMenuItem onClick={() => navigate('/admin')} className="gap-2">
             <Shield className="size-4" />
-            Admin
+            {t('menu.admin')}
           </DropdownMenuItem>
         )}
         {renderItems(true)}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="gap-2">
           <LogOut className="size-4" />
-          Logout
+          {t('menu.logout')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

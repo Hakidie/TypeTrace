@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useState, type AnimationEvent, type CSSProperties, type ReactNode } from 'react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { AVATAR_MANIFEST } from '@/modules/avatar/data/avatar-manifest';
@@ -120,6 +121,7 @@ export const RainStage = ({
   compact = false,
   className = 'h-[60vh] min-h-80',
 }: RainStageProps) => {
+  const { t } = useTranslation('rain');
   useEffect(() => preloadAvatar(avatar), [avatar]);
   const target = drops.find((drop) => drop.id === targetId);
   const avatarX = clamp(target?.x ?? 50);
@@ -129,7 +131,7 @@ export const RainStage = ({
   return (
     <div
       role="group"
-      aria-label="Word rain"
+      aria-label={t('title')}
       data-testid="rain-stage"
       data-paused={paused}
       className={cn('relative isolate overflow-hidden border border-primary/20 backdrop-blur-md [container-type:size]', !compact && 'rain-sky', className)}

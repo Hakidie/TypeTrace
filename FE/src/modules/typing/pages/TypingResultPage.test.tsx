@@ -196,7 +196,7 @@ describe('TypingResultPage', () => {
     renderPage();
 
     await openErrorDetail();
-    expect(screen.getByRole('img', { name: 'Biểu đồ tỉ lệ lỗi theo loại' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Error rate by type chart' })).toBeInTheDocument();
     expect(screen.queryByText('Từ đúng')).not.toBeInTheDocument(); // the right/wrong cards are gone
   });
 
@@ -206,8 +206,8 @@ describe('TypingResultPage', () => {
     renderPage();
 
     await openErrorDetail();
-    expect(await screen.findByText('Phiên này không có lỗi nào')).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: 'Biểu đồ tỉ lệ lỗi theo loại' })).not.toBeInTheDocument();
+    expect(await screen.findByText('No errors in this session')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Error rate by type chart' })).not.toBeInTheDocument();
   });
 
   it('shows an error with a retry when the stats cannot be loaded, and keeps the rest of the result', async () => {
@@ -222,27 +222,27 @@ describe('TypingResultPage', () => {
   it('draws the speed and error chart, or tells why it cannot', async () => {
     get.mockResolvedValue(completed);
     renderPage();
-    expect(await screen.findByRole('img', { name: 'Biểu đồ WPM theo thời gian, có dấu ở giây gõ sai' })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: 'WPM over time, marked at the seconds with a wrong word' })).toBeInTheDocument();
   });
 
   it('says an older session has no time data, and that a short one is too short', async () => {
     get.mockResolvedValue(completed);
     stats.mockResolvedValue(sessionStats({ timeline: { status: 'no_data', points: [] } }));
     const first = renderPage();
-    expect(await screen.findByText('Phiên này không có dữ liệu thời gian')).toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: 'Biểu đồ WPM theo thời gian, có dấu ở giây gõ sai' })).not.toBeInTheDocument();
+    expect(await screen.findByText('This session has no timing data')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'WPM over time, marked at the seconds with a wrong word' })).not.toBeInTheDocument();
     first.unmount();
 
     stats.mockResolvedValue(sessionStats({ timeline: { status: 'too_short', points: [] } }));
     renderPage();
-    expect(await screen.findByText('Phiên quá ngắn để vẽ biểu đồ')).toBeInTheDocument();
+    expect(await screen.findByText('This session is too short for a chart')).toBeInTheDocument();
   });
 
   it('shows the final WPM and ACC stacked next to the speed chart', async () => {
     get.mockResolvedValue(completed);
     renderPage();
 
-    const chart = (await screen.findByRole('img', { name: 'Biểu đồ WPM theo thời gian, có dấu ở giây gõ sai' })).closest('div.flex')!;
+    const chart = (await screen.findByRole('img', { name: 'WPM over time, marked at the seconds with a wrong word' })).closest('div.flex')!;
     const list = chart.querySelector('dl')!;
     expect(list).toHaveTextContent('WPM12.5');
     expect(list).toHaveTextContent('ACC50%');
@@ -302,13 +302,13 @@ describe('TypingResultPage', () => {
 
     const button = await screen.findByRole('button', { name: 'Error detail' });
     expect(button).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByText('Lỗi theo loại')).not.toBeInTheDocument();
+    expect(screen.queryByText('Errors by type')).not.toBeInTheDocument();
     expect(screen.queryByText('Mistakes')).not.toBeInTheDocument();
     expect(screen.queryByText('Error rate by type')).not.toBeInTheDocument();
 
     await userEvent.click(button);
     expect(button).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('Lỗi theo loại')).toBeInTheDocument();
+    expect(screen.getByText('Errors by type')).toBeInTheDocument();
     expect(screen.getByText('Mistakes')).toBeInTheDocument();
     expect(screen.getByText('Error rate by type')).toBeInTheDocument();
 

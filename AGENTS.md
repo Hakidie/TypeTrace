@@ -294,6 +294,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   read them with `getAppSettings()` (the model's defaults until an admin saves) and save them with `updateAppSettings(changes)`
   (`services/app-setting.service.ts`). A new setting is a new field there, with its default, not a new collection.
 
+- Interface language (SCRUM-325, US8.3): `settings.uiLanguage` (`vi` or `en`, `uiLanguages` in `utils/typing-language.ts`, with a frontend copy in `FE/src/shared/i18n/ui-language.ts`) is the language of the pages, not the one a learner types in (`typingLanguage`). It has no default in the database: a missing value is sent as `null` by `GET /api/profile/settings`, and the frontend then keeps the browser's choice. `PATCH /api/profile/settings` takes it like the other settings (own `$set`). The server never translates anything: error messages, OTP emails and validation texts stay English.
+
 ## Frontend rules
 
 - One folder per feature in `FE/src/modules/<feature>/` with `api/ hooks/ components/ pages/ types/` and a
@@ -373,6 +375,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Styling: Tailwind theme tokens (`bg-background`, `text-muted-foreground`, ...), never raw hex colors. Layouts must work on phones.
 - Imports use the `@/` alias. Components and pages are `PascalCase.tsx` named exports; other files are `kebab-case.ts`.
 
+- Interface language (SCRUM-325, `shared/i18n`, `i18next` + `react-i18next`): Vietnamese and English; English is the fallback, so a string missing in Vietnamese shows in English, never its key. One namespace per module, its words in `modules/<feature>/locales/{en,vi}.ts` (`vi.ts` is typed `typeof xEn`: a key missing in Vietnamese fails the build) and registered in `shared/i18n/i18n.ts` (`common`, `settings`, `auth`, `home`, `typing`, `profile`, `progress`, `passages`, `ranked`, `rain`, `store` (Store, plans, payment pages), `wardrobe`, `chat`). Components read them with `useTranslation('<ns>')`; code outside components (helpers, label maps) uses `i18n.t('<ns>:key')` or `translatedRecord` (`shared/i18n/translated-record.ts`), which is safe because `AppLayout` draws its page again (a `key` of the language) when it changes. Plurals are `key_one` / `key_other` with `count`; zod messages are built with `schemaOf(t)` inside `useMemo`. Never write a user-facing string in a component: add a key to both locale files. The choice is `settings.uiLanguage` for a signed-in learner (`LanguageSettings` in Settings, `LanguageSync` applies it after login) and `localStorage` (`typetrace.uiLanguage`) for a guest (`GuestMenu`), read before the first paint; with none chosen the browser's language decides (`vi` → Vietnamese, anything else English). Tests run in English; a Vietnamese test does `await act(() => i18n.changeLanguage('vi'))`. Left in English on purpose (SCRUM-325 scope): the whole `/admin` area (SCRUM-336), what is typed (passages, Weak spots lessons, Nối từ and Rain words, and the minigame tiles' own switch `useMinigameLang`, which only changes the text inside a game), Ping's and the AI chat bot's own words (the chat's frame is translated), item names of the avatar catalog, the titles and descriptions of the daily tasks (admin-entered), and backend messages (toasts, emails). Keep WPM, ACC, TIME, STREAK and SCORE labels in English in Vietnamese. Shared helpers (`monthShort`/`dayInWords`, `ActivityHeatmap`, the period and month names of the Progress charts, `formatCoins`, `daysLeftText`, `planTitle`) follow the interface language everywhere, so an admin who chose Vietnamese sees them translated in admin charts and lists too.
+
 ## Admin area
 
 `/admin` has its own sidebar layout (`FE/src/shared/components/layout/AdminLayout.tsx`): no BrandHeader/BrandFooter, the sidebar (`AdminSidebar.tsx`) has the logo on top and the user + Logout at the bottom. The reference admin page is user
@@ -431,7 +435,7 @@ The mascot Ping guides new learners (`docs/superpowers/specs/2026-10-30-ping-tut
 A sample chat bot to customize, not a finished product:
 
 - UI: "AI chat" in the account menu (the avatar menu in the header) opens a chat popup under the header, on the right (`FE/src/modules/chat/components/ChatWidget.tsx`),
-  registered as a widget and a menu item in `chat.module.ts`. It has no page of its own. Texts and suggested questions: `chat.config.ts`;
+  registered as a widget and a menu item in `chat.module.ts`. It has no page of its own. Bot name, welcome and suggested questions: `chat.config.ts` (the frame's words, placeholder included, are in `locales`);
   conversation state: `hooks/use-chat.ts`.
 - Backend: `POST /api/chat` with `{ messages: [{ role: 'user' | 'model', text }] }` → `{ reply }`. Stateless: the client sends
   the conversation each time. Signed-in users only, 10 messages per minute per user.

@@ -1,9 +1,11 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Check, Pencil, X } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import type { TFunction } from 'i18next';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
@@ -20,10 +22,11 @@ import { PlanBadge } from '@/modules/plan/components/PlanBadge';
 import { AvatarUpload } from './AvatarUpload';
 
 // Same rule as the display name in `ProfileEditForm`.
-const nameSchema = z.object({
-  displayName: z.string().trim().min(2, 'Display name must be at least 2 characters').max(100, 'Max 100 characters'),
-});
-type NameValues = z.infer<typeof nameSchema>;
+const nameSchemaOf = (t: TFunction<'profile'>) =>
+  z.object({
+    displayName: z.string().trim().min(2, t('header.nameMin')).max(100, t('header.nameMax')),
+  });
+type NameValues = z.infer<ReturnType<typeof nameSchemaOf>>;
 
 const iconButtonClass =
   'flex size-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-primary/15 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
@@ -38,9 +41,11 @@ interface DisplayNameProps {
 
 /** The name, with a pencil that shows on hover (or focus; always on touch screens) to change it right there: Enter saves, Escape cancels. */
 const EditableDisplayName = ({ user, textClassName, beforeEdit }: DisplayNameProps) => {
+  const { t } = useTranslation('profile');
   const [editing, setEditing] = useState(false);
   const setCurrentUser = useSetCurrentUser();
   const name = user.displayName || user.email;
+  const nameSchema = useMemo(() => nameSchemaOf(t), [t]);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<NameValues>({
     resolver: zodResolver(nameSchema),
@@ -52,7 +57,7 @@ const EditableDisplayName = ({ user, textClassName, beforeEdit }: DisplayNamePro
     mutationFn: profileApi.updateProfile,
     onSuccess: (updated) => {
       setCurrentUser(updated);
-      toast.success('Display name updated.');
+      toast.success(t('header.nameUpdated'));
       setEditing(false);
     },
   });
@@ -74,8 +79,8 @@ const EditableDisplayName = ({ user, textClassName, beforeEdit }: DisplayNamePro
         {beforeEdit}
         <button
           type="button"
-          aria-label="Edit display name"
-          title="Edit display name"
+          aria-label={t('header.editName')}
+          title={t('header.editName')}
           onClick={start}
           className={cn(iconButtonClass, 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100')}
         >
@@ -89,7 +94,7 @@ const EditableDisplayName = ({ user, textClassName, beforeEdit }: DisplayNamePro
     <form onSubmit={save} className="min-w-0">
       <div className="flex items-center gap-1">
         <Input
-          aria-label="New display name"
+          aria-label={t('header.newName')}
           aria-invalid={!!errors.displayName}
           autoFocus
           autoComplete="off"
@@ -98,10 +103,10 @@ const EditableDisplayName = ({ user, textClassName, beforeEdit }: DisplayNamePro
           className={cn('h-auto min-w-0 border-0 bg-transparent p-0 focus-visible:ring-0', textClassName)}
           {...register('displayName')}
         />
-        <button type="submit" aria-label="Save display name" title="Save" disabled={updateName.isPending} className={iconButtonClass}>
+        <button type="submit" aria-label={t('header.saveName')} title={t('header.save')} disabled={updateName.isPending} className={iconButtonClass}>
           <Check className="size-4" aria-hidden />
         </button>
-        <button type="button" aria-label="Cancel" title="Cancel" onClick={cancel} disabled={updateName.isPending} className={iconButtonClass}>
+        <button type="button" aria-label={t('header.cancel')} title={t('header.cancel')} onClick={cancel} disabled={updateName.isPending} className={iconButtonClass}>
           <X className="size-4" aria-hidden />
         </button>
       </div>
@@ -115,6 +120,7 @@ const EditableDisplayName = ({ user, textClassName, beforeEdit }: DisplayNamePro
  * line), so does leaving the field; Escape drops the change. Nothing is sent when the text did not change. Emptying it clears the bio.
  */
 const EditableBio = ({ user }: { user: CurrentUser }) => {
+  const { t } = useTranslation('profile');
   const setCurrentUser = useSetCurrentUser();
   const saved = user.bio ?? '';
 
@@ -123,7 +129,7 @@ const EditableBio = ({ user }: { user: CurrentUser }) => {
     mutationFn: profileApi.updateProfile,
     onSuccess: (updated) => {
       setCurrentUser(updated);
-      toast.success('Bio updated.');
+      toast.success(t('header.bioUpdated'));
     },
   });
 
@@ -138,9 +144,9 @@ const EditableBio = ({ user }: { user: CurrentUser }) => {
 
   return (
     <textarea
-      aria-label="Description"
+      aria-label={t('header.description')}
       defaultValue={saved}
-      placeholder="No description"
+      placeholder={t('header.noDescription')}
       rows={1}
       maxLength={200}
       disabled={updateBio.isPending}
@@ -170,7 +176,7 @@ const statLabelClass =
   'self-baseline text-right text-xl font-semibold leading-none tracking-widest text-primary/70 sm:row-start-3 sm:text-2xl lg:row-start-1 lg:pl-14';
 const statValueClass = 'self-start text-right text-[1.875rem] font-black leading-none text-primary sm:row-start-4 sm:text-[2.25rem] lg:row-start-2 lg:pl-14';
 
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+const formatDate = (iso: string, locale: string) => new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 
 /** A number of days the way the header writes it, `005D`; a dash while it loads or when it could not load. */
 const daysValue = (days?: number) => (days === undefined ? '—' : `${String(days).padStart(3, '0')}D`);
@@ -205,22 +211,23 @@ interface ProfileHeaderProps {
  * was made. Sits on the page, without background, padding or border.
  */
 export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }: ProfileHeaderProps) => {
+  const { t, i18n } = useTranslation('profile');
   const name = user.displayName || user.email;
   const stats = activity.data?.stats;
   // The averages are the ones of the learner's typing language (SCRUM-219): the tooltip names it.
-  const averagesTip = activity.data && `Average of your ${languageNames[activity.data.language ?? 'vi']} sessions`;
+  const averagesTip = activity.data && t('header.averages', { language: languageNames[activity.data.language ?? 'vi'] });
 
   const statList = [
-    { label: 'WPM', value: stats ? String(Math.round(stats.wpm)) : '0000', tip: averagesTip },
-    { label: 'ACC', value: stats ? `${Math.round(stats.accuracy)}%` : '000%', tip: averagesTip },
-    { label: 'STREAK', value: daysValue(streak.data?.current), tip: `Longest streak: ${daysValue(streak.data?.longest)}` },
+    { label: t('header.wpm'), value: stats ? String(Math.round(stats.wpm)) : '0000', tip: averagesTip },
+    { label: t('header.acc'), value: stats ? `${Math.round(stats.accuracy)}%` : '000%', tip: averagesTip },
+    { label: t('header.streak'), value: daysValue(streak.data?.current), tip: t('header.longestStreak', { value: daysValue(streak.data?.longest) }) },
   ];
 
   // A grid so that the labels sit on the baseline of the name and the values at the bottom, whatever the sizes are.
   return (
     <TooltipProvider delayDuration={200}>
     <section
-      aria-label="Profile header"
+      aria-label={t('header.aria')}
       className="grid grid-cols-3 gap-y-3 text-primary sm:grid-cols-[auto_repeat(3,minmax(0,1fr))] lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_auto_1fr_auto] lg:gap-y-0"
     >
       <div className="col-span-3 flex flex-col items-start gap-2 sm:col-span-1 sm:row-span-4 sm:mr-3 lg:row-span-3">
@@ -230,7 +237,7 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
           outfitTo="/wardrobe"
           className="size-[228px]"
           initialsClassName="text-6xl"
-          fallback={<AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} scale={3} label="Your avatar" />}
+          fallback={<AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} scale={3} label={t('header.avatar')} />}
         />
       </div>
       {/* `lg:col-span-1` sets `grid-column`, which drops the column start: `lg:col-start-2` gives it back. */}
@@ -239,7 +246,7 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
             look of the labels (WPM, ACC, STREAK), and the hint while there is no display name. The name is the line under it. */}
         <p className="flex items-baseline gap-x-4 truncate text-[2.25rem] leading-normal">
           <span className="text-xl font-semibold uppercase tracking-widest text-primary/70 sm:text-2xl">{user.role}</span>
-          {!user.displayName && <span className="truncate text-base text-muted-foreground">No display name yet: hover the name to add one.</span>}
+          {!user.displayName && <span className="truncate text-base text-muted-foreground">{t('header.noDisplayName')}</span>}
         </p>
       </div>
       <div className="col-span-3 min-w-0 sm:col-start-2 sm:row-start-2 lg:col-span-1 lg:col-start-2">
@@ -268,7 +275,7 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
       )}
       {/* The bottom right of the header: under the chart (under the numbers when there is none). */}
       <p className="col-span-3 text-right text-base text-muted-foreground sm:col-start-2 sm:row-start-7 lg:col-span-4 lg:col-start-2 lg:row-start-4 lg:pt-6">
-        Joined {formatDate(user.createdAt)}
+        {t('header.joined', { date: formatDate(user.createdAt, i18n.language === 'vi' ? 'vi-VN' : 'en-GB') })}
       </p>
     </section>
     </TooltipProvider>

@@ -62,6 +62,21 @@ describe('TypingSettings', () => {
     expect(container.querySelector('.animate-pulse')).not.toBeNull();
   });
 
+  it('switches the sample between Vietnamese and English without saving anything', async () => {
+    getMe.mockResolvedValue(user({}));
+    renderWithProviders(<TypingSettings />);
+
+    const passage = await screen.findByLabelText('Passage to type');
+    expect(passage).toHaveTextContent('Mỗi');
+    expect(screen.getByRole('radio', { name: 'VI' })).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'EN' }));
+
+    expect(screen.getByLabelText('Passage to type')).toHaveTextContent('Every');
+    expect(screen.getByRole('radio', { name: 'EN' })).toHaveAttribute('aria-checked', 'true');
+    expect(updateSettings).not.toHaveBeenCalled();
+  });
+
   it('has no frame around the preview and fills the bar up to the size', async () => {
     getMe.mockResolvedValue(user({ typingFontSizeRem: 1.75 }));
     renderWithProviders(<TypingSettings />);

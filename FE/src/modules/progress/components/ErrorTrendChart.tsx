@@ -1,4 +1,5 @@
 import { ClipboardCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { axisLabel, tooltipTitle } from '@/modules/profile/lib/month-label';
@@ -28,7 +29,9 @@ interface ErrorTrendChartProps {
 }
 
 /** The tooltip of a column: the period and the rate of each line that shows. */
-const TrendTooltip = ({ range, point, types, hidden }: { range: ChartRange; point: ErrorTrendPoint; types: SessionErrorType[]; hidden: ReadonlySet<SessionErrorType> }) => (
+const TrendTooltip = ({ range, point, types, hidden }: { range: ChartRange; point: ErrorTrendPoint; types: SessionErrorType[]; hidden: ReadonlySet<SessionErrorType> }) => {
+  const { t } = useTranslation('progress');
+  return (
   <div className="border border-border bg-background px-3 py-2 text-base">
     <p className="font-semibold">{tooltipTitle(range, point.key)}</p>
     {types.filter((type) => !hidden.has(type)).map((type) => (
@@ -36,11 +39,12 @@ const TrendTooltip = ({ range, point, types, hidden }: { range: ChartRange; poin
         <svg width="24" height="4" aria-hidden className="shrink-0">
           <line x1="0" x2="24" y1="2" y2="2" stroke={ERROR_TREND_STYLES[type].color} strokeWidth="2" strokeDasharray={ERROR_TREND_STYLES[type].dash} />
         </svg>
-        <span className="text-muted-foreground">{errorLabels[type]}:</span> {point.rates[type] == null ? 'no chance' : `${point.rates[type]}%`}
+        <span className="text-muted-foreground">{errorLabels[type]}:</span> {point.rates[type] == null ? t('trend.noChance') : `${point.rates[type]}%`}
       </p>
     ))}
   </div>
-);
+  );
+};
 
 /**
  * The error rate of each Vietnamese error type over time (SCRUM-30): one line per type, over the same periods as the WPM chart
@@ -48,11 +52,12 @@ const TrendTooltip = ({ range, point, types, hidden }: { range: ChartRange; poin
  * No data yet: how to get some (the placement test).
  */
 export const ErrorTrendChart = ({ range, date, language, hidden }: ErrorTrendChartProps) => {
+  const { t } = useTranslation('progress');
   const query = useErrorTrend(range, language, date);
   const types = errorTrendTypes(language);
 
   if (query.isPending) return <LoadingState rows={1} />;
-  if (query.isError) return <ErrorState error={query.error} title="Could not load the error rate chart" onRetry={() => query.refetch()} />;
+  if (query.isError) return <ErrorState error={query.error} title={t('trend.couldNotLoad')} onRetry={() => query.refetch()} />;
 
   const shown = query.data.range;
   const points = shownTrendPoints(shown, query.data.points);
@@ -60,11 +65,11 @@ export const ErrorTrendChart = ({ range, date, language, hidden }: ErrorTrendCha
     return (
       <EmptyState
         icon={ClipboardCheck}
-        title="No error rates yet"
-        description={language === 'en' ? 'Type an English passage in Practice: your first counted English session starts the chart.' : 'Take the placement test: your first counted session starts the chart.'}
+        title={t('trend.emptyTitle')}
+        description={language === 'en' ? t('trend.emptyEn') : t('trend.emptyVi')}
         action={
           <Button asChild variant="outline" size="sm">
-            {language === 'en' ? <Link to="/typing">Go to Practice</Link> : <Link to="/typing?mode=placement">Take the placement test</Link>}
+            {language === 'en' ? <Link to="/typing">{t('trend.goPractice')}</Link> : <Link to="/typing?mode=placement">{t('trend.takeTest')}</Link>}
           </Button>
         }
       />
@@ -73,8 +78,8 @@ export const ErrorTrendChart = ({ range, date, language, hidden }: ErrorTrendCha
   const data = points.map((point) => ({ ...point.rates, key: point.key, label: axisLabel(shown, point.key), point }));
 
   return (
-    <section aria-label="Error rate by type" className="relative h-full w-full">
-      <div role="img" aria-label={`Error rate of each error type by ${shown === 'year' ? 'month' : shown === 'month' ? 'week' : 'day'}`} className="relative h-full">
+    <section aria-label={t('trend.aria')} className="relative h-full w-full">
+      <div role="img" aria-label={t('trend.chart', { unit: t(`trend.unit.${shown}`) })} className="relative h-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 28, bottom: 0, left: 28 }}>
             <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: 'var(--border)' }} height={32} tickSize={0} tickMargin={12} tick={{ fontSize: TICK_SIZE, fill: AXIS_COLOR }} />

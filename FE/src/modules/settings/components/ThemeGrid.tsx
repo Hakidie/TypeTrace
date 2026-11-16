@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import { Tip } from './Tip';
 import { ThemeCard, type ThemePreview } from './ThemeCard';
@@ -36,7 +37,9 @@ const hoverButton =
 
 const isCurrent = (currentId: string | string[], id: string) => (Array.isArray(currentId) ? currentId.includes(id) : currentId === id);
 
-export const ThemeGrid = <T extends ThemeOption>({ label, themes, currentId, onSelect, onEdit, onDelete, editingId, editor, last, columnsClass = 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' }: ThemeGridProps<T>) => (
+export const ThemeGrid = <T extends ThemeOption>({ label, themes, currentId, onSelect, onEdit, onDelete, editingId, editor, last, columnsClass = 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5' }: ThemeGridProps<T>) => {
+  const { t } = useTranslation('settings');
+  return (
   <ul aria-label={label} className={cn('grid gap-3', columnsClass)}>
     {themes.map((theme) => {
       if (theme.id === editingId) return <li key={theme.id}>{editor}</li>;
@@ -56,13 +59,13 @@ export const ThemeGrid = <T extends ThemeOption>({ label, themes, currentId, onS
           {/* Shown on hover (or keyboard focus). Siblings of the card button, since buttons cannot be nested. */}
           {theme.own && (
             <>
-              <Tip label="Edit theme">
-                <button type="button" aria-label={`Edit ${theme.name}`} onClick={() => onEdit(theme)} className={cn(hoverButton, spots[first])} style={style}>
+              <Tip label={t('theme.editTip')}>
+                <button type="button" aria-label={t('theme.edit', { name: theme.name })} onClick={() => onEdit(theme)} className={cn(hoverButton, spots[first])} style={style}>
                   <Pencil className="size-4" aria-hidden />
                 </button>
               </Tip>
-              <Tip label="Delete theme">
-                <button type="button" aria-label={`Delete ${theme.name}`} onClick={() => onDelete(theme)} className={cn(hoverButton, spots[first + 1])} style={style}>
+              <Tip label={t('theme.deleteTip')}>
+                <button type="button" aria-label={t('theme.delete', { name: theme.name })} onClick={() => onDelete(theme)} className={cn(hoverButton, spots[first + 1])} style={style}>
                   <Trash2 className="size-4" aria-hidden />
                 </button>
               </Tip>
@@ -73,4 +76,5 @@ export const ThemeGrid = <T extends ThemeOption>({ label, themes, currentId, onS
     })}
     {last && <li>{last}</li>}
   </ul>
-);
+  );
+};

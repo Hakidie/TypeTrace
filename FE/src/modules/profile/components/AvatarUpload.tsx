@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Loader2, ImageIcon, Shirt, Upload, UserRound } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { profileApi } from '@/modules/profile/api/profile.api';
@@ -59,6 +60,7 @@ export const AvatarUpload = ({
   initialsClassName,
   fallback,
 }: AvatarUploadProps) => {
+  const { t } = useTranslation('profile');
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const showingPicture = Boolean(avatarUrl) && avatarSource !== 'pixel';
@@ -69,9 +71,9 @@ export const AvatarUpload = ({
     try {
       await profileApi.updateAvatarSource(source);
       onSourceChange?.();
-      toast.success(source === 'pixel' ? 'Now showing your pixel avatar.' : 'Now showing your picture.');
+      toast.success(source === 'pixel' ? t('avatar.nowPixel') : t('avatar.nowPicture'));
     } catch (err) {
-      toast.error(getApiErrorMessage(err, 'Failed to change the avatar.'));
+      toast.error(getApiErrorMessage(err, t('avatar.switchFailed')));
     } finally {
       setBusy(false);
     }
@@ -82,12 +84,12 @@ export const AvatarUpload = ({
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast.error('Only image files are allowed.');
+      toast.error(t('avatar.onlyImages'));
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be under 5MB.');
+      toast.error(t('avatar.tooBig'));
       return;
     }
 
@@ -95,9 +97,9 @@ export const AvatarUpload = ({
     try {
       const { avatarUrl: newUrl } = await profileApi.uploadAvatar(file);
       onUploadSuccess(newUrl);
-      toast.success('Avatar updated successfully.');
+      toast.success(t('avatar.updated'));
     } catch (err) {
-      toast.error(getApiErrorMessage(err, 'Failed to upload avatar.'));
+      toast.error(getApiErrorMessage(err, t('avatar.uploadFailed')));
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -109,7 +111,7 @@ export const AvatarUpload = ({
       {/* The 61px square tile of the user rows (`UserRow`); the buttons show on hover or while one of them has the focus. */}
       <div className="group relative block">
         <Avatar className={cn('size-[61px]', className)}>
-          <AvatarImage src={showingPicture ? avatarUrl : undefined} alt="Profile avatar" />
+          <AvatarImage src={showingPicture ? avatarUrl : undefined} alt={t('avatar.alt')} />
           <AvatarFallback className={cn('bg-transparent text-xl font-black text-primary', initialsClassName)}>{fallback ?? userInitials}</AvatarFallback>
         </Avatar>
 
@@ -124,24 +126,24 @@ export const AvatarUpload = ({
           ) : (
               <TooltipProvider delayDuration={200}>
                 <div className="grid grid-cols-2 gap-2">
-                  <Tip label={avatarUrl ? 'Use your picture' : 'Upload an image first'}>
-                    <button type="button" onClick={() => void switchTo('picture')} disabled={!canSwitchBack} aria-label="Use a picture" aria-pressed={showingPicture} className={cn(iconButtonClass, showingPicture && selectedClass)}>
+                  <Tip label={avatarUrl ? t('avatar.usePicture') : t('avatar.uploadFirst')}>
+                    <button type="button" onClick={() => void switchTo('picture')} disabled={!canSwitchBack} aria-label={t('avatar.usePictureLabel')} aria-pressed={showingPicture} className={cn(iconButtonClass, showingPicture && selectedClass)}>
                       <ImageIcon className="size-5" />
                     </button>
                   </Tip>
-                  <Tip label="Use your pixel avatar">
-                    <button type="button" onClick={() => void switchTo('pixel')} disabled={!showingPicture} aria-label="Use the pixel avatar" aria-pressed={!showingPicture} className={cn(iconButtonClass, !showingPicture && selectedClass)}>
+                  <Tip label={t('avatar.usePixel')}>
+                    <button type="button" onClick={() => void switchTo('pixel')} disabled={!showingPicture} aria-label={t('avatar.usePixelLabel')} aria-pressed={!showingPicture} className={cn(iconButtonClass, !showingPicture && selectedClass)}>
                       <UserRound className="size-5" />
                     </button>
                   </Tip>
-                  <Tip label="Upload image (up to 5MB)">
-                    <button type="button" onClick={() => inputRef.current?.click()} aria-label="Upload image" className={iconButtonClass}>
+                  <Tip label={t('avatar.upload')}>
+                    <button type="button" onClick={() => inputRef.current?.click()} aria-label={t('avatar.uploadLabel')} className={iconButtonClass}>
                       <Upload className="size-5" />
                     </button>
                   </Tip>
                   {outfitTo ? (
-                    <Tip label="Change outfit">
-                      <Link to={outfitTo} aria-label="Change outfit" className={iconButtonClass}>
+                    <Tip label={t('avatar.outfit')}>
+                      <Link to={outfitTo} aria-label={t('avatar.outfit')} className={iconButtonClass}>
                         <Shirt className="size-5" />
                       </Link>
                     </Tip>

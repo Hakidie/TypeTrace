@@ -1,5 +1,7 @@
-import { CloudRain, Gamepad2, Languages, RotateCcw, Trophy } from 'lucide-react';
+import { CloudRain, Gamepad2, Languages, ListChecks, RotateCcw, Shuffle, Trophy } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { GuestResult } from '@/modules/home/components/GuestResult';
@@ -16,23 +18,25 @@ import { cn } from '@/shared/lib/utils';
 import { PassageMenuPanel } from '../components/PassageMenuPanel';
 import { TypingArea } from '../components/TypingArea';
 import type { PassageOption } from '../types/typing.types';
-import { languageNames, modeIcons, timeChoices, unitLabels, type TimeUnit } from '../typing.config';
+import { languageNames, modeIcons, modeLabels, timeChoices, unitLabels, type TimeUnit } from '../typing.config';
 
 // The same tabs as the Typing page of a signed-in learner. A guest uses Practice and Minigames (Rain only); the others need an
 // account and lead to the Login page (which links to Register).
-const needsAccount = 'Log in or create an account to use this mode.';
-const modeTabs = [
-  { value: 'practice', label: 'Practice', icon: modeIcons.practice, hint: 'Type a passage at your own pace. Nothing is saved without an account.' },
-  { value: 'placement', label: 'Placement', icon: modeIcons.placement, hint: needsAccount, locked: true },
-  { value: 'rank', label: 'Rank', icon: Trophy, hint: needsAccount, locked: true },
-  { value: 'minigames', label: 'Minigames', icon: Gamepad2, hint: 'Word rain. The other minigames need an account.' },
-];
+const modeTabsOf = (t: TFunction) => {
+  const needsAccount = t('typing:needsAccount');
+  return [
+    { value: 'practice', label: modeLabels.practice, icon: modeIcons.practice, hint: t('typing:page.guestPracticeHint') },
+    { value: 'placement', label: modeLabels.placement, icon: modeIcons.placement, hint: needsAccount, locked: true },
+    { value: 'rank', label: t('typing:page.rank'), icon: Trophy, hint: needsAccount, locked: true },
+    { value: 'minigames', label: t('typing:page.minigames'), icon: Gamepad2, hint: t('typing:page.guestMinigamesHint') },
+  ];
+};
 
 // The passage tabs of the signed-in page: Manual picks one of the fixed passages, Random a new one; Train (Weak spots) needs an account, so it is locked.
-const passageTabs = [
-  { value: 'manual', label: 'Manual', hint: 'Choose the passage to type from a list.' },
-  { value: 'random', label: 'Random', hint: 'A new random passage each time.' },
-  { value: 'train', label: 'Train', hint: needsAccount, locked: true },
+const passageTabsOf = (t: TFunction) => [
+  { value: 'manual', label: t('typing:page.manual'), icon: ListChecks, hint: t('typing:page.manualHint') },
+  { value: 'random', label: t('typing:page.random'), icon: Shuffle, hint: t('typing:page.randomHint') },
+  { value: 'train', label: modeLabels.targeted, icon: modeIcons.targeted, hint: t('typing:needsAccount'), locked: true },
 ];
 
 /** The fixed passages of a language as the items of the passage menu of a signed-in learner: a title, the System tag and the number of words. */
@@ -46,7 +50,6 @@ const menuPassagesOf = (language: TypingLanguage): PassageOption[] =>
     ownerName: 'TypeTrace',
   }));
 
-const IME_HINT = 'Turn off Vietnamese input (Unikey, EVKey) to type English.';
 const IME_HINT_ID = 'ime-hint';
 
 const nameClass = 'min-w-0 px-4 py-2 text-[1.125rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted';
@@ -61,6 +64,9 @@ const hoverWordClass =
  * choice. Nothing is sent to the server: no session, streak, rating or saved result. The result asks the guest to register.
  */
 export const GuestTypingPage = () => {
+  const { t } = useTranslation('typing');
+  const modeTabs = modeTabsOf(t);
+  const passageTabs = passageTabsOf(t);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const rain = searchParams.get('mode') === 'minigames';
@@ -101,14 +107,14 @@ export const GuestTypingPage = () => {
   const imeHint = !rain && language === 'en';
   useEffect(() => {
     if (!imeHint) return;
-    toast.info(IME_HINT, { id: IME_HINT_ID, duration: 8000 });
+    toast.info(t('page.imeHint'), { id: IME_HINT_ID, duration: 8000 });
     return () => {
       toast.dismiss(IME_HINT_ID);
     };
-  }, [imeHint]);
+  }, [imeHint, t]);
   const other: TypingLanguage = language === 'vi' ? 'en' : 'vi';
   const languageSwitch = (
-    <Button variant="ghost" className={hoverButtonClass} aria-label={`Typing language: ${languageNames[language]}. Switch to ${languageNames[other]}`} onClick={() => switchLanguage(other)}>
+    <Button variant="ghost" className={hoverButtonClass} aria-label={t('page.languageSwitch', { current: languageNames[language], other: languageNames[other] })} onClick={() => switchLanguage(other)}>
       <Languages className="size-5" /> <span className={hoverWordClass}>{languageNames[language]}</span>
     </Button>
   );
@@ -129,10 +135,10 @@ export const GuestTypingPage = () => {
     <div className={cn('flex flex-1 flex-col gap-4 p-4 pb-0 pt-0 md:p-8 md:pb-0 md:pt-0', redGlassTheme)}>
       <div className="relative flex flex-col items-center gap-2 xl:grid xl:grid-cols-[1fr_auto_1fr] xl:gap-x-2">
         <div className="flex min-w-0 max-w-full xl:justify-self-end">
-          {!rain && <TabGroup label="Passage" tabs={passageTabs} value={manual ? 'manual' : 'random'} onChange={pickPassageTab} />}
+          {!rain && <TabGroup label={t('page.passageGroup')} compact tabs={passageTabs} value={manual ? 'manual' : 'random'} onChange={pickPassageTab} />}
         </div>
         <TabGroup
-          label="Mode"
+          label={t('page.modeGroup')}
           iconsOnPhones
           // The Placement tab is hidden while the guest types English, as on the signed-in page.
           tabs={language === 'en' ? modeTabs.filter((tab) => tab.value !== 'placement') : modeTabs}
@@ -146,7 +152,7 @@ export const GuestTypingPage = () => {
         <div className="xl:justify-self-start">
           <div className="flex outline outline-1 -outline-offset-1 outline-border">
             <TabGroup
-              label="Time"
+              label={t('page.timeGroup')}
               framed={false}
               tabs={timeTabs}
               value={tabsUnit === timeUnit ? timeTabs[timeIndex].value : ''}
@@ -158,7 +164,7 @@ export const GuestTypingPage = () => {
             />
             <button
               type="button"
-              aria-label="Switch between seconds and minutes"
+              aria-label={t('page.switchUnit')}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => setShownUnit(tabsUnit === 'sec' ? 'min' : 'sec')}
               className="inline-flex items-center px-3 py-1.5 text-[1.125rem] text-primary transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -192,12 +198,12 @@ export const GuestTypingPage = () => {
             manual ? (
               <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} className="flex min-w-0 max-w-full">
                 <span className="flex min-w-0">
-                  <DropdownMenuTrigger aria-label="Choose passage" className={cn(nameClass, 'text-primary')}>
+                  <DropdownMenuTrigger aria-label={t('page.choosePassage')} className={cn(nameClass, 'text-primary')}>
                     <span className="block truncate whitespace-nowrap">{passage.title}</span>
                   </DropdownMenuTrigger>
                 </span>
                 {/* The menu of the signed-in page: the normal background, centered under the name. */}
-                <DropdownMenuContent role="menu" aria-label="Passages" className="left-1/2 w-[calc(100vw-2rem)] -translate-x-1/2 sm:w-max sm:min-w-[24rem] sm:max-w-[min(32rem,calc(100vw-2rem))] [--color-background:var(--background)]">
+                <DropdownMenuContent role="menu" aria-label={t('page.passagesMenu')} className="left-1/2 w-[calc(100vw-2rem)] -translate-x-1/2 sm:w-max sm:min-w-[24rem] sm:max-w-[min(32rem,calc(100vw-2rem))] [--color-background:var(--background)]">
                   <PassageMenuPanel mode="practice" language={language} passages={menuPassages} selectedId={String(passage.index)} onSelect={choose} />
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -208,7 +214,7 @@ export const GuestTypingPage = () => {
           }
           actions={
             <Button variant="ghost" className={hoverButtonClass} onClick={newPassage}>
-              <RotateCcw className="size-5" /> <span className={hoverWordClass}>Restart</span>
+              <RotateCcw className="size-5" /> <span className={hoverWordClass}>{t('page.restart')}</span>
             </Button>
           }
         />

@@ -1,5 +1,6 @@
 import { Coins } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Lottie } from '@/shared/components/lottie';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/shared/components/ui/dialog';
@@ -11,6 +12,7 @@ import { useClaimStreakReward, useStreak } from '../hooks/use-profile';
  * page of the day.
  */
 export const StreakRewardDialog = () => {
+  const { t } = useTranslation('profile');
   const { data: streak } = useStreak();
   const claim = useClaimStreakReward();
   const [closed, setClosed] = useState(false);
@@ -25,19 +27,19 @@ export const StreakRewardDialog = () => {
     <Dialog open={open} onOpenChange={(next) => !next && setClosed(true)}>
       <DialogContent className="flex flex-col items-center gap-3 text-center sm:max-w-sm">
         <Lottie name="fire-streak" className="size-20" />
-        <DialogTitle className="text-2xl font-bold">{claim.isSuccess ? 'Đã nhận thưởng' : 'Nhận thưởng'}</DialogTitle>
+        <DialogTitle className="text-2xl font-bold">{claim.isSuccess ? t('streak.claimedTitle') : t('streak.title')}</DialogTitle>
         <DialogDescription>
           {claim.isSuccess
-            ? `+${coins} xu đã vào ví của bạn. Hẹn gặp lại ngày mai!`
-            : `Bạn giữ streak ${streak.current} ngày. Phần thưởng hôm nay: ${coins} xu, mỗi ngày liên tiếp thêm 5 xu (tối đa 50).`}
+            ? t('streak.claimed', { coins })
+            : t('streak.due', { days: streak.current, coins })}
         </DialogDescription>
         {claim.isSuccess ? (
           <Button className="mt-2 w-full" onClick={() => setClosed(true)} autoFocus>
-            Đóng
+            {t('streak.close')}
           </Button>
         ) : (
           <Button className="mt-2 w-full gap-2" onClick={() => claim.mutate()} disabled={claim.isPending} autoFocus>
-            <Coins className="size-4" aria-hidden="true" /> Nhận {coins} xu
+            <Coins className="size-4" aria-hidden="true" /> {t('streak.claim', { coins })}
           </Button>
         )}
       </DialogContent>

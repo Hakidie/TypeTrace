@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { currentUserKey, useCurrentUser, useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { profileApi } from '@/modules/profile/api/profile.api';
+import type { UiLanguage } from '@/shared/i18n/ui-language';
 import { type AppFont, DEFAULT_APP_FONT, TYPING_FONT_SIZE } from '@/shared/lib/app-font';
 
 /** The settings of the Settings page the signed-in learner has chosen (SCRUM-158): the defaults while the user loads or on an old account. */
@@ -32,3 +33,6 @@ export const useSaveTypingFontSize = () => useSaveSetting((typingFontSizeRem: nu
 
 /** The font of the whole interface. */
 export const useSaveFontFamily = () => useSaveSetting((fontFamily: AppFont) => ({ fontFamily }));
+
+/** The language of the interface (SCRUM-327), saved in the account. */
+export const useSaveUiLanguage = () => useSaveSetting((uiLanguage: UiLanguage) => ({ uiLanguage }));

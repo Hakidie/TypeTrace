@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { CircleCheck } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { addDays, dateKeyIn, dayInWords, MONTHS } from '@/shared/lib/local-date';
+import { useTranslation } from 'react-i18next';
+import { addDays, dateKeyIn, dayInWords, monthShort } from '@/shared/lib/local-date';
 import { cn } from '@/shared/lib/utils';
 
 export interface ActivityDay {
@@ -32,7 +33,7 @@ const dayKey = (date: Date) => date.toISOString().slice(0, 10);
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const monthOf = (key: string) => MONTHS[Number(key.slice(5, 7)) - 1];
+const monthOf = (key: string) => monthShort(Number(key.slice(5, 7)));
 
 /** The months a block covers: "Nov – Jan", or just "Nov" when it stays in one. */
 const monthsLabel = (firstKey: string, lastKey: string) => {
@@ -41,7 +42,8 @@ const monthsLabel = (firstKey: string, lastKey: string) => {
   return from === to ? from : `${from} – ${to}`;
 };
 
-const QUARTER_LABELS = ['Jan – Mar', 'Apr – Jun', 'Jul – Sep', 'Oct – Dec'];
+/** The four quarters, as the months they cover: `Jan – Mar`. */
+const quarterLabels = () => [1, 4, 7, 10].map((first) => `${monthShort(first)} – ${monthShort(first + 2)}`);
 
 interface Cell {
   key: string;
@@ -61,17 +63,20 @@ interface Block {
 }
 
 /** The five steps from less to more: under the grid (`legend`) or wherever a page puts it. A picture only: screen readers get the `label`. */
-export const ActivityHeatmapLegend = () => (
-  <div aria-hidden className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm leading-none text-muted-foreground">
-    <span className="flex items-center gap-1">
-      <span>Less</span>
-      {HEAT_CLASSES.map((heat) => (
-        <span key={heat} data-swatch className={cn('size-2.5', heat)} />
-      ))}
-      <span>More</span>
-    </span>
-  </div>
-);
+export const ActivityHeatmapLegend = () => {
+  const { t } = useTranslation();
+  return (
+    <div aria-hidden className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm leading-none text-muted-foreground">
+      <span className="flex items-center gap-1">
+        <span>{t('heatmap.less')}</span>
+        {HEAT_CLASSES.map((heat) => (
+          <span key={heat} data-swatch className={cn('size-2.5', heat)} />
+        ))}
+        <span>{t('heatmap.more')}</span>
+      </span>
+    </div>
+  );
+};
 
 // Pixels kept between the tooltip and the window edge, and between the tooltip and its cell.
 const EDGE = 8;
@@ -90,6 +95,7 @@ interface HeatmapTooltipProps {
  */
 const HeatmapTooltip = ({ cell, rect, isToday }: HeatmapTooltipProps) => {
   const ref = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
 
   useLayoutEffect(() => {
     const tooltip = ref.current;
@@ -108,12 +114,12 @@ const HeatmapTooltip = ({ cell, rect, isToday }: HeatmapTooltipProps) => {
       role="tooltip"
       className="pointer-events-none fixed top-0 left-0 z-50 border border-border bg-background/75 px-2.5 py-1.5 text-sm whitespace-nowrap text-popover-foreground shadow-md backdrop-blur-xs"
     >
-      <p className="font-medium text-foreground">{isToday ? `Today · ${dayInWords(cell.key)}` : dayInWords(cell.key)}</p>
+      <p className="font-medium text-foreground">{isToday ? t('heatmap.today', { day: dayInWords(cell.key) }) : dayInWords(cell.key)}</p>
       <p className="text-muted-foreground">{cell.text}</p>
       {cell.tasks && (
         <p className="flex items-center gap-1.5 text-primary">
           <CircleCheck className="size-3" aria-hidden />
-          {cell.tasks.done} / {cell.tasks.total} daily tasks done
+          {t('heatmap.tasksDone', { done: cell.tasks.done, total: cell.tasks.total })}
         </p>
       )}
     </div>,
@@ -140,8 +146,8 @@ interface ActivityHeatmapProps {
   calendarYear?: boolean;
   /** The IANA zone the `days` are dates in (the learner's, e.g. `Asia/Ho_Chi_Minh`): today and `since` are taken in it. Without it, UTC days. */
   timeZone?: string;
-  /** What a session is called in the tooltip: "counted session" gives "2 counted sessions". Default "session". */
-  unit?: string;
+  /** What a day's count says in the tooltip, in the language of the interface ("2 counted sessions", "No counted sessions"). Default: "2 sessions", "No sessions". */
+  counts?: { some: (count: number) => string; none: string };
   /** Under the grid: "Less", the five steps and "More". */
   legend?: boolean;
 }
@@ -152,7 +158,8 @@ interface ActivityHeatmapProps {
  * One tooltip follows the cell the pointer is over (one for the whole grid, not one per cell): the day in words, its
  * sessions and, on a day with `tasksTotal`, how many of its daily tasks were done ("2 / 3 daily tasks done").
  */
-export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear, timeZone, unit = 'session', legend }: ActivityHeatmapProps) => {
+export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear, timeZone, counts, legend }: ActivityHeatmapProps) => {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState<{ key: string; rect: DOMRect } | null>(null);
   const open = hovered !== null;
 
@@ -171,10 +178,10 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
 
   // What the tooltip says under the date.
   const describe = (key: string, sessions: number) => {
-    if (key > todayKey) return 'Upcoming';
-    if (!days) return 'No data yet';
-    if (sessions > 0) return `${sessions} ${unit}${sessions > 1 ? 's' : ''}`;
-    return `No ${unit}s`;
+    if (key > todayKey) return t('heatmap.upcoming');
+    if (!days) return t('heatmap.noData');
+    if (sessions > 0) return counts ? counts.some(sessions) : t('heatmap.sessions', { count: sessions });
+    return counts ? counts.none : t('heatmap.noSessions');
   };
 
   const cellOf = (key: string): Cell => {
@@ -192,7 +199,7 @@ export const ActivityHeatmap = ({ days, since, label, fill, labels, calendarYear
     const yearEnd = Date.UTC(year, 11, 31);
     const firstMonday = yearStart - ((new Date(yearStart).getUTCDay() + 6) % 7) * DAY_MS;
     const weeks = Math.ceil(((yearEnd - firstMonday) / DAY_MS + 1) / 7);
-    QUARTER_LABELS.forEach((quarterLabel) => blocks.push({ cells: [], weeks: 0, label: quarterLabel }));
+    quarterLabels().forEach((quarterLabel) => blocks.push({ cells: [], weeks: 0, label: quarterLabel }));
     for (let week = 0; week < weeks; week += 1) {
       const monday = firstMonday + week * 7 * DAY_MS;
       const block = blocks[Math.floor(new Date(Math.max(monday, yearStart)).getUTCMonth() / 3)];

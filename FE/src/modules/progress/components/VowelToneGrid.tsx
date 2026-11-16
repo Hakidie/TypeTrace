@@ -1,5 +1,6 @@
 import { Grid3x3 } from 'lucide-react';
 import type { CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -15,20 +16,21 @@ import type { VowelToneCell, VowelToneGridData } from '../types/progress.types';
 const heat = (rate: number, worst: number) => `color-mix(in srgb, var(--primary) ${Math.round(12 + (rate / worst) * 78)}%, transparent)`;
 
 const CellTip = ({ cell, minSeen }: { cell: VowelToneCell; minSeen: number }) => {
+  const { t } = useTranslation('progress');
   const rate = cellRate(cell, minSeen);
   return (
     <div className="space-y-1">
       <p className="font-medium">
-        {cell.vowel} + {TONES.find((tone) => tone.id === cell.tone)!.label.toLowerCase()} ({toneLetter(cell.vowel, cell.tone)})
+        {t('grid.cellTitle', { vowel: cell.vowel, tone: TONES.find((tone) => tone.id === cell.tone)!.label.toLowerCase(), letter: toneLetter(cell.vowel, cell.tone) })}
       </p>
       <p>
-        Seen: {cell.seen} · Wrong: {cell.wrong}
+        {t('grid.seenWrong', { seen: cell.seen, wrong: cell.wrong })}
         {rate !== null && ` · ${rate}%`}
       </p>
       {rate === null ? (
-        <p className="text-muted-foreground">Not enough data yet: needs {minSeen} sightings.</p>
+        <p className="text-muted-foreground">{t('grid.notEnough', { min: minSeen })}</p>
       ) : (
-        cell.examples.length > 0 && <p className="text-muted-foreground">Typed wrong: {cell.examples.map((example) => `${example.target} → ${example.typed}`).join(', ')}</p>
+        cell.examples.length > 0 && <p className="text-muted-foreground">{t('grid.typedWrong', { examples: cell.examples.map((example) => `${example.target} → ${example.typed}`).join(', ') })}</p>
       )}
     </div>
   );
@@ -36,13 +38,14 @@ const CellTip = ({ cell, minSeen }: { cell: VowelToneCell; minSeen: number }) =>
 
 /** One cell of the grid: the letter and its error rate, colored by the rate; grey while the data is too thin. */
 const GridCell = ({ cell, minSeen, worst }: { cell: VowelToneCell; minSeen: number; worst: number }) => {
+  const { t } = useTranslation('progress');
   const rate = cellRate(cell, minSeen);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label={`${toneLetter(cell.vowel, cell.tone)}: ${rate === null ? 'not enough data' : `${rate}% wrong`}`}
+          aria-label={rate === null ? t('grid.cellNoData', { letter: toneLetter(cell.vowel, cell.tone) }) : t('grid.cellRate', { letter: toneLetter(cell.vowel, cell.tone), rate })}
           style={rate === null ? undefined : { backgroundColor: heat(rate, worst) }}
           className={cn(
             'flex h-full min-h-11 min-w-0 flex-col items-center justify-center leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -62,6 +65,7 @@ const GridCell = ({ cell, minSeen, worst }: { cell: VowelToneCell; minSeen: numb
 
 /** The grid and its legend side by side, centered together. */
 const GridView = ({ data }: { data: VowelToneGridData }) => {
+  const { t } = useTranslation('progress');
   const { minSeen } = data;
   const byKey = new Map(data.cells.map((cell) => [`${cell.vowel}:${cell.tone}`, cell]));
   const worst = worstRate(data.cells, minSeen);
@@ -71,7 +75,7 @@ const GridView = ({ data }: { data: VowelToneGridData }) => {
         <div
           className="grid min-h-0 w-full min-w-0 flex-1 grid-cols-[2.5rem_repeat(6,minmax(0,1fr))] grid-rows-[auto_repeat(12,minmax(2.75rem,1fr))] gap-1"
           role="group"
-          aria-label="Error rate of each vowel with each tone"
+          aria-label={t('grid.chart')}
         >
           <span aria-hidden />
           {TONES.map((tone) => (
@@ -103,7 +107,7 @@ const GridView = ({ data }: { data: VowelToneGridData }) => {
         </span>
         <span className="inline-flex flex-col items-center gap-2">
           <span aria-hidden className="size-3 shrink-0 bg-muted" />
-          <span className="whitespace-nowrap [writing-mode:vertical-rl]">Fewer than {minSeen} sightings: not enough data</span>
+          <span className="whitespace-nowrap [writing-mode:vertical-rl]">{t('grid.legend', { min: minSeen })}</span>
         </span>
       </div>
     </div>
@@ -117,23 +121,24 @@ const GridView = ({ data }: { data: VowelToneGridData }) => {
  * It is a page of its own: the Progress page shows it with the button under it.
  */
 export const VowelToneGrid = () => {
+  const { t } = useTranslation('progress');
   const { data, isPending, isError, error, refetch } = useVowelTone();
 
   const content = () => {
     if (isPending) return <LoadingState rows={6} />;
-    if (isError) return <ErrorState error={error} title="Could not load the vowel × tone grid" onRetry={() => void refetch()} />;
+    if (isError) return <ErrorState error={error} title={t('grid.couldNotLoad')} onRetry={() => void refetch()} />;
     if (data.sessionsUsed === 0) {
-      return <EmptyState icon={Grid3x3} title="No counted Vietnamese sessions yet" description="Your grid starts with your first counted session." />;
+      return <EmptyState icon={Grid3x3} title={t('grid.emptyTitle')} description={t('grid.emptyHint')} />;
     }
     return <GridView data={data} />;
   };
 
   return (
-    <section aria-label="Vowel × tone" aria-busy={isPending} className="flex min-h-0 flex-1 flex-col">
+    <section aria-label={t('grid.aria')} aria-busy={isPending} className="flex min-h-0 flex-1 flex-col">
       {/* PANEL Vowel × tone */}
       <Panel
-        title="Vowel × tone"
-        titleTip={data && `How often each vowel with each tone was typed wrong in your last ${data.window} counted Vietnamese sessions. Hover a cell for the details.`}
+        title={t('vowelTone')}
+        titleTip={data && t('grid.tip', { window: data.window })}
         bare
         fill
         titleClassName={sectionTitleClass}

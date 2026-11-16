@@ -1,5 +1,6 @@
 import { ArrowUpDown, ChevronLeft, ListFilter, type LucideIcon, Plus, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { type FilterOption, SearchInput } from '@/shared/components/data-table';
 import { type ListToolbarFilter, MenuOption } from '@/shared/components/list-toolbar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/shared/components/ui/dropdown-menu';
@@ -102,13 +103,15 @@ const Word = ({ children, always, className }: { children: ReactNode; always?: b
   </span>
 );
 
-const MenuPart = ({ menu }: { menu: CompactToolbarMenu }) => (
+const MenuPart = ({ menu }: { menu: CompactToolbarMenu }) => {
+  const { t } = useTranslation();
+  return (
   <DropdownMenu>
     <DropdownMenuTrigger className={cn(partClass, menu.active === false && 'opacity-60')} aria-label={menu.label}>
       <menu.icon className="size-4" />
       <span className="ml-2">{menu.valueLabel}</span>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" role="menu" aria-label={`${menu.label} options`} className={cn('min-w-44', menu.menuClassName)}>
+    <DropdownMenuContent align="end" role="menu" aria-label={t('toolbar.options', { label: menu.label })} className={cn('min-w-44', menu.menuClassName)}>
       {menu.children ??
         menu.options.map((option) => (
           <MenuOption key={option.value} selected={option.value === menu.value} onSelect={() => menu.onChange(option.value)}>
@@ -117,9 +120,11 @@ const MenuPart = ({ menu }: { menu: CompactToolbarMenu }) => (
         ))}
     </DropdownMenuContent>
   </DropdownMenu>
-);
+  );
+};
 
 const AdderPart = ({ adder }: { adder: CompactToolbarAdder }) => {
+  const { t } = useTranslation();
   // The group whose options show in the second menu beside the first.
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const group = adder.groups.find((item) => item.label === openGroup);
@@ -131,7 +136,7 @@ const AdderPart = ({ adder }: { adder: CompactToolbarAdder }) => {
         <span className="ml-2">{adder.label}</span>
       </DropdownMenuTrigger>
       {/* `overflow-visible`: the second menu opens outside the first, on its left (the toolbar ends at the right edge). */}
-      <DropdownMenuContent align="end" role="menu" aria-label={`${adder.label} options`} className="min-w-32 overflow-visible">
+      <DropdownMenuContent align="end" role="menu" aria-label={t('toolbar.options', { label: adder.label })} className="min-w-32 overflow-visible">
         {adder.groups.map((item) => (
           <div
             key={item.label}
@@ -160,7 +165,7 @@ const AdderPart = ({ adder }: { adder: CompactToolbarAdder }) => {
         {group && (
           <div
             role="menu"
-            aria-label={`${group.label} periods`}
+            aria-label={t('toolbar.periods', { label: group.label })}
             className="absolute right-full top-0 mr-1 max-h-72 min-w-48 overflow-y-auto border border-border bg-background/75 p-1 shadow-md backdrop-blur-xs transition-colors hover:border-destructive/40"
           >
             {group.options.map((option) => (
@@ -190,6 +195,7 @@ const AdderPart = ({ adder }: { adder: CompactToolbarAdder }) => {
  *   />
  */
 export const CompactToolbar = ({ menus = [], adder, tags = [], buttons = [], search, sort, filters = [], count, decisions = [], showWords, className }: CompactToolbarProps) => {
+  const { t } = useTranslation();
   const activeFilters = filters.filter((filter) => filter.value !== '').length;
   const CountIcon = count?.icon;
 
@@ -201,7 +207,7 @@ export const CompactToolbar = ({ menus = [], adder, tags = [], buttons = [], sea
           {tag.label}
           <button
             type="button"
-            aria-label={`Remove ${tag.label}`}
+            aria-label={t('toolbar.remove', { label: tag.label })}
             onClick={tag.onRemove}
             className="inline-flex size-5 items-center justify-center bg-transparent text-primary opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
           >
@@ -239,18 +245,18 @@ export const CompactToolbar = ({ menus = [], adder, tags = [], buttons = [], sea
           {...search}
           searchOn="enter"
           collapsible
-          hoverLabel="Search"
+          hoverLabel={t('toolbar.search')}
           alwaysShowLabel={showWords}
           className="[&_button]:text-primary [&_input]:border-transparent [&_input]:bg-transparent [&_input]:text-primary [&_input]:placeholder:text-primary/70 [&_input]:focus-visible:ring-0 [&_svg]:text-primary [&>button]:hover:text-primary"
         />
       )}
       {sort && (
         <DropdownMenu>
-          <DropdownMenuTrigger className={partClass} aria-label="Sort">
+          <DropdownMenuTrigger className={partClass} aria-label={t('toolbar.sort')}>
             <ArrowUpDown className="size-4" />
-            <Word always={showWords}>Sort</Word>
+            <Word always={showWords}>{t('toolbar.sort')}</Word>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" role="menu" aria-label="Sort options" className="min-w-44">
+          <DropdownMenuContent align="end" role="menu" aria-label={t('toolbar.sortOptions')} className="min-w-44">
             {sort.options.map((option) => (
               <MenuOption key={option.value} selected={option.value === sort.value} onSelect={() => sort.onChange(option.value)}>
                 {option.label}
@@ -261,21 +267,21 @@ export const CompactToolbar = ({ menus = [], adder, tags = [], buttons = [], sea
       )}
       {filters.length > 0 && (
         <DropdownMenu>
-          <DropdownMenuTrigger className={partClass} aria-label="Filter">
+          <DropdownMenuTrigger className={partClass} aria-label={t('toolbar.filter')}>
             <ListFilter className="size-4" />
-            <Word always={showWords}>Filter</Word>
+            <Word always={showWords}>{t('toolbar.filter')}</Word>
             {activeFilters > 0 && (
-              <span aria-label={`${activeFilters} active`} className="ml-1.5 text-sm">
+              <span aria-label={t('toolbar.active', { count: activeFilters })} className="ml-1.5 text-sm">
                 {activeFilters}
               </span>
             )}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" role="menu" aria-label="Filter options" className="min-w-48">
+          <DropdownMenuContent align="end" role="menu" aria-label={t('toolbar.filterOptions')} className="min-w-48">
             {filters.map((filter, index) => (
               <div key={filter.label} role="group" aria-label={filter.label} className={cn(index > 0 && 'mt-1')}>
                 <p className="px-2 py-1 text-sm text-primary">{filter.label}</p>
                 <MenuOption selected={filter.value === ''} onSelect={() => filter.onChange('')}>
-                  All
+                  {t('toolbar.all')}
                 </MenuOption>
                 {filter.options.map((option) => (
                   <MenuOption key={option.value} selected={option.value === filter.value} onSelect={() => filter.onChange(option.value)}>

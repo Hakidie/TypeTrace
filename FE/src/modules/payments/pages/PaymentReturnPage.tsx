@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { CircleAlert, CircleCheck, Crown } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
@@ -19,10 +20,11 @@ import type { PaymentProvider, VnpayReturn } from '../types/payments.types';
 const SLOT_ORDER: AvatarSlot[] = ['headwear', 'accessory', 'back', 'effect'];
 /** A stable function for `CountUp`: `+1.400 coins`. */
 const formatGain = (coins: number) => `+${formatCoins(coins)}`;
-const dateText = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const dateText = (iso: string, language: string) => new Date(iso).toLocaleDateString(language.startsWith('vi') ? 'vi-VN' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 /** After a Premium payment: the avatar already wearing the set, and a button that puts it on for good. Only when the set has sprites. */
 const WearProSet = () => {
+  const { t } = useTranslation('store');
   const catalog = useAvatarCatalog();
   const updateAvatar = useUpdateAvatar();
   if (!catalog.data) return null;
@@ -35,11 +37,11 @@ const WearProSet = () => {
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="flex justify-center border-b border-primary/30 bg-primary/5 px-10 pt-2">
-        <AvatarSprite look={look} pose="win" scale={5} label="Your avatar with the Dragon set" />
+        <AvatarSprite look={look} pose="win" scale={5} label={t('ret.wearSet')} />
       </div>
       {!worn && (
         <Button type="button" disabled={updateAvatar.isPending} onClick={() => updateAvatar.mutate(look)}>
-          Wear it now
+          {t('ret.wear')}
         </Button>
       )}
     </div>
@@ -47,6 +49,7 @@ const WearProSet = () => {
 };
 
 const Paid = ({ result, signedIn }: { result: VnpayReturn; signedIn: boolean }) => {
+  const { t, i18n } = useTranslation('store');
   const user = useCurrentUser();
   const grant = result.grant;
 
@@ -60,18 +63,18 @@ const Paid = ({ result, signedIn }: { result: VnpayReturn; signedIn: boolean }) 
       </div>
       {grant?.kind === 'coins' ? (
         <>
-          <h1 className="text-3xl font-semibold">Payment complete</h1>
+          <h1 className="text-3xl font-semibold">{t('ret.complete')}</h1>
           <p className="text-4xl font-semibold text-primary">
             <CountUp to={grant.coins} format={formatGain} />
           </p>
-          {signedIn && user.data?.coins !== undefined && <p className="text-muted-foreground">New balance: {formatCoins(user.data.coins)}</p>}
+          {signedIn && user.data?.coins !== undefined && <p className="text-muted-foreground">{t('ret.balance', { coins: formatCoins(user.data.coins) })}</p>}
         </>
       ) : (
         <>
           <h1 className="flex items-center gap-2 text-3xl font-semibold">
-            You are Premium <Crown className="size-7 text-primary" aria-hidden="true" />
+            {t('ret.premiumNow')} <Crown className="size-7 text-primary" aria-hidden="true" />
           </h1>
-          {signedIn && user.data?.premium?.until && <p className="text-muted-foreground">Premium until {dateText(user.data.premium.until)}</p>}
+          {signedIn && user.data?.premium?.until && <p className="text-muted-foreground">{t('ret.until', { date: dateText(user.data.premium.until, i18n.language) })}</p>}
           {signedIn && <WearProSet />}
         </>
       )}
@@ -79,15 +82,15 @@ const Paid = ({ result, signedIn }: { result: VnpayReturn; signedIn: boolean }) 
         {signedIn ? (
           <>
             <Button asChild>
-              <Link to="/wardrobe">Open wardrobe</Link>
+              <Link to="/wardrobe">{t('ret.openWardrobe')}</Link>
             </Button>
             <Button asChild variant="outline">
-              <Link to="/store">{grant?.kind === 'coins' ? 'Buy more' : 'Back to the store'}</Link>
+              <Link to="/store">{grant?.kind === 'coins' ? t('ret.buyMore') : t('ret.backStore')}</Link>
             </Button>
           </>
         ) : (
           <Button asChild>
-            <Link to="/login">Log in to see it</Link>
+            <Link to="/login">{t('ret.logIn')}</Link>
           </Button>
         )}
       </div>
@@ -95,16 +98,19 @@ const Paid = ({ result, signedIn }: { result: VnpayReturn; signedIn: boolean }) 
   );
 };
 
-const Trouble = ({ title, text }: { title: string; text: string }) => (
+const Trouble = ({ title, text }: { title: string; text: string }) => {
+  const { t } = useTranslation('store');
+  return (
   <div className="flex flex-col items-center gap-4">
     <CircleAlert className="size-10 text-muted-foreground" aria-hidden="true" />
     <h1 className="text-3xl font-semibold">{title}</h1>
     <p className="max-w-md text-muted-foreground">{text}</p>
     <Button asChild>
-      <Link to="/store">Back to the store</Link>
+      <Link to="/store">{t('ret.backStore')}</Link>
     </Button>
   </div>
-);
+  );
+};
 
 /**
  * Where VNPay sends the browser back (`/payments/vnpay/return`, public: the checksum is the proof, a learner whose login
@@ -112,6 +118,7 @@ const Trouble = ({ title, text }: { title: string; text: string }) => (
  * `MomoReturnPage` and `PayosReturnPage` are the same page for MoMo and payOS (payOS's query is not signed: the server asks payOS).
  */
 export const PaymentReturnPage = ({ provider = 'vnpay' }: { provider?: PaymentProvider }) => {
+  const { t } = useTranslation('store');
   const { search } = useLocation();
   const result = useVnpayReturn(search, provider);
   const signedIn = Boolean(tokenStore.get());
@@ -128,7 +135,7 @@ export const PaymentReturnPage = ({ provider = 'vnpay' }: { provider?: PaymentPr
       <BrandHeader to="/">
         {!signedIn && (
           <Button asChild variant="ghost">
-            <Link to="/login">Login</Link>
+            <Link to="/login">{t('ret.login')}</Link>
           </Button>
         )}
       </BrandHeader>
@@ -136,18 +143,18 @@ export const PaymentReturnPage = ({ provider = 'vnpay' }: { provider?: PaymentPr
         {result.isLoading && (
           <div role="status" className="flex flex-col items-center gap-4">
             <LoadingState rows={2} />
-            <p className="text-muted-foreground">Confirming your payment with {gateway}...</p>
+            <p className="text-muted-foreground">{t('ret.confirming', { gateway })}</p>
           </div>
         )}
         {result.isError && (
           <Trouble
-            title="We could not verify this payment"
-            text={`The link may be damaged. If money left your account, wait a few minutes: ${gateway} also tells us directly, and what you bought appears by itself.`}
+            title={t('ret.cannotVerify')}
+            text={t('ret.cannotVerifyHint', { gateway })}
           />
         )}
         {result.data?.status === 'paid' && <Paid result={result.data} signedIn={signedIn} />}
-        {result.data?.status === 'failed' && <Trouble title="Payment not completed" text={failure} />}
-        {result.data?.status === 'pending' && <Trouble title={`Still waiting for ${gateway}`} text="Reload this page in a moment." />}
+        {result.data?.status === 'failed' && <Trouble title={t('ret.notCompleted')} text={failure} />}
+        {result.data?.status === 'pending' && <Trouble title={t('ret.waiting', { gateway })} text={t('ret.waitingHint')} />}
       </main>
       <BrandFooter />
     </div>

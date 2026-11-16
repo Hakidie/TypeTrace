@@ -1,10 +1,11 @@
 import { Moon, Sun, type LucideIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ThemeMode } from '@/shared/lib/theme';
 import { cn } from '@/shared/lib/utils';
 
-const options: { value: ThemeMode; label: string; icon: LucideIcon }[] = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
+const options: { value: ThemeMode; icon: LucideIcon }[] = [
+  { value: 'light', icon: Sun },
+  { value: 'dark', icon: Moon },
 ];
 
 interface ModeSwitchProps {
@@ -13,9 +14,11 @@ interface ModeSwitchProps {
 }
 
 /** Two tabs, Light or Dark. Only shows and reports the choice: `ThemeTabs` ties it to the mode of the app. */
-export const ModeSwitch = ({ value, onChange }: ModeSwitchProps) => (
-  <div role="radiogroup" aria-label="Mode" className="flex shrink-0 border border-border">
-    {options.map(({ value: option, label, icon: Icon }) => (
+export const ModeSwitch = ({ value, onChange }: ModeSwitchProps) => {
+  const { t } = useTranslation('settings');
+  return (
+  <div role="radiogroup" aria-label={t('mode.label')} className="flex shrink-0 border border-border">
+    {options.map(({ value: option, icon: Icon }) => (
       <button
         key={option}
         type="button"
@@ -28,8 +31,9 @@ export const ModeSwitch = ({ value, onChange }: ModeSwitchProps) => (
         )}
       >
         <Icon className="size-4" />
-        {label}
+        {t(`mode.${option}`)}
       </button>
     ))}
   </div>
-);
+  );
+};

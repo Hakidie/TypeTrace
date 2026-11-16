@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Flag } from 'lucide-react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { cn } from '@/shared/lib/utils';
@@ -8,7 +9,9 @@ import type { PublicMatch } from '../types/ranked.types';
  * fills up to the finish flag, with the words and the speed. The user's lane is marked "You". Each lane is 128px high:
  * 2px of border, 4px of padding, the 20px line of the name, the 98px track and the 4px progress bar.
  */
-export const RaceLanes = ({ match, myId }: { match: PublicMatch; myId?: string }) => (
+export const RaceLanes = ({ match, myId }: { match: PublicMatch; myId?: string }) => {
+  const { t } = useTranslation('ranked');
+  return (
   <div className="mx-auto flex w-full max-w-7xl flex-col gap-2">
     {match.players.map((player) => {
       const share = match.wordCount ? Math.min(1, player.typedCount / match.wordCount) : 0;
@@ -23,11 +26,11 @@ export const RaceLanes = ({ match, myId }: { match: PublicMatch; myId?: string }
           <div className="flex items-center justify-between gap-2 text-sm">
             <span className="truncate font-semibold text-foreground">
               {player.displayName}
-              {mine && <span className="ml-2 font-normal text-muted-foreground">You</span>}
+              {mine && <span className="ml-2 font-normal text-muted-foreground">{t('youShort')}</span>}
             </span>
             <span className="flex shrink-0 gap-3 text-muted-foreground tabular-nums">
               <span>
-                {player.typedCount}/{match.wordCount} words
+                {t('duel.wordsOf', { count: player.typedCount, total: match.wordCount })}
               </span>
               <span className="font-semibold text-primary">{Math.round(player.wpm)} WPM</span>
             </span>
@@ -36,7 +39,7 @@ export const RaceLanes = ({ match, myId }: { match: PublicMatch; myId?: string }
           <div className="relative h-[98px]">
             <Flag className="absolute bottom-2 right-0 size-5 text-muted-foreground" aria-hidden="true" />
             <div className="absolute bottom-1 transition-[left] duration-300 ease-out" style={{ left: `calc(${share * 100}% - ${share * 76}px)` }}>
-              <AvatarSprite look={player.avatar} pose={player.finished ? 'win' : 'typing'} scale={1} label={`${player.displayName}'s avatar`} />
+              <AvatarSprite look={player.avatar} pose={player.finished ? 'win' : 'typing'} scale={1} label={t('avatarOf', { name: player.displayName })} />
             </div>
           </div>
           <div className="-mx-3 h-1 bg-primary/15">
@@ -46,4 +49,5 @@ export const RaceLanes = ({ match, myId }: { match: PublicMatch; myId?: string }
       );
     })}
   </div>
-);
+  );
+};

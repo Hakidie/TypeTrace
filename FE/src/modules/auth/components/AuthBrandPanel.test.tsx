@@ -7,7 +7,7 @@ describe('AuthBrandPanel', () => {
     render(<AuthBrandPanel />);
 
     const avatar = screen.getByRole('img', { name: 'Avatar typing' });
-    const passage = screen.getByText(/dấu vết nhỏ/, { selector: '.sr-only' });
+    const passage = screen.getByText(/typing mistake/, { selector: '.sr-only' });
     expect(avatar.compareDocumentPosition(passage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

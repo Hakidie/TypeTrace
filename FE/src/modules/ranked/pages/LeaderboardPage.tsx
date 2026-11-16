@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { ClipboardCheck, CloudRain, Gamepad2, Swords, Trophy } from 'lucide-react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
@@ -20,18 +21,16 @@ const PAGE_SIZE = 20;
 
 type LeaderboardTab = 'placement' | 'rank' | 'minigames';
 
-const RANGE_TABS = [
-  { value: 'week', label: 'This week' },
-  { value: 'all', label: 'All time' },
-];
-
-const KIND_TABS = [
-  { value: 'race', label: 'Race', icon: Swords },
-  { value: 'rain', label: 'Rain', icon: CloudRain },
-];
-
-/** The best players of the current season (5 matches or more): display names and avatars, never an email. */
 export const LeaderboardPage = () => {
+  const { t } = useTranslation('ranked');
+  const rangeTabs = [
+    { value: 'week', label: t('leaderboard.ranges.week') },
+    { value: 'all', label: t('leaderboard.ranges.all') },
+  ];
+  const kindTabs = [
+    { value: 'race', label: t('kinds.race'), icon: Swords },
+    { value: 'rain', label: t('kinds.rain'), icon: CloudRain },
+  ];
   const list = useListParams({ sort: '-rating' });
   // Each kind of match has its own board; the kind is in the URL (`?kind=rain`), Race without it.
   const kind: MatchKind = list.get('kind') === 'rain' ? 'rain' : 'race';
@@ -48,16 +47,16 @@ export const LeaderboardPage = () => {
   const range: PlacementRange = list.get('range') === 'all' ? 'all' : 'week';
   // The Rank tab names the season: "Rank S1".
   const tabs = [
-    { value: 'placement', label: 'Placement', icon: ClipboardCheck },
-    { value: 'rank', label: board.data ? `Rank S${board.data.season.number}` : 'Rank', icon: Trophy },
-    { value: 'minigames', label: 'Minigames', icon: Gamepad2 },
+    { value: 'placement', label: t('leaderboard.tabs.placement'), icon: ClipboardCheck },
+    { value: 'rank', label: board.data ? t('leaderboard.tabs.rankSeason', { number: board.data.season.number }) : t('leaderboard.tabs.rank'), icon: Trophy },
+    { value: 'minigames', label: t('leaderboard.tabs.minigames'), icon: Gamepad2 },
   ];
 
   const renderList = () => {
     if (board.isPending) return <LoadingState rows={5} />;
     if (board.isError) return <ErrorState error={board.error} onRetry={() => void board.refetch()} />;
     if (board.data.items.length === 0) {
-      return <EmptyState icon={Trophy} title="No ranked players yet" description="Players show up here after 5 rated matches this season." />;
+      return <EmptyState icon={Trophy} title={t('leaderboard.emptyTitle')} description={t('leaderboard.emptyHint')} />;
     }
     return (
       <div className="space-y-2">
@@ -67,11 +66,11 @@ export const LeaderboardPage = () => {
             identity={
               <div className="flex min-w-0 items-center gap-3">
                 <span className="w-12 shrink-0 text-2xl font-black">#{row.rank}</span>
-                <AvatarSprite look={row.avatar} crop="head" scale={1} label={`${row.displayName}'s avatar`} />
+                <AvatarSprite look={row.avatar} crop="head" scale={1} label={t('avatarOf', { name: row.displayName })} />
                 <div className="min-w-0">
                   <p className="truncate text-lg font-semibold">
                     {row.displayName}
-                    {row.userId === me?._id && <span className="ml-2 text-sm text-muted-foreground">(you)</span>}
+                    {row.userId === me?._id && <span className="ml-2 text-sm text-muted-foreground">{t('you')}</span>}
                   </p>
                   <p className="text-sm text-muted-foreground">{row.tier}</p>
                 </div>
@@ -79,9 +78,9 @@ export const LeaderboardPage = () => {
             }
             extra={
               <div className="flex justify-end gap-6">
-                <ListRowStat label="Matches" value={String(row.matches)} className="w-20" />
-                <ListRowStat label="Win rate" value={`${Math.round(row.winRate * 100)}%`} className="w-24" />
-                <ListRowStat label="Rating" value={String(row.rating)} className="w-24" />
+                <ListRowStat label={t('leaderboard.matches')} value={String(row.matches)} className="w-20" />
+                <ListRowStat label={t('leaderboard.winRate')} value={`${Math.round(row.winRate * 100)}%`} className="w-24" />
+                <ListRowStat label={t('leaderboard.rating')} value={String(row.rating)} className="w-24" />
               </div>
             }
           />
@@ -94,7 +93,7 @@ export const LeaderboardPage = () => {
   const renderPlacement = () => {
     if (passages.isPending) return <LoadingState rows={5} />;
     if (passages.isError) return <ErrorState error={passages.error} onRetry={() => void passages.refetch()} />;
-    if (!passage) return <EmptyState icon={ClipboardCheck} title="No placement passages" description="The board shows up once an admin publishes a placement passage." />;
+    if (!passage) return <EmptyState icon={ClipboardCheck} title={t('leaderboard.noPlacementTitle')} description={t('leaderboard.noPlacementHint')} />;
     return <PlacementBoard passageId={passage._id} range={range} />;
   };
 
@@ -107,20 +106,20 @@ export const LeaderboardPage = () => {
           {/* ponytail: a fixed label while Nối từ is the only minigame with a board; make it a game menu like the passage one when another gets its own. */}
           {tab === 'minigames' && (
             <div className="flex min-w-0 max-w-full outline outline-1 -outline-offset-1 outline-border">
-              <span aria-label="Minigame" className="block max-w-64 min-w-0 truncate px-3 py-1.5 text-[1.125rem] text-primary">
-                Word chain
+              <span aria-label={t('leaderboard.minigame')} className="block max-w-64 min-w-0 truncate px-3 py-1.5 text-[1.125rem] text-primary">
+                {t('leaderboard.wordChain')}
               </span>
             </div>
           )}
         </div>
-        <TabGroup label="Leaderboard" tabs={tabs} value={tab} onChange={(value) => setTab(value as LeaderboardTab)} />
+        <TabGroup label={t('leaderboard.aria')} tabs={tabs} value={tab} onChange={(value) => setTab(value as LeaderboardTab)} />
         <div className="md:justify-self-start">
           {(tab === 'placement' || tab === 'minigames') && (
-            <TabGroup label="Time range" tabs={RANGE_TABS} value={range} onChange={(value) => list.set('range', value === 'all' ? 'all' : '')} />
+            <TabGroup label={t('leaderboard.timeRange')} tabs={rangeTabs} value={range} onChange={(value) => list.set('range', value === 'all' ? 'all' : '')} />
           )}
         </div>
       </div>
-      <div role="tabpanel" aria-label={tab === 'rank' ? 'Rank' : tab === 'minigames' ? 'Minigames' : 'Placement'}>
+      <div role="tabpanel" aria-label={tab === 'rank' ? t('leaderboard.tabs.rank') : tab === 'minigames' ? t('leaderboard.tabs.minigames') : t('leaderboard.tabs.placement')}>
         {tab === 'minigames' ? (
           // ponytail: Nối từ is the only minigame with a board; add a game picker here when another one gets its own.
           <WordChainPageBoard range={range} />
@@ -128,8 +127,8 @@ export const LeaderboardPage = () => {
           <div className="space-y-4">
             <div className="flex justify-center">
               <TabGroup
-                label="Kind of match"
-                tabs={KIND_TABS}
+                label={t('leaderboard.kindOfMatch')}
+                tabs={kindTabs}
                 value={kind}
                 // Race is the default: no `kind` in the URL. Changing the board goes back to its first page.
                 onChange={(value) => list.set('kind', value === 'rain' ? 'rain' : '')}

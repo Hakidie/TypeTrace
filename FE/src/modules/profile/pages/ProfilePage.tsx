@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { currentUserKey, useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -19,6 +20,7 @@ import { useStreak, useTypingActivity } from '../hooks/use-profile';
  * daily tasks (`ProfileDailyTasks`, first) and the error profile (`ProfileErrorProfile`), each with a button that shows the other; no panel has a frame. The login code switch is in the Security panel of the Settings page.
  */
 export const ProfilePage = () => {
+  const { t } = useTranslation('profile');
   const { data: user } = useCurrentUser();
   const activity = useTypingActivity();
   const streak = useStreak();
@@ -46,7 +48,7 @@ export const ProfilePage = () => {
 
       {/* The heatmap, under the header: a title, no frame. */}
       {/* PANEL Daily Progress */}
-      <Panel title="Daily Progress" bare titleClassName={sectionTitleClass} actions={<ActivityHeatmapLegend />}>
+      <Panel title={t('heatmap.title')} bare titleClassName={sectionTitleClass} actions={<ActivityHeatmapLegend />}>
         {user ? (
           <ProfileHeatmap activity={activity} since={user.createdAt} />
         ) : (
@@ -58,7 +60,7 @@ export const ProfilePage = () => {
       {bottomPanel === 'tasks' ? (
         <ProfileDailyTasks onSwitch={() => setBottomPanel('errors')} />
       ) : (
-        <ProfileErrorProfile onSwitch={() => setBottomPanel('tasks')} switchTo="Daily tasks" />
+        <ProfileErrorProfile onSwitch={() => setBottomPanel('tasks')} switchTo={t('dailyTasks.switchTo')} />
       )}
     </div>
   );
