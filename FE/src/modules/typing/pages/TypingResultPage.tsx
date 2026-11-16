@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -17,6 +18,7 @@ import { useSession, useSessionStats } from '../hooks/use-typing';
 import { placementBoardNote, statsFromCounts, type WordResult } from '../utils/typing-session';
 
 export const TypingResultPage = () => {
+  const { t } = useTranslation('typing');
   const { id = '' } = useParams();
   const { data: session, isLoading, error, refetch } = useSession(id);
   const stats = useSessionStats(id);
@@ -31,7 +33,7 @@ export const TypingResultPage = () => {
   if (isLoading) return <LoadingState rows={4} />;
   if (error || !session) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (session.status !== 'completed' || !session.errorCounts || !session.opportunityCounts) {
-    return <ErrorState title="This session has no result" />;
+    return <ErrorState title={t('result.noResult')} />;
   }
 
   const results: WordResult[] = session.words.map((word) => ({ ...word, errors: word.errorTypes }));
@@ -51,10 +53,10 @@ export const TypingResultPage = () => {
       {!session.isCounted && !noticeClosed && (
         <div className="flex flex-col gap-3 border border-dashed p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-muted-foreground">
-            This session is saved but not counted in your error profile, streak or daily mission: it needs at least 20 words and at most 200 WPM.
+            {t('result.notCounted')}
           </p>
           <Button variant="outline" size="sm" className="shrink-0" onClick={() => setNoticeClosed(true)}>
-            OK
+            {t('result.ok')}
           </Button>
         </div>
       )}

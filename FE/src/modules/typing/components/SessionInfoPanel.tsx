@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Panel } from '@/shared/components/panel';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
 import type { SessionMode } from '../types/typing.types';
@@ -14,26 +15,29 @@ interface SessionInfoPanelProps {
 }
 
 /** What was typed and how: the name of the passage, the typing mode, the language and the time chosen. */
-export const SessionInfoPanel = ({ passageTitle, mode, language, timeLimitSeconds }: SessionInfoPanelProps) => (
+export const SessionInfoPanel = ({ passageTitle, mode, language, timeLimitSeconds }: SessionInfoPanelProps) => {
+  const { t } = useTranslation('typing');
+  return (
   // PANEL Session info
   <Panel bare>
     <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div className="min-w-0">
-        <dt className="text-2xl text-muted-foreground">Passage</dt>
+        <dt className="text-2xl text-muted-foreground">{t('result.infoPassage')}</dt>
         <dd className="break-words text-[2rem] font-semibold leading-tight text-primary">{passageTitle ?? '—'}</dd>
       </div>
       <div>
-        <dt className="text-2xl text-muted-foreground">Mode</dt>
+        <dt className="text-2xl text-muted-foreground">{t('result.infoMode')}</dt>
         <dd className="text-[2rem] font-semibold leading-tight text-primary">{modeLabels[mode]}</dd>
       </div>
       <div>
-        <dt className="text-2xl text-muted-foreground">Language</dt>
+        <dt className="text-2xl text-muted-foreground">{t('result.infoLanguage')}</dt>
         <dd className="text-[2rem] font-semibold leading-tight text-primary">{languageNames[language]}</dd>
       </div>
       <div>
-        <dt className="text-2xl text-muted-foreground">Time</dt>
+        <dt className="text-2xl text-muted-foreground">{t('result.infoTime')}</dt>
         <dd className="text-[2rem] font-semibold leading-tight text-primary">{formatTimeLimit(timeLimitSeconds)}</dd>
       </div>
     </dl>
   </Panel>
-);
+  );
+};

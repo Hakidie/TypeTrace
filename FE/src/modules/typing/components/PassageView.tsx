@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TYPING_FONT_SIZE } from '@/shared/lib/app-font';
 import { passageHeightRem, scrollStepRem } from '../utils/passage-layout';
 import type { WordResult } from '../utils/typing-session';
@@ -32,6 +33,7 @@ const Caret = ({ heightRem }: { heightRem: number }) => (
  * by the classifier: an input method rewrites letters while it composes, so nothing is judged earlier.
  */
 export const PassageView = ({ words, results, current, maxRows, fontSizeRem = TYPING_FONT_SIZE.default }: PassageViewProps) => {
+  const { t } = useTranslation('typing');
   const passageRef = useRef<HTMLParagraphElement>(null);
   const currentRef = useRef<HTMLSpanElement>(null);
 
@@ -49,7 +51,7 @@ export const PassageView = ({ words, results, current, maxRows, fontSizeRem = TY
       ref={passageRef}
       className="relative flex flex-wrap content-start gap-x-3 gap-y-2 overflow-hidden leading-snug"
       style={{ fontSize: `${fontSizeRem}rem`, ...(maxRows ? { height: `${passageHeightRem(fontSizeRem, maxRows)}rem` } : {}) }}
-      aria-label="Passage to type"
+      aria-label={t('area.passage')}
     >
       {words.map((word, index) => {
         const result = results[index];

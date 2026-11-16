@@ -1,3 +1,4 @@
+import { i18n } from '@/shared/i18n/i18n';
 import { classifyIn, errorTypesOf, type SessionErrorType, tagIn, type TypingLanguage } from '@/shared/lib/typing-language';
 import { SESSION_TIME_LIMIT_SECONDS } from '../typing.config';
 import type { ErrorCounts } from '../types/typing.types';
@@ -78,10 +79,10 @@ export const placementBoardNote = (
   minAccuracy: number,
 ): { onBoard: boolean; text: string } | null => {
   if (session.mode !== 'placement') return null;
-  if (session.isOnPlacementBoard) return { onBoard: true, text: 'This session is on the placement leaderboard.' };
-  const notOnBoard = 'This session is not on the placement leaderboard: ';
-  if (session.chosenLimitSeconds !== SESSION_TIME_LIMIT_SECONDS) return { onBoard: false, text: `${notOnBoard}only 3-minute placement sessions are ranked.` };
-  if (!session.isCounted) return { onBoard: false, text: `${notOnBoard}it needs at least 20 words and at most 200 WPM to be ranked.` };
-  if ((session.accuracy ?? 0) < minAccuracy) return { onBoard: false, text: `${notOnBoard}an accuracy under ${minAccuracy}% is not ranked.` };
-  return { onBoard: false, text: `${notOnBoard}a 3-minute session must last the 3 minutes or finish the whole passage.` };
+  if (session.isOnPlacementBoard) return { onBoard: true, text: i18n.t('typing:result.boardOn') };
+  const notOnBoard = i18n.t('typing:result.boardOffPrefix');
+  if (session.chosenLimitSeconds !== SESSION_TIME_LIMIT_SECONDS) return { onBoard: false, text: `${notOnBoard}${i18n.t('typing:result.boardOffLimit')}` };
+  if (!session.isCounted) return { onBoard: false, text: `${notOnBoard}${i18n.t('typing:result.boardOffCounted')}` };
+  if ((session.accuracy ?? 0) < minAccuracy) return { onBoard: false, text: `${notOnBoard}${i18n.t('typing:result.boardOffAccuracy', { min: minAccuracy })}` };
+  return { onBoard: false, text: `${notOnBoard}${i18n.t('typing:result.boardOffDuration')}` };
 };

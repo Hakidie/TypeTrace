@@ -15,15 +15,20 @@ interface TabGroupProps {
    * page's modes). Screen readers still read every label.
    */
   iconsOnPhones?: boolean;
+  /**
+   * The same on every screen size, for a group whose labels are too long for its column (the Typing page's passage tabs in
+   * Vietnamese): the unselected tabs show only their icon, and the shared tooltip names them on hover or focus.
+   */
+  compact?: boolean;
 }
 
 /** A row of switch buttons, same look as the Theme tabs in Settings (the border is an inside outline so the height is the same as the word count's). */
-export const TabGroup = ({ label, tabs, value, onChange, framed = true, iconsOnPhones = false }: TabGroupProps) => (
+export const TabGroup = ({ label, tabs, value, onChange, framed = true, iconsOnPhones = false, compact = false }: TabGroupProps) => (
   <div role="radiogroup" aria-label={label} className={cn('flex text-[1.125rem]', framed && 'outline outline-1 -outline-offset-1 outline-border')}>
     {tabs.map(({ icon: Icon, hint, locked, ...tab }) => {
       const selected = value === tab.value;
       // Only the icon on a phone (the label stays for screen readers); the selected tab keeps its label on one line.
-      const iconOnly = iconsOnPhones && Icon !== undefined && !selected;
+      const iconOnly = (iconsOnPhones || compact) && Icon !== undefined && !selected;
       const button = (
         <button
           key={tab.value}
@@ -36,21 +41,23 @@ export const TabGroup = ({ label, tabs, value, onChange, framed = true, iconsOnP
           onClick={() => onChange(tab.value)}
           className={cn(
             'inline-flex items-center gap-2 px-3 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-            iconOnly && 'max-sm:px-2.5',
+            iconOnly && (compact ? 'px-2.5' : 'max-sm:px-2.5'),
             locked && 'opacity-50',
             selected ? 'text-primary' : 'text-muted-foreground enabled:hover:bg-muted enabled:hover:text-foreground',
           )}
         >
           {Icon && <Icon className="size-5" />}
-          {iconsOnPhones && Icon ? <span className={iconOnly ? 'max-sm:sr-only' : 'whitespace-nowrap'}>{tab.label}</span> : tab.label}
+          {(iconsOnPhones || compact) && Icon ? <span className={iconOnly ? (compact ? 'sr-only' : 'max-sm:sr-only') : 'whitespace-nowrap'}>{tab.label}</span> : tab.label}
         </button>
       );
-      if (!hint) return button;
+      // A tab shown as its icon alone is named in the tooltip, with its hint.
+      const tip = compact && iconOnly ? (hint ? `${tab.label}: ${hint}` : tab.label) : hint;
+      if (!tip) return button;
       return (
         <TooltipProvider key={tab.value} delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>{button}</TooltipTrigger>
-            <TooltipContent>{hint}</TooltipContent>
+            <TooltipContent>{tip}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       );

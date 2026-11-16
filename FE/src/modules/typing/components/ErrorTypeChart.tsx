@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { EmptyState } from '@/shared/components/empty-state';
 import { Panel } from '@/shared/components/panel';
@@ -12,16 +13,17 @@ const ROW_HEIGHT = 48;
 
 /** Bar chart of the error rate (errors / opportunities) of each error type in one session. Colors are theme tokens. */
 export const ErrorTypeChart = ({ stats }: ErrorTypeChartProps) => {
+  const { t } = useTranslation('typing');
   const data = stats.errorTypes.map((row) => ({ ...row, name: errorChartLabels[row.type] }));
   const hasErrors = stats.wrongWords > 0;
 
   return (
     // PANEL Errors by type
-    <Panel bare title="Lỗi theo loại">
+    <Panel bare title={t('result.errorsByType')}>
       {!hasErrors ? (
-        <EmptyState title="Phiên này không có lỗi nào" description="Chúc mừng, bạn gõ đúng hết các từ." />
+        <EmptyState title={t('result.noErrors')} description={t('result.noErrorsHint')} />
       ) : (
-        <div role="img" aria-label="Biểu đồ tỉ lệ lỗi theo loại" style={{ height: data.length * ROW_HEIGHT + 40 }}>
+        <div role="img" aria-label={t('result.chartLabel')} style={{ height: data.length * ROW_HEIGHT + 40 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} layout="vertical" margin={{ top: 4, right: 56, bottom: 4, left: 8 }}>
               <CartesianGrid horizontal={false} stroke="var(--border)" />
@@ -32,7 +34,7 @@ export const ErrorTypeChart = ({ stats }: ErrorTypeChartProps) => {
                 contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 0 }}
                 formatter={(_value, _name, item) => {
                   const row = item.payload as (typeof data)[number];
-                  return [`${row.errors} / ${row.opportunities} (${row.rate}%)`, 'Số lỗi'];
+                  return [`${row.errors} / ${row.opportunities} (${row.rate}%)`, t('result.errorCount')];
                 }}
               />
               <Bar dataKey="rate" fill="var(--primary)" radius={0} isAnimationActive={false}>

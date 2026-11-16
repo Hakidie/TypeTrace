@@ -1,4 +1,5 @@
 import { VideoOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
@@ -14,6 +15,7 @@ const isMissing = (error: unknown) => (error as { response?: { status?: number }
  * it opens; a session without one (older than the time replays are kept, or saved without one) says so.
  */
 export const ReplayPanel = ({ sessionId, targetWords, language }: { sessionId: string; targetWords: string[]; language?: TypingLanguage }) => {
+  const { t } = useTranslation('typing');
   const { data, isLoading, error, refetch } = useSessionReplay(sessionId);
 
   if (isLoading) return <LoadingState rows={2} />;
@@ -21,8 +23,8 @@ export const ReplayPanel = ({ sessionId, targetWords, language }: { sessionId: s
     return (
       <EmptyState
         icon={VideoOff}
-        title="No replay for this session"
-        description={`Replays are kept for ${REPLAY_KEPT_DAYS} days after the session, and older sessions have none.`}
+        title={t('replay.none')}
+        description={t('replay.noneHint', { days: REPLAY_KEPT_DAYS })}
       />
     );
   }

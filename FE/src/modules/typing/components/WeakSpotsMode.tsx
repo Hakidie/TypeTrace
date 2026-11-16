@@ -1,5 +1,6 @@
 import { ArrowRight, ChevronDown, Lock } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ErrorTypeCard } from '@/modules/profile/components/ErrorTypeCard';
 import { useErrorProfile } from '@/modules/profile/hooks/use-profile';
 import { ErrorState } from '@/shared/components/error-state';
@@ -39,6 +40,7 @@ interface WeakSpotsModeProps {
  * in Practice: the lessons are made of the Vietnamese word bank, so its types are Vietnamese ones.
  */
 export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
+  const { t } = useTranslation('typing');
   const errorProfile = useErrorProfile('vi');
   // The five error types stay under the auto lesson until "Practice on one error" is pressed: the lesson fills the screen on its own.
   const [showTypes, setShowTypes] = useState(false);
@@ -52,7 +54,7 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
   const profile = errorProfile.data;
   const focus = profile.rankedTypes.slice(0, WEAK_SPOTS_FOCUS_TYPES).map((type) => profile.types.find((item) => item.type === type)!);
 
-  const title = !focus.length ? 'Practice your weak spots' : focus.length === 1 ? 'Practice your most frequent error' : `Practice your ${focus.length} most frequent errors`;
+  const title = !focus.length ? t('weakSpots.titleNone') : focus.length === 1 ? t('weakSpots.titleOne') : t('weakSpots.titleMany', { count: focus.length });
 
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-12 py-4">
@@ -61,7 +63,7 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
         <button
           type="button"
           onClick={() => onPick('auto')}
-          aria-label={`Practice your weak spots${locked ? ' (Premium)' : ''}`}
+          aria-label={`${t('weakSpots.ariaStart')}${locked ? t('weakSpots.premiumSuffix') : ''}`}
           className="group flex flex-1 flex-col justify-center gap-12 text-left transition-transform duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
         >
           <span className="relative flex items-center justify-center">
@@ -71,7 +73,7 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
                   <span className="text-2xl text-muted-foreground">{title}</span>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" align="start">
-                  A passage written for the error types you miss most.
+                  {t('weakSpots.tip')}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -86,7 +88,7 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
               <TypingPreview text={focus.map((item) => EXAMPLES[item.type]).filter(Boolean).join(' ')} />
             ) : (
               <span className="flex-1 text-center text-base text-muted-foreground">
-                Your error profile does not have enough data yet, so this starts a random passage. Pick an error type to practice it now.
+                {t('weakSpots.noData')}
               </span>
             )}
           </span>
@@ -101,7 +103,7 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
             </span>
           )}
           <span className="flex h-9 w-fit items-center gap-2 self-center bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform duration-200 group-hover:-translate-y-0.5">
-            Start <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
+            {t('weakSpots.start')} <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
           </span>
         </button>
         <Button
@@ -110,11 +112,11 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
           aria-expanded={showTypes}
           onClick={() => setShowTypes((shown) => !shown)}
         >
-          Practice on one error <ChevronDown className={cn('ml-2 size-5 transition-transform duration-200', showTypes && 'rotate-180')} aria-hidden />
+          {t('weakSpots.oneError')} <ChevronDown className={cn('ml-2 size-5 transition-transform duration-200', showTypes && 'rotate-180')} aria-hidden />
         </Button>
       </div>
       {showTypes && (
-        <section ref={typesRef} aria-label="Error types" className="scroll-mt-4">
+        <section ref={typesRef} aria-label={t('weakSpots.errorTypes')} className="scroll-mt-4">
           <ul className="grid gap-x-8 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
             {profile.types.map((item) => (
               <ErrorTypeCard
@@ -128,10 +130,10 @@ export const WeakSpotsMode = ({ locked, onPick }: WeakSpotsModeProps) => {
                     variant="outline"
                     size="sm"
                     className={practiceButtonClass}
-                    aria-label={`Practice this error: ${errorLabels[item.type]}${locked ? ' (Premium)' : ''}`}
+                    aria-label={`${t('weakSpots.practiceThisAria', { type: errorLabels[item.type] })}${locked ? t('weakSpots.premiumSuffix') : ''}`}
                     onClick={() => onPick(item.type as WordErrorType)}
                   >
-                    {locked && <Lock className="size-4" aria-hidden />} Practice this error
+                    {locked && <Lock className="size-4" aria-hidden />} {t('weakSpots.practiceThis')}
                   </Button>
                 }
               />

@@ -1,5 +1,7 @@
-import { ArrowLeft, Gamepad2, Languages, Lock, RotateCcw, Trophy } from 'lucide-react';
+import { ArrowLeft, Gamepad2, Languages, ListChecks, Lock, RotateCcw, Shuffle, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { AfterLoginState } from '@/modules/auth/utils/home-path';
@@ -40,24 +42,22 @@ const nameClass = 'min-w-0 px-4 py-2 text-[1.125rem] font-medium transition-colo
 
 // Manual / Random choose the passage of Practice and Placement; Train (Weak spots) is the third tab of the same group, since its
 // lesson is the passage (SCRUM-28).
-const passageTabs = [
-  { value: 'manual', label: 'Manual', hint: 'Choose the passage to type from a list.' },
-  { value: 'random', label: 'Random', hint: 'A new random passage each time.' },
-  { value: 'train', label: modeLabels.targeted, hint: 'A lesson aimed at the error types you get wrong most.' },
+const passageTabsOf = (t: TFunction) => [
+  { value: 'manual', label: t('typing:page.manual'), icon: ListChecks, hint: t('typing:page.manualHint') },
+  { value: 'random', label: t('typing:page.random'), icon: Shuffle, hint: t('typing:page.randomHint') },
+  { value: 'train', label: modeLabels.targeted, icon: modeIcons.targeted, hint: t('typing:page.trainHint') },
 ];
 
 // Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain, `&game=bot` the unrated duel against a bot, `&game=chain` Nối từ), instead of a passage to practise.
 // `?mode=targeted` is Weak spots: its cards (`WeakSpotsMode`: the auto lesson, US3.2, and the five error types, SCRUM-74) until
 // one is picked, then its lesson (`&focus=auto` or `&focus=<type>`), a passage the AI wrote from words picked for the errors.
-const modeTabs = [
-  { value: 'practice', label: 'Practice', icon: modeIcons.practice, hint: 'Type a passage at your own pace. Counts toward your progress.' },
-  { value: 'placement', label: 'Placement', icon: modeIcons.placement, hint: 'The placement test: your speed and accuracy on the weekly leaderboard.' },
-  { value: 'rank', label: 'Rank', icon: Trophy, hint: 'Rated duels against other players.' },
-  { value: 'minigames', label: 'Minigames', icon: Gamepad2, hint: 'Word games: Rain, a duel against a bot and Nối từ.' },
+const modeTabsOf = (t: TFunction) => [
+  { value: 'practice', label: modeLabels.practice, icon: modeIcons.practice, hint: t('typing:page.practiceHint') },
+  { value: 'placement', label: modeLabels.placement, icon: modeIcons.placement, hint: t('typing:page.placementHint') },
+  { value: 'rank', label: t('typing:page.rank'), icon: Trophy, hint: t('typing:page.rankHint') },
+  { value: 'minigames', label: t('typing:page.minigames'), icon: Gamepad2, hint: t('typing:page.minigamesHint') },
 ];
 
-
-const IME_HINT = 'Turn off Vietnamese input (Unikey, EVKey) to type English.';
 const IME_HINT_ID = 'ime-hint';
 
 // The time choices set how long a session lasts. The button next to them switches between seconds and minutes; the
@@ -82,24 +82,24 @@ const focusOf = (value: string | null): WeakSpotsFocus | undefined =>
  * Vietnamese one, as the cards of the tab, since the lessons are Vietnamese.
  */
 const FocusNote = ({ focus, chosen }: { focus: WordErrorType[]; chosen?: WordErrorType }) => {
+  const { t } = useTranslation('typing');
   const { data: profile } = useErrorProfile('vi');
   const item = chosen && focus.length ? profile?.types.find((type) => type.type === chosen) : undefined;
   return (
     <p role="status" className="text-center text-muted-foreground">
       {focus.length ? (
         <>
-          Training: <span className="text-primary">{focus.map((type) => errorLabels[type]).join(' · ')}</span>
+          {t('page.training')}<span className="text-primary">{focus.map((type) => errorLabels[type]).join(' · ')}</span>
           {profile && item?.level === 'insufficient_data' && (
             <span className="block">
-              Not enough data on {errorLabels[item.type]} yet: your error profile needs{' '}
-              {missingWords(item.type, profile.minOpportunities - item.opportunities)} to rate it.
+              {t('page.notEnoughData', { type: errorLabels[item.type], missing: missingWords(item.type, profile.minOpportunities - item.opportunities) })}
             </span>
           )}
         </>
       ) : chosen ? (
-        `There are no words for ${errorLabels[chosen]} yet, so here is a random passage.`
+        t('page.noWordsFor', { type: errorLabels[chosen] })
       ) : (
-        'Your error profile does not have enough data yet, so here is a random passage. Train aims at your errors once your counted sessions give it some.'
+        t('page.noProfile')
       )}
     </p>
   );
@@ -119,6 +119,9 @@ const startInputOf = (mode: SessionMode, passageId: string | undefined, seconds:
 // Same look as the login and register pages (shared/lib/red-glass-theme.ts). The passage shows as soon as the page
 // opens; the timer starts at the first key (TypingArea tells the server through `begin`).
 export const TypingPage = () => {
+  const { t } = useTranslation('typing');
+  const modeTabs = modeTabsOf(t);
+  const passageTabs = passageTabsOf(t);
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -296,7 +299,7 @@ export const TypingPage = () => {
       <Button
         variant="ghost"
         className={hoverButtonClass}
-        aria-label={`Typing language: ${languageNames[current]}. Switch to ${languageNames[other]}`}
+        aria-label={t('page.languageSwitch', { current: languageNames[current], other: languageNames[other] })}
         onClick={() => switchLanguage(other)}
         disabled={language === undefined || savingLanguage || start.isPending || complete.isPending}
       >
@@ -309,11 +312,11 @@ export const TypingPage = () => {
   const imeHint = mode === 'practice' && !game && language === 'en';
   useEffect(() => {
     if (!imeHint) return;
-    toast.info(IME_HINT, { id: IME_HINT_ID, duration: 8000 });
+    toast.info(t('page.imeHint'), { id: IME_HINT_ID, duration: 8000 });
     return () => {
       toast.dismiss(IME_HINT_ID);
     };
-  }, [imeHint]);
+  }, [imeHint, t]);
 
   // The Placement tab is hidden while the learner types English; it comes back with VI (or while the test is open).
   const tabs = language === 'en' && mode !== 'placement' ? modeTabs.filter((tab) => tab.value !== 'placement') : modeTabs;
@@ -357,13 +360,13 @@ export const TypingPage = () => {
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} className="flex min-w-0 max-w-full">
         {nameTooltip(
           <span className="flex min-w-0">
-            <DropdownMenuTrigger disabled={complete.isPending} aria-label="Choose passage" className={cn(nameClass, 'text-primary')}>
+            <DropdownMenuTrigger disabled={complete.isPending} aria-label={t('page.choosePassage')} className={cn(nameClass, 'text-primary')}>
               <span className="block truncate whitespace-nowrap">{passageTitle ?? '—'}</span>
             </DropdownMenuTrigger>
           </span>,
         )}
         {/* The menu keeps the normal background, like the Sort and Filter menus (the page theme tints --color-background). Centered under the name. */}
-        <DropdownMenuContent role="menu" aria-label="Passages" className="left-1/2 w-[calc(100vw-2rem)] -translate-x-1/2 sm:w-max sm:min-w-[24rem] sm:max-w-[min(32rem,calc(100vw-2rem))] [--color-background:var(--background)]">
+        <DropdownMenuContent role="menu" aria-label={t('page.passagesMenu')} className="left-1/2 w-[calc(100vw-2rem)] -translate-x-1/2 sm:w-max sm:min-w-[24rem] sm:max-w-[min(32rem,calc(100vw-2rem))] [--color-background:var(--background)]">
           <PassageMenuPanel mode={mode} language={language ?? 'vi'} showOriginFilter={mode === 'practice'} selectedId={passageId} onSelect={pick} onNeedPremium={() => setPlanOpen(true)} />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -403,7 +406,8 @@ export const TypingPage = () => {
           {/* Not in Rank (the room picks the passage) or Minigames. In Train the lesson is the choice, so Manual / Random lead back to Practice. The name of the passage is above the text. */}
           {!game && (
             <TabGroup
-              label="Passage"
+              label={t('page.passageGroup')}
+              compact
               tabs={passageTabs}
               value={targeted ? 'train' : manual ? 'manual' : 'random'}
               onChange={pickPassageTab}
@@ -411,7 +415,7 @@ export const TypingPage = () => {
           )}
         </div>
         <TabGroup
-          label="Mode"
+          label={t('page.modeGroup')}
           // Five modes do not fit a phone with their names: there only the open one keeps its name.
           iconsOnPhones
           tabs={tabs}
@@ -432,7 +436,7 @@ export const TypingPage = () => {
           {/* Not in Rank (a duel lasts the time the server gives it) or a minigame (a Rain round lasts a minute). Train shows it on its cards too: it is the time of the lesson. */}
           <div className={cn('flex outline outline-1 -outline-offset-1 outline-border', game && 'hidden')}>
             <TabGroup
-              label="Time"
+              label={t('page.timeGroup')}
               framed={false}
               tabs={timeTabs}
               value={tabsUnit === timeUnit ? timeTabs[timeIndex].value : ''}
@@ -440,7 +444,7 @@ export const TypingPage = () => {
             />
             <button
               type="button"
-              aria-label="Switch between seconds and minutes"
+              aria-label={t('page.switchUnit')}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 setShownUnit(tabsUnit === 'sec' ? 'min' : 'sec');
@@ -455,7 +459,7 @@ export const TypingPage = () => {
       {/* The placement leaderboard takes the sessions of 3 minutes only (US10.1): any other time can still be typed, it is just not ranked. */}
       {mode === 'placement' && !ranked && !minigames && timeSeconds !== SESSION_TIME_LIMIT_SECONDS && (
         <p role="status" className="text-center text-muted-foreground">
-          Only 3-minute placement sessions go on the leaderboard.
+          {t('page.placementNote')}
         </p>
       )}
       {/* Weak spots says what the lesson trains, or why a random passage came instead (US3.2). */}
@@ -463,10 +467,9 @@ export const TypingPage = () => {
       <ConfirmDialog
         open={placementPrompt.open}
         onOpenChange={(open) => setPlacementPrompt({ open })}
-        title="Start the placement test?"
-        description="Your result is saved and counts toward your all-time average WPM and accuracy. Press Start to begin, or Cancel to go back to practice."
-        confirmLabel="Start"
-        cancelLabel="Cancel"
+        title={t('page.placementTitle')}
+        description={t('page.placementDescription')}
+        confirmLabel={t('page.start')}
         // Back to the typing area, so the learner can type at once (a new session's area takes the focus itself when it opens).
         onCloseAutoFocus={(event) => {
           event.preventDefault();
@@ -492,11 +495,11 @@ export const TypingPage = () => {
         <div className="mx-auto my-auto flex max-w-md flex-col items-center gap-4 text-center">
           <Lock className="size-8 text-muted-foreground" aria-hidden />
           <p className="text-muted-foreground">
-            Train builds lessons from the words of the error types you get wrong most. Your plan does not include it.
+            {t('page.trainLocked')}
           </p>
-          <Button onClick={() => setPlanOpen(true)}>See plans</Button>
+          <Button onClick={() => setPlanOpen(true)}>{t('page.seePlans')}</Button>
           <Button variant="ghost" className="h-auto gap-2 px-3 py-1.5 text-base text-muted-foreground" onClick={backToWeakSpots}>
-            <ArrowLeft className="size-4" aria-hidden /> All weak spots
+            <ArrowLeft className="size-4" aria-hidden /> {t('page.allWeakSpots')}
           </Button>
         </div>
       ) : session ? (
@@ -512,14 +515,14 @@ export const TypingPage = () => {
           onTimeUp={restart}
           actions={
             <Button variant="ghost" className={hoverButtonClass} onClick={restart} disabled={start.isPending || complete.isPending}>
-              <RotateCcw className="size-5" /> <span className={hoverWordClass}>Restart</span>
+              <RotateCcw className="size-5" /> <span className={hoverWordClass}>{t('page.restart')}</span>
             </Button>
           }
           // A Weak spots lesson has its way back to the cards in the bottom row, between the word count and the timer.
           statusCenter={
             targeted ? (
               <Button variant="ghost" className={actionClass} onClick={backToWeakSpots} disabled={complete.isPending}>
-                <ArrowLeft className="size-5" aria-hidden /> All weak spots
+                <ArrowLeft className="size-5" aria-hidden /> {t('page.allWeakSpots')}
               </Button>
             ) : (
               languageSwitch
@@ -537,7 +540,7 @@ export const TypingPage = () => {
                 {/* The AI writes a Weak spots lesson: a few seconds. */}
                 {targeted && (
                   <p role="status" className="mb-4 text-center text-muted-foreground">
-                    Writing your lesson…
+                    {t('page.writingLesson')}
                   </p>
                 )}
                 <LoadingState rows={2} />
@@ -553,7 +556,7 @@ export const TypingPage = () => {
             center={
               targeted ? (
                 <Button variant="ghost" className={actionClass} onClick={backToWeakSpots}>
-                  <ArrowLeft className="size-5" aria-hidden /> All weak spots
+                  <ArrowLeft className="size-5" aria-hidden /> {t('page.allWeakSpots')}
                 </Button>
               ) : (
                 languageSwitch

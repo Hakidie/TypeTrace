@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { EmptyState } from '@/shared/components/empty-state';
 import { Panel } from '@/shared/components/panel';
@@ -26,6 +27,7 @@ const errorDot = ({ cx, cy, payload, index }: { cx?: number; cy?: number; payloa
   payload && payload.errors > 0 ? <ErrorMark key={index} cx={cx} cy={cy} /> : <g key={index} />;
 
 export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: SpeedErrorChartProps) => {
+  const { t } = useTranslation('typing');
   // The last point can fall a moment after the chosen time (the server measures from the `begin` request): keep it on the axis.
   // The legend only shows while the pointer is over the chart.
   const [hovering, setHovering] = useState(false);
@@ -37,13 +39,13 @@ export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: S
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="min-w-0 flex-1">
           {timeline.status === 'no_data' ? (
-            <EmptyState title="Phiên này không có dữ liệu thời gian" />
+            <EmptyState title={t('result.noTiming')} />
           ) : timeline.status === 'too_short' ? (
-            <EmptyState title="Phiên quá ngắn để vẽ biểu đồ" description="Gõ ít nhất 10 giây để thấy biểu đồ." />
+            <EmptyState title={t('result.tooShort')} description={t('result.tooShortHint')} />
           ) : (
             <div
               role="img"
-              aria-label="Biểu đồ WPM theo thời gian, có dấu ở giây gõ sai"
+              aria-label={t('result.speedChart')}
               className="relative h-72"
               onMouseEnter={() => setHovering(true)}
               onMouseLeave={() => setHovering(false)}
@@ -70,7 +72,7 @@ export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: S
                     />
                     <Tooltip
                       contentStyle={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 0 }}
-                      labelFormatter={(second) => `Giây thứ ${second}`}
+                      labelFormatter={(second) => t('result.second', { second })}
                       formatter={(value, _name, item) => [value, item.payload.errors > 0 ? `WPM (${item.payload.errors} lỗi)` : 'WPM']}
                     />
                     <Line
@@ -99,7 +101,7 @@ export const SpeedErrorChart = ({ timeline, timeLimitSeconds, wpm, accuracy }: S
                   <svg width="12" height="12" aria-hidden>
                     <ErrorMark cx={6} cy={6} size={4} />
                   </svg>
-                  Error
+                  {t('result.legendError')}
                 </li>
               </ul>
             </div>
