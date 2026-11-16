@@ -1,5 +1,6 @@
 import { Calendar, CalendarDays, CalendarRange, ChartLine, Languages, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { ProfileErrorProfile } from '@/modules/profile/components/ProfileErrorProfile';
 import { ProfileSessions } from '@/modules/profile/components/ProfileSessions';
@@ -20,13 +21,8 @@ import { errorTrendTypes } from '../lib/error-trend';
 import { VowelToneGrid } from '../components/VowelToneGrid';
 
 // Week, Month, Year: the smallest first.
-const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
-  { value: 'year', label: 'Year' },
-];
+const RANGES: ChartRange[] = ['week', 'month', 'year'];
 
-/** How long a range is, to tell which ones are as long as the one on the chart or longer. */
 const RANGE_LENGTH: Record<ChartRange, number> = { week: 0, month: 1, year: 2 };
 
 const ICONS: Record<ChartRange, LucideIcon> = {
@@ -35,13 +31,6 @@ const ICONS: Record<ChartRange, LucideIcon> = {
   week: CalendarDays,
 };
 
-const LINES_OPTIONS: { value: ChartLines; label: string }[] = [
-  { value: 'all', label: 'All lines' },
-  { value: 'wpm', label: 'WPM only' },
-  { value: 'accuracy', label: 'Accuracy only' },
-];
-
-/** A week, month or year put on the chart next to the one it shows. */
 interface AddedPeriod {
   range: ChartRange;
   /** A day that holds it. */
@@ -57,6 +46,13 @@ const idOf = ({ range, anchor }: AddedPeriod) => `${range}:${periodValue(range, 
  * The month before this one at first. Under the chart, at the left: the tags of what was added, then + Add comparison (it opens a menu of Year, Month and Week (only the ranges as long as the one on the chart or longer: on a month, Year and Month); each row says what it is set to (the current year and month at first: Year 2026, Month March, Week Week 2) and opens a second menu beside it to pick the year, the month (January to December of that year) or the week (of that month) to add to the chart; a pick also sets the rows (up to three), each as a tag, e.g. "Week 1 October 2025", with an x to take it away: their lines are drawn on the same chart,  fainter, column by column), and, at the right, the Lines button, which picks what the chart draws: all lines, only the WPM or only the accuracy.
  */
 export const ProgressPage = () => {
+  const { t } = useTranslation('progress');
+  const rangeOptions = RANGES.map((value) => ({ value, label: t(`range.${value}`) }));
+  const linesOptions: { value: ChartLines; label: string }[] = [
+    { value: 'all', label: t('lines.all') },
+    { value: 'wpm', label: t('lines.wpm') },
+    { value: 'accuracy', label: t('lines.accuracy') },
+  ];
   const { data: user } = useCurrentUser();
   const today = dateKeyIn(new Date(), user?.settings?.timezone);
   const [range, setRange] = useState<ChartRange>('month');
@@ -101,7 +97,7 @@ export const ProgressPage = () => {
       <div className="flex flex-1 flex-col">
         <VowelToneGrid />
         <div className="mt-3 mb-4 flex shrink-0 items-center justify-center">
-          <PanelTitleSwitch other="Progress" showLabel onClick={() => setView('progress')} />
+          <PanelTitleSwitch other={t('title')} showLabel onClick={() => setView('progress')} />
         </div>
       </div>
     );
@@ -113,14 +109,14 @@ export const ProgressPage = () => {
     <div className="flex flex-1 flex-col gap-12">
       {/* PANEL Progress */}
       <Panel
-        title={chart === 'wpm' ? 'Progress' : 'Error rate'}
-        titleAction={<PanelTitleSwitch other={chart === 'wpm' ? 'Error rate' : 'Progress'} onClick={() => setChart(chart === 'wpm' ? 'errors' : 'wpm')} />}
+        title={chart === 'wpm' ? t('title') : t('errorRate')}
+        titleAction={<PanelTitleSwitch other={chart === 'wpm' ? t('errorRate') : t('title')} onClick={() => setChart(chart === 'wpm' ? 'errors' : 'wpm')} />}
         bare
         fill
         titleClassName={sectionTitleClass}
         actions={
           <CompactToolbar
-            menus={RANGE_OPTIONS.map(({ value: menuRange, label }) => {
+            menus={rangeOptions.map(({ value: menuRange, label }) => {
               const active = menuRange === range;
               return {
                 label,
@@ -168,7 +164,7 @@ export const ProgressPage = () => {
               showWords
               buttons={[
                 {
-                  label: `Error rate language: ${languageNames[errorLanguage]}. Switch to ${languageNames[otherErrorLanguage]}`,
+                  label: t('errorLanguage', { language: languageNames[errorLanguage], other: languageNames[otherErrorLanguage] }),
                   icon: Languages,
                   valueLabel: languageNames[errorLanguage],
                   onClick: () => {
@@ -183,12 +179,12 @@ export const ProgressPage = () => {
               className="sm:col-start-3 sm:justify-end"
               menus={[
                 {
-                  label: 'Lines',
+                  label: t('lines.label'),
                   icon: ChartLine,
-                  valueLabel: errorLines === 'all' ? 'All lines' : errorLabels[errorLines],
+                  valueLabel: errorLines === 'all' ? t('lines.all') : errorLabels[errorLines],
                   // The names are long: the menu is wide enough for most of them on one line.
                   menuClassName: 'min-w-72',
-                  options: [{ value: 'all', label: 'All lines' }, ...errorTypes.map((type) => ({ value: type, label: `${errorLabels[type]} only` }))],
+                  options: [{ value: 'all', label: t('lines.all') }, ...errorTypes.map((type) => ({ value: type, label: t('lines.errorOnly', { name: errorLabels[type] }) }))],
                   value: errorLines,
                   onChange: (value: string) => setErrorLines(value as 'all' | SessionErrorType),
                 },
@@ -201,10 +197,10 @@ export const ProgressPage = () => {
             <CompactToolbar
               className="sm:justify-start [&>:first-child]:pl-0"
               adder={{
-                label: 'Add comparison',
+                label: t('addComparison'),
                 disabled: added.length >= COMPARE_OPACITIES.length,
                 // Only the ranges as long as the one on the chart or longer: a year or a month on a month, never a week.
-                groups: RANGE_OPTIONS.filter(({ value: groupRange }) => RANGE_LENGTH[groupRange] >= RANGE_LENGTH[range]).map(({ value: groupRange, label }) => ({
+                groups: rangeOptions.filter(({ value: groupRange }) => RANGE_LENGTH[groupRange] >= RANGE_LENGTH[range]).map(({ value: groupRange, label }) => ({
                   label,
                   // The year (2026), the month (March) and the week (Week 2) the menu is set to; its months are the ones of that year, its weeks the ones of that month.
                   valueLabel: periodLabel(groupRange, inMenu),
@@ -237,10 +233,10 @@ export const ProgressPage = () => {
             <CompactToolbar
               menus={[
                 {
-                  label: 'Lines',
+                  label: t('lines.label'),
                   icon: ChartLine,
-                  valueLabel: LINES_OPTIONS.find((option) => option.value === lines)!.label,
-                  options: LINES_OPTIONS,
+                  valueLabel: linesOptions.find((option) => option.value === lines)!.label,
+                  options: linesOptions,
                   value: lines,
                   onChange: (value: string) => setLines(value as ChartLines),
                 },
@@ -259,7 +255,7 @@ export const ProgressPage = () => {
 
       {/* `mb-4` and the 32px of the page make 48px under the button, as many as between the header and the title (`pt-12`). */}
       <div className="mb-4 flex shrink-0 items-center justify-center">
-        <PanelTitleSwitch other="Vowel × tone" showLabel onClick={() => setView('vowel-tone')} />
+        <PanelTitleSwitch other={t('vowelTone')} showLabel onClick={() => setView('vowel-tone')} />
       </div>
     </div>
   );

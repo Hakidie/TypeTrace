@@ -1,3 +1,4 @@
+import { i18n } from '@/shared/i18n/i18n';
 import type { ChartRange } from '../types/profile.types';
 
 /** The years offered by the Year menu: this year and the four before it. */
@@ -9,7 +10,9 @@ export interface PeriodOption {
   label: string;
 }
 
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** The name of a month (1 to 12) in the language of the interface. */
+const monthName = (month: number) => i18n.t(`profile:period.month.${month}`);
+const weekName = (week: number) => i18n.t('profile:period.week', { n: week });
 const WEEK_DAYS = 7;
 const pad2 = (value: number) => String(value).padStart(2, '0');
 
@@ -25,7 +28,7 @@ export const periodValue = (range: ChartRange, anchor: string) =>
 
 /** The name of a period without the larger one: '2026', 'October', 'Week 2' (the Year button says the year). */
 export const periodLabel = (range: ChartRange, anchor: string) =>
-  range === 'year' ? anchor.slice(0, 4) : range === 'month' ? MONTH_NAMES[Number(anchor.slice(5, 7)) - 1] : `Week ${weekNumber(anchor)}`;
+  range === 'year' ? anchor.slice(0, 4) : range === 'month' ? monthName(Number(anchor.slice(5, 7))) : weekName(weekNumber(anchor));
 
 /**
  * The periods a learner can pick, newest last, none after `today`: the last years (Year), the months of the year of `anchor`
@@ -37,13 +40,13 @@ export const periodOptions = (range: ChartRange, anchor: string, today: string):
     return Array.from({ length: YEARS_SHOWN }, (_, index) => String(last - (YEARS_SHOWN - 1) + index)).map((year) => ({ value: year, label: year }));
   }
   if (range === 'month') {
-    return MONTH_NAMES.map((name, index) => ({ value: `${anchor.slice(0, 4)}-${pad2(index + 1)}`, label: name })).filter((option) => `${option.value}-01` <= today);
+    return Array.from({ length: 12 }, (_, index) => ({ value: `${anchor.slice(0, 4)}-${pad2(index + 1)}`, label: monthName(index + 1) })).filter((option) => `${option.value}-01` <= today);
   }
   const month = anchor.slice(0, 7);
   const last = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
   const weeks: PeriodOption[] = [];
   for (let day = 1; day <= last && `${month}-${pad2(day)}` <= today; day += WEEK_DAYS) {
-    weeks.push({ value: `${month}-${pad2(day)}`, label: `Week ${weeks.length + 1}` });
+    weeks.push({ value: `${month}-${pad2(day)}`, label: weekName(weeks.length + 1) });
   }
   return weeks;
 };
@@ -66,8 +69,8 @@ export const anchorFor = (range: ChartRange, value: string, anchor: string, toda
 
 /** A period with the larger one it belongs to, for the comparison: '2025', 'October 2025', 'Week 2 October 2025'. */
 export const compareLabel = (range: ChartRange, anchor: string) => {
-  const month = MONTH_NAMES[Number(anchor.slice(5, 7)) - 1];
-  return range === 'year' ? anchor.slice(0, 4) : range === 'month' ? `${month} ${anchor.slice(0, 4)}` : `Week ${weekNumber(anchor)} ${month} ${anchor.slice(0, 4)}`;
+  const month = monthName(Number(anchor.slice(5, 7)));
+  return range === 'year' ? anchor.slice(0, 4) : range === 'month' ? `${month} ${anchor.slice(0, 4)}` : `${weekName(weekNumber(anchor))} ${month} ${anchor.slice(0, 4)}`;
 };
 
 /** The first day of the month before the one that holds `day` ('2026-03-10' → '2026-02-01', '2026-01-05' → '2025-12-01'). */

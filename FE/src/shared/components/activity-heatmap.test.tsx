@@ -128,7 +128,7 @@ describe('ActivityHeatmap', () => {
             { date: '2026-03-03', sessions: 3 },
             { date: '2026-03-04', sessions: 2, tasksTotal: 0, tasksDone: 0 },
           ]}
-          unit="counted session"
+          counts={{ some: (count) => `${count} counted session${count > 1 ? 's' : ''}`, none: 'No counted sessions' }}
           calendarYear
         />,
       );
@@ -155,7 +155,7 @@ describe('ActivityHeatmap', () => {
       { date: '2026-03-09', sessions: 1 },
     ];
     const renderLearnerDays = () =>
-      render(<ActivityHeatmap label="Sessions" days={days} timeZone="Asia/Ho_Chi_Minh" unit="counted session" calendarYear />);
+      render(<ActivityHeatmap label="Sessions" days={days} timeZone="Asia/Ho_Chi_Minh" counts={{ some: (count) => `${count} counted session${count > 1 ? 's' : ''}`, none: 'No counted sessions' }} calendarYear />);
 
     it('is one tooltip over the hovered cell: the day in words, the sessions and the daily tasks done', () => {
       atEveningOf10March();

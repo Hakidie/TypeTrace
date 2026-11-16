@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ErrorState } from '@/shared/components/error-state';
 import { Tooltip as HintTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
@@ -33,11 +34,13 @@ interface TooltipContentProps {
 }
 
 /** The tooltip of one point: both figures, and a note when they are the ones of the period before (no session in this one). */
-export const MonthlyChartTooltip = ({ point, range, lines = 'all' }: TooltipContentProps) => (
+export const MonthlyChartTooltip = ({ point, range, lines = 'all' }: TooltipContentProps) => {
+  const { t } = useTranslation('profile');
+  return (
   <div className="border border-border bg-background px-3 py-2 text-base">
     <p className="font-semibold">{tooltipTitle(range, point.key)}</p>
     {point.avgWpm === null || point.avgAccuracy === null ? (
-      <p className="text-muted-foreground">No data yet</p>
+      <p className="text-muted-foreground">{t('chart.noData')}</p>
     ) : (
       <>
         {/* The sample of each line stands in for a legend: which line is which, where the figures are. */}
@@ -45,7 +48,7 @@ export const MonthlyChartTooltip = ({ point, range, lines = 'all' }: TooltipCont
           <p className="flex items-center gap-2">
             <LineSample color={WPM_COLOR} />
             <span>
-              <span className="text-primary">WPM:</span> {point.avgWpm}
+              <span className="text-primary">{t('chart.wpmTooltip')}</span> {point.avgWpm}
             </span>
           </p>
         )}
@@ -53,32 +56,35 @@ export const MonthlyChartTooltip = ({ point, range, lines = 'all' }: TooltipCont
           <p className="flex items-center gap-2">
             <LineSample color={ACCURACY_COLOR} dashed />
             <span>
-              <span className="text-muted-foreground">Accuracy:</span> {point.avgAccuracy}%
+              <span className="text-muted-foreground">{t('chart.accuracyTooltip')}</span> {point.avgAccuracy}%
             </span>
           </p>
         )}
-        {point.carriedOver && <p className="text-muted-foreground">No sessions: same figures as the {previousPeriod(range)} before</p>}
+        {point.carriedOver && <p className="text-muted-foreground">{t('chart.carried', { unit: previousPeriod(range) })}</p>}
       </>
     )}
   </div>
-);
+  );
+};
 
 /** The tooltip of a column of several periods: the figures of each, the ones added with fainter samples. */
-export const ComparisonTooltip = ({ points, lines = 'all' }: { points: { point: MonthlyProgressPoint | null; range: ChartRange; opacity: number }[]; lines?: ChartLines }) => (
+export const ComparisonTooltip = ({ points, lines = 'all' }: { points: { point: MonthlyProgressPoint | null; range: ChartRange; opacity: number }[]; lines?: ChartLines }) => {
+  const { t } = useTranslation('profile');
+  return (
   <div className="border border-border bg-background px-3 py-2 text-base">
     {points.map(({ point, range, opacity }, index) =>
       point ? (
         <div key={index} className={index > 0 ? 'mt-2' : undefined}>
           <p className="font-semibold">{tooltipTitle(range, point.key)}</p>
           {point.avgWpm === null || point.avgAccuracy === null ? (
-            <p className="text-muted-foreground">No data</p>
+            <p className="text-muted-foreground">{t('chart.noDataShort')}</p>
           ) : (
             <>
               {lines !== 'accuracy' && (
                 <p className="flex items-center gap-2">
                   <LineSample color={WPM_COLOR} opacity={opacity} />
                   <span>
-                    <span className="text-primary">WPM:</span> {point.avgWpm}
+                    <span className="text-primary">{t('chart.wpmTooltip')}</span> {point.avgWpm}
                   </span>
                 </p>
               )}
@@ -86,7 +92,7 @@ export const ComparisonTooltip = ({ points, lines = 'all' }: { points: { point: 
                 <p className="flex items-center gap-2">
                   <LineSample color={ACCURACY_COLOR} dashed opacity={opacity} />
                   <span>
-                    <span className="text-muted-foreground">Accuracy:</span> {point.avgAccuracy}%
+                    <span className="text-muted-foreground">{t('chart.accuracyTooltip')}</span> {point.avgAccuracy}%
                   </span>
                 </p>
               )}
@@ -96,11 +102,12 @@ export const ComparisonTooltip = ({ points, lines = 'all' }: { points: { point: 
       ) : null,
     )}
   </div>
-);
+  );
+};
 
 /** The name of a Y axis, written upright along it (the left one reads from the bottom up, the right one from the top down), centered on the plot, with a hint (the shared tooltip) of what the lowest value of that axis is. */
 const AxisCaption = ({ name, hint, side }: { name: string; hint: string; side: 'left' | 'right' }) => (
-  <div className={`absolute bottom-8 top-2 flex items-center ${side === 'left' ? 'left-0' : 'right-0'}`}>
+  <div className={`absolute bottom-8 top-2 flex w-7 items-center justify-center ${side === 'left' ? 'left-0' : 'right-0'}`}>
     <HintTooltip>
       <TooltipTrigger asChild>
         <span tabIndex={0} className={`cursor-help text-base text-muted-foreground [writing-mode:vertical-rl] ${side === 'left' ? 'rotate-180' : ''}`}>
@@ -134,16 +141,17 @@ interface ProfileMonthlyChartProps {
 }
 
 export const ProfileMonthlyChart = ({ range, date, compare = [], axes = false, lines = 'all', heightClassName = 'h-44 lg:h-full' }: ProfileMonthlyChartProps) => {
+  const { t } = useTranslation('profile');
   const query = useMonthlyProgress(range, date);
   const comparing = compare.length > 0;
   const others = useMonthlyProgressSet(compare);
   const [hovering, setHovering] = useState(false);
 
   if (query.isPending) return <LoadingState rows={1} />;
-  if (query.isError) return <ErrorState error={query.error} title="Could not load the monthly chart" onRetry={() => query.refetch()} />;
+  if (query.isError) return <ErrorState error={query.error} title={t('chart.couldNotLoad')} onRetry={() => query.refetch()} />;
   if (others.some((other) => other.isPending)) return <LoadingState rows={1} />;
   const failed = others.find((other) => other.isError);
-  if (failed) return <ErrorState error={failed.error} title="Could not load a period to compare" onRetry={() => failed.refetch()} />;
+  if (failed) return <ErrorState error={failed.error} title={t('chart.couldNotLoadOther')} onRetry={() => failed.refetch()} />;
 
   // The names under the chart follow the range of the points on screen: while another range loads, the previous one stays (`placeholderData`).
   const shown = query.data.range;
@@ -180,14 +188,14 @@ export const ProfileMonthlyChart = ({ range, date, compare = [], axes = false, l
 
   return (
     <section
-      aria-label="Monthly progress"
+      aria-label={t('chart.aria')}
       className="relative h-full w-full"
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
       <div
         role="img"
-        aria-label={`WPM and accuracy by ${rangeUnit(shown)}${comparing ? ', with other periods' : ''}${hasData ? '' : ', no data yet'}`}
+        aria-label={`${t('chart.summary', { unit: rangeUnit(shown) })}${comparing ? t('chart.withOthers') : ''}${hasData ? '' : t('chart.noDataSuffix')}`}
         className={`relative ${heightClassName}`}
       >
         <ResponsiveContainer width="100%" height="100%">
@@ -253,7 +261,7 @@ export const ProfileMonthlyChart = ({ range, date, compare = [], axes = false, l
               yAxisId="wpm"
               dataKey="wpm"
               hide={lines === 'accuracy'}
-              name="WPM"
+              name={t('chart.wpm')}
               stroke={WPM_COLOR}
               strokeWidth={2}
               type="monotone"
@@ -265,7 +273,7 @@ export const ProfileMonthlyChart = ({ range, date, compare = [], axes = false, l
               yAxisId="accuracy"
               dataKey="accuracy"
               hide={lines === 'wpm'}
-              name="Accuracy"
+              name={t('chart.accuracy')}
               stroke={ACCURACY_COLOR}
               strokeWidth={2}
               strokeDasharray="6 4"
@@ -280,7 +288,7 @@ export const ProfileMonthlyChart = ({ range, date, compare = [], axes = false, l
                 yAxisId="wpm"
                 dataKey={`wpm${other + 1}`}
                 hide={lines === 'accuracy'}
-                name={`WPM (${other + 2})`}
+                name={`${t('chart.wpm')} (${other + 2})`}
                 stroke={WPM_COLOR}
                 strokeOpacity={COMPARE_OPACITIES[other]}
                 strokeWidth={2}
@@ -294,7 +302,7 @@ export const ProfileMonthlyChart = ({ range, date, compare = [], axes = false, l
                 yAxisId="accuracy"
                 dataKey={`accuracy${other + 1}`}
                 hide={lines === 'wpm'}
-                name={`Accuracy (${other + 2})`}
+                name={`${t('chart.accuracy')} (${other + 2})`}
                 stroke={ACCURACY_COLOR}
                 strokeOpacity={COMPARE_OPACITIES[other]}
                 strokeWidth={2}
@@ -312,23 +320,23 @@ export const ProfileMonthlyChart = ({ range, date, compare = [], axes = false, l
           <TooltipProvider delayDuration={200}>
             {lines !== 'accuracy' && (
               <AxisCaption
-                name="WPM"
+                name={t('chart.wpm')}
                 side="left"
-                hint={`The bottom of this axis is ${Math.round(wpmDomain[0])}, the lowest WPM on the chart, not 0. The top is the highest WPM.`}
+                hint={t('chart.wpmHint', { value: Math.round(wpmDomain[0]) })}
               />
             )}
             {lines !== 'wpm' && (
               <AxisCaption
-                name="Accuracy"
+                name={t('chart.accuracy')}
                 side="right"
-                hint={`The bottom of this axis is ${Math.round(accuracyDomain[0])}%, the lowest accuracy on the chart, not 0%. The top is the highest accuracy.`}
+                hint={t('chart.accuracyHint', { value: Math.round(accuracyDomain[0]) })}
               />
             )}
           </TooltipProvider>
         )}
         {!hasData && (
           <p className="pointer-events-none absolute inset-0 flex items-center justify-center text-base text-muted-foreground">
-            No data yet
+            {t('chart.noData')}
           </p>
         )}
       </div>

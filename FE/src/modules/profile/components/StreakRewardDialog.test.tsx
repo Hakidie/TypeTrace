@@ -1,6 +1,8 @@
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
+import { i18n } from '@/shared/i18n/i18n';
 import { renderWithProviders } from '@/test/render-with-providers';
 import type { Streak } from '../types/profile.types';
 import { StreakRewardDialog } from './StreakRewardDialog';
@@ -27,6 +29,22 @@ describe('StreakRewardDialog', () => {
   });
 
   it("claims today's coins after the first counted session", async () => {
+    getStreak.mockResolvedValueOnce(streakOf(1, false)).mockResolvedValue(streakOf(1, true));
+    claimStreakReward.mockResolvedValue({ coins: 30, totalCoins: 130 });
+    renderWithProviders(<StreakRewardDialog />);
+
+    expect(await screen.findByRole('dialog', { name: 'Claim your reward' })).toHaveTextContent('3-day streak');
+    await userEvent.click(screen.getByRole('button', { name: 'Claim 30 coins' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Reward claimed' })).toHaveTextContent('+30 coins');
+    expect(claimStreakReward).toHaveBeenCalledTimes(1);
+    // The dialog also has its own corner X, named Close: the first is the button under the text.
+    await userEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('says it all in Vietnamese when the interface is in Vietnamese', async () => {
+    await act(() => i18n.changeLanguage('vi'));
     getStreak.mockResolvedValueOnce(streakOf(1, false)).mockResolvedValue(streakOf(1, true));
     claimStreakReward.mockResolvedValue({ coins: 30, totalCoins: 130 });
     renderWithProviders(<StreakRewardDialog />);

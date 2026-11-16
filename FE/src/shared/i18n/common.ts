@@ -1,5 +1,20 @@
 /** Words shared by many pages (namespace `common`): the frame of the app, the account menu, the navigation and the shared components. */
 export const commonEn = {
+  date: {
+    monthShort: { '1': 'Jan', '2': 'Feb', '3': 'Mar', '4': 'Apr', '5': 'May', '6': 'Jun', '7': 'Jul', '8': 'Aug', '9': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec' },
+    weekdayShort: { '0': 'Sun', '1': 'Mon', '2': 'Tue', '3': 'Wed', '4': 'Thu', '5': 'Fri', '6': 'Sat' },
+  },
+  heatmap: {
+    less: 'Less',
+    more: 'More',
+    upcoming: 'Upcoming',
+    noData: 'No data yet',
+    today: 'Today · {{day}}',
+    tasksDone: '{{done}} / {{total}} daily tasks done',
+    sessions_one: '{{count}} session',
+    sessions_other: '{{count}} sessions',
+    noSessions: 'No sessions',
+  },
   language: { label: 'Language' },
   brand: { footer: '© {{year}} TypeTrace. All rights reserved.' },
   nav: {
@@ -65,6 +80,21 @@ export const commonEn = {
 };
 
 export const commonVi: typeof commonEn = {
+  date: {
+    monthShort: { '1': 'Thg 1', '2': 'Thg 2', '3': 'Thg 3', '4': 'Thg 4', '5': 'Thg 5', '6': 'Thg 6', '7': 'Thg 7', '8': 'Thg 8', '9': 'Thg 9', '10': 'Thg 10', '11': 'Thg 11', '12': 'Thg 12' },
+    weekdayShort: { '0': 'CN', '1': 'T2', '2': 'T3', '3': 'T4', '4': 'T5', '5': 'T6', '6': 'T7' },
+  },
+  heatmap: {
+    less: 'Ít',
+    more: 'Nhiều',
+    upcoming: 'Sắp tới',
+    noData: 'Chưa có dữ liệu',
+    today: 'Hôm nay · {{day}}',
+    tasksDone: 'Đã xong {{done}} / {{total}} nhiệm vụ hằng ngày',
+    sessions_one: '{{count}} lượt gõ',
+    sessions_other: '{{count}} lượt gõ',
+    noSessions: 'Chưa có lượt gõ',
+  },
   language: { label: 'Ngôn ngữ' },
   brand: { footer: '© {{year}} TypeTrace. Bảo lưu mọi quyền.' },
   nav: {

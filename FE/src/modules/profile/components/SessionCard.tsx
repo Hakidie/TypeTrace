@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ListRow, ListRowStat } from '@/shared/components/list-row';
 import { formatTimeLimit, languageCodes, modeIcons } from '@/modules/typing/typing.config';
@@ -10,14 +11,15 @@ import { SessionLine } from './SessionLine';
  * The history holds both typing languages (SCRUM-219): the language of the session (VI, EN) follows the date.
  */
 export const SessionCard = ({ session }: { session: SessionSummary }) => {
+  const { t, i18n } = useTranslation('profile');
   const ModeIcon = modeIcons[session.mode];
   const language = session.language ?? 'vi';
-  const title = session.passageTitle ?? 'Untitled passage';
-  const date = new Date(session.completedAt ?? session.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const title = session.passageTitle ?? t('sessions.untitled');
+  const date = new Date(session.completedAt ?? session.createdAt).toLocaleDateString(i18n.language === 'vi' ? 'vi-VN' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   return (
     <Link
       to={`/typing/result/${session._id}`}
-      aria-label={`Open the result of ${title}`}
+      aria-label={t('sessions.open', { title })}
       className="-mr-3 -ml-4 block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <ListRow
@@ -40,9 +42,9 @@ export const SessionCard = ({ session }: { session: SessionSummary }) => {
         extra={
           // The columns have one width each (the widest value fits) and the same gap between them, so they line up from row to row.
           <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-8">
-            <ListRowStat className="w-16" label="WPM" value={String(Math.round(session.wpm ?? 0))} />
-            <ListRowStat className="w-28" label="ACC" value={`${(session.accuracy ?? 0).toFixed(1)}%`} />
-            <ListRowStat className="w-16" label="TIME" value={session.timeLimitSeconds ? formatTimeLimit(session.timeLimitSeconds) : '—'} />
+            <ListRowStat className="w-16" label={t('sessions.wpm')} value={String(Math.round(session.wpm ?? 0))} />
+            <ListRowStat className="w-28" label={t('sessions.acc')} value={`${(session.accuracy ?? 0).toFixed(1)}%`} />
+            <ListRowStat className="w-16" label={t('sessions.time_label')} value={session.timeLimitSeconds ? formatTimeLimit(session.timeLimitSeconds) : '—'} />
           </div>
         }
       />

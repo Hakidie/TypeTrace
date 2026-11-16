@@ -2,6 +2,8 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { authEn, authVi } from '@/modules/auth/locales';
 import { homeEn, homeVi } from '@/modules/home/locales';
+import { profileEn, profileVi } from '@/modules/profile/locales';
+import { progressEn, progressVi } from '@/modules/progress/locales';
 import { typingEn, typingVi } from '@/modules/typing/locales';
 import { settingsEn, settingsVi } from '@/modules/settings/locales';
 import { commonEn, commonVi } from './common';
@@ -12,8 +14,8 @@ import { DEFAULT_UI_LANGUAGE, initialUiLanguage } from './ui-language';
  * falls back to English (`fallbackLng`), so an untranslated string never shows its key.
  */
 export const resources = {
-  en: { common: commonEn, settings: settingsEn, auth: authEn, home: homeEn, typing: typingEn },
-  vi: { common: commonVi, settings: settingsVi, auth: authVi, home: homeVi, typing: typingVi },
+  en: { common: commonEn, settings: settingsEn, auth: authEn, home: homeEn, typing: typingEn, profile: profileEn, progress: progressEn },
+  vi: { common: commonVi, settings: settingsVi, auth: authVi, home: homeVi, typing: typingVi, profile: profileVi, progress: progressVi },
 } as const;
 
 void i18n.use(initReactI18next).init({
