@@ -60,13 +60,13 @@ export const issueResetToken = async (email: string) => {
 export const getSettings = async (userId: string) => {
   const user = await UserModel.findById(userId);
   if (!user) throw notFound('User not found');
-  const { timezone, typingLanguage, typingFontSizeRem, fontFamily } = user.settings;
-  return { timezone, typingLanguage, typingFontSizeRem, fontFamily };
+  const { timezone, typingLanguage, typingFontSizeRem, fontFamily, uiLanguage } = user.settings;
+  return { timezone, typingLanguage, typingFontSizeRem, fontFamily, uiLanguage: uiLanguage ?? null };
 };
 
 export const updateSettings = async (
   userId: string,
-  { timezone, typingLanguage, typingFontSizeRem, fontFamily }: UpdateSettingsInput
+  { timezone, typingLanguage, uiLanguage, typingFontSizeRem, fontFamily }: UpdateSettingsInput
 ) => {
   const user = await UserModel.findByIdAndUpdate(
     userId,
@@ -74,6 +74,7 @@ export const updateSettings = async (
       $set: {
         ...(timezone !== undefined && { 'settings.timezone': timezone }),
         ...(typingLanguage !== undefined && { 'settings.typingLanguage': typingLanguage }),
+        ...(uiLanguage !== undefined && { 'settings.uiLanguage': uiLanguage }),
         ...(typingFontSizeRem !== undefined && { 'settings.typingFontSizeRem': typingFontSizeRem }),
         ...(fontFamily !== undefined && { 'settings.fontFamily': fontFamily })
       }

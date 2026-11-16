@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { CHART_RANGES } from '../services/monthly-progress.service';
 import { appFonts, TYPING_FONT_SIZE } from '../utils/app-font';
 import { isValidTimeZone } from '../utils/local-date';
-import { typingLanguages } from '../utils/typing-language';
+import { typingLanguages, uiLanguages } from '../utils/typing-language';
 import { languageQuerySchema } from './common.validator';
 
 export const updateProfileSchema = z.object({
@@ -25,6 +25,7 @@ export type UpdateSecurityInput = z.infer<typeof updateSecuritySchema>;
  *   under the name this server's `Intl` gives it: Node 24 answers `Asia/Saigon` for `Asia/Ho_Chi_Minh`, and a browser that
  *   keeps its own name would see another zone and send it again on every page load.
  * - `typingLanguage` (SCRUM-219): the language the learner types in Practice.
+ * - `uiLanguage` (SCRUM-326): the language of the interface, `vi` or `en`.
  * - `typingFontSizeRem` (SCRUM-158): the passage text size, 1 to 2.5 rem in steps of 0.125.
  * - `fontFamily` (SCRUM-158): the font of the interface, one of `appFonts`.
  * At least one is needed. Other fields are dropped, so the theme settings cannot be changed here.
@@ -39,6 +40,7 @@ export const updateSettingsSchema = z
       .refine(isValidTimeZone, 'Unknown time zone')
       .optional(),
     typingLanguage: z.enum(typingLanguages).optional(),
+    uiLanguage: z.enum(uiLanguages).optional(),
     typingFontSizeRem: z
       .number()
       .min(TYPING_FONT_SIZE.min, `At least ${TYPING_FONT_SIZE.min}`)

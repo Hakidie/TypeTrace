@@ -4,6 +4,10 @@
 import { classifyEnglishWord, EnglishError, type EnglishErrorType, tagEnglishWord } from './english-errors';
 import { classifyWord, tagWord, WordError, type WordErrorType } from './vietnamese-errors';
 
+/** The two languages of the interface (SCRUM-326, US8.3): not the language a learner types in. */
+export const uiLanguages = ['vi', 'en'] as const;
+export type UiLanguage = (typeof uiLanguages)[number];
+
 export const typingLanguages = ['vi', 'en'] as const;
 export type TypingLanguage = (typeof typingLanguages)[number];
 
