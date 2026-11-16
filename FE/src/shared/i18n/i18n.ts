@@ -3,6 +3,9 @@ import { initReactI18next } from 'react-i18next';
 import { authEn, authVi } from '@/modules/auth/locales';
 import { homeEn, homeVi } from '@/modules/home/locales';
 import { passagesEn, passagesVi } from '@/modules/passages/locales';
+import { chatEn, chatVi } from '@/modules/chat/locales';
+import { wardrobeEn, wardrobeVi } from '@/modules/avatar/locales';
+import { storeEn, storeVi } from '@/modules/payments/locales';
 import { profileEn, profileVi } from '@/modules/profile/locales';
 import { progressEn, progressVi } from '@/modules/progress/locales';
 import { rainEn, rainVi } from '@/modules/rain/locales';
@@ -17,8 +20,8 @@ import { DEFAULT_UI_LANGUAGE, initialUiLanguage } from './ui-language';
  * falls back to English (`fallbackLng`), so an untranslated string never shows its key.
  */
 export const resources = {
-  en: { common: commonEn, settings: settingsEn, auth: authEn, home: homeEn, typing: typingEn, profile: profileEn, progress: progressEn, passages: passagesEn, ranked: rankedEn, rain: rainEn },
-  vi: { common: commonVi, settings: settingsVi, auth: authVi, home: homeVi, typing: typingVi, profile: profileVi, progress: progressVi, passages: passagesVi, ranked: rankedVi, rain: rainVi },
+  en: { common: commonEn, settings: settingsEn, auth: authEn, home: homeEn, typing: typingEn, profile: profileEn, progress: progressEn, passages: passagesEn, ranked: rankedEn, rain: rainEn, store: storeEn, wardrobe: wardrobeEn, chat: chatEn },
+  vi: { common: commonVi, settings: settingsVi, auth: authVi, home: homeVi, typing: typingVi, profile: profileVi, progress: progressVi, passages: passagesVi, ranked: rankedVi, rain: rainVi, store: storeVi, wardrobe: wardrobeVi, chat: chatVi },
 } as const;
 
 void i18n.use(initReactI18next).init({

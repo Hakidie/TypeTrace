@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Bot, SquarePen, X } from 'lucide-react';
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -13,6 +14,7 @@ import { ChatPanel } from './ChatPanel';
  * popup keeps the conversation (the widget stays mounted). Registered as a widget in chat.module.ts.
  */
 export const ChatWidget = () => {
+  const { t } = useTranslation('chat');
   const open = useChatPopupOpen();
   const chat = useChat();
 
@@ -38,10 +40,10 @@ export const ChatWidget = () => {
                 <Bot className="size-4" />
               </div>
               <p className="flex-1 font-semibold">{chatConfig.botName}</p>
-              <Button variant="ghost" size="sm" aria-label="New chat" disabled={chat.messages.length === 0} onClick={chat.reset}>
+              <Button variant="ghost" size="sm" aria-label={t('newChat')} disabled={chat.messages.length === 0} onClick={chat.reset}>
                 <SquarePen className="size-4" />
               </Button>
-              <Button variant="ghost" size="sm" aria-label="Close chat" onClick={() => chatPopupStore.set(false)}>
+              <Button variant="ghost" size="sm" aria-label={t('closeChat')} onClick={() => chatPopupStore.set(false)}>
                 <X className="size-4" />
               </Button>
             </header>

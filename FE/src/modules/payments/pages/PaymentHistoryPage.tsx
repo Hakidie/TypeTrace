@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Receipt } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '@/shared/components/empty-state';
@@ -11,15 +12,8 @@ import { usePagination } from '@/shared/hooks/use-pagination';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { useMyPayments, usePaymentProducts } from '../hooks/use-payments';
 import { formatVnd, PROVIDER_NAMES, purchaseLabel } from '../lib/store';
-import type { MyPaymentRow } from '../types/payments.types';
 
 const PAGE_SIZE = 6;
-const STATUS_NAMES: Record<MyPaymentRow['status'], string> = {
-  paid: 'Paid',
-  pending: 'Waiting',
-  failed: 'Failed',
-  expired: 'Expired',
-};
 const dateTime = new Intl.DateTimeFormat('vi-VN', {
   dateStyle: 'short',
   timeStyle: 'short',
@@ -27,6 +21,7 @@ const dateTime = new Intl.DateTimeFormat('vi-VN', {
 
 /** The learner's own payments, newest first (`/store/history`). A failed, cancelled or expired try is listed but never changed the plan or the coins. */
 export const PaymentHistoryPage = () => {
+  const { t } = useTranslation('store');
   const navigate = useNavigate();
   const { page, setPage } = usePagination();
   const rows = useMyPayments(page, PAGE_SIZE);
@@ -34,13 +29,13 @@ export const PaymentHistoryPage = () => {
 
   return (
     <div className="flex flex-1 flex-col">
-      <Panel title="Payment history" bare titleClassName={sectionTitleClass} className="space-y-3">
+      <Panel title={t('history.title')} bare titleClassName={sectionTitleClass} className="space-y-3">
         {rows.isPending && <LoadingState rows={3} />}
         {rows.isError && <ErrorState error={rows.error} onRetry={() => void rows.refetch()} />}
-        {rows.data && rows.data.items.length === 0 && <EmptyState icon={Receipt} title="No payments yet" description="What you buy in the Store shows here." />}
+        {rows.data && rows.data.items.length === 0 && <EmptyState icon={Receipt} title={t('history.emptyTitle')} description={t('history.emptyHint')} />}
         {rows.data && rows.data.items.length > 0 && (
           <>
-            <div className="-mx-4 space-y-3" aria-label="Payments">
+            <div className="-mx-4 space-y-3" aria-label={t('history.payments')}>
               {rows.data.items.map((row) => (
                 <ListRow
                   key={row._id}
@@ -54,9 +49,9 @@ export const PaymentHistoryPage = () => {
                   }
                   extra={
                     <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-0">
-                      <ListRowStat className="w-32" label="AMOUNT" value={formatVnd(row.amount)} />
-                      <ListRowStat className="w-28" label="GATEWAY" value={PROVIDER_NAMES[row.provider]} />
-                      <ListRowStat className="w-28" label="STATUS" value={STATUS_NAMES[row.status]} />
+                      <ListRowStat className="w-32" label={t('history.amount')} value={formatVnd(row.amount)} />
+                      <ListRowStat className="w-28" label={t('history.gateway')} value={PROVIDER_NAMES[row.provider]} />
+                      <ListRowStat className="w-28" label={t('history.status')} value={t(`history.${row.status}`)} />
                     </div>
                   }
                 />
@@ -67,7 +62,7 @@ export const PaymentHistoryPage = () => {
         )}
       </Panel>
       <div className="mt-auto mb-4 flex shrink-0 items-center justify-center pt-3">
-        <PanelTitleSwitch other="Store" showLabel onClick={() => navigate('/store')} />
+        <PanelTitleSwitch other={t('history.store')} showLabel onClick={() => navigate('/store')} />
       </div>
     </div>
   );

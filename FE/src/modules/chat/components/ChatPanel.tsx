@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Bot, Loader2, RotateCcw } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { getApiErrorMessage } from '@/shared/api/api-error';
@@ -13,6 +14,7 @@ interface ChatPanelProps {
 
 /** Messages, suggestions, errors and the message box. Used inside the chat popup. */
 export const ChatPanel = ({ chat }: ChatPanelProps) => {
+  const { t } = useTranslation('chat');
   const { messages, send, retry, isThinking, error } = chat;
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +47,7 @@ export const ChatPanel = ({ chat }: ChatPanelProps) => {
         {isThinking && (
           <div className="flex items-center gap-2 text-base text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            {chatConfig.botName} is thinking…
+            {t('thinking', { name: chatConfig.botName })}
           </div>
         )}
 
@@ -53,11 +55,11 @@ export const ChatPanel = ({ chat }: ChatPanelProps) => {
           <div role="alert" className="space-y-2 border border-destructive/40 p-3 text-base">
             <p className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
-              {getApiErrorMessage(error, 'The AI did not answer. Please try again.')}
+              {getApiErrorMessage(error, t('error'))}
             </p>
             <Button variant="outline" size="sm" onClick={retry}>
               <RotateCcw className="size-4" />
-              Try again
+              {t('tryAgain')}
             </Button>
           </div>
         )}

@@ -1,8 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { SendHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { chatConfig } from '../chat.config';
 
 interface ChatComposerProps {
   disabled?: boolean;
@@ -11,6 +11,7 @@ interface ChatComposerProps {
 
 /** Message box: Enter sends, Shift+Enter adds a new line. */
 export const ChatComposer = ({ disabled, onSend }: ChatComposerProps) => {
+  const { t } = useTranslation('chat');
   const [text, setText] = useState('');
 
   const submit = () => {
@@ -28,11 +29,11 @@ export const ChatComposer = ({ disabled, onSend }: ChatComposerProps) => {
       }}
     >
       <Textarea
-        aria-label="Message"
+        aria-label={t('message')}
         rows={2}
         maxLength={4000}
         className="min-h-0 resize-none"
-        placeholder={chatConfig.inputPlaceholder}
+        placeholder={t('placeholder')}
         value={text}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
@@ -42,7 +43,7 @@ export const ChatComposer = ({ disabled, onSend }: ChatComposerProps) => {
           }
         }}
       />
-      <Button type="submit" aria-label="Send" disabled={disabled || !text.trim()}>
+      <Button type="submit" aria-label={t('send')} disabled={disabled || !text.trim()}>
         <SendHorizontal className="size-4" />
       </Button>
     </form>

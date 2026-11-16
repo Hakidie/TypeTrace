@@ -6,7 +6,6 @@
 export const chatConfig = {
   botName: 'AI Assistant',
   welcomeMessage: 'Xin chào! Mình có thể giúp gì cho bạn? / Hi! How can I help you?',
-  inputPlaceholder: 'Type a message… (Enter to send, Shift+Enter for a new line)',
   /** Clickable example questions shown before the first message. */
   suggestions: [
     'Giải thích định luật Newton thứ hai thật ngắn gọn',

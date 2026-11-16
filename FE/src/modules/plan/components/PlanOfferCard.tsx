@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from 'react-i18next';
 import { Check, CircleHelp, Minus } from 'lucide-react';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
@@ -5,7 +6,7 @@ import type { AvatarPose } from '@/modules/avatar/types/avatar.types';
 import { formatVnd } from '@/modules/payments/lib/store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
-import { PASSAGE_LIMIT_HELP, PERMISSIONS, PLAN_AVATARS } from '../plan.config';
+import { PERMISSIONS, PLAN_AVATARS } from '../plan.config';
 import type { PlanConfig } from '../types/plan.types';
 
 interface PlanOfferCardProps {
@@ -26,10 +27,7 @@ interface PlanOfferCardProps {
 }
 
 /** The words of each perk for a learner (the admin page keeps its own labels in `PERMISSIONS`). */
-const PERK_TEXT: Record<(typeof PERMISSIONS)[number]['field'], string> = {
-  canCreateErrorPractice: 'Train on your weak spots',
-  canUsePublicPassages: "Practice other learners' public passages",
-};
+const PERK_KEYS = { canCreateErrorPractice: 'train', canUsePublicPassages: 'publicPassages' } as const;
 
 /** How long the Premium avatar holds its arms up when the dialog opens, before it stands at rest. */
 const CELEBRATE_MS = 1600;
@@ -42,23 +40,26 @@ const PIXEL_FLOOR =
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-const Perk = ({ on, children, help }: { on: boolean; children: ReactNode; help?: string }) => (
+const Perk = ({ on, children, help }: { on: boolean; children: ReactNode; help?: string }) => {
+  const { t } = useTranslation('store');
+  return (
   <li className={cn('flex items-start gap-3', on ? 'text-foreground' : 'text-muted-foreground')}>
     {on ? <Check className="mt-0.5 size-4 shrink-0 text-primary" strokeWidth={3} aria-hidden="true" /> : <Minus className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
     <span className="min-w-0 flex-1">
       {children}
-      <span className="sr-only">{on ? ' (included)' : ' (not included)'}</span>
+      <span className="sr-only">{on ? t('plan.included') : t('plan.notIncluded')}</span>
     </span>
     {help && (
       <Tooltip>
-        <TooltipTrigger type="button" aria-label="About this" className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary focus-visible:text-primary">
+        <TooltipTrigger type="button" aria-label={t('plan.about')} className="mt-0.5 shrink-0 text-muted-foreground transition-colors hover:text-primary focus-visible:text-primary">
           <CircleHelp className="size-4" aria-hidden="true" />
         </TooltipTrigger>
         <TooltipContent className="max-w-64 whitespace-normal">{help}</TooltipContent>
       </Tooltip>
     )}
   </li>
-);
+  );
+};
 
 /**
  * One plan in the plan dialog, to read and choose. Free is the quiet reference: small stage, plain price. Premium is the
@@ -66,6 +67,7 @@ const Perk = ({ on, children, help }: { on: boolean; children: ReactNode; help?:
  * in the accent with the cheapest month under it, a thick accent border. Both list what they give as included / not included.
  */
 export const PlanOfferCard = ({ planKey, name, config, current = false, used, priceNote, action, order = 0 }: PlanOfferCardProps) => {
+  const { t } = useTranslation('store');
   const premium = planKey === 'premium';
   const [pose, setPose] = useState<AvatarPose>(() => (premium && !reducedMotion() ? 'win' : 'idle'));
 
@@ -79,7 +81,7 @@ export const PlanOfferCard = ({ planKey, name, config, current = false, used, pr
   return (
     <div
       role="group"
-      aria-label={`${name} plan`}
+      aria-label={t('plan.planSuffix', { name })}
       style={{ animationDelay: `${order * 90}ms` } as CSSProperties}
       className={cn(
         'plan-enter relative flex flex-col gap-5 p-6',
@@ -88,34 +90,34 @@ export const PlanOfferCard = ({ planKey, name, config, current = false, used, pr
     >
       <div className="flex items-center justify-between gap-3">
         <h3 className={cn('font-bold tracking-tight', premium ? 'text-3xl text-primary' : 'text-2xl text-muted-foreground')}>{name}</h3>
-        {current && <span className="bg-primary px-2 py-1 text-xs font-semibold leading-none text-primary-foreground">Your plan</span>}
+        {current && <span className="bg-primary px-2 py-1 text-xs font-semibold leading-none text-primary-foreground">{t('plan.yourPlan')}</span>}
       </div>
 
       <div className={cn('relative flex items-end justify-center overflow-hidden border', premium ? 'h-60 border-primary/50 bg-background/60' : 'h-40 border-border')}>
         <div aria-hidden="true" className={PIXEL_FLOOR} />
-        <AvatarSprite look={PLAN_AVATARS[planKey]} pose={pose} scale={premium ? 3 : 2} eager label={`Avatar of the ${name} plan`} className="relative" />
+        <AvatarSprite look={PLAN_AVATARS[planKey]} pose={pose} scale={premium ? 3 : 2} eager label={t('plan.avatarOf', { name })} className="relative" />
       </div>
 
       <div className="space-y-1">
         <p className="flex items-baseline gap-2">
           <span className={cn('font-black tracking-tight tabular-nums', premium ? 'text-5xl text-primary' : 'text-3xl text-foreground')}>{formatVnd(config.priceVnd)}</span>
-          <span className="text-sm text-muted-foreground">/ month</span>
+          <span className="text-sm text-muted-foreground">{t('plan.perMonth')}</span>
         </p>
         {priceNote && <p className="text-sm text-muted-foreground">{priceNote}</p>}
       </div>
 
       <TooltipProvider delayDuration={200}>
         <ul className={cn('space-y-3', premium ? 'text-base' : 'text-sm')}>
-          <Perk on help={PASSAGE_LIMIT_HELP}>
-            Up to <span className="font-semibold tabular-nums">{config.maxPassages}</span> passages of your own
-            {current && used !== undefined && <span className="ml-2 text-muted-foreground tabular-nums">{`${used}/${config.maxPassages} used`}</span>}
+          <Perk on help={t('plan.passageHelp')}>
+            <Trans t={t} i18nKey="plan.upTo" values={{ count: config.maxPassages }} components={{ b: <span className="font-semibold tabular-nums" /> }} />
+            {current && used !== undefined && <span className="ml-2 text-muted-foreground tabular-nums">{t('plan.used', { used, max: config.maxPassages })}</span>}
           </Perk>
-          {PERMISSIONS.map(({ field, help }) => (
-            <Perk key={field} on={config[field]} help={help}>
-              {PERK_TEXT[field]}
+          {PERMISSIONS.map(({ field }) => (
+            <Perk key={field} on={config[field]} help={t(field === 'canCreateErrorPractice' ? 'plan.trainHelp' : 'plan.publicHelp')}>
+              {t(`plan.${PERK_KEYS[field]}`)}
             </Perk>
           ))}
-          <Perk on={premium}>The Dragon set for your avatar</Perk>
+          <Perk on={premium}>{t('plan.dragon')}</Perk>
         </ul>
       </TooltipProvider>
 

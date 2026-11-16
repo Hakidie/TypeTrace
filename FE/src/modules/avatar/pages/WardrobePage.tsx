@@ -1,5 +1,7 @@
 import { Backpack, Check, Coins, Columns2, Footprints, Glasses, GraduationCap, Hand, Lock, Plus, Scissors, Shirt, Smile, Sparkles, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { i18n } from '@/shared/i18n/i18n';
 import { Link } from 'react-router-dom';
 import { tokenStore } from '@/modules/auth/store/token.store';
 import { formatCoins } from '@/modules/payments/lib/store';
@@ -8,10 +10,11 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Panel } from '@/shared/components/panel';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
+import { lockText, poseName, slotName } from '../lib/wardrobe-text';
 import { AvatarSprite } from '../components/AvatarSprite';
 import { WardrobeSwitch } from '../components/WardrobeSwitch';
 import { useAvatarCatalog, useBuyItem, useUpdateAvatar } from '../hooks/use-avatar';
-import type { AvatarItem, AvatarLook, AvatarPose, AvatarSlot, AvatarUnlock } from '../types/avatar.types';
+import type { AvatarItem, AvatarLook, AvatarPose, AvatarSlot } from '../types/avatar.types';
 
 /** `head`: the slot changes the head, so its cards show the head bigger; `full`: the whole avatar. */
 const SLOTS: { slot: AvatarSlot; icon: LucideIcon; label: string; optional?: boolean; focus: 'head' | 'full' }[] = [
@@ -40,13 +43,6 @@ const SLOT_NAMES = SLOTS.map(({ slot }) => slot);
 const words = (id: string) => id.replace(/-/g, ' ').replace(/^./, (first) => first.toUpperCase());
 
 /** What a locked item costs: its price in coins, or the season tier that gives it. */
-const lockText = (unlock: AvatarUnlock) => {
-  if (unlock.kind === 'shop') return `${unlock.price} coins`;
-  if (unlock.kind === 'tier') return `${unlock.tier[0].toUpperCase()}${unlock.tier.slice(1)} reward`;
-  if (unlock.kind === 'season') return 'Season reward';
-  if (unlock.kind === 'premium') return 'Premium';
-  return '';
-};
 // A Premium item can be previewed without Premium, like an item for sale; the left panel then leads to the Store.
 const pickable = (item: AvatarItem) => item.owned || item.unlock.kind === 'shop' || item.unlock.kind === 'premium';
 
@@ -71,7 +67,7 @@ const groupItems = (items: AvatarItem[]): Group[] => {
   }
   return [...byStyle].flatMap(([style, list]) =>
     list.length > 1 || style === ''
-      ? [{ key: style, label: style ? words(style) : 'Basic', items: list }]
+      ? [{ key: style, label: style ? words(style) : i18n.t('wardrobe:basic'), items: list }]
       : list.map((item) => ({ key: item.id, label: words(item.id), items: [item] })),
   );
 };
@@ -133,6 +129,7 @@ const PickCard = ({ label, caption, item, preview, focus, selected, onPick, note
  * bought; a reward cannot be picked.
  */
 export const WardrobePage = () => {
+  const { t } = useTranslation('wardrobe');
   const catalog = useAvatarCatalog();
   const updateAvatar = useUpdateAvatar();
   const buyItem = useBuyItem();
@@ -189,8 +186,8 @@ export const WardrobePage = () => {
       {/* The title is in the look of the Store's tabs and of the Progress page's section titles (no description); the coins sit at the top right. */}
       <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-[1.5rem] font-semibold">
         <div className="flex items-center gap-4">
-          <h1 className="text-primary/70">Wardrobe</h1>
-          <WardrobeSwitch to="modern" other="Modern wardrobe" />
+          <h1 className="text-primary/70">{t('title')}</h1>
+          <WardrobeSwitch to="modern" other={t('modern')} />
         </div>
         {/* The coins; "Get coins" opens to their right while they are hovered or focused (grid 0fr -> 1fr animates the width). */}
         {!guest && (
@@ -206,7 +203,7 @@ export const WardrobePage = () => {
                 className="inline-flex items-center gap-1.5 border border-primary/60 px-3 py-1 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
               >
                 <Plus className="size-4" aria-hidden="true" />
-                Get coins
+                {t('getCoins')}
               </Link>
             </span>
           </span>
@@ -218,9 +215,9 @@ export const WardrobePage = () => {
           {/* PANEL Avatar preview */}
           <Panel className="flex flex-col items-center gap-4">
             <div className="flex w-full justify-center border-b border-primary/30 pt-2">
-              <AvatarSprite look={look} pose={pose} scale={4} label="Your avatar" />
+              <AvatarSprite look={look} pose={pose} scale={4} label={t('avatar')} />
             </div>
-            <div role="group" aria-label="Pose" className="grid w-full grid-cols-4 border">
+            <div role="group" aria-label={t('pose')} className="grid w-full grid-cols-4 border">
               {POSES.map((entry) => (
                 <button
                   key={entry.pose}
@@ -232,7 +229,7 @@ export const WardrobePage = () => {
                     pose === entry.pose ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary',
                   )}
                 >
-                  {entry.label}
+                  {poseName(entry.pose)}
                 </button>
               ))}
             </div>
@@ -240,7 +237,7 @@ export const WardrobePage = () => {
               <div className="flex w-full flex-col items-center gap-1">
                 {guest ? (
                   <Button asChild className="w-full">
-                    <Link to="/register">Sign up to buy</Link>
+                    <Link to="/register">{t('signBuy')}</Link>
                   </Button>
                 ) : (
                   <Button
@@ -249,33 +246,33 @@ export const WardrobePage = () => {
                     disabled={coins < forSale.price || buyItem.isPending}
                     onClick={() => buyItem.mutate(`${forSale.slot}:${forSale.item.id}`)}
                   >
-                    Buy {words(forSale.item.id)} for {forSale.price} coins
+                    {t('buy', { name: words(forSale.item.id), price: forSale.price })}
                   </Button>
                 )}
               </div>
             )}
             {proLocked && (
               <Button asChild className="w-full">
-                <Link to={guest ? '/register' : '/store'}>{guest ? 'Sign up to get Premium' : `Get Premium to wear ${words(proLocked.item.id)}`}</Link>
+                <Link to={guest ? '/register' : '/store'}>{guest ? t('signPremium') : t('getPremium', { name: words(proLocked.item.id) })}</Link>
               </Button>
             )}
             {!forSale && !proLocked && shownItem?.owned && (
               <Button type="button" variant="outline" className="w-full" disabled>
                 <Check className="size-4" aria-hidden="true" />
-                {words(shownItem.id)} is yours
+                {t('yours', { name: words(shownItem.id) })}
               </Button>
             )}
             <div className="grid w-full grid-cols-2 gap-2">
               <Button type="button" variant="outline" disabled={!dirty} onClick={() => setDraft(null)}>
-                Reset
+                {t('reset')}
               </Button>
               {guest ? (
                 <Button asChild>
-                  <Link to="/register">Sign up to save</Link>
+                  <Link to="/register">{t('signSave')}</Link>
                 </Button>
               ) : (
                 <Button type="button" disabled={!dirty || unowned.length > 0 || updateAvatar.isPending} onClick={save}>
-                  Save
+                  {t('save')}
                 </Button>
               )}
             </div>
@@ -285,7 +282,7 @@ export const WardrobePage = () => {
         <Panel>
           {/* The slot tabs are a sidebar on the right of the items from `md` up; on phones they stay a row above them. */}
           <div className="flex flex-col gap-4 md:flex-row md:gap-6">
-          <div role="tablist" aria-label="Slots" aria-orientation="vertical" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:order-last md:mx-0 md:w-auto md:shrink-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
+          <div role="tablist" aria-label={t('slotsLabel')} aria-orientation="vertical" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:order-last md:mx-0 md:w-auto md:shrink-0 md:flex-col md:overflow-visible md:px-0 md:pb-0">
             {SLOTS.map((entry) => {
               const selected = slot === entry.slot;
               return (
@@ -307,7 +304,7 @@ export const WardrobePage = () => {
                     )}
                   >
                     <entry.icon className="size-4 shrink-0 md:size-5" aria-hidden="true" />
-                    <span className="md:sr-only">{entry.label}</span>
+                    <span className="md:sr-only">{slotName(entry.slot)}</span>
                   </button>
                   {/* 9px + the 1px border = the 10px that keeps the icon where it was. Only for the eye: the tab keeps its name. */}
                   <span
@@ -319,16 +316,16 @@ export const WardrobePage = () => {
                     )}
                   >
                     <entry.icon className="size-5 shrink-0" />
-                    {entry.label}
+                    {slotName(entry.slot)}
                   </span>
                 </div>
               );
             })}
           </div>
-          <div role="tabpanel" aria-label={current.label} className="flex min-w-0 flex-1 flex-col gap-4">
+          <div role="tabpanel" aria-label={slotName(current.slot)} className="flex min-w-0 flex-1 flex-col gap-4">
             {!oneStyle && open && open.items.length > 1 && (
-              <section aria-label={`${open.label} colors`} className="flex flex-col gap-2 border bg-primary/5 p-3">
-                <h3 className="text-sm font-semibold text-foreground">{open.label}: colors</h3>
+              <section aria-label={t('colorsAria', { label: open.label })} className="flex flex-col gap-2 border bg-primary/5 p-3">
+                <h3 className="text-sm font-semibold text-foreground">{t('colorsOf', { label: open.label })}</h3>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] gap-2">
                   {open.items.map((item) => (
                     <PickCard
@@ -348,7 +345,7 @@ export const WardrobePage = () => {
             )}
             <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
               {current.optional && (
-                <PickCard label="None" preview={{ ...base, [slot]: null }} focus={current.focus} selected={!look[slot]} onPick={() => pick(null)} />
+                <PickCard label={t('none')} preview={{ ...base, [slot]: null }} focus={current.focus} selected={!look[slot]} onPick={() => pick(null)} />
               )}
               {oneStyle
                 ? groups[0].items.map((item) => (
@@ -375,7 +372,7 @@ export const WardrobePage = () => {
                         focus={current.focus}
                         selected={single ? look[slot] === single.id : group === worn}
                         onPick={() => (single ? pick(single.id) : openStyle(group))}
-                        note={single ? undefined : `${group.items.length} colors`}
+                        note={single ? undefined : t('colorsCount', { count: group.items.length })}
                       />
                     );
                   })}
