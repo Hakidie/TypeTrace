@@ -78,7 +78,7 @@ describe('the frame and Settings in Vietnamese (SCRUM-328)', () => {
     const user = userEvent.setup();
     renderWithProviders(<GuestMenu />);
     await user.click(screen.getByRole('button', { name: 'Menu khách' }));
-    for (const name of ['Đăng nhập', 'Đăng ký', /Chế độ:/, 'Ngôn ngữ: Tiếng Việt']) {
+    for (const name of ['Đăng nhập', 'Đăng ký', 'Tối', 'Tiếng Việt']) {
       expect(await screen.findByRole('menuitem', { name })).toBeInTheDocument();
     }
   });

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { i18n } from '@/shared/i18n/i18n';
 import { Button } from '@/shared/components/ui/button';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { authApi } from '../api/auth.api';
@@ -45,6 +47,7 @@ const CELL_HEIGHT_PX = 48;
  * invisible, over our square button, so a click on the cell reaches Google.
  */
 export const GoogleSignInButton = () => {
+  const { t } = useTranslation('auth');
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const cell = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -74,7 +77,7 @@ export const GoogleSignInButton = () => {
               const { token, isNewUser } = await authApi.googleLogin(credential);
               await finishLogin(token, { newAccount: isNewUser });
             } catch (error) {
-              toast.error(getApiErrorMessage(error, 'Google login failed'));
+              toast.error(getApiErrorMessage(error, i18n.t('auth:errors.googleFailed')));
             }
           },
         });
@@ -85,7 +88,7 @@ export const GoogleSignInButton = () => {
           shape: 'square',
         });
       })
-      .catch(() => toast.error('Could not load Google sign-in'));
+      .catch(() => toast.error(i18n.t('auth:errors.googleLoadFailed')));
 
     return () => {
       cancelled = true;
@@ -99,9 +102,9 @@ export const GoogleSignInButton = () => {
       <Button
         type="button"
         variant="outline"
-        aria-label="Continue with Google"
+        aria-label={t('social.continueWith', { name: 'Google' })}
         className="size-full p-0 hover:bg-destructive/90 hover:text-destructive-foreground"
-        onClick={clientId ? undefined : () => toast.info('Google login is not set up yet. Add VITE_GOOGLE_CLIENT_ID to FE/.env.')}
+        onClick={clientId ? undefined : () => toast.info(t('social.googleNotSetUp'))}
       >
         <GoogleG />
       </Button>

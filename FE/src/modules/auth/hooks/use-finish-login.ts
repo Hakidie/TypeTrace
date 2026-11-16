@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { i18n } from '@/shared/i18n/i18n';
 import { authApi } from '../api/auth.api';
 import { tokenStore } from '../store/token.store';
 import { afterLoginPathFor, type AfterLoginState } from '../utils/home-path';
@@ -18,7 +19,7 @@ export const useFinishLogin = () => {
     try {
       const user = await authApi.getMe();
       setCurrentUser(user);
-      toast.success('Logged in successfully.');
+      toast.success(i18n.t('auth:login.loggedIn'));
       const state: AfterLoginState | undefined = newAccount ? { newAccount: true } : undefined;
       navigate(afterLoginPathFor(user.role), { replace: true, state });
     } catch (error) {

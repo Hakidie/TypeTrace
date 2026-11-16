@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 /**
  * The account menu of the login pages: looks like `UserMenu` (the head of the default avatar and a name), but for a guest.
- * Its menu has the Wardrobe (to try items on), Language (SCRUM-327, kept in the browser), Mode (only remembered in the browser here), Login and Register.
+ * Its menu has the Wardrobe (to try items on), Language (SCRUM-327, kept in the browser) and Mode (only remembered in the browser here), each shown as its current value (English, Light), Login and Register.
  */
 export const GuestMenu = () => {
   const navigate = useNavigate();
@@ -41,11 +41,11 @@ export const GuestMenu = () => {
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')} className="gap-2">
           <ModeIcon className="size-4" />
-          {t('menu.mode', { mode: mode === 'dark' ? t('menu.dark') : t('menu.light') })}
+          {mode === 'dark' ? t('menu.dark') : t('menu.light')}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => changeLanguage(language === 'vi' ? 'en' : 'vi')} className="gap-2">
           <Languages className="size-4" />
-          {t('language.label')}: {language === 'vi' ? 'Tiếng Việt' : 'English'}
+          {language === 'vi' ? 'Tiếng Việt' : 'English'}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate('/login')} className="gap-2">
           <LogIn className="size-4" />

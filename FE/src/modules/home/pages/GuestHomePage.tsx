@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Button } from '@/shared/components/ui/button';
 import { BrandFooter } from '@/shared/components/layout/BrandFooter';
@@ -14,6 +15,7 @@ import { summarizeGuestRun, type GuestRun } from '../lib/guest-result';
  * the API (no session, no saved result, no rating), like Ping's practice duel; the result invites the guest to register.
  */
 export const GuestHomePage = () => {
+  const { t } = useTranslation();
   const [passage, setPassage] = useState(() => pickGuestPassage());
   const [run, setRun] = useState<GuestRun>();
 
@@ -33,10 +35,10 @@ export const GuestHomePage = () => {
     <div className={`flex min-h-screen flex-col overflow-x-clip ${redGlassTheme}`}>
       <BrandHeader to="/">
         <Button asChild variant="ghost">
-          <Link to="/login">Login</Link>
+          <Link to="/login">{t('menu.login')}</Link>
         </Button>
         <Button asChild variant="destructive">
-          <Link to="/register">Register</Link>
+          <Link to="/register">{t('menu.register')}</Link>
         </Button>
       </BrandHeader>
 
@@ -46,7 +48,7 @@ export const GuestHomePage = () => {
         ) : (
           <>
             <p className="text-center text-muted-foreground">
-              Try a one-minute typing test. You do not need an account, and nothing is saved.
+              {t('home:intro')}
             </p>
             <TypingArea
               key={passage.index}

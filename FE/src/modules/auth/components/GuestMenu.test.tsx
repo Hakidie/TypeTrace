@@ -16,7 +16,7 @@ describe('GuestMenu', () => {
     expect(await screen.findByRole('menuitem', { name: 'Wardrobe' })).toBeInTheDocument();
     expect(await screen.findByRole('menuitem', { name: 'Login' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Register' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /Mode:/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Dark' })).toBeInTheDocument();
   });
 
   it('switches the language of the interface and keeps it in the browser', async () => {
@@ -24,7 +24,7 @@ describe('GuestMenu', () => {
     renderWithProviders(<GuestMenu />);
 
     await user.click(screen.getByRole('button', { name: 'Guest menu' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Language: English' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'English' }));
 
     expect(i18n.language).toBe('vi');
     expect(readStoredUiLanguage()).toBe('vi');

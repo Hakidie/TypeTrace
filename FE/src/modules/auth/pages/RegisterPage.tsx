@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Trans } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,14 +21,18 @@ import { FormField } from '@/shared/components/form-field';
 import { cn } from '@/shared/lib/utils';
 import { OtpInput } from '@/shared/components/ui/otp-input';
 
-const registerSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Invalid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-type FormValues = z.infer<typeof registerSchema>;
+type FormValues = { email: string; password: string };
 
 export const RegisterPage = () => {
+  const { t } = useTranslation('auth');
+  const registerSchema = useMemo(
+    () =>
+      z.object({
+        email: z.string().min(1, t('errors.emailRequired')).email(t('errors.emailInvalid')),
+        password: z.string().min(6, t('errors.passwordShort')),
+      }),
+    [t],
+  );
   const [step, setStep] = useState<'register' | 'verify'>('register');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -58,9 +64,9 @@ export const RegisterPage = () => {
       await authApi.register({ email: values.email, password: values.password });
       setEmail(values.email);
       setStep('verify');
-      toast.success('OTP sent to your email.');
+      toast.success(t('register.otpSent'));
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Something went wrong'));
+      toast.error(getApiErrorMessage(error, t('errors.generic')));
       shake();
     } finally {
       setLoading(false);
@@ -76,10 +82,10 @@ export const RegisterPage = () => {
       // Verified: sign in right away, so the new learner lands on the typing page, which asks them to take the placement
       // test (SCRUM-157). If that fails, the account is still verified and the login page opens instead.
       if (await signIn()) return;
-      toast.success('Account verified! You can login now.');
+      toast.success(t('register.verified'));
       navigate('/login');
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Invalid OTP'));
+      toast.error(getApiErrorMessage(error, t('errors.invalidOtp')));
       setOtp('');
     } finally {
       setLoading(false);
@@ -90,9 +96,9 @@ export const RegisterPage = () => {
     return (
       <Card>
         <CardHeader className="pb-6 pt-0 text-center">
-          <CardTitle>Confirm OTP</CardTitle>
+          <CardTitle>{t('register.confirmTitle')}</CardTitle>
           <CardDescription>
-            Enter the 6-digit code sent to <span className="font-medium text-foreground">{email}</span>
+            <Trans t={t} i18nKey="login.verifyDescription" values={{ email }} components={{ strong: <span className="font-medium text-foreground" /> }} />
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -100,14 +106,14 @@ export const RegisterPage = () => {
             <OtpInput value={otp} onChange={setOtp} />
             <Button className="w-full" type="submit" disabled={otp.length !== 6 || loading}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              Verify OTP
+              {t('register.verifySubmit')}
             </Button>
             <button
               type="button"
               onClick={() => { setStep('register'); setOtp(''); }}
               className="block w-full text-center text-base text-muted-foreground transition hover:text-foreground"
             >
-              Back to register
+              {t('register.backToRegister')}
             </button>
           </form>
         </CardContent>
@@ -118,25 +124,25 @@ export const RegisterPage = () => {
   return (
     <Card>
       <CardHeader className="pb-6 pt-0 text-center">
-        <CardTitle>Register</CardTitle>
+        <CardTitle>{t('register.title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form className={cn('space-y-3', shakeProps.className)} onAnimationEnd={shakeProps.onAnimationEnd} onSubmit={onRegisterSubmit}>
-          <FormField hideLabel id="email" label="Email" error={errors.email?.message}>
+          <FormField hideLabel id="email" label={t('fields.email')} error={errors.email?.message}>
             <AuthInput
               id="email"
-              placeholder="Email"
+              placeholder={t('fields.email')}
               aria-invalid={!!errors.email || emailTaken}
-              warning={emailTaken ? 'This email already has an account. Log in instead.' : undefined}
+              warning={emailTaken ? t('register.emailTaken') : undefined}
               {...register('email')}
             />
           </FormField>
 
-          <FormField hideLabel id="password" label="Password" error={errors.password?.message}>
+          <FormField hideLabel id="password" label={t('fields.password')} error={errors.password?.message}>
             <AuthInput
               id="password"
               type="password"
-              placeholder="Password"
+              placeholder={t('fields.password')}
               aria-invalid={!!errors.password}
               {...register('password')}
             />
@@ -145,10 +151,10 @@ export const RegisterPage = () => {
 
           <Button className="mt-6 h-12 w-full bg-destructive text-destructive-foreground hover:bg-destructive/90" type="submit" disabled={loading}>
             {loading && <Loader2 className="size-4 animate-spin" />}
-            Register and Send OTP
+            {t('register.submit')}
           </Button>
           <Button asChild variant="outline" className="mt-6 h-12 w-full">
-            <Link to="/login">Log in to your account</Link>
+            <Link to="/login">{t('register.haveAccount')}</Link>
           </Button>
         </form>
         <div className="mt-6">
