@@ -11,8 +11,9 @@ export const listPassagesQuerySchema = paginationQuerySchema
   .extend({
     mode: z.enum(passageModes).default('practice'),
     /**
-     * Practice only (SCRUM-219): the passages of this typing language, the Typing page's menu sends the learner's. Vietnamese
-     * when missing: the Passages page lists the learner's own passages, which are Vietnamese. The placement test ignores it.
+     * The passages of this typing language, in Practice (SCRUM-219) and in the placement test (SCRUM-305): the Typing page's
+     * menu sends the learner's, the leaderboard the one of its tab. Vietnamese when missing: the Passages page lists the
+     * learner's own passages, which are Vietnamese.
      */
     language: z.enum(passageLanguages).default('vi'),
     /** Text searched in the title (`titleSearchPattern`: without accents it finds every accented form). */

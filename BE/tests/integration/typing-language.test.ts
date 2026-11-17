@@ -128,14 +128,13 @@ describe('Practice in the learner typing language (SCRUM-219)', () => {
     expect((await startSession(english, { passageId: await idOf(PRACTICE_TITLES[0]) })).status).toBe(201);
   });
 
-  it('keeps the placement test Vietnamese for an English learner', async () => {
+  it('gives an English learner the English placement test, and a clear 404 while it has no passage (SCRUM-305)', async () => {
     const learner = await englishLearner();
 
     const { status, body } = await startSession(learner, { mode: 'placement' });
 
-    expect(status).toBe(201);
-    expect(body).toMatchObject({ mode: 'placement', language: 'vi' });
-    expect(await PassageModel.findById(body.passageId)).toMatchObject({ isPlacement: true });
+    expect(status).toBe(404);
+    expect(body.message).toBe('No English placement passage yet');
   });
 
   it('lists the English practice passages with language=en, and the Vietnamese ones without it', async () => {

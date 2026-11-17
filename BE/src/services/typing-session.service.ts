@@ -1,6 +1,6 @@
 import { QueryFilter, Types } from 'mongoose';
 import { DEFAULT_PLACEMENT_MIN_ACCURACY } from '../models/app-setting.model';
-import { notEnglish, PassageModel, practiceLanguageFilter, splitWords } from '../models/passage.model';
+import { PassageModel, passageLanguageFilter, splitWords } from '../models/passage.model';
 import { SessionWord, TypingSessionDocument, TypingSessionModel } from '../models/typing-session.model';
 import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
@@ -11,7 +11,7 @@ import { getAppSettings } from './app-setting.service';
 import { placementBoardChanged } from './placement-board-cache';
 import { recentProgressOf, recordCountedSession } from './daily-progress.service';
 import { assertCanPractice, getAdminIds, getLockedPassageIds, getPlanOf } from './passage-lock.service';
-import { learnerPassageFilter, samplePassage } from './passage.service';
+import { learnerPassageFilter, samplePassage, samplePlacementPassage } from './passage.service';
 import { saveSessionReplay } from './session-replay.service';
 import { lessonFor } from './targeted-practice.service';
 import { typingLanguageOf } from './typing-language.service';
@@ -139,10 +139,10 @@ export const rebuildPlacementBoardFlags = async () => {
 };
 
 /**
- * The passage a session types. With a `passageId` it is that passage, if it belongs to the mode and, in Practice, to the
- * learner's typing language (see `learnerPassageFilter`; another language's answers 400, SCRUM-219); for the placement test it
- * is a random placement passage (Vietnamese); otherwise it is a random public practice passage of `language`. Only published
- * passages are used.
+ * The passage a session types. With a `passageId` it is that passage, if it belongs to the mode and to the learner's typing
+ * language (see `learnerPassageFilter`; another language's answers 400, SCRUM-219, and in the placement test SCRUM-305); for
+ * the placement test it is a random placement passage of `language` (404 while that language has none,
+ * `samplePlacementPassage`); otherwise it is a random public practice passage of `language`. Only published passages are used.
  */
 type PickedPassage = { _id: Types.ObjectId; title: string; content: string };
 const pickedFields = { title: 1, content: 1 } as const;
@@ -160,11 +160,7 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
     }
     return passage;
   }
-  if (mode === 'placement') {
-    const placement = await samplePassage<PickedPassage>({ isPlacement: true, ...notEnglish }, pickedFields);
-    if (!placement) throw notFound('No placement passage');
-    return placement;
-  }
+  if (mode === 'placement') return samplePlacementPassage<PickedPassage>(language, pickedFields);
   // A plan without `canUsePublicPassages` practices only the system passages (no owner, or an admin's).
   const onlySystem = (await getPlanOf(userId)).config.canUsePublicPassages
     ? {}
@@ -174,7 +170,7 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
     {
       visibility: 'public',
       isPlacement: false,
-      ...practiceLanguageFilter(language),
+      ...passageLanguageFilter(language),
       ...(locked.length ? { _id: { $nin: locked } } : {}),
       ...onlySystem
     },
@@ -214,11 +210,11 @@ const contentOf = async (userId: string, input: CreateSessionInput, language: Ty
 
 /**
  * Starts a session in its typing language (SCRUM-219), which picks its passage and grades it: the learner's
- * `settings.typingLanguage` in Practice, always Vietnamese in the placement test and in Weak spots, whose word bank and
- * lessons are Vietnamese. A session the learner left in progress becomes `abandoned`.
+ * `settings.typingLanguage` in Practice and in the placement test (SCRUM-305: one test per language), always Vietnamese in
+ * Weak spots, whose word bank and lessons are Vietnamese. A session the learner left in progress becomes `abandoned`.
  */
 export const startSession = async (userId: string, input: CreateSessionInput, { aiAllowed = true }: { aiAllowed?: boolean } = {}) => {
-  const language: TypingLanguage = input.mode === 'practice' ? await typingLanguageOf(userId) : 'vi';
+  const language: TypingLanguage = input.mode === 'targeted' ? 'vi' : await typingLanguageOf(userId);
   const content = await contentOf(userId, input, language, aiAllowed);
 
   await TypingSessionModel.updateMany({ owner: userId, status: 'in_progress' }, { status: 'abandoned' });

@@ -161,8 +161,9 @@ export const mongoTimeZone = (timeZone: string) => new Intl.DateTimeFormat('en-U
  * `GET /api/profile/monthly-progress?range=year|month|week&date=&language=`: the average WPM and accuracy of each point of
  * the range, cut in the learner's time zone, of their counted sessions in one typing language (SCRUM-219: their Practice
  * language when missing; WPM of Vietnamese and English do not mix). Vietnamese figures start in the period of the learner's
- * first counted placement session (every counted Vietnamese session counts from then on, whatever its mode); English ones,
- * which have no placement test, in the period of their first counted English session. The token of a deleted account passes
+ * first counted placement session (every counted Vietnamese session counts from then on, whatever its mode); English ones in
+ * the period of their first counted English session, whatever its mode: the English placement test came later (SCRUM-305),
+ * and waiting for it would hide the English figures learners already had. The token of a deleted account passes
  * `authGuard`: it answers 404, like the other profile endpoints.
  */
 export const getMonthlyProgress = async (userId: string, range: ChartRange = 'year', date?: string, language?: TypingLanguage) => {

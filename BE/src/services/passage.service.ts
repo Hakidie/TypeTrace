@@ -1,12 +1,11 @@
 import type { QueryFilter, Types } from 'mongoose';
 import {
   computePassageStats,
-  notEnglish,
   ownerFieldsFor,
   PassageDocument,
   type PassageLanguage,
   PassageModel,
-  practiceLanguageFilter,
+  passageLanguageFilter,
   publicOwnerName
 } from '../models/passage.model';
 import type { SessionMode } from '../models/typing-session.model';
@@ -15,6 +14,7 @@ import { badRequest, conflict, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
 import { countCountedPassages, getLearnerOwnerIds, getLockedByOwner, getLockedPassageIds, getPlanOf } from './passage-lock.service';
 import { titleSearchPattern } from '../utils/passage-text';
+import { typingLanguageOf } from './typing-language.service';
 import { CreatePassageInput, ListPassagesQuery, UpdatePassageInput } from '../validators/passage.validator';
 
 /** What a learner may see of a passage. Never `owner`: only admins may know who created a passage. */
@@ -45,12 +45,30 @@ export const samplePassage = async <T = { _id: Types.ObjectId; content: string }
   return random;
 };
 
-/** The passage of the placement test: one of the published placement passages (`isPlacement`), at random. */
-export const getPlacementPassage = async () => {
-  const passage = await samplePassage<PublicPassage>({ isPlacement: true, ...notEnglish }, publicFields);
-  if (!passage) throw notFound('No placement passage');
+/**
+ * The passages of the placement test, one test per typing language (SCRUM-305): the published public placement passages
+ * (`isPlacement`) of `language`, or of both languages when it is missing (a leaderboard may show any of them).
+ */
+export const placementPassageFilter = (language?: PassageLanguage) => ({
+  status: 'published' as const,
+  isPlacement: true,
+  visibility: 'public' as const,
+  ...(language ? passageLanguageFilter(language) : {})
+});
+
+/**
+ * A random placement passage of `language` with `fields`; 404 while that language has none yet (an admin marks them, or
+ * `npm run import:passages:en-placement` adds the English ones), with a message that names the language.
+ */
+export const samplePlacementPassage = async <T>(language: PassageLanguage, fields: Record<string, 1>) => {
+  const passage = await samplePassage<T>(placementPassageFilter(language), fields);
+  if (!passage) throw notFound(language === 'en' ? 'No English placement passage yet' : 'No placement passage');
   return passage;
 };
+
+/** The passage of the placement test in `language` (the learner's typing language when missing), at random. */
+export const getPlacementPassage = async (userId: string, language?: PassageLanguage) =>
+  samplePlacementPassage<PublicPassage>(language ?? (await typingLanguageOf(userId)), publicFields);
 
 /**
  * The statuses in which the owner may type their own private passage: also while an admin reviews it, and after an
@@ -62,9 +80,9 @@ const OWN_TYPEABLE_STATUSES = ['published', 'pending', 'rejected'] as const;
 const OWN_EDITABLE_STATUSES = ['published', 'rejected'] as const;
 
 /**
- * What a learner may pick for a `mode`: placement passages for the test (always Vietnamese), practice ones of `language`
- * otherwise (SCRUM-219: Vietnamese, or the English ones that are not the ranked duels', see `practiceLanguageFilter`). Public
- * passages must be published. The owner exception: in practice the learner's own passages come on top, published, waiting
+ * What a learner may pick for a `mode`, in `language` (SCRUM-219: Vietnamese, or the English ones that are not the ranked
+ * duels', see `passageLanguageFilter`): the placement passages of that language for the test (SCRUM-305,
+ * `placementPassageFilter`), practice ones otherwise. Public passages must be published. The owner exception: in practice the learner's own passages come on top, published, waiting
  * for review (`pending`) or turned down (`rejected`). Drafts, archived passages and other people's private passages never
  * match. `lockedIds` (`getLockedPassageIds`) never match either. `includeArchived` (the learner's own list, `mine=true`) also
  * shows their own archived passages, which they can no longer practice, edit or delete.
@@ -77,10 +95,10 @@ export const learnerPassageFilter = (
   includeArchived = false
 ) =>
   mode === 'placement'
-    ? { status: 'published' as const, isPlacement: true, visibility: 'public' as const, ...notEnglish }
+    ? placementPassageFilter(language)
     : {
         isPlacement: false,
-        ...practiceLanguageFilter(language),
+        ...passageLanguageFilter(language),
         // Passages past their owner's limit (US11.1): the caller says which ones.
         ...(lockedIds.length ? { _id: { $nin: lockedIds } } : {}),
         $or: [
@@ -173,11 +191,16 @@ export const listPassages = async (userId: string, { mode, language, q, visibili
 };
 
 /**
- * The placement passages, for a guest's leaderboard menu (SCRUM-256): the same ones every learner sees (`learnerPassageFilter`
- * does not depend on the learner in placement), the fields of a list item and never the text.
+ * The placement passages of `language`, for a guest's leaderboard menu (SCRUM-256; one board per passage, so one language per
+ * board, SCRUM-305): the same ones every learner sees (`placementPassageFilter` does not depend on the learner), the fields of
+ * a list item and never the text.
  */
-export const listPlacementPassages = async ({ q, ...pagination }: Pick<ListPassagesQuery, 'q' | 'page' | 'limit' | 'sort'>) => {
-  const conditions: QueryFilter<PassageDocument>[] = [learnerPassageFilter('', 'placement')];
+export const listPlacementPassages = async ({
+  q,
+  language,
+  ...pagination
+}: Pick<ListPassagesQuery, 'q' | 'language' | 'page' | 'limit' | 'sort'>) => {
+  const conditions: QueryFilter<PassageDocument>[] = [placementPassageFilter(language)];
   if (q) conditions.push({ title: titleSearchPattern(q) });
   const page = await paginate(PassageModel, { $and: conditions }, pagination, { select: listFields, collation: { locale: 'vi' } });
   return { ...page, items: page.items.map(toListItem('')) };

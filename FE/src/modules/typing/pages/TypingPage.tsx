@@ -1,4 +1,4 @@
-import { ArrowLeft, Gamepad2, Languages, ListChecks, Lock, RotateCcw, Shuffle, Trophy } from 'lucide-react';
+import { ArrowLeft, ClipboardX, Gamepad2, Languages, ListChecks, Lock, RotateCcw, Shuffle, Trophy } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -11,7 +11,9 @@ import { PlanDialog } from '@/modules/plan/components/PlanDialog';
 import { usePlan } from '@/modules/plan/hooks/use-plan';
 import { missingWords } from '@/modules/profile/lib/chance-words';
 import { useErrorProfile, useSaveTypingLanguage, useTypingLanguage } from '@/modules/profile/hooks/use-profile';
+import { getApiErrorStatus } from '@/shared/api/api-error';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
+import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { LoadingState } from '@/shared/components/loading-state';
 import { TabGroup } from '@/shared/components/tab-group';
@@ -260,11 +262,11 @@ export const TypingPage = () => {
     start.mutate(startInputOf(mode, firstPassage, timeSeconds, errorType));
   }, [mode, game, weakSpotsCards, sessionKey, targeted, errorType, start, passageId, timeSeconds, planPending, weakSpotsLocked, language, saveLanguage]);
 
-  // The placement test and Weak spots are Vietnamese only (SCRUM-219; the Weak spots lessons are made of the Vietnamese word
-  // bank): whichever way the learner comes in (the tab, Ping's tour, a link), a learner who types English is switched back to
-  // Vietnamese, saved on the account. Once per visit of one of them. The Weak spots tab stays shown in English, so the learner
-  // always sees it; the server types its lessons in Vietnamese anyway.
-  const vietnameseOnly = mode === 'placement' || targeted;
+  // Weak spots is Vietnamese only (SCRUM-219; its lessons are made of the Vietnamese word bank): whichever way the learner comes
+  // in (the tab, a link), a learner who types English is switched back to Vietnamese, saved on the account. Once per visit.
+  // The Weak spots tab stays shown in English, so the learner always sees it; the server types its lessons in Vietnamese anyway.
+  // The placement test has one test per language (SCRUM-305): it keeps the learner's language.
+  const vietnameseOnly = targeted;
   const switchedToVietnamese = useRef(false);
   useEffect(() => {
     if (!vietnameseOnly) {
@@ -276,8 +278,9 @@ export const TypingPage = () => {
     saveLanguage('vi');
   }, [vietnameseOnly, language, saveLanguage]);
 
-  // VI / EN in Practice: saved on the account first (the server starts a session in the saved language), then a new random
-  // passage of that language, as Random does. The session being typed is left, like on Random.
+  // VI / EN in Practice and in the placement test: saved on the account first (the server starts a session in the saved
+  // language), then a new random passage of that language, as Random does. The session being typed is left, like on Random.
+  // One language for both: the placement test of a language is the one of the language Practice types (SCRUM-305).
   const switchLanguage = (next: TypingLanguage) => {
     if (next === language) return;
     saveLanguage(next, {
@@ -289,13 +292,14 @@ export const TypingPage = () => {
       },
     });
   };
-  // The language switch, Practice only (the placement test and Weak spots are always Vietnamese): one button, built like
-  // Restart, at the bottom center of the page (the middle of the word count / timer row). It shows the language being typed and a click switches to the other one.
-  // Also shown while the passage loads or fails, so a language with no passage can be left.
+  // The language switch, in Practice and in the placement test (SCRUM-305; Weak spots is always Vietnamese): one button, built
+  // like Restart, at the bottom center of the page (the middle of the word count / timer row). It shows the language being typed
+  // and a click switches to the other one. Also shown while the passage loads or fails, so a language with no passage can be left.
   const current = language ?? 'vi';
   const other: TypingLanguage = current === 'vi' ? 'en' : 'vi';
+  const typesInLanguage = (mode === 'practice' || mode === 'placement') && !game;
   const languageSwitch =
-    mode === 'practice' && !game ? (
+    typesInLanguage ? (
       <Button
         variant="ghost"
         className={hoverButtonClass}
@@ -308,8 +312,9 @@ export const TypingPage = () => {
     ) : undefined;
 
   // An input method for Vietnamese (Telex, VNI) turns English words into Vietnamese ones ("dd" into "đ"): a notification
-  // while the learner types English in Practice, with one id so it never stacks, taken back when the language or mode changes.
-  const imeHint = mode === 'practice' && !game && language === 'en';
+  // while the learner types English in Practice or in the placement test, with one id so it never stacks, taken back when the
+  // language or mode changes.
+  const imeHint = typesInLanguage && language === 'en';
   useEffect(() => {
     if (!imeHint) return;
     toast.info(t('page.imeHint'), { id: IME_HINT_ID, duration: 8000 });
@@ -318,8 +323,9 @@ export const TypingPage = () => {
     };
   }, [imeHint, t]);
 
-  // The Placement tab is hidden while the learner types English; it comes back with VI (or while the test is open).
-  const tabs = language === 'en' && mode !== 'placement' ? modeTabs.filter((tab) => tab.value !== 'placement') : modeTabs;
+  // A placement test of a language that has no passage yet (404): said in the learner's interface language, with the way out
+  // (the language button below), rather than the server's words.
+  const noPlacementPassage = mode === 'placement' && getApiErrorStatus(start.error) === 404;
 
   // A new session on the picked passage (a random one when none is picked; a new lesson in Weak spots): used by Restart and when the time is up.
   const restart = () => start.mutate(startInput(passageId, timeSeconds));
@@ -418,7 +424,7 @@ export const TypingPage = () => {
           label={t('page.modeGroup')}
           // Five modes do not fit a phone with their names: there only the open one keeps its name.
           iconsOnPhones
-          tabs={tabs}
+          tabs={modeTabs}
           // Train is a typing mode of Practice: its tab is in the Passage group, and Practice stays lit in this one.
           value={ranked ? 'rank' : minigames ? 'minigames' : targeted ? 'practice' : mode}
           onChange={(value) => {
@@ -468,7 +474,7 @@ export const TypingPage = () => {
         open={placementPrompt.open}
         onOpenChange={(open) => setPlacementPrompt({ open })}
         title={t('page.placementTitle')}
-        description={t('page.placementDescription')}
+        description={t('page.placementDescription', { language: languageNames[current] })}
         confirmLabel={t('page.start')}
         // Back to the typing area, so the learner can type at once (a new session's area takes the focus itself when it opens).
         onCloseAutoFocus={(event) => {
@@ -533,7 +539,13 @@ export const TypingPage = () => {
         <>
           <div className="mx-auto my-auto w-full max-w-7xl">
             {passageName && <div className="mb-4 flex justify-center">{passageName}</div>}
-            {start.isError ? (
+            {noPlacementPassage ? (
+              <EmptyState
+                icon={ClipboardX}
+                title={t('page.noPlacementPassage', { language: languageNames[current] })}
+                description={t('page.noPlacementPassageHint', { other: languageNames[other] })}
+              />
+            ) : start.isError ? (
               <ErrorState error={start.error} onRetry={restart} />
             ) : (
               <>

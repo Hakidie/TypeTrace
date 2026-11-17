@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { PASSAGE_LIST, PASSAGE_SOURCE } from '../../src/data/passages';
 import { ENGLISH_PASSAGE_LIST, ENGLISH_PASSAGE_SOURCE } from '../../src/data/passages-en';
-import { PassageModel, splitWords } from '../../src/models/passage.model';
+import { ENGLISH_PLACEMENT_PASSAGE_LIST } from '../../src/data/passages-en-placement';
+import { ENGLISH_PRACTICE_PASSAGE_LIST } from '../../src/data/passages-en-practice';
+import { MAX_PASSAGE_WORDS, PassageModel, splitWords } from '../../src/models/passage.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { EnglishError } from '../../src/utils/english-errors';
 import { WordError } from '../../src/utils/vietnamese-errors';
@@ -130,5 +132,39 @@ describe('English starter passages (ranked duel, phase 1)', () => {
 
     expect(await seedPassages(ENGLISH_PASSAGE_LIST)).toEqual({ added: 0, skipped: 20 });
     expect((await PassageModel.findById(edited!._id))!.content).toBe('Edited by an admin.');
+  });
+});
+
+describe('English placement passages (SCRUM-305)', () => {
+  const count = ENGLISH_PLACEMENT_PASSAGE_LIST.length;
+
+  it('ships at least 3 English placement passages, never ranked, about as long as the Vietnamese ones', () => {
+    expect(count).toBeGreaterThanOrEqual(3);
+    for (const passage of ENGLISH_PLACEMENT_PASSAGE_LIST) {
+      const words = splitWords(passage.content).length;
+      expect(passage, passage.title).toMatchObject({ language: 'en', isPlacement: true, source: ENGLISH_PASSAGE_SOURCE });
+      expect(passage.isRanked, passage.title).toBeUndefined();
+      expect(words, passage.title).toBeGreaterThanOrEqual(130);
+      expect(words, passage.title).toBeLessThanOrEqual(MAX_PASSAGE_WORDS);
+      expect(passage.content, passage.title).toMatch(/^[ -~]+$/);
+    }
+    const titles = ENGLISH_PLACEMENT_PASSAGE_LIST.map((passage) => passage.title);
+    const others = [...PASSAGE_LIST, ...ENGLISH_PASSAGE_LIST, ...ENGLISH_PRACTICE_PASSAGE_LIST].map((passage) => passage.title);
+    expect(new Set(titles).size).toBe(count);
+    expect(titles.filter((title) => others.includes(title))).toEqual([]);
+  });
+
+  it('seeds them as published public placement passages with at least 20 chances of every English error type, once', async () => {
+    expect(await seedPassages(ENGLISH_PLACEMENT_PASSAGE_LIST)).toEqual({ added: count, skipped: 0 });
+    expect(await seedPassages(ENGLISH_PLACEMENT_PASSAGE_LIST)).toEqual({ added: 0, skipped: count });
+
+    const saved = await PassageModel.find({ isPlacement: true, language: 'en' });
+    expect(saved).toHaveLength(count);
+    for (const passage of saved) {
+      expect(passage, passage.title).toMatchObject({ status: 'published', visibility: 'public', isRanked: false });
+      for (const type of Object.values(EnglishError)) {
+        expect(passage.tagCounts[type], `${passage.title}: ${type}`).toBeGreaterThanOrEqual(20);
+      }
+    }
   });
 });

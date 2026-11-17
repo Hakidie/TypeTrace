@@ -574,16 +574,20 @@ describe('AdminPassagesPage: passage language (ranked duel, phase 1)', () => {
     await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ language: 'en', isPlacement: false })));
   });
 
-  it('turns Placement off and disables it for an English passage', async () => {
+  it('keeps Placement on for an English passage: the placement test of English (SCRUM-305)', async () => {
+    create.mockResolvedValue({ ...passage, _id: 'p9', language: 'en', isPlacement: true });
     renderPage('/admin/passages?show=form');
 
+    fillForm();
     const placement = screen.getByRole('switch', { name: 'Placement passage' });
     fireEvent.click(placement);
-    expect(placement).toHaveAttribute('aria-checked', 'true');
     fireEvent.click(screen.getByRole('switch', { name: 'English passage' }));
 
-    expect(placement).toHaveAttribute('aria-checked', 'false');
-    expect(placement).toBeDisabled();
+    expect(placement).toHaveAttribute('aria-checked', 'true');
+    expect(placement).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Add passage' }));
+
+    await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ language: 'en', isPlacement: true, isRanked: false })));
   });
 
   it('shows an English tag (icon and word) on English passages', async () => {
@@ -686,6 +690,23 @@ describe('AdminPassagesPage: ranked test (US6.4)', () => {
   it('cannot rank a Vietnamese passage', async () => {
     await edit([{ ...passage, status: 'published' }]);
     expect(screen.getByRole('switch', { name: 'Ranked test' })).toBeDisabled();
+  });
+
+  it('never lets a passage be both a placement passage and a ranked test, and says why in the tooltip (SCRUM-305)', async () => {
+    const user = userEvent.setup();
+    await edit([{ ...passage, status: 'published', language: 'en' }]);
+    const ranked = screen.getByRole('switch', { name: 'Ranked test' });
+    const placement = screen.getByRole('switch', { name: 'Placement passage' });
+
+    fireEvent.click(placement);
+    expect(ranked).toBeDisabled();
+    await user.hover(ranked.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('A placement passage cannot be a ranked test.');
+
+    fireEvent.click(placement);
+    fireEvent.click(ranked);
+    expect(ranked).toHaveAttribute('aria-checked', 'true');
+    expect(placement).toBeDisabled();
   });
 
   it('turns Ranked off when an English ranked passage becomes Vietnamese', async () => {

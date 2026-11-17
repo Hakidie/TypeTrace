@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { useLocation } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { tokenStore } from '@/modules/auth/store/token.store';
@@ -10,6 +11,7 @@ const placementBoard = vi.fn();
 const passages = vi.fn();
 const placementSettings = vi.fn();
 const wordChainBoard = vi.fn();
+const getMe = vi.fn();
 
 vi.mock('@/modules/word-chain/api/word-chain.api', () => ({
   wordChainApi: { board: (range: string) => wordChainBoard(range) },
@@ -20,12 +22,15 @@ vi.mock('../api/ranked.api', () => ({
 }));
 
 vi.mock('@/modules/typing/api/typing.api', () => ({
-  typingApi: { passages: (mode: string) => passages(mode) },
+  typingApi: { passages: (mode: string, language?: string) => passages(mode, language) },
 }));
 
 vi.mock('@/modules/auth/api/auth.api', () => ({
-  authApi: { getMe: async () => ({ _id: 'u2', email: 'lan@example.com', role: 'user' }) },
+  authApi: { getMe: () => getMe() },
 }));
+
+/** The signed-in learner, who types `typingLanguage` (SCRUM-219). */
+const learner = (typingLanguage: 'vi' | 'en' = 'vi') => ({ _id: 'u2', email: 'lan@example.com', role: 'user', settings: { typingLanguage } });
 
 const avatar = { skin: 'peach', face: 'classic', hair: 'short-brown', top: 'red', bottom: 'navy', shoes: 'sneakers-brown' };
 const row = (rank: number, userId: string, displayName: string, rating: number, tier: string, winRate: number) => ({
@@ -46,6 +51,7 @@ const renderPage = (route = '/leaderboard') => renderWithProviders(<LeaderboardP
 
 beforeEach(() => {
   tokenStore.set('test-token');
+  getMe.mockReset().mockResolvedValue(learner());
   leaderboard.mockReset();
   placementBoard.mockReset();
   placementSettings.mockReset().mockResolvedValue({ minAccuracy: 90 });
@@ -206,7 +212,7 @@ describe('LeaderboardPage placement tab (US10.1)', () => {
     await openPlacement();
 
     await waitFor(() => expect(placementBoard).toHaveBeenCalledWith({ passageId: 'p2', range: 'week' }));
-    expect(passages).toHaveBeenCalledWith('placement');
+    expect(passages).toHaveBeenCalledWith('placement', 'vi');
     expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveTextContent('Sài Gòn mưa');
     expect(screen.getByRole('radio', { name: 'This week' })).toBeChecked();
   });
@@ -319,13 +325,64 @@ describe('LeaderboardPage placement tab (US10.1)', () => {
     expect(await screen.findByText(/with 80% accuracy or more/i)).toBeInTheDocument();
   });
 
-  it('says so when there is no placement passage to choose', async () => {
+  it('says so when there is no placement passage to choose, naming the language', async () => {
     passages.mockResolvedValue([]);
 
     await openPlacement();
 
-    expect(await screen.findByText('No placement passages')).toBeInTheDocument();
+    expect(await screen.findByText('No Vietnamese placement passages')).toBeInTheDocument();
     expect(placementBoard).not.toHaveBeenCalled();
+  });
+
+  describe('one board per language (SCRUM-305)', () => {
+    const UrlSearch = () => <p aria-label="URL search">{useLocation().search}</p>;
+    const languages = () => screen.getByRole('radiogroup', { name: 'Placement test language' });
+
+    it('shows Vietnamese and English under the tabs, like the kinds of match of Rank, and lists the passages of the one picked', async () => {
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      placementBoard.mockResolvedValue(placement([]));
+      passages.mockImplementation((_mode: string, language?: string) =>
+        Promise.resolve(language === 'en' ? [{ _id: 'e1', title: 'Placement test: The New Library', wordCount: 141 }] : [{ _id: 'p1', title: 'Bài kiểm tra đầu vào', wordCount: 40 }]),
+      );
+      leaderboard.mockResolvedValue(board([]));
+      renderWithProviders(
+        <>
+          <UrlSearch />
+          <LeaderboardPage />
+        </>,
+        { route: '/leaderboard', path: '/leaderboard' },
+      );
+      await userEvent.click(await screen.findByRole('radio', { name: 'Placement' }));
+
+      expect(await within(languages()).findByRole('radio', { name: 'Vietnamese' })).toBeChecked();
+      await waitFor(() => expect(placementBoard).toHaveBeenCalledWith({ passageId: 'p1', range: 'week' }));
+
+      await userEvent.click(within(languages()).getByRole('radio', { name: 'English' }));
+
+      await waitFor(() => expect(placementBoard).toHaveBeenLastCalledWith({ passageId: 'e1', range: 'week' }));
+      expect(passages).toHaveBeenLastCalledWith('placement', 'en');
+      expect(within(languages()).getByRole('radio', { name: 'English' })).toBeChecked();
+      expect(screen.getByRole('button', { name: 'Choose passage' })).toHaveTextContent('Placement test: The New Library');
+      expect(screen.getByLabelText('URL search')).toHaveTextContent('language=en');
+    });
+
+    it('opens on the language the learner types', async () => {
+      getMe.mockResolvedValue(learner('en'));
+      placementBoard.mockResolvedValue(placement([]));
+
+      await openPlacement();
+      await waitFor(() => expect(passages).toHaveBeenCalledWith('placement', 'en'));
+      expect(within(languages()).getByRole('radio', { name: 'English' })).toBeChecked();
+    });
+
+    it('says the language that has no placement passage yet', async () => {
+      passages.mockImplementation((_mode: string, language?: string) => Promise.resolve(language === 'en' ? [] : [{ _id: 'p1', title: 'Bài kiểm tra đầu vào', wordCount: 40 }]));
+
+      await openPlacement('/leaderboard?language=en');
+
+      expect(await screen.findByText('No English placement passages')).toBeInTheDocument();
+      expect(screen.getByText('The board shows up once an admin publishes a placement passage in English.')).toBeInTheDocument();
+    });
   });
 
   it('shows an error with a way to try again', async () => {

@@ -140,8 +140,8 @@ export const GuestTypingPage = () => {
         <TabGroup
           label={t('page.modeGroup')}
           iconsOnPhones
-          // The Placement tab is hidden while the guest types English, as on the signed-in page.
-          tabs={language === 'en' ? modeTabs.filter((tab) => tab.value !== 'placement') : modeTabs}
+          // Every tab in both languages, as on the signed-in page: the placement test has one test per language (SCRUM-305).
+          tabs={modeTabs}
           value={rain ? 'minigames' : 'practice'}
           onChange={(value) => {
             if (value === 'practice') setSearchParams({});

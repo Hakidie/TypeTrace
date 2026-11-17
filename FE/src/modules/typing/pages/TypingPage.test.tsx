@@ -1108,8 +1108,8 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     expect(start).toHaveBeenLastCalledWith({ mode: 'practice' });
     expect(switcher()).toHaveTextContent('English');
     expect(toast.info).toHaveBeenCalledWith(imeHint, expect.objectContaining({ id: 'ime-hint' }));
-    // The placement test is Vietnamese only: its tab is hidden while the learner types English.
-    expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
+    // The placement test has one test per language (SCRUM-305): its tab stays while the learner types English.
+    expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
 
     // The menu lists the English passages.
     await user.click(screen.getByRole('radio', { name: 'Manual' }));
@@ -1140,12 +1140,12 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     expect(screen.getByRole('radio', { name: 'Manual' })).toBeChecked();
   });
 
-  it('opens an English learner on English, without the Placement tab, and switches back to Vietnamese', async () => {
+  it('opens an English learner on English, with every mode tab, and switches back to Vietnamese', async () => {
     const user = userEvent.setup();
     renderWithProviders(<TypingPage />, { route: '/typing', queryClient: clientFor('en') });
     await screen.findByRole('textbox', { name: 'Typing area' });
     expect(switcher()).toHaveTextContent('English');
-    expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
     expect(toast.info).toHaveBeenCalledWith(imeHint, expect.objectContaining({ id: 'ime-hint' }));
 
     await user.click(switcher());
@@ -1157,17 +1157,42 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     expect(toast.dismiss).toHaveBeenCalledWith('ime-hint');
   });
 
-  it('switches an English learner back to Vietnamese when the placement test opens (the tab, the tour or a link)', async () => {
-    start.mockResolvedValue({ ...session, mode: 'placement' });
+  it('keeps an English learner in English in the placement test, with the language button and the input notification (SCRUM-305)', async () => {
+    start.mockResolvedValue({ ...session, mode: 'placement', language: 'en' });
     renderWithProviders(<TypingPage />, { route: '/typing?mode=placement', queryClient: clientFor('en') });
 
     expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
-    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
-    expect(updateSettings).toHaveBeenCalledOnce();
     expect(start).toHaveBeenCalledWith({ mode: 'placement', timeLimitSeconds: 60 });
-    // No language switch in Placement, and its tab is there (and on) once the learner types Vietnamese again.
-    expect(screen.queryByRole('button', { name: /^Typing language:/ })).not.toBeInTheDocument();
-    expect(await screen.findByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
+    expect(updateSettings).not.toHaveBeenCalled();
+    expect(switcher()).toHaveTextContent('English');
+    expect(toast.info).toHaveBeenCalledWith(imeHint, expect.objectContaining({ id: 'ime-hint' }));
+    expect(screen.getByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('switches the placement test to the other language with the button: saved first, then a new test of 1 minute', async () => {
+    const user = userEvent.setup();
+    start.mockResolvedValue({ ...session, mode: 'placement', language: 'en' });
+    renderWithProviders(<TypingPage />, { route: '/typing?mode=placement', queryClient: clientFor('en') });
+    await screen.findByRole('textbox', { name: 'Typing area' });
+
+    await user.click(switcher());
+
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' });
+    expect(updateSettings.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[1]);
+    expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 60 });
+    expect(switcher()).toHaveTextContent('Vietnamese');
+    expect(screen.getByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('says in the interface language that a language has no placement passage yet, and keeps the way out (404)', async () => {
+    start.mockRejectedValue({ response: { status: 404, data: { message: 'No English placement passage yet' } } });
+    renderWithProviders(<TypingPage />, { route: '/typing?mode=placement', queryClient: clientFor('en') });
+
+    expect(await screen.findByText('No placement test in English yet')).toBeInTheDocument();
+    expect(screen.getByText('Its passages are not ready. Switch to Vietnamese with the language button below to take the test now.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /try again/i })).not.toBeInTheDocument();
+    expect(switcher()).toHaveTextContent('English');
   });
 
   it('switches an English learner back to Vietnamese before the passage of the Passages page', async () => {
@@ -1202,20 +1227,19 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
       { route: '/typing', queryClient: clientFor('en') },
     );
     await screen.findByRole('textbox', { name: 'Typing area' });
-    // Placement leaves the tabs while the learner types English; Weak spots stays, so it is always found.
-    expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
+    // Every mode keeps its tab while the learner types English (Placement too, SCRUM-305).
+    expect(screen.getByRole('radio', { name: 'Train' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('radio', { name: 'Train' }));
 
     expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
     await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
     expect(updateSettings).toHaveBeenCalledTimes(1);
-    // The lessons are Vietnamese: the cards read the Vietnamese profile, and the language switch is Practice only.
+    // The lessons are Vietnamese: the cards read the Vietnamese profile, and the language switch is not there (Practice and
+    // Placement only).
     expect(getErrorProfile).toHaveBeenCalledWith('vi');
     expect(getErrorProfile).not.toHaveBeenCalledWith(undefined);
     expect(screen.queryByRole('button', { name: /^Typing language:/ })).not.toBeInTheDocument();
-    // Back in Vietnamese: Placement is in the tabs again.
-    expect(await screen.findByRole('radio', { name: 'Placement' })).toBeInTheDocument();
   });
 
   it('switches back to Vietnamese when a link opens a Weak spots lesson for a learner who types English', async () => {
