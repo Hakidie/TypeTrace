@@ -5,6 +5,7 @@ import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { WordChainPageBoard } from '@/modules/word-chain/components/WordChainPageBoard';
 import { usePassageOptions } from '@/modules/typing/hooks/use-typing';
+import { languageNames } from '@/modules/typing/typing.config';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { ListRow, ListRowStat } from '@/shared/components/list-row';
@@ -12,6 +13,7 @@ import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { TabGroup } from '@/shared/components/tab-group';
 import { useListParams } from '@/shared/hooks/use-list-params';
+import { type TypingLanguage, typingLanguages } from '@/shared/lib/typing-language';
 import { PlacementBoard } from '../components/PlacementBoard';
 import { PlacementPassageMenu } from '../components/PlacementPassageMenu';
 import { useLeaderboard } from '../hooks/use-ranked';
@@ -38,9 +40,15 @@ export const LeaderboardPage = () => {
   const { data: me } = useCurrentUser();
   // `?tab=minigames` opens the Minigames tab (the link of the Nối từ leaderboard modal); Rank otherwise.
   const [tab, setTab] = useState<LeaderboardTab>(() => (list.get('tab') === 'minigames' ? 'minigames' : 'rank'));
-  // Placement (US10.1): the passage and the range are in the URL (`?passage=<id>&range=all`); without a passage of the URL the board opens on a
-  // random one (the dice is rolled once, when the page opens: the pick does not change while the learner stays here).
-  const passages = usePassageOptions('placement', { enabled: tab === 'placement' });
+  // Placement has one test per typing language (SCRUM-305) and each passage its own board, so a board is of one language: the
+  // language is in the URL (`?language=en`), the signed-in learner's own typing language without it, Vietnamese for a guest.
+  const urlLanguage = list.get('language');
+  const placementLanguage: TypingLanguage = urlLanguage === 'vi' || urlLanguage === 'en' ? urlLanguage : (me?.settings?.typingLanguage ?? 'vi');
+  const languageTabs = typingLanguages.map((value) => ({ value, label: languageNames[value] }));
+  // Placement (US10.1): the passage and the range are in the URL (`?passage=<id>&range=all`); without a passage of the URL (or
+  // with one of the other language) the board opens on a random one of the language (the dice is rolled once, when the page
+  // opens: the pick does not change while the learner stays here).
+  const passages = usePassageOptions('placement', { enabled: tab === 'placement', language: placementLanguage });
   const [dice] = useState(() => Math.random());
   const passageList = passages.data;
   const passage = passageList?.find((option) => option._id === list.get('passage')) ?? passageList?.[Math.floor(dice * passageList.length)];
@@ -93,7 +101,10 @@ export const LeaderboardPage = () => {
   const renderPlacement = () => {
     if (passages.isPending) return <LoadingState rows={5} />;
     if (passages.isError) return <ErrorState error={passages.error} onRetry={() => void passages.refetch()} />;
-    if (!passage) return <EmptyState icon={ClipboardCheck} title={t('leaderboard.noPlacementTitle')} description={t('leaderboard.noPlacementHint')} />;
+    if (!passage) {
+      const language = languageNames[placementLanguage];
+      return <EmptyState icon={ClipboardCheck} title={t('leaderboard.noPlacementTitle', { language })} description={t('leaderboard.noPlacementHint', { language })} />;
+    }
     return <PlacementBoard passageId={passage._id} range={range} />;
   };
 
@@ -137,7 +148,13 @@ export const LeaderboardPage = () => {
             {renderList()}
           </div>
         ) : (
-          renderPlacement()
+          <div className="space-y-4">
+            {/* One board per language, like the kinds of match of Rank (SCRUM-305): the passage menu above follows it. */}
+            <div className="flex justify-center">
+              <TabGroup label={t('leaderboard.placementLanguage')} tabs={languageTabs} value={placementLanguage} onChange={(value) => list.set('language', value)} />
+            </div>
+            {renderPlacement()}
+          </div>
         )}
       </div>
     </div>

@@ -116,14 +116,28 @@ const assertRankedTextIsFree = async (passage: PassageDocument) => {
   }
 };
 
-/** The placement test grades Vietnamese error types, so an English passage can never be one of its passages. */
-const assertPlacementIsVietnamese = ({ language, isPlacement }: { language?: string; isPlacement?: boolean }) => {
-  if (language === 'en' && isPlacement) throw badRequest('English passages cannot be placement passages');
+/**
+ * The placement test has one set of passages per typing language (SCRUM-305), the ranked duels their own: a passage is never
+ * both, so nobody rehearses the other test's passage.
+ */
+const assertPlacementIsNotRanked = ({ isPlacement, isRanked }: { isPlacement?: boolean; isRanked?: boolean }) => {
+  if (isPlacement && isRanked) throw badRequest('A passage cannot be both a placement passage and a ranked test');
+};
+
+/**
+ * Each placement passage has its own board, whose sessions are all in the passage's language (SCRUM-305): once the test was
+ * typed on it, the passage keeps its language, or the board would mix the two.
+ */
+const assertPlacementLanguageIsFree = async (passage: PassageDocument) => {
+  if (!passage.isPlacement || !passage.isModified('language')) return;
+  if (await TypingSessionModel.exists({ passageId: String(passage._id), mode: 'placement', status: 'completed' })) {
+    throw conflict('This placement passage has been typed in the placement test: its language can no longer be changed');
+  }
 };
 
 /** Admins write for TypeTrace: the owner is the admin, the name shown to everyone is `TypeTrace`, and it is always public. */
 export const createPassage = async (actorId: string, input: CreatePassageInput) => {
-  assertPlacementIsVietnamese(input);
+  assertPlacementIsNotRanked(input);
   assertRankedIsEnglish(input);
   assertRankedIsPublished({ ...input, status: 'draft' });
   // create() runs the model hook that counts the words and the error tags.
@@ -144,10 +158,11 @@ export const updatePassage = async (id: string, input: UpdatePassageInput) => {
   const passage = await getPassage(id);
   // save() (not findByIdAndUpdate) so the counts are computed again when the content or the language changes.
   passage.set(input);
-  assertPlacementIsVietnamese(passage);
+  assertPlacementIsNotRanked(passage);
   assertRankedIsEnglish(passage);
   assertRankedIsPublished(passage);
   await assertRankedTextIsFree(passage);
+  await assertPlacementLanguageIsFree(passage);
   await assertEnglishIsTypeTraces(passage);
   return passage.save();
 };

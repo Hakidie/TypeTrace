@@ -400,18 +400,38 @@ describe('passage language (ranked duel, phase 1)', () => {
     expect((await api().get('/api/admin/passages?language=fr').set('Authorization', auth)).status).toBe(400);
   });
 
-  it('refuses an English placement passage', async () => {
+  it('makes an English passage a placement passage, new or old (SCRUM-305)', async () => {
     const { auth } = await signInAdmin();
     const created = await api().post('/api/admin/passages').set('Authorization', auth).send({ ...english, language: 'en', isPlacement: true });
-    expect(created.status).toBe(400);
-    expect(created.body.message).toBe('English passages cannot be placement passages');
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ language: 'en', isPlacement: true, isRanked: false });
 
+    const englishPassage = await createPassage(auth, { ...english, title: 'A busy evening', language: 'en' });
+    expect((await editPassage(auth, englishPassage._id, { isPlacement: true })).body).toMatchObject({ language: 'en', isPlacement: true });
+
+    // A placement passage nobody typed in the test yet may still change its language.
     const placement = await createPassage(auth, { ...input, isPlacement: true });
-    expect((await editPassage(auth, placement._id, { language: 'en' })).status).toBe(400);
-    expect((await PassageModel.findById(placement._id))!.language).toBe('vi');
+    expect((await editPassage(auth, placement._id, { language: 'en' })).status).toBe(200);
+    expect((await PassageModel.findById(placement._id))!.language).toBe('en');
+  });
 
-    const englishPassage = await createPassage(auth, { ...english, language: 'en' });
-    expect((await editPassage(auth, englishPassage._id, { isPlacement: true })).status).toBe(400);
+  it('keeps the language of a placement passage once the test was typed on it, so its board never mixes two (409)', async () => {
+    const { auth } = await signInAdmin();
+    const placement = await createPassage(auth, { ...input, isPlacement: true });
+    const learner = await createUser({ email: 'learner@example.com' });
+    const session = { owner: learner._id, mode: 'placement', passageId: placement._id, targetWords: ['Đường'] };
+    // A test left behind does not count, a completed one does.
+    await TypingSessionModel.create({ ...session, status: 'abandoned' });
+    expect((await editPassage(auth, placement._id, { title: 'Mùa thu vàng' })).status).toBe(200);
+    await TypingSessionModel.create({ ...session, status: 'completed', completedAt: new Date() });
+
+    const locked = await editPassage(auth, placement._id, { language: 'en' });
+
+    expect(locked.status).toBe(409);
+    expect(locked.body.message).toBe('This placement passage has been typed in the placement test: its language can no longer be changed');
+    expect((await PassageModel.findById(placement._id))!.language).toBe('vi');
+    // Its other fields still change.
+    expect((await editPassage(auth, placement._id, { title: 'Mùa thu xanh' })).status).toBe(200);
   });
 
   it('counts the tags again when the language changes', async () => {
@@ -506,6 +526,20 @@ describe('ranked test passages (US6.4)', () => {
     const edit = await api().patch(`/api/admin/passages/${english._id}`).set('Authorization', auth).send({ language: 'vi' });
     expect(edit.status).toBe(400);
     expect(await PassageModel.countDocuments({ isRanked: true })).toBe(1);
+  });
+
+  it('never makes a passage both a placement passage and a ranked test, new or old (SCRUM-305)', async () => {
+    const { auth } = await signInAdmin();
+    const created = await api().post('/api/admin/passages').set('Authorization', auth).send({ ...englishInput, isPlacement: true, isRanked: true });
+    expect(created.status).toBe(400);
+    expect(created.body.message).toBe('A passage cannot be both a placement passage and a ranked test');
+
+    const placement = await publishedPassage(auth, { ...englishInput, isPlacement: true });
+    expect((await rank(auth, placement._id)).status).toBe(400);
+    const ranked = await publishedPassage(auth, { ...englishInput, title: 'A busy evening' });
+    await rank(auth, ranked._id);
+    expect((await api().patch(`/api/admin/passages/${ranked._id}`).set('Authorization', auth).send({ isPlacement: true })).status).toBe(400);
+    expect(await PassageModel.countDocuments({ isPlacement: true, isRanked: true })).toBe(0);
   });
 
   it('refuses a passage that is not published, new or old', async () => {

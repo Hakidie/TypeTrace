@@ -47,7 +47,7 @@ export const MODE_STEPS: Record<TutorialMode, TutorialStep[]> = {
   ],
   placement: [
     { id: 'placement-what', mode: 'placement', move: 'talk', target: 'mode-tabs', text: 'Placement là bài xếp lớp: gõ một đoạn, mình biết trình độ của bạn để chọn đoạn văn vừa sức.' },
-    { id: 'placement-when', mode: 'placement', move: 'point', text: 'Làm một lần là đủ, chừng một phút. Muốn để sau cũng được, cứ bấm Tiếp.' },
+    { id: 'placement-when', mode: 'placement', move: 'point', text: 'Mỗi ngôn ngữ gõ làm một lần là đủ, chừng một phút. Muốn để sau cũng được, cứ bấm Tiếp.' },
     { id: 'placement-next', mode: 'placement', move: 'happy', text: 'Tiếp theo là màn mình thích nhất: Mưa chữ!' },
   ],
   rain: [

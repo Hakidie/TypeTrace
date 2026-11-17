@@ -118,16 +118,16 @@ export const publicOwnerName = (author?: { role: string; displayName?: string } 
 };
 
 /**
- * The Vietnamese passages: what the placement test and Vietnamese practice add to their query. `$ne` (not `'vi'`) so
- * passages saved before the `language` field still count as Vietnamese.
+ * The Vietnamese passages: what Vietnamese practice and the Vietnamese placement test add to their query. `$ne` (not `'vi'`)
+ * so passages saved before the `language` field still count as Vietnamese.
  */
 export const notEnglish = { language: { $ne: 'en' as const } };
 
 /**
- * The passages Practice offers in `language` (SCRUM-219): the Vietnamese ones, or the English ones that are not the ranked
- * duels' own (`isRanked`), so nobody rehearses a duel's passage.
+ * The passages a learner types in `language`, in Practice (SCRUM-219) and in the placement test (SCRUM-305): the Vietnamese
+ * ones, or the English ones that are not the ranked duels' own (`isRanked`), so nobody rehearses a duel's passage.
  */
-export const practiceLanguageFilter = (language: PassageLanguage) =>
+export const passageLanguageFilter = (language: PassageLanguage) =>
   language === 'en' ? { language: 'en' as const, isRanked: { $ne: true } } : notEnglish;
 
 /** Words are separated by spaces and punctuation stays attached to its word, as in a typing session. */

@@ -9,7 +9,7 @@ import type { PlacementBoardQuery, PlacementSettingsInput } from '../validators/
 import { getAppSettings, updateAppSettings } from './app-setting.service';
 import { cachedBoardRows } from './placement-board-cache';
 import { rebuildPlacementBoardFlags, timelineStatus } from './typing-session.service';
-import { learnerPassageFilter } from './passage.service';
+import { placementPassageFilter } from './passage.service';
 
 /** The placement leaderboard sends this many lines, and the learner's own place when they are further down (US10.1). */
 export const PLACEMENT_BOARD_SIZE = 50;
@@ -87,7 +87,8 @@ const buildRanking = (passageId: string, from: Date | null) => {
  * hour (`cachedBoardRows`); the names and avatars of the lines shown are read at every request, so they are always the current ones.
  */
 export const getPlacementBoard = async (userId: string | undefined, { passageId, range }: PlacementBoardQuery) => {
-  const passage = await PassageModel.exists({ _id: passageId, ...learnerPassageFilter(userId ?? '', 'placement') });
+  // A placement passage of either language: each passage has its own board, so a board is of one language (SCRUM-305).
+  const passage = await PassageModel.exists({ _id: passageId, ...placementPassageFilter() });
   if (!passage) throw notFound('Placement passage not found');
 
   const from = range === 'week' ? placementWeekStart(new Date()) : null;

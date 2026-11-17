@@ -10,6 +10,7 @@
     "import:passages": "npm run import:passages --prefix BE",
     "import:passages:en": "npm run import:passages:en --prefix BE",
     "import:passages:en-practice": "npm run import:passages:en-practice --prefix BE",
+    "import:passages:en-placement": "npm run import:passages:en-placement --prefix BE",
     "import:themes": "npm run import:themes --prefix BE",
     "rebuild:progress": "npm run rebuild:progress --prefix BE",
     "rebuild:tag-counts": "npm run rebuild:tag-counts --prefix BE",

@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle2, Loader2, Plus } from 'lucide-react';
-import { useState, type BaseSyntheticEvent } from 'react';
+import { useState, type BaseSyntheticEvent, type ReactElement } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
 import { useCreatePassage, useSetPassageStatus, useUpdatePassage } from '../hooks/use-passages';
 import { countWords, MAX_PASSAGE_WORDS } from '../passages.config';
@@ -36,6 +37,21 @@ const fieldClass = 'border-0 px-0 text-[1.125rem]';
 // Title and Source look like the learner's passage form (`OwnPassageForm`): no background, red text, as wide as their text.
 // `field-sizing-content`: the field is as wide as its text (the placeholder while empty); the wrapper caps it at half the row.
 const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-0 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
+
+/**
+ * The shared tooltip of a switch, instead of the native `title`; the span keeps it working while the switch is disabled
+ * (a placement passage cannot be ranked, a ranked one cannot be a placement passage).
+ */
+const SwitchHint = ({ label, children }: { label: string; children: ReactElement }) => (
+  <TooltipProvider delayDuration={200}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex w-fit">{children}</span>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
 
 const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false, isRanked: false, language: 'vi' };
 
@@ -85,6 +101,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
   const content = useWatch({ control, name: 'content' });
   const isEnglish = useWatch({ control, name: 'language' }) === 'en';
   const isRanked = useWatch({ control, name: 'isRanked' });
+  const isPlacement = useWatch({ control, name: 'isPlacement' });
 
   // The status button flips between the saved status and the next one; the change is saved with the form.
   const [status, setStatusChoice] = useState<PassageStatus>(passage?.status ?? 'draft');
@@ -151,50 +168,52 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
             control={control}
             name="language"
             render={({ field }) => (
-              // English passages are for ranked duels; the backend refuses an English placement passage.
-              <button
-                type="button"
-                role="switch"
-                aria-checked={field.value === 'en'}
-                aria-label="English passage"
-                title="English passages are only used in ranked duels."
-                onClick={() => {
-                  const english = field.value !== 'en';
-                  field.onChange(english ? 'en' : 'vi');
-                  if (english) setValue('isPlacement', false);
-                  else setValue('isRanked', false);
-                }}
-                className={cn(
-                  'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  field.value === 'en' ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {field.value === 'en' && <CheckCircle2 className="size-5" />}
-                {field.value === 'en' ? 'English' : 'Vietnamese'}
-              </button>
+              // English passages: English Practice, the English placement test (SCRUM-305) and the ranked duels, which are English only.
+              <SwitchHint label="English passages are used in English Practice, the English placement test and the ranked duels.">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={field.value === 'en'}
+                  aria-label="English passage"
+                  onClick={() => {
+                    const english = field.value !== 'en';
+                    field.onChange(english ? 'en' : 'vi');
+                    if (!english) setValue('isRanked', false);
+                  }}
+                  className={cn(
+                    'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    field.value === 'en' ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {field.value === 'en' && <CheckCircle2 className="size-5" />}
+                  {field.value === 'en' ? 'English' : 'Vietnamese'}
+                </button>
+              </SwitchHint>
             )}
           />
           <Controller
             control={control}
             name="isPlacement"
             render={({ field }) => (
-              // The name stays "Placement passage"; `aria-checked` tells the state, the visible words show it.
-              <button
-                type="button"
-                role="switch"
-                aria-checked={field.value}
-                aria-label="Placement passage"
-                title={isEnglish ? 'English passages cannot be placement passages.' : 'Used for the placement test.'}
-                disabled={isEnglish}
-                onClick={() => field.onChange(!field.value)}
-                className={cn(
-                  'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-                  field.value ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground enabled:hover:text-foreground',
-                )}
-              >
-                {field.value && <CheckCircle2 className="size-5" />}
-                {field.value ? 'Placement passage' : 'Regular passage'}
-              </button>
+              // The name stays "Placement passage"; `aria-checked` tells the state, the visible words show it. A passage of either
+              // language (the placement test of that language, SCRUM-305), never a ranked test as well.
+              <SwitchHint label={isRanked ? 'A ranked test cannot be a placement passage.' : 'Used for the placement test of its language.'}>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={field.value}
+                  aria-label="Placement passage"
+                  disabled={isRanked}
+                  onClick={() => field.onChange(!field.value)}
+                  className={cn(
+                    'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                    field.value ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground enabled:hover:text-foreground',
+                  )}
+                >
+                  {field.value && <CheckCircle2 className="size-5" />}
+                  {field.value ? 'Placement passage' : 'Regular passage'}
+                </button>
+              </SwitchHint>
             )}
           />
           {/* Edit mode, published passages only: marks the passage as a ranked test (US6.4). */}
@@ -203,28 +222,33 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
               control={control}
               name="isRanked"
               render={({ field }) => (
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={field.value}
-                  aria-label="Ranked test"
-                  title={
-                    !isEnglish
-                      ? 'Only an English passage can be a ranked test.'
-                      : passage.status === 'published'
-                        ? 'Used for the ranked duels of the season.'
-                        : 'Only a published passage can be a ranked test.'
+                <SwitchHint
+                  label={
+                    isPlacement
+                      ? 'A placement passage cannot be a ranked test.'
+                      : !isEnglish
+                        ? 'Only an English passage can be a ranked test.'
+                        : passage.status === 'published'
+                          ? 'Used for the ranked duels of the season.'
+                          : 'Only a published passage can be a ranked test.'
                   }
-                  disabled={!isEnglish || passage.status !== 'published' || status !== 'published'}
-                  onClick={() => field.onChange(!field.value)}
-                  className={cn(
-                    'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-                    field.value ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground enabled:hover:text-foreground',
-                  )}
                 >
-                  {field.value && <CheckCircle2 className="size-5" />}
-                  {field.value ? 'Ranked test' : 'Not ranked'}
-                </button>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={field.value}
+                    aria-label="Ranked test"
+                    disabled={isPlacement || !isEnglish || passage.status !== 'published' || status !== 'published'}
+                    onClick={() => field.onChange(!field.value)}
+                    className={cn(
+                      'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                      field.value ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground enabled:hover:text-foreground',
+                    )}
+                  >
+                    {field.value && <CheckCircle2 className="size-5" />}
+                    {field.value ? 'Ranked test' : 'Not ranked'}
+                  </button>
+                </SwitchHint>
               )}
             />
           )}

@@ -24,6 +24,10 @@ export const getApiErrorBody = (error: unknown): ApiErrorBody | undefined => {
   return data && typeof data === 'object' ? (data as ApiErrorBody) : undefined;
 };
 
+/** The HTTP status of a failed request (404, 409, ...), `undefined` for failures that never reached the server. */
+export const getApiErrorStatus = (error: unknown): number | undefined =>
+  (error as { response?: { status?: number } } | null)?.response?.status;
+
 /** Backend error message, falling back to `fallback` when there is none. */
 export const getApiErrorMessage = (error: unknown, fallback: string): string =>
   getApiErrorBody(error)?.message ?? fallback;

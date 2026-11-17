@@ -123,7 +123,7 @@ describe('GuestTypingPage', () => {
     noApiCalls();
   });
 
-  it('switches the typing language like the signed-in page: a new passage in English, the Placement tab hidden, and back', async () => {
+  it('switches the typing language like the signed-in page: a new passage in English, every tab kept, and back', async () => {
     const user = userEvent.setup();
     renderPage();
     expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
@@ -132,7 +132,8 @@ describe('GuestTypingPage', () => {
 
     expect(screen.getByLabelText('Passage to type')).toHaveTextContent('Hello');
     expect(screen.getByText('Morning run')).toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: 'Placement' })).not.toBeInTheDocument();
+    // The placement test has one test per language (SCRUM-305): its tab (locked for a guest) stays in English.
+    expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Typing language: English. Switch to Vietnamese' }));
     expect(screen.getByLabelText('Passage to type')).toHaveTextContent('Tiếng');
