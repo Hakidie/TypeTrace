@@ -212,9 +212,9 @@ describe('GET /api/profile/error-profile (SCRUM-27)', () => {
     );
 
     expect(await getWeakErrorTypes(String(learner._id))).toEqual([]);
-    expect(await getTopErrorTypes(String(learner._id))).toEqual(['HOI_NGA_CONFUSION', 'TONE_WRONG']);
-    expect(await getTopErrorTypes(String(learner._id), 5)).toEqual(['HOI_NGA_CONFUSION', 'TONE_WRONG', 'BASE_LETTER']);
+    expect(await getTopErrorTypes(String(learner._id), 'vi')).toEqual(['HOI_NGA_CONFUSION', 'TONE_WRONG']);
+    expect(await getTopErrorTypes(String(learner._id), 'vi', 5)).toEqual(['HOI_NGA_CONFUSION', 'TONE_WRONG', 'BASE_LETTER']);
     // A learner without a counted session has nothing to aim at.
-    expect(await getTopErrorTypes(String((await createUser({ email: 'new@example.com' }))._id))).toEqual([]);
+    expect(await getTopErrorTypes(String((await createUser({ email: 'new@example.com' }))._id), 'vi')).toEqual([]);
   });
 });

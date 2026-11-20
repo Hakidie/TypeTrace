@@ -238,14 +238,22 @@ describe('the stats of each typing language (SCRUM-219)', () => {
     expect(vietnamese.points.every((point: { avgWpm: number | null }) => point.avgWpm === null)).toBe(true);
   });
 
-  it('keeps the Vietnamese features (weak spots, word rain) on Vietnamese sessions when English ones are newer', async () => {
+  it('keeps the Vietnamese features (weak types, word rain) on Vietnamese sessions when English ones are newer', async () => {
     const learner = await createUser({});
     await TypingSessionModel.create(countedSession(learner._id, 30, 'vi', 30, { HOI_NGA_CONFUSION: [10, 40], D_MISSING: [3, 40] }));
     await TypingSessionModel.create(Array.from({ length: 12 }, (_, index) => countedSession(learner._id, index + 1, 'en', 60, { LETTER_WRONG: [9, 40] })));
 
     expect(await getWeakErrorTypes(String(learner._id))).toEqual(['HOI_NGA_CONFUSION']);
-    expect(await getTopErrorTypes(String(learner._id))).toEqual(['HOI_NGA_CONFUSION', 'D_MISSING']);
     expect((await rainWordsFor(String(learner._id))).focus).toEqual(['HOI_NGA_CONFUSION', 'D_MISSING']);
+  });
+
+  it('gives Weak spots the top error types of the language asked, from its sessions only (SCRUM-319)', async () => {
+    const learner = await createUser({});
+    await TypingSessionModel.create(countedSession(learner._id, 30, 'vi', 30, { HOI_NGA_CONFUSION: [10, 40], D_MISSING: [3, 40] }));
+    await TypingSessionModel.create(Array.from({ length: 12 }, (_, index) => countedSession(learner._id, index + 1, 'en', 60, { LETTER_WRONG: [9, 40] })));
+
+    expect(await getTopErrorTypes(String(learner._id), 'vi')).toEqual(['HOI_NGA_CONFUSION', 'D_MISSING']);
+    expect(await getTopErrorTypes(String(learner._id), 'en')).toEqual(['LETTER_WRONG']);
   });
 
   it('answers 404 for the stats of an account that no longer exists', async () => {

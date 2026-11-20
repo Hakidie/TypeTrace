@@ -34,7 +34,7 @@ export const typingApi = {
   replay: (id: string) => http.get<SessionReplay>(`/sessions/${id}/replay`).then((r) => r.data),
   /**
    * The passages the learner can choose for a mode (published, public, and their own in practice), in Practice the ones of
-   * `language` (SCRUM-219); the placement test is always Vietnamese. `query` (SCRUM-304): a search in the title, the sort and
+   * `language` (SCRUM-219), in the placement test too (SCRUM-305). `query` (SCRUM-304): a search in the title, the sort and
    * who made the passage; only what is set is sent.
    */
   passages: (mode: SessionMode, language: TypingLanguage = 'vi', query: PassageMenuQuery = {}) =>

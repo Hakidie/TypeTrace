@@ -821,13 +821,15 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     lessonSource: 'ai',
   };
 
+  // A signed-in learner who types Vietnamese: a lesson of one error type waits for the user, to type it in the language of
+  // the type (SCRUM-319).
   const renderAt = (route: string) =>
     renderWithProviders(
       <>
         <UrlSearch />
         <TypingPage />
       </>,
-      { route },
+      { route, queryClient: clientFor('vi') },
     );
 
   beforeEach(() => {
@@ -1216,16 +1218,10 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     expect(switcher()).toHaveTextContent('English');
   });
 
-  it('keeps the Weak spots tab in English, switches back to Vietnamese when it opens and shows the Vietnamese error profile', async () => {
+  it('keeps every mode tab in English, and opens Train in English: no switch back to Vietnamese', async () => {
     const user = userEvent.setup();
     getPlan.mockResolvedValue({ ...FREE_PLAN, plan: 'premium', canUsePublicPassages: true, canCreateErrorPractice: true });
-    renderWithProviders(
-      <>
-        <UrlSearch />
-        <TypingPage />
-      </>,
-      { route: '/typing', queryClient: clientFor('en') },
-    );
+    renderWithProviders(<TypingPage />, { route: '/typing', queryClient: clientFor('en') });
     await screen.findByRole('textbox', { name: 'Typing area' });
     // Every mode keeps its tab while the learner types English (Placement too, SCRUM-305).
     expect(screen.getByRole('radio', { name: 'Train' })).toBeInTheDocument();
@@ -1233,25 +1229,139 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     await user.click(screen.getByRole('radio', { name: 'Train' }));
 
     expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
-    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
-    expect(updateSettings).toHaveBeenCalledTimes(1);
-    // The lessons are Vietnamese: the cards read the Vietnamese profile, and the language switch is not there (Practice and
-    // Placement only).
-    expect(getErrorProfile).toHaveBeenCalledWith('vi');
-    expect(getErrorProfile).not.toHaveBeenCalledWith(undefined);
-    expect(screen.queryByRole('button', { name: /^Typing language:/ })).not.toBeInTheDocument();
+    expect(updateSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe('TypingPage: Train in the typing language (SCRUM-319)', () => {
+  const PREMIUM_PLAN = { ...FREE_PLAN, plan: 'premium', canUsePublicPassages: true, canCreateErrorPractice: true };
+  const switcher = () => screen.getByRole('button', { name: /^Typing language:/ });
+  const imeHint = 'Turn off Vietnamese input (Unikey, EVKey) to type English.';
+  /** The English error profile: capitals and punctuation the two highest rates, the swaps without enough data yet. */
+  const ENGLISH_PROFILE = {
+    ...ERROR_PROFILE,
+    language: 'en',
+    types: [
+      typeProfile('LETTER_WRONG', 2),
+      typeProfile('LETTER_MISSING', 3),
+      typeProfile('LETTER_EXTRA', 1),
+      typeProfile('LETTERS_SWAPPED', 0, 'insufficient_data', 'insufficient_data', 5),
+      typeProfile('CASE_WRONG', 30, 'weak'),
+      typeProfile('PUNCTUATION_WRONG', 18, 'weak'),
+    ],
+    weakTypes: ['CASE_WRONG', 'PUNCTUATION_WRONG'],
+    rankedTypes: ['CASE_WRONG', 'PUNCTUATION_WRONG', 'LETTER_MISSING', 'LETTER_WRONG', 'LETTER_EXTRA'],
+  };
+  const englishLesson = {
+    ...session,
+    _id: 's3',
+    mode: 'targeted',
+    language: 'en',
+    targetWords: ['On', 'Monday,', 'Lan'],
+    passageTitle: 'Weak spots: capitals',
+    focusErrorTypes: ['CASE_WRONG'],
+    lessonSource: 'ai',
+  };
+
+  const renderAt = (route: string, typingLanguage: 'vi' | 'en') =>
+    renderWithProviders(
+      <>
+        <UrlSearch />
+        <TypingPage />
+      </>,
+      { route, queryClient: clientFor(typingLanguage) },
+    );
+
+  beforeEach(() => {
+    getPlan.mockResolvedValue(PREMIUM_PLAN);
+    getErrorProfile.mockImplementation((language?: string) => Promise.resolve(language === 'en' ? ENGLISH_PROFILE : { ...ERROR_PROFILE, language: 'vi' }));
+    start.mockImplementation((input: { mode?: string }) => Promise.resolve(input.mode === 'targeted' ? englishLesson : session));
   });
 
-  it('switches back to Vietnamese when a link opens a Weak spots lesson for a learner who types English', async () => {
-    getPlan.mockResolvedValue({ ...FREE_PLAN, plan: 'premium', canUsePublicPassages: true, canCreateErrorPractice: true });
-    start.mockResolvedValue({ ...session, mode: 'targeted', language: 'vi', passageTitle: 'Weak spots: đ', focusErrorTypes: ['D_MISSING'] });
-    renderWithProviders(<TypingPage />, { route: '/typing?mode=targeted&focus=D_MISSING', queryClient: clientFor('en') });
+  it('shows the English error profile on the cards of a learner who types English, with the language button and the input notification', async () => {
+    const user = userEvent.setup();
+    renderAt('/typing?mode=targeted', 'en');
+
+    const auto = await screen.findByRole('button', { name: 'Practice your weak spots' });
+    expect(auto).toHaveTextContent('Wrong case30%');
+    expect(auto).toHaveTextContent('Wrong punctuation18%');
+    expect(getErrorProfile).toHaveBeenCalledWith('en');
+    expect(getErrorProfile).not.toHaveBeenCalledWith('vi');
+    expect(updateSettings).not.toHaveBeenCalled();
+    // The language button is on the cards, next to "Practice on one error".
+    expect(switcher()).toHaveTextContent('English');
+    expect(toast.info).toHaveBeenCalledWith(imeHint, expect.objectContaining({ id: 'ime-hint' }));
+
+    await user.click(screen.getByRole('button', { name: 'Practice on one error' }));
+    const types = screen.getByRole('region', { name: 'Error types' });
+    // The six English error types, each with its own lesson.
+    expect(within(types).getAllByRole('button', { name: /^Practice this error: / })).toHaveLength(6);
+    await user.click(within(types).getByRole('button', { name: 'Practice this error: Wrong case' }));
+
+    await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'CASE_WRONG' }));
+    expect(updateSettings).not.toHaveBeenCalled();
+    expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted&focus=CASE_WRONG');
+  });
+
+  it('switches the cards to the other language with the button: saved, the cards of that profile, and no lesson started', async () => {
+    const user = userEvent.setup();
+    renderAt('/typing?mode=targeted', 'en');
+    await screen.findByRole('button', { name: 'Practice your weak spots' });
+
+    await user.click(switcher());
+
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Practice your weak spots' })).toHaveTextContent('Hỏi / ngã confusion25.5%'));
+    expect(getErrorProfile).toHaveBeenCalledWith('vi');
+    expect(switcher()).toHaveTextContent('Vietnamese');
+    expect(start).not.toHaveBeenCalled();
+    expect(toast.dismiss).toHaveBeenCalledWith('ime-hint');
+  });
+
+  it('keeps the language button out of a lesson: its bottom row leads back to the cards', async () => {
+    renderAt('/typing?mode=targeted&focus=auto', 'en');
 
     await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(start).toHaveBeenCalledWith({ mode: 'targeted' });
+    expect(updateSettings).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /^Typing language:/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All weak spots' })).toBeInTheDocument();
+    // The lesson says what it trains, from the English profile of its own language.
+    expect(screen.getByRole('status')).toHaveTextContent('Training: Wrong case');
+  });
 
-    expect(start).toHaveBeenCalledWith({ mode: 'targeted', errorType: 'D_MISSING' });
-    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
+  it('switches a learner who types Vietnamese to English before the lesson of an English error type (a Profile link)', async () => {
+    renderAt('/typing?mode=targeted&focus=CASE_WRONG', 'vi');
+
+    await screen.findByRole('textbox', { name: 'Typing area' });
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'en' });
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith({ mode: 'targeted', errorType: 'CASE_WRONG' });
+    // The server starts the lesson in the saved language: the save comes first.
+    expect(updateSettings.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[0]);
+  });
+
+  it('switches a learner who types English to Vietnamese before the lesson of a Vietnamese error type', async () => {
+    start.mockResolvedValue({ ...session, mode: 'targeted', language: 'vi', passageTitle: 'Weak spots: đ', focusErrorTypes: ['D_MISSING'] });
+    renderAt('/typing?mode=targeted&focus=D_MISSING', 'en');
+
+    await screen.findByRole('textbox', { name: 'Typing area' });
     expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' });
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith({ mode: 'targeted', errorType: 'D_MISSING' });
+    expect(updateSettings.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[0]);
+  });
+
+  it('goes back to the cards, and starts nothing, when the switch for a lesson cannot be saved', async () => {
+    updateSettings.mockRejectedValue({ response: { status: 500, data: { message: 'Database offline' } } });
+    renderAt('/typing?mode=targeted&focus=CASE_WRONG', 'vi');
+
+    expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted');
+    expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
+    expect(start).not.toHaveBeenCalled();
   });
 });
 

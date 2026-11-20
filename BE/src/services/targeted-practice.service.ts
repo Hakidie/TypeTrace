@@ -1,20 +1,23 @@
-// Weak spots (SCRUM-28, US3.2): a practice lesson aimed at the learner's errors. Its words are picked from the word bank: most of
-// them train the error types the learner misses most (or the one they chose), the others none of them. The AI then writes a
-// passage that makes sense from them; when it cannot, the picked words are the lesson. `startSession` stores what is typed as
-// the session's `targetWords`, so the lesson is typed, graded and counted like any practice session. Only models, the AI
-// service and services that never import the typing sessions are imported here, so no service cycle can start (see
+// Weak spots (SCRUM-28, US3.2): a practice lesson aimed at the learner's errors, in the language they type (SCRUM-319:
+// Vietnamese or English, each with its own error set). Its words are picked from the words of that language (`bankWordsOf`):
+// most of them train the error types the learner misses most (or the one they chose), the others none of them. The AI then
+// writes a passage that makes sense from them; when it cannot, the picked words are the lesson. `startSession` stores what is
+// typed as the session's `targetWords`, so the lesson is typed, graded and counted like any practice session. Only models, the
+// AI service and services that never import the typing sessions are imported here, so no service cycle can start (see
 // `service-imports.test.ts`).
 import { env } from '../config/env';
 import { weakSpotsAi } from '../config/weak-spots-ai';
-import { splitWords } from '../models/passage.model';
+import { PassageModel, passageLanguageFilter, splitWords } from '../models/passage.model';
 import { TypingSessionModel } from '../models/typing-session.model';
 import { WordModel } from '../models/word.model';
-import { forbidden } from '../utils/app-error';
+import { badRequest, forbidden } from '../utils/app-error';
+import { EnglishError, tagEnglishWord } from '../utils/english-errors';
 import { cleanPassageText } from '../utils/passage-text';
-import { WordError, type WordErrorType } from '../utils/vietnamese-errors';
+import { errorTypesOf, type SessionErrorType, sessionsIn, type TypingLanguage } from '../utils/typing-language';
+import { WordError } from '../utils/vietnamese-errors';
 import { generateText } from './ai.service';
 import { getTopErrorTypes } from './error-profile.service';
-import { getPlanOf } from './passage-lock.service';
+import { getLearnerOwnerIds, getPlanOf } from './passage-lock.service';
 
 /** A lesson has 30 to 50 words, a random number in between. */
 export const LESSON_MIN_WORDS = 30;
@@ -27,30 +30,43 @@ export const LESSON_FOCUS_TYPES = 2;
 /** The words of the learner's last lessons come back only when the bank has too few others. */
 export const RECENT_LESSONS = 3;
 
-/** A word of the bank, as a lesson reads it. */
+/** A word a lesson can pick, with the errors it gives a chance of in its language (`tagWord` or `tagEnglishWord`). */
 export interface BankWord {
   text: string;
-  tags: readonly WordErrorType[];
+  tags: readonly SessionErrorType[];
 }
 
 /** The tone marks of a word split into letters and marks (NFD): huyền, sắc, ngã, hỏi, nặng. */
 const TONE_MARK = /[̣̀́̃̉]/;
+/** A capital letter: where an English word can be typed in the wrong case. */
+const CAPITAL = /\p{Lu}/u;
+
+/** The error types any word trains: every word gives a chance of them, so a lesson for them is made of any words. */
+const ANY_WORD: ReadonlySet<SessionErrorType> = new Set([
+  WordError.BASE_LETTER,
+  EnglishError.LETTER_WRONG,
+  EnglishError.LETTER_MISSING,
+  EnglishError.LETTER_EXTRA
+]);
 
 /**
- * Whether a word trains `type`. Its tags (`tagWord`) are the errors it gives a chance of, but every word gives a chance of a
- * wrong letter and of a wrong tone: so a tone is trained by a word with a tone mark, and the letters by any word (a lesson for
- * them is made of any words). The other types are the word's tags.
+ * Whether a word trains `type` (the two error sets have no type in common, so the type says the language). Its tags are the
+ * errors it gives a chance of, but some are on every word: a wrong letter (Vietnamese) and a letter wrong, left out or too
+ * many (English) are trained by any word; a tone, though every Vietnamese word is a chance of one, by a word with a tone
+ * mark; the case, though Caps Lock reaches every English letter, by a word with a capital. The other types are the word's
+ * tags (đ, vowel marks, hỏi / ngã; two letters swapped, punctuation).
  */
-export const trainsErrorType = (word: BankWord, type: WordErrorType) => {
-  if (type === WordError.BASE_LETTER) return true;
+export const trainsErrorType = (word: BankWord, type: SessionErrorType) => {
+  if (ANY_WORD.has(type)) return true;
   if (type === WordError.TONE_WRONG) return TONE_MARK.test(word.text.normalize('NFD'));
+  if (type === EnglishError.CASE_WRONG) return CAPITAL.test(word.text);
   return word.tags.includes(type);
 };
 
 export interface LessonInput {
-  /** The error types to train, the highest error rate first. */
-  focus: readonly WordErrorType[];
-  /** The active words of the bank. */
+  /** The error types to train, the highest error rate first: all of one language. */
+  focus: readonly SessionErrorType[];
+  /** The words the lesson may pick (`bankWordsOf`). */
   words: readonly BankWord[];
   /** The words of the learner's last lessons: used only when the others run out. */
   recentWords: ReadonlySet<string>;
@@ -60,7 +76,7 @@ export interface LessonInput {
 
 export interface Lesson {
   /** The error types the lesson trains: those of the focus that have words in the bank. */
-  focus: WordErrorType[];
+  focus: SessionErrorType[];
   words: string[];
 }
 
@@ -152,16 +168,22 @@ export const buildLesson = ({ focus, words, recentWords, random = Math.random }:
 };
 
 /** How the title of a lesson names its error types (English, like the rest of the app). */
-const TITLE_NAMES: Record<WordErrorType, string> = {
+const TITLE_NAMES: Record<SessionErrorType, string> = {
   BASE_LETTER: 'letters',
   D_MISSING: 'đ',
   MARK_WRONG: 'vowel marks',
   TONE_WRONG: 'tones',
-  HOI_NGA_CONFUSION: 'hỏi / ngã'
+  HOI_NGA_CONFUSION: 'hỏi / ngã',
+  LETTER_WRONG: 'wrong letters',
+  LETTER_MISSING: 'missing letters',
+  LETTER_EXTRA: 'extra letters',
+  LETTERS_SWAPPED: 'swapped letters',
+  CASE_WRONG: 'capitals',
+  PUNCTUATION_WRONG: 'punctuation'
 };
 
 /** "Weak spots: hỏi / ngã, đ": the name of a lesson in the history and on its result page. */
-export const lessonTitle = (focus: readonly WordErrorType[]) => `Weak spots: ${focus.map((type) => TITLE_NAMES[type]).join(', ')}`;
+export const lessonTitle = (focus: readonly SessionErrorType[]) => `Weak spots: ${focus.map((type) => TITLE_NAMES[type]).join(', ')}`;
 
 /** Weak spots needs a plan with `canCreateErrorPractice` (Premium, unless an admin changes the plans): 403 otherwise. */
 export const assertCanPracticeWeakSpots = async (userId: string) => {
@@ -171,13 +193,39 @@ export const assertCanPracticeWeakSpots = async (userId: string) => {
 /** The active words of the bank (an admin hides one with `isActive: false`): the bank is small, hundreds of words, so it is read whole. */
 const activeWords = () => WordModel.find({ isActive: true }).select({ _id: 0, text: 1, tags: 1 }).lean<BankWord[]>();
 
+/** Has a letter: a word, not a dash or a quotation mark standing between spaces. */
+const HAS_LETTER = /\p{L}/u;
+
 /**
- * The words of the bank picked for the learner's last `RECENT_LESSONS` lessons, finished or not (Restart and another error type
- * leave one behind): `lessonWords`, or the typed words of a lesson saved before the AI passages (they were the picked words). A
- * session that typed a passage instead has no focus: it is not a lesson. Read through the index `{ owner, mode, createdAt }`.
+ * The words of an English lesson (SCRUM-319): every word of TypeTrace's own English practice passages (published, public,
+ * neither a ranked test nor a placement passage, and owned by no learner: an admin's, a deleted account's or no one's), as
+ * they are written there, so the capitals and the punctuation are there for those error types (the word bank is Vietnamese,
+ * lowercase and without punctuation). Never a learner's passage, whose text is theirs. A few dozen passages: read whole.
  */
-const recentLessonWords = async (userId: string) => {
-  const lessons = await TypingSessionModel.find({ owner: userId, mode: 'targeted', 'focusErrorTypes.0': { $exists: true } })
+const englishPracticeWords = async (): Promise<BankWord[]> => {
+  const passages = await PassageModel.find({ status: 'published', visibility: 'public', isPlacement: { $ne: true }, ...passageLanguageFilter('en') })
+    .select({ _id: 0, owner: 1, content: 1 })
+    .lean();
+  const learners = await getLearnerOwnerIds(passages.flatMap((passage) => (passage.owner ? [passage.owner] : [])));
+  const texts = new Set(
+    passages
+      .filter((passage) => !(passage.owner && learners.has(String(passage.owner))))
+      .flatMap((passage) => splitWords(passage.content))
+      .filter((text) => HAS_LETTER.test(text))
+  );
+  return [...texts].map((text) => ({ text, tags: tagEnglishWord(text) }));
+};
+
+/** The words a lesson in `language` picks from: the word bank in Vietnamese, the English practice passages in English. */
+const bankWordsOf = (language: TypingLanguage) => (language === 'en' ? englishPracticeWords() : activeWords());
+
+/**
+ * The words picked for the learner's last `RECENT_LESSONS` lessons in `language`, finished or not (Restart and another error
+ * type leave one behind): `lessonWords`, or the typed words of a lesson saved before the AI passages (they were the picked
+ * words). A session that typed a passage instead has no focus: it is not a lesson. Read through the index `{ owner, mode, createdAt }`.
+ */
+const recentLessonWords = async (userId: string, language: TypingLanguage) => {
+  const lessons = await TypingSessionModel.find({ owner: userId, mode: 'targeted', 'focusErrorTypes.0': { $exists: true }, ...sessionsIn(language) })
     .sort({ createdAt: -1 })
     .limit(RECENT_LESSONS)
     .select({ lessonWords: 1, targetWords: 1 })
@@ -193,17 +241,18 @@ const NOT_LETTER_EDGES = /^[^\p{L}]+|[^\p{L}]+$/gu;
 /** The AI's answer as one line of plain text: no Markdown, no quotes around it, the spaces and characters of a pasted passage. */
 export const cleanAiText = (text: string) => cleanPassageText(text.replace(MARKDOWN, ' ')).replace(EDGE_QUOTES, '');
 
-/** A word of the passage as the bank writes it: lowercase, NFC, without the punctuation around it ("Đỏ," → "đỏ"). */
+/** A word as the AI's passage is compared: lowercase, NFC, without the punctuation around it ("Đỏ," → "đỏ", "Lan's." → "lan's"). */
 const bankFormOf = (word: string) => word.normalize('NFC').toLowerCase().replace(NOT_LETTER_EDGES, '');
 
 /**
  * Whether the passage the AI wrote can be the lesson (pure, for the tests): `minWords` to `maxWords` words, and at least
- * `minUsedPercent` % of the practice words it was given (compared in whole numbers). `words` are the words to type.
+ * `minUsedPercent` % of the practice words it was given (compared in whole numbers). A practice word counts in any case and
+ * with any punctuation around it ("Lan," of an English passage is used by "Lan."). `words` are the words to type.
  */
 export const checkAiPassage = (text: string, practiceWords: readonly string[]) => {
   const words = splitWords(cleanAiText(text));
   const written = new Set(words.map(bankFormOf));
-  const wanted = [...new Set(practiceWords)];
+  const wanted = [...new Set(practiceWords.map(bankFormOf))];
   const used = wanted.filter((word) => written.has(word)).length;
   const ok =
     words.length >= weakSpotsAi.minWords &&
@@ -212,18 +261,24 @@ export const checkAiPassage = (text: string, practiceWords: readonly string[]) =
   return { ok, words, used, wanted: wanted.length };
 };
 
-/** What the AI is asked: the practice words, and the other picked words it may use. */
-export const lessonPrompt = (practiceWords: readonly string[], otherWords: readonly string[]) =>
-  [`Từ cần luyện: ${practiceWords.join(', ')}`, ...(otherWords.length ? [`Từ gợi ý: ${otherWords.join(', ')}`] : [])].join('\n');
+/** What the AI is asked, in the language of the lesson: the practice words, and the other picked words it may use. */
+export const lessonPrompt = (language: TypingLanguage, practiceWords: readonly string[], otherWords: readonly string[]) => {
+  const labels = weakSpotsAi.promptLabels[language];
+  return [`${labels.practice}: ${practiceWords.join(', ')}`, ...(otherWords.length ? [`${labels.hints}: ${otherWords.join(', ')}`] : [])].join('\n');
+};
 
 /**
- * The passage the AI writes from the picked words, or `null` (the lesson stays the word list): no key, over the learner's
- * limit (`aiAllowed`), a failed, slow or refused answer. Nothing is thrown, so the learner never sees an AI error.
+ * The passage the AI writes in `language` from the picked words, or `null` (the lesson stays the word list): no key, over the
+ * learner's limit (`aiAllowed`), a failed, slow or refused answer. Nothing is thrown, so the learner never sees an AI error.
  */
-const writePassage = async (practiceWords: string[], otherWords: string[], aiAllowed: boolean) => {
+const writePassage = async (language: TypingLanguage, practiceWords: string[], otherWords: string[], aiAllowed: boolean) => {
   if (!aiAllowed || !env.geminiApiKey) return null;
   try {
-    const text = await generateText(lessonPrompt(practiceWords, otherWords), weakSpotsAi);
+    const text = await generateText(lessonPrompt(language, practiceWords, otherWords), {
+      systemPrompt: weakSpotsAi.systemPrompts[language],
+      maxOutputTokens: weakSpotsAi.maxOutputTokens,
+      timeoutMs: weakSpotsAi.timeoutMs
+    });
     const check = checkAiPassage(text, practiceWords);
     if (check.ok) return check.words;
     console.warn(`Weak spots: AI passage not used (${check.words.length} words, ${check.used} of ${check.wanted} practice words)`);
@@ -235,25 +290,36 @@ const writePassage = async (practiceWords: string[], otherWords: string[], aiAll
 
 export type LessonSource = 'ai' | 'words' | 'passage';
 
+const LANGUAGE_NAMES: Record<TypingLanguage, string> = { vi: 'Vietnamese', en: 'English' };
+
 /**
- * The lesson the learner asks for: of `errorType`, or of their types with the highest error rates, weak or not
- * (`getTopErrorTypes`). Its words are picked from the bank (`lessonWords`), then the AI writes a passage from them
- * (`targetWords`), or the picked words are typed as they are. `null` when there is nothing to aim at (no type with enough data
- * in the error profile yet, or no word for it): the caller types a random passage instead. 403 for a plan without Weak spots,
- * even then.
+ * The lesson the learner asks for in `language` (the one they type, SCRUM-319): of `errorType`, which must be one of that
+ * language's error types (400 otherwise), or of their types with the highest error rates in that language, weak or not
+ * (`getTopErrorTypes`). Its words are picked from the words of the language (`lessonWords`), then the AI writes a passage
+ * from them (`targetWords`), or the picked words are typed as they are. `null` when there is nothing to aim at (no type with
+ * enough data in the error profile yet, or no word for it): the caller types a random passage instead. 403 for a plan without
+ * Weak spots, even then.
  */
-export const lessonFor = async (userId: string, errorType?: WordErrorType, { aiAllowed = true }: { aiAllowed?: boolean } = {}) => {
+export const lessonFor = async (
+  userId: string,
+  language: TypingLanguage,
+  errorType?: SessionErrorType,
+  { aiAllowed = true }: { aiAllowed?: boolean } = {}
+) => {
+  if (errorType && !errorTypesOf(language).includes(errorType)) {
+    throw badRequest(`This is not one of the ${LANGUAGE_NAMES[language]} error types`);
+  }
   await assertCanPracticeWeakSpots(userId);
-  const focus = errorType ? [errorType] : await getTopErrorTypes(userId, LESSON_FOCUS_TYPES);
+  const focus = errorType ? [errorType] : await getTopErrorTypes(userId, language, LESSON_FOCUS_TYPES);
   if (!focus.length) return null;
-  const [words, recentWords] = await Promise.all([activeWords(), recentLessonWords(userId)]);
+  const [words, recentWords] = await Promise.all([bankWordsOf(language), recentLessonWords(userId, language)]);
   const lesson = buildLesson({ focus, words, recentWords });
   if (!lesson) return null;
   const bank = new Map(words.map((word) => [word.text, word]));
   const trains = (text: string) => lesson.focus.some((type) => trainsErrorType(bank.get(text)!, type));
   const practiceWords = [...new Set(lesson.words.filter(trains))];
   const otherWords = [...new Set(lesson.words.filter((text) => !trains(text)))];
-  const passage = await writePassage(practiceWords, otherWords, aiAllowed);
+  const passage = await writePassage(language, practiceWords, otherWords, aiAllowed);
   return {
     focus: lesson.focus,
     title: lessonTitle(lesson.focus),

@@ -22,8 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/shared
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
 import { redGlassTheme } from '@/shared/lib/red-glass-theme';
-import { type TypingLanguage } from '@/shared/lib/typing-language';
-import { WordError, type WordErrorType } from '@/shared/lib/vietnamese-errors';
+import { errorTypesOf, type SessionErrorType, type TypingLanguage } from '@/shared/lib/typing-language';
 import { MinigamesMode, type MinigameId } from '../components/MinigamesMode';
 import { PassageMenuPanel } from '../components/PassageMenuPanel';
 import { TypingArea, TypingStatus } from '../components/TypingArea';
@@ -51,8 +50,9 @@ const passageTabsOf = (t: TFunction) => [
 ];
 
 // Rank and Minigames are not practice sessions: `?mode=rank` shows the ranked duels (`RankMode`), `?mode=minigames` the cards of the minigames (`MinigamesMode`; `&game=rain` opens word rain, `&game=bot` the unrated duel against a bot, `&game=chain` Nối từ), instead of a passage to practise.
-// `?mode=targeted` is Weak spots: its cards (`WeakSpotsMode`: the auto lesson, US3.2, and the five error types, SCRUM-74) until
-// one is picked, then its lesson (`&focus=auto` or `&focus=<type>`), a passage the AI wrote from words picked for the errors.
+// `?mode=targeted` is Weak spots: its cards (`WeakSpotsMode`: the auto lesson, US3.2, and the error types of the language typed,
+// SCRUM-74, SCRUM-319) until one is picked, then its lesson (`&focus=auto` or `&focus=<type>`), a passage the AI wrote from
+// words picked for the errors.
 const modeTabsOf = (t: TFunction) => [
   { value: 'practice', label: modeLabels.practice, icon: modeIcons.practice, hint: t('typing:page.practiceHint') },
   { value: 'placement', label: modeLabels.placement, icon: modeIcons.placement, hint: t('typing:page.placementHint') },
@@ -74,18 +74,24 @@ const IME_HINT_ID = 'ime-hint';
 const defaultTimeOf = (mode: SessionMode): { unit: TimeUnit; index: number } =>
   mode === 'placement' || mode === 'targeted' ? { unit: 'min', index: 0 } : { unit: 'sec', index: 1 };
 
-/** The Weak spots card picked (`&focus=`): `auto` or one error type; anything else is no pick (the cards show). */
+/** The English error types: the two sets have no type in common, so a type says its language (SCRUM-319). */
+const ENGLISH_TYPES: readonly string[] = errorTypesOf('en');
+const ALL_TYPES: readonly string[] = [...errorTypesOf('vi'), ...ENGLISH_TYPES];
+/** The typing language of an error type: its lesson is typed in it. */
+const languageOfType = (type: SessionErrorType): TypingLanguage => (ENGLISH_TYPES.includes(type) ? 'en' : 'vi');
+
+/** The Weak spots card picked (`&focus=`): `auto` or one error type of either language; anything else is no pick (the cards show). */
 const focusOf = (value: string | null): WeakSpotsFocus | undefined =>
-  value === 'auto' || (Object.values(WordError) as string[]).includes(value ?? '') ? (value as WeakSpotsFocus) : undefined;
+  value === 'auto' || ALL_TYPES.includes(value ?? '') ? (value as WeakSpotsFocus) : undefined;
 
 /**
  * What Train says above the lesson: the error types it trains, or why a random passage came instead (US3.2). The lesson of an
  * error type picked before it has enough data (SCRUM-74, SCRUM-274) says so too, with what the error profile still needs: the
- * Vietnamese one, as the cards of the tab, since the lessons are Vietnamese.
+ * one of the lesson's language (SCRUM-319), as the cards it was picked on.
  */
-const FocusNote = ({ focus, chosen }: { focus: WordErrorType[]; chosen?: WordErrorType }) => {
+const FocusNote = ({ focus, chosen, language }: { focus: SessionErrorType[]; chosen?: SessionErrorType; language: TypingLanguage }) => {
   const { t } = useTranslation('typing');
-  const { data: profile } = useErrorProfile('vi');
+  const { data: profile } = useErrorProfile(language);
   const item = chosen && focus.length ? profile?.types.find((type) => type.type === chosen) : undefined;
   return (
     <p role="status" className="text-center text-muted-foreground">
@@ -111,7 +117,7 @@ const FocusNote = ({ focus, chosen }: { focus: WordErrorType[]; chosen?: WordErr
  * The placement leaderboard ranks only the time the session was started with (US10.1), so a placement session carries it. A
  * Weak spots lesson carries the error type the learner chose, if any.
  */
-const startInputOf = (mode: SessionMode, passageId: string | undefined, seconds: number, errorType?: WordErrorType): StartSessionInput => ({
+const startInputOf = (mode: SessionMode, passageId: string | undefined, seconds: number, errorType?: SessionErrorType): StartSessionInput => ({
   mode,
   ...(passageId && { passageId }),
   ...(mode === 'placement' && { timeLimitSeconds: seconds }),
@@ -153,8 +159,8 @@ export const TypingPage = () => {
   const plan = usePlan();
   const weakSpotsLocked = plan.data !== undefined && !plan.data.canCreateErrorPractice;
   const planPending = plan.isPending;
-  // What the learner types in Practice (SCRUM-219), saved on their account; `undefined` while the user loads. The server
-  // starts a Practice session in it, and the placement test and Weak spots always in Vietnamese.
+  // What the learner types (SCRUM-219), saved on their account; `undefined` while the user loads. The server starts every
+  // session in it: Practice, the placement test (SCRUM-305) and a Weak spots lesson (SCRUM-319).
   const language = useTypingLanguage();
   const { mutate: saveLanguage, isPending: savingLanguage } = useSaveTypingLanguage();
   // A learner who has just created their account starts Ping's tour (it brings the placement test in its turn), once:
@@ -242,6 +248,20 @@ export const TypingPage = () => {
     }
     // Weak spots waits for the plan, and on a plan without it shows the plan instead.
     if (openedFor.current === sessionKey || (targeted && (planPending || weakSpotsLocked))) return;
+    // The lesson of one error type is typed in the language of that type (SCRUM-319): a link of the Profile's English error
+    // profile ("Practice this error") switches a learner who types Vietnamese to English first, and the other way round, or
+    // the server would refuse the type. That waits for the user, to know their language.
+    const lessonLanguage = errorType && languageOfType(errorType);
+    if (lessonLanguage && lessonLanguage !== language) {
+      if (language === undefined) return;
+      openedFor.current = sessionKey;
+      saveLanguage(lessonLanguage, {
+        onSuccess: () => start.mutate(startInputOf(mode, undefined, timeSeconds, errorType)),
+        // Not saved (the toast says why): back to the cards, of the language the learner still has.
+        onError: () => setSearchParams({ mode: 'targeted' }),
+      });
+      return;
+    }
     const firstPassage = openedFor.current === null ? passageId : undefined;
     // A passage of the Passages page (`?passage=`) is Vietnamese (SCRUM-219): a learner who types English is switched back
     // to Vietnamese first, or the server would refuse it. That waits for the user, to know their language.
@@ -260,29 +280,18 @@ export const TypingPage = () => {
     }
     openedFor.current = sessionKey;
     start.mutate(startInputOf(mode, firstPassage, timeSeconds, errorType));
-  }, [mode, game, weakSpotsCards, sessionKey, targeted, errorType, start, passageId, timeSeconds, planPending, weakSpotsLocked, language, saveLanguage]);
-
-  // Weak spots is Vietnamese only (SCRUM-219; its lessons are made of the Vietnamese word bank): whichever way the learner comes
-  // in (the tab, a link), a learner who types English is switched back to Vietnamese, saved on the account. Once per visit.
-  // The Weak spots tab stays shown in English, so the learner always sees it; the server types its lessons in Vietnamese anyway.
-  // The placement test has one test per language (SCRUM-305): it keeps the learner's language.
-  const vietnameseOnly = targeted;
-  const switchedToVietnamese = useRef(false);
-  useEffect(() => {
-    if (!vietnameseOnly) {
-      switchedToVietnamese.current = false;
-      return;
-    }
-    if (language !== 'en' || switchedToVietnamese.current) return;
-    switchedToVietnamese.current = true;
-    saveLanguage('vi');
-  }, [vietnameseOnly, language, saveLanguage]);
+  }, [mode, game, weakSpotsCards, sessionKey, targeted, errorType, start, passageId, timeSeconds, planPending, weakSpotsLocked, language, saveLanguage, setSearchParams]);
 
   // VI / EN in Practice and in the placement test: saved on the account first (the server starts a session in the saved
   // language), then a new random passage of that language, as Random does. The session being typed is left, like on Random.
-  // One language for both: the placement test of a language is the one of the language Practice types (SCRUM-305).
+  // One language for all: the placement test and the Weak spots lessons of a language are those of the language Practice
+  // types (SCRUM-305, SCRUM-319). On the Weak spots cards it only saves it: the cards show that language's error profile.
   const switchLanguage = (next: TypingLanguage) => {
     if (next === language) return;
+    if (weakSpotsCards) {
+      saveLanguage(next);
+      return;
+    }
     saveLanguage(next, {
       onSuccess: () => {
         setChosen(undefined);
@@ -292,14 +301,15 @@ export const TypingPage = () => {
       },
     });
   };
-  // The language switch, in Practice and in the placement test (SCRUM-305; Weak spots is always Vietnamese): one button, built
-  // like Restart, at the bottom center of the page (the middle of the word count / timer row). It shows the language being typed
-  // and a click switches to the other one. Also shown while the passage loads or fails, so a language with no passage can be left.
+  // The language switch, in Practice and in the placement test (SCRUM-305): one button, built like Restart, at the bottom center
+  // of the page (the middle of the word count / timer row). It shows the language being typed and a click switches to the other
+  // one. Also shown while the passage loads or fails, so a language with no passage can be left. In Weak spots it is on the
+  // cards (SCRUM-319), under the auto lesson: a lesson keeps the language it started in, and its bottom row leads back to them.
   const current = language ?? 'vi';
   const other: TypingLanguage = current === 'vi' ? 'en' : 'vi';
-  const typesInLanguage = (mode === 'practice' || mode === 'placement') && !game;
+  const showsLanguageSwitch = (mode === 'practice' || mode === 'placement' || weakSpotsCards) && !game;
   const languageSwitch =
-    typesInLanguage ? (
+    showsLanguageSwitch ? (
       <Button
         variant="ghost"
         className={hoverButtonClass}
@@ -312,9 +322,9 @@ export const TypingPage = () => {
     ) : undefined;
 
   // An input method for Vietnamese (Telex, VNI) turns English words into Vietnamese ones ("dd" into "đ"): a notification
-  // while the learner types English in Practice or in the placement test, with one id so it never stacks, taken back when the
-  // language or mode changes.
-  const imeHint = typesInLanguage && language === 'en';
+  // while the learner types English in Practice, in the placement test or in Weak spots (SCRUM-319), with one id so it never
+  // stacks, taken back when the language or mode changes.
+  const imeHint = !game && language === 'en';
   useEffect(() => {
     if (!imeHint) return;
     toast.info(t('page.imeHint'), { id: IME_HINT_ID, duration: 8000 });
@@ -469,7 +479,9 @@ export const TypingPage = () => {
         </p>
       )}
       {/* Weak spots says what the lesson trains, or why a random passage came instead (US3.2). */}
-      {targeted && !weakSpotsCards && !weakSpotsLocked && session?.mode === 'targeted' && <FocusNote focus={session.focusErrorTypes ?? []} chosen={errorType} />}
+      {targeted && !weakSpotsCards && !weakSpotsLocked && session?.mode === 'targeted' && (
+        <FocusNote focus={session.focusErrorTypes ?? []} chosen={errorType} language={session.language ?? 'vi'} />
+      )}
       <ConfirmDialog
         open={placementPrompt.open}
         onOpenChange={(open) => setPlacementPrompt({ open })}
@@ -496,7 +508,7 @@ export const TypingPage = () => {
       ) : ranked ? (
         <RankMode />
       ) : weakSpotsCards ? (
-        <WeakSpotsMode locked={weakSpotsLocked} onPick={pickWeakSpot} />
+        <WeakSpotsMode locked={weakSpotsLocked} language={current} languageSwitch={languageSwitch} onPick={pickWeakSpot} />
       ) : targeted && weakSpotsLocked ? (
         <div className="mx-auto my-auto flex max-w-md flex-col items-center gap-4 text-center">
           <Lock className="size-8 text-muted-foreground" aria-hidden />

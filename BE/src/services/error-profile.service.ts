@@ -165,9 +165,9 @@ export const getWeakErrorTypes = async (userId: OwnerId, limit = 2) =>
   computeErrorProfile(await profileSessionsOf(userId, 'vi'), 'vi').weakTypes.slice(0, limit) as WordErrorType[];
 
 /**
- * The learner's Vietnamese error types with enough data, weak or not, highest error rate first, at most `limit`: what a Weak
- * spots lesson trains when the learner picks no type (US3.2). Only their Vietnamese sessions, whatever language they type
- * in Practice: the word bank and its lessons are Vietnamese. Empty only before that profile has a type with enough data.
+ * The learner's error types of `language` with enough data, weak or not, highest error rate first, at most `limit`: what a
+ * Weak spots lesson in that language trains when the learner picks no type (US3.2; English since SCRUM-319). Only their
+ * sessions of that language. Empty only before that profile has a type with enough data.
  */
-export const getTopErrorTypes = async (userId: OwnerId, limit = 2) =>
-  computeErrorProfile(await profileSessionsOf(userId, 'vi'), 'vi').rankedTypes.slice(0, limit) as WordErrorType[];
+export const getTopErrorTypes = async (userId: OwnerId, language: TypingLanguage, limit = 2) =>
+  computeErrorProfile(await profileSessionsOf(userId, language), language).rankedTypes.slice(0, limit);

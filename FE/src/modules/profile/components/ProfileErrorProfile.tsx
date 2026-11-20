@@ -12,8 +12,7 @@ import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { practiceButtonClass, sectionTitleClass } from '@/shared/lib/panel-styles';
-import type { TypingLanguage } from '@/shared/lib/typing-language';
-import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
+import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
 import { useErrorProfile } from '../hooks/use-profile';
 import { ErrorTypeCard } from './ErrorTypeCard';
 
@@ -25,7 +24,7 @@ const gridClass = 'grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2 lg:grid-cols-
 const BLANK_TYPES = 3;
 
 interface PracticeButtonProps {
-  type: WordErrorType;
+  type: SessionErrorType;
   /** The learner's plan has no Train (`canCreateErrorPractice`): a lock, and a click opens the plan. */
   locked: boolean;
   onLocked: () => void;
@@ -33,7 +32,8 @@ interface PracticeButtonProps {
 
 /**
  * "Practice this error" under an error type (SCRUM-274): a link to the Train lesson of that type (US3.2, the lesson of its card
- * in the Train tab), also for a type without enough data yet, whose lesson says so. Its name says the type.
+ * in the Train tab), also for a type without enough data yet, whose lesson says so. Its name says the type. An English type
+ * opens an English lesson (SCRUM-319): the Typing page switches the learner's language to the one of the type first.
  */
 const PracticeButton = ({ type, locked, onLocked }: PracticeButtonProps) => {
   const { t } = useTranslation('profile');
@@ -58,9 +58,8 @@ const PracticeButton = ({ type, locked, onLocked }: PracticeButtonProps) => {
  * The learner's error profile (SCRUM-27), under the heatmap and without a frame: each error type of their last counted
  * sessions of their typing language (SCRUM-219: the set of that language, which the texts name) with its error rate, its
  * level (weak, OK, or what it needs first) and its trend against the sessions before, as the backend works them out
- * (`useErrorProfile`); the thresholds come with the answer. In the Vietnamese profile each type has a button that practices
- * it (SCRUM-274; on a plan without Train it opens the plan instead); the English one has none, since the Train lessons are
- * Vietnamese. While it loads, blank items hold their place; when it fails, the reason and a retry on one line; before the
+ * (`useErrorProfile`); the thresholds come with the answer. Each type, Vietnamese or English (SCRUM-319), has a button that
+ * practices it (SCRUM-274; on a plan without Train it opens the plan instead). While it loads, blank items hold their place; when it fails, the reason and a retry on one line; before the
  * first counted session, one muted line. With `onSwitch` a button next to the title shows another panel in its place
  * (`switchTo`, My Sessions by default) (`PanelTitleSwitch`, the Progress page).
  */
@@ -101,8 +100,6 @@ export const ProfileErrorProfile = ({ onSwitch, switchTo }: { onSwitch?: () => v
     if (errorProfile.data.sessionsUsed === 0) {
       return <p className="text-base text-muted-foreground">{t('errorProfile.noSessions', { language })}</p>;
     }
-    // Only the Vietnamese types can be practiced: the Train lessons are made of the Vietnamese word bank.
-    const practicable = errorProfile.data.language === 'vi';
     return (
       <ul className={gridClass}>
         {errorProfile.data.types.map((item) => (
@@ -110,7 +107,7 @@ export const ProfileErrorProfile = ({ onSwitch, switchTo }: { onSwitch?: () => v
             key={item.type}
             item={item}
             profile={errorProfile.data}
-            action={practicable && <PracticeButton type={item.type as WordErrorType} locked={locked} onLocked={() => setPlanOpen(true)} />}
+            action={<PracticeButton type={item.type} locked={locked} onLocked={() => setPlanOpen(true)} />}
           />
         ))}
       </ul>
