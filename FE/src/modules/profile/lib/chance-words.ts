@@ -22,8 +22,8 @@ const CHANCE_KEYS: Record<SessionErrorType, string> = {
 };
 
 /** The words that give a chance of the type, in the plural ("words with đ"), or "words" where every word does. */
-export const chanceWords = (type: SessionErrorType) => i18n.t(`profile:chance.${CHANCE_KEYS[type]}`, { count: 2 });
+export const chanceWords = (type: SessionErrorType, lng?: string) => i18n.t(`profile:chance.${CHANCE_KEYS[type]}`, { count: 2, lng });
 
 /** "3 more words with đ" for a type that still needs `missing` of them to be judged; "1 more word with đ" for one. */
-export const missingWords = (type: SessionErrorType, missing: number) =>
-  i18n.t('profile:errorCard.missing', { count: missing, what: i18n.t(`profile:chance.${CHANCE_KEYS[type]}`, { count: missing }) });
+export const missingWords = (type: SessionErrorType, missing: number, lng?: string) =>
+  i18n.t('profile:errorCard.missing', { count: missing, lng, what: i18n.t(`profile:chance.${CHANCE_KEYS[type]}`, { count: missing, lng }) });

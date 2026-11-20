@@ -295,7 +295,7 @@ describe('ProfileErrorProfile: Practice this error (SCRUM-274)', () => {
     expect(within(region()).queryByRole('link', { name: /^Practice this error/ })).not.toBeInTheDocument();
   });
 
-  it('has no button on the English error types, which Train cannot practice, and shows them again in Vietnamese', async () => {
+  it('links the English error types to their English Train lessons too (SCRUM-319), and the Vietnamese ones in Vietnamese', async () => {
     const user = userEvent.setup();
     const english = profileOf(
       [item('LETTER_WRONG', { errors: 12, rate: 3 }), item('LETTERS_SWAPPED', { errors: 9, opportunities: 50, rate: 18, level: 'weak' })],
@@ -303,11 +303,15 @@ describe('ProfileErrorProfile: Practice this error (SCRUM-274)', () => {
     );
     // A learner who types English: their own profile is the English one, the button of the panel shows the Vietnamese one.
     getErrorProfile.mockImplementation((language?: string) => Promise.resolve(language === 'vi' ? profile : english));
-    renderWithProviders(<ProfileErrorProfile />);
+    renderWithProviders(<ProfileErrorProfile />, { route: '/profile', otherRoutes: { '/typing': <UrlSearch /> } });
 
     expect(await within(region()).findAllByRole('listitem')).toHaveLength(2);
-    expect(within(region()).queryByRole('link', { name: /^Practice this error/ })).not.toBeInTheDocument();
-    expect(within(region()).queryByRole('button', { name: /^Practice this error/ })).not.toBeInTheDocument();
+    expect(within(region()).getAllByRole('link', { name: /^Practice this error: / })).toHaveLength(2);
+    // The Typing page switches the learner's language to the one of the type before the lesson starts (TypingPage tests).
+    expect(within(itemOf('Swapped letters')).getByRole('link', { name: 'Practice this error: Swapped letters' })).toHaveAttribute(
+      'href',
+      '/typing?mode=targeted&focus=LETTERS_SWAPPED',
+    );
 
     await user.click(within(region()).getByRole('button', { name: /Switch to Vietnamese/ }));
 

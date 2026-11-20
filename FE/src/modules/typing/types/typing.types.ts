@@ -1,5 +1,4 @@
 import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
-import type { WordErrorType } from '@/shared/lib/vietnamese-errors';
 
 /**
  * `daily` sessions are old tries of the removed daily challenge: they still show in the history. `targeted` is Weak spots
@@ -28,8 +27,8 @@ export interface TypingSession {
   owner: string;
   mode: SessionMode;
   /**
-   * What the learner typed in (SCRUM-219): their Practice language, always `vi` in the placement test and in Weak spots. It
-   * picks the error set.
+   * What the learner typed in (SCRUM-219): the language they typed when it started, in Practice, the placement test
+   * (SCRUM-305) and Weak spots (SCRUM-319). It picks the error set.
    */
   language?: TypingLanguage;
   /** Missing on a Weak spots lesson, which types words of the word bank, not a passage. */
@@ -42,7 +41,7 @@ export interface TypingSession {
    * (no type with enough data in the error profile yet, or no word for the type chosen) and the session types a random passage
    * instead.
    */
-  focusErrorTypes?: WordErrorType[];
+  focusErrorTypes?: SessionErrorType[];
   status: SessionStatus;
   words: SessionWord[];
   startedAt: string;
@@ -108,7 +107,7 @@ export interface StartSessionInput {
   /** The time the learner chose; a placement session needs it to be ranked (US10.1). */
   timeLimitSeconds?: number;
   /** Weak spots only: the one error type to practice. Missing = the learner's types with the highest error rates. */
-  errorType?: WordErrorType;
+  errorType?: SessionErrorType;
 }
 
 /** One entry of the passage dropdown (`GET /api/passages`): no text. */

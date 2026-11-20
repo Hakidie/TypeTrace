@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { MAX_REPLAY_BYTES } from '../models/session-replay.model';
 import { sessionModes, sessionStatuses, startableModes, TIME_LIMIT_CHOICES_SECONDS } from '../models/typing-session.model';
 import { paginationQuerySchema, sortSchema } from '../utils/pagination';
+import { EnglishError } from '../utils/english-errors';
 import { WordError } from '../utils/vietnamese-errors';
 import { objectIdSchema } from './common.validator';
 
@@ -18,8 +19,11 @@ export const createSessionSchema = z
       .number()
       .refine((seconds) => (TIME_LIMIT_CHOICES_SECONDS as readonly number[]).includes(seconds), 'Choose one of the times offered')
       .optional(),
-    /** Weak spots only (`targeted`, US3.2): the one error type to practice. Missing = the learner's types with the highest error rates. */
-    errorType: z.enum(WordError).optional()
+    /**
+     * Weak spots only (`targeted`, US3.2): the one error type to practice, of either set here; the service checks that it is
+     * one of the learner's typing language (SCRUM-319, 400 otherwise). Missing = the learner's types with the highest error rates.
+     */
+    errorType: z.enum({ ...WordError, ...EnglishError }).optional()
   })
   .refine((body) => body.mode !== 'targeted' || body.passageId === undefined, {
     message: 'A weak spots lesson picks its own words',

@@ -1,6 +1,9 @@
-import { screen } from '@testing-library/react';
+import { Fragment, act, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { i18n } from '@/shared/i18n/i18n';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { GuestTypingPage } from './GuestTypingPage';
 
@@ -15,6 +18,12 @@ vi.mock('@/modules/home/lib/guest-passages', async (importActual) => ({
     words: language === 'en' ? ['Hello', 'world'] : ['Tiếng', 'Việt'],
   }),
 }));
+
+/** As `AppLayout`: the page is drawn again when the language of the interface changes, which the language button does (SCRUM-319). */
+const Redrawn = ({ children }: { children: ReactNode }) => {
+  const { i18n: instance } = useTranslation();
+  return <Fragment key={instance.language}>{children}</Fragment>;
+};
 
 const renderPage = (route = '/typing') =>
   renderWithProviders(<GuestTypingPage />, { route, otherRoutes: { '/login': 'login page' } });
@@ -135,9 +144,30 @@ describe('GuestTypingPage', () => {
     // The placement test has one test per language (SCRUM-305): its tab (locked for a guest) stays in English.
     expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
 
+    // Back to Vietnamese: the interface follows the button (SCRUM-319), kept in this browser as a guest's choice is.
     await user.click(screen.getByRole('button', { name: 'Typing language: English. Switch to Vietnamese' }));
-    expect(screen.getByLabelText('Passage to type')).toHaveTextContent('Tiếng');
-    expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Đoạn văn cần gõ')).toHaveTextContent('Tiếng');
+    expect(i18n.language).toBe('vi');
+    expect(localStorage.getItem('typetrace.uiLanguage')).toBe('vi');
+    expect(screen.getByRole('radio', { name: 'Kiểm tra' })).toBeInTheDocument();
+    noApiCalls();
+  });
+
+  it('keeps the English the guest chose when the page is drawn again in the English interface', async () => {
+    const user = userEvent.setup();
+    await act(() => i18n.changeLanguage('vi'));
+    renderWithProviders(
+      <Redrawn>
+        <GuestTypingPage />
+      </Redrawn>,
+      { route: '/typing' },
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Ngôn ngữ gõ: Tiếng Việt. Chuyển sang Tiếng Anh' }));
+
+    await waitFor(() => expect(i18n.language).toBe('en'));
+    expect(await screen.findByRole('button', { name: 'Typing language: English. Switch to Vietnamese' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Passage to type')).toHaveTextContent('Hello');
     noApiCalls();
   });
 
