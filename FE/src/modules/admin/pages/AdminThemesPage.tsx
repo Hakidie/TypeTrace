@@ -1,5 +1,6 @@
 import { Moon, Palette, Sun } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -7,6 +8,7 @@ import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { LoadingState } from '@/shared/components/loading-state';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { useListParams } from '@/shared/hooks/use-list-params';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { fallbackThemes, type ThemeMode } from '@/shared/lib/theme';
@@ -18,17 +20,13 @@ import type { AdminThemeListParams } from '../types/admin.types';
 
 const PAGE_SIZE = 15;
 
-const SORT_OPTIONS = [
-  { value: '-createdAt', label: 'Newest' },
-  { value: 'createdAt', label: 'Oldest' },
-  { value: 'name', label: 'Name A–Z' },
-  { value: '-name', label: 'Name Z–A' },
-];
-
-const MODE_OPTIONS = [
-  { value: 'true', label: 'Dark' },
-  { value: 'false', label: 'Light' },
-];
+// The values of the sort; the words are the `themes.sort.*` keys.
+const SORTS = [
+  ['-createdAt', 'newest'],
+  ['createdAt', 'oldest'],
+  ['name', 'nameAsc'],
+  ['-name', 'nameDesc'],
+] as const;
 
 const toOption = (theme: Theme): ThemeOption => ({ id: theme._id, name: theme.name, colors: theme.colors, own: true });
 
@@ -37,6 +35,14 @@ const toOption = (theme: Theme): ThemeOption => ({ id: theme._id, name: theme.na
  * Settings page plus a Mode button) and a list of the themes with search, sort, a mode filter and pagination.
  */
 export const AdminThemesPage = () => {
+  const { t } = useTranslation('admin');
+  const SORT_OPTIONS = SORTS.map(([value, key]) => ({ value, label: t(`themes.sort.${key}`) }));
+  // Dark and Light are the words of the mode switch of the header (`common`).
+  const modeName = (dark: boolean) => (dark ? t('common:menu.dark') : t('common:menu.light'));
+  const MODE_OPTIONS = [
+    { value: 'true', label: modeName(true) },
+    { value: 'false', label: modeName(false) },
+  ];
   const list = useListParams({ sort: '-createdAt' });
   const isDark = list.get('isDark') as AdminThemeListParams['isDark'];
 
@@ -84,15 +90,15 @@ export const AdminThemesPage = () => {
       return (
         <EmptyState
           icon={Palette}
-          title={isFiltered ? 'No matching themes' : 'No themes yet'}
-          description={isFiltered ? 'Try another search or filter.' : 'Create the first TypeTrace theme above.'}
+          title={isFiltered ? t('themes.noMatch') : t('themes.none')}
+          description={isFiltered ? t('themes.tryAnother') : t('themes.createFirst')}
         />
       );
     }
     return (
       <>
         <ThemeGrid
-          label="Themes"
+          label={t('themes.title')}
           themes={items.map(toOption)}
           currentId={editing?._id ?? ''}
           onSelect={startEditing}
@@ -109,13 +115,13 @@ export const AdminThemesPage = () => {
       <div ref={panelRef} className="scroll-mt-4">
         {/* PANEL Theme form: no visible title (the editor says what it is); screen readers still get one. */}
         <Panel bare>
-          <h2 className="sr-only">{editing ? 'Edit theme' : 'New theme'}</h2>
+          <h2 className="sr-only">{editing ? t('themes.editTheme') : t('themes.newTheme')}</h2>
               <ThemeEditor
                 key={`${editing?._id ?? mode}-${round}`}
                 mode={mode}
                 plain
                 large
-                label={editing ? 'Edit theme' : 'New theme'}
+                label={editing ? t('themes.editTheme') : t('themes.newTheme')}
                 initialName={editing?.name}
                 initialColors={editing?.colors ?? fallbackThemes[mode].colors}
                 takenNames={items.filter((theme) => theme._id !== editing?._id).map((theme) => theme.name)}
@@ -130,16 +136,22 @@ export const AdminThemesPage = () => {
                 // One button for the mode, like Cancel and Save: it shows the mode now and switches to the other. Only for a new theme: the mode of an existing one cannot change.
                 actions={(colors) =>
                   !editing && (
-                  <button
-                    type="button"
-                    aria-label={`Mode: ${mode === 'dark' ? 'Dark' : 'Light'}`}
-                    title={`Switch to ${mode === 'dark' ? 'Light' : 'Dark'}`}
-                    onClick={() => setNewMode(mode === 'dark' ? 'light' : 'dark')}
-                    className="flex size-9 items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    style={{ backgroundColor: `color-mix(in srgb, ${colors.text} 15%, transparent)`, color: colors.text }}
-                  >
-                    {mode === 'dark' ? <Moon className="size-5" aria-hidden /> : <Sun className="size-5" aria-hidden />}
-                  </button>
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={t('themes.mode', { mode: modeName(mode === 'dark') })}
+                          onClick={() => setNewMode(mode === 'dark' ? 'light' : 'dark')}
+                          className="flex size-9 items-center justify-center hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          style={{ backgroundColor: `color-mix(in srgb, ${colors.text} 15%, transparent)`, color: colors.text }}
+                        >
+                          {mode === 'dark' ? <Moon className="size-5" aria-hidden /> : <Sun className="size-5" aria-hidden />}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('themes.switchTo', { mode: modeName(mode !== 'dark') })}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   )
                 }
               />
@@ -148,7 +160,7 @@ export const AdminThemesPage = () => {
 
       {/* PANEL Themes */}
       <Panel
-        title="Themes"
+        title={t('themes.title')}
         bare
         titleClassName={sectionTitleClass}
         className="flex flex-col gap-3"
@@ -156,14 +168,14 @@ export const AdminThemesPage = () => {
           <CompactToolbar
             showWords
             search={{
-              label: 'Search themes',
-              placeholder: 'Search name…',
+              label: t('themes.searchLabel'),
+              placeholder: t('themes.searchPlaceholder'),
               defaultValue: list.q,
               onSearch: (value) => list.set('q', value),
             }}
             sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-            filters={[{ label: 'Mode', value: isDark ?? '', options: MODE_OPTIONS, onChange: (value) => list.set('isDark', value) }]}
-            count={{ icon: Palette, value: themes.data?.total ?? '…', label: 'Themes' }}
+            filters={[{ label: t('themes.filterMode'), value: isDark ?? '', options: MODE_OPTIONS, onChange: (value) => list.set('isDark', value) }]}
+            count={{ icon: Palette, value: themes.data?.total ?? '…', label: t('themes.title') }}
           />
         }
       >
@@ -173,9 +185,9 @@ export const AdminThemesPage = () => {
       <ConfirmDialog
         open={deleting !== undefined}
         onOpenChange={(open) => !open && setDeleting(undefined)}
-        title="Delete this theme?"
-        description={deleting ? `"${deleting.name}" is removed for every learner. Those who use it go back to the built-in theme.` : undefined}
-        confirmLabel="Delete"
+        title={t('themes.deleteTitle')}
+        description={deleting ? t('themes.deleteDescription', { name: deleting.name }) : undefined}
+        confirmLabel={t('common:actions.delete')}
         destructive
         pending={remove.isPending}
         onConfirm={confirmDelete}

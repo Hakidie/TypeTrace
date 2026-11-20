@@ -4,6 +4,7 @@ import type { DataTableColumn } from '@/shared/components/data-table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
+import { i18n } from '@/shared/i18n/i18n';
 
 interface UserColumnOptions {
   currentUserId?: string;
@@ -14,13 +15,14 @@ interface UserColumnOptions {
 /**
  * Columns of the users table. `sortKey` values must be allowed by
  * `listUsersQuerySchema` on the backend. Leave out `onEdit`/`onDelete` for a
- * read-only table (as on the dashboard).
+ * read-only table (as on the dashboard). The words are read in the language of the interface when it is called (SCRUM-336).
  */
 export const userColumns = ({ currentUserId, onEdit, onDelete }: UserColumnOptions = {}): DataTableColumn<CurrentUser>[] => {
+  const t = (key: string, options?: Record<string, unknown>) => i18n.t(`admin:${key}`, options);
   const columns: DataTableColumn<CurrentUser>[] = [
     {
       id: 'user',
-      header: 'User',
+      header: t('columns.user'),
       sortKey: 'email',
       cell: (user) => (
         <div className="flex items-center gap-3">
@@ -31,7 +33,7 @@ export const userColumns = ({ currentUserId, onEdit, onDelete }: UserColumnOptio
           <div className="min-w-0">
             <p className="truncate font-medium">
               {user.displayName || '—'}
-              {user._id === currentUserId && <span className="ml-1 text-sm text-muted-foreground">(you)</span>}
+              {user._id === currentUserId && <span className="ml-1 text-sm text-muted-foreground">{t('columns.you')}</span>}
             </p>
             <p className="truncate text-sm text-muted-foreground">{user.email}</p>
           </div>
@@ -40,33 +42,33 @@ export const userColumns = ({ currentUserId, onEdit, onDelete }: UserColumnOptio
     },
     {
       id: 'role',
-      header: 'Role',
+      header: t('columns.role'),
       sortKey: 'role',
-      cell: (user) => <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>{user.role}</Badge>,
+      cell: (user) => <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>{t(`roles.${user.role}`)}</Badge>,
     },
     {
       id: 'verified',
-      header: 'Email',
+      header: t('columns.email'),
       cell: (user) =>
-        user.isEmailVerified ? <Badge variant="outline">Verified</Badge> : <Badge variant="destructive">Unverified</Badge>,
+        user.isEmailVerified ? <Badge variant="outline">{t('columns.verified')}</Badge> : <Badge variant="destructive">{t('columns.unverified')}</Badge>,
     },
     {
       id: 'createdAt',
-      header: 'Joined',
+      header: t('columns.joined'),
       sortKey: 'createdAt',
-      cell: (user) => new Date(user.createdAt).toLocaleDateString(),
+      cell: (user) => new Date(user.createdAt).toLocaleDateString(i18n.language),
     },
   ];
 
   if (onEdit || onDelete) {
     columns.push({
       id: 'actions',
-      header: <span className="sr-only">Actions</span>,
+      header: <span className="sr-only">{t('columns.actions')}</span>,
       className: 'text-right',
       cell: (user) => (
         <div className="flex justify-end gap-1">
           {onEdit && (
-            <Button variant="ghost" size="sm" aria-label={`Edit ${user.email}`} onClick={() => onEdit(user)}>
+            <Button variant="ghost" size="sm" aria-label={t('columns.edit', { email: user.email })} onClick={() => onEdit(user)}>
               <Pencil className="size-4" />
             </Button>
           )}
@@ -74,7 +76,7 @@ export const userColumns = ({ currentUserId, onEdit, onDelete }: UserColumnOptio
             <Button
               variant="ghost"
               size="sm"
-              aria-label={`Delete ${user.email}`}
+              aria-label={t('columns.delete', { email: user.email })}
               disabled={user._id === currentUserId}
               onClick={() => onDelete(user)}
             >

@@ -1,5 +1,6 @@
 import { Calendar, CalendarDays, CalendarRange, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { anchorFor, periodLabel, periodOptions, periodValue } from '@/modules/profile/lib/chart-period';
 import { axisLabel, rangeUnit, tooltipTitle } from '@/modules/profile/lib/month-label';
@@ -13,26 +14,25 @@ import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { usePlanUsers } from '@/modules/plan/hooks/use-admin-plans';
 import { PLAN_ZONE } from '@/modules/plan/plan.config';
 
-// Week, Month, Year: the smallest first, as on the Progress page.
-const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
-  { value: 'year', label: 'Year' },
-];
+// Week, Month, Year: the smallest first, as on the Progress page (their names are its `progress:range.*`).
+const RANGES: ChartRange[] = ['week', 'month', 'year'];
 const ICONS: Record<ChartRange, LucideIcon> = { year: Calendar, month: CalendarRange, week: CalendarDays };
 
 const LINE_COLOR = 'var(--primary)';
 const TICK_SIZE = 16;
 
 /** The tooltip of a point: the period and how many users there are at its end. */
-const PointTooltip = ({ label, total }: { label: string; total: number }) => (
-  <div className="border border-border bg-background px-3 py-2 text-base">
-    <p className="font-semibold">{label}</p>
-    <p>
-      <span className="text-primary">Total users:</span> {total}
-    </p>
-  </div>
-);
+const PointTooltip = ({ label, total }: { label: string; total: number }) => {
+  const { t } = useTranslation('admin');
+  return (
+    <div className="border border-border bg-background px-3 py-2 text-base">
+      <p className="font-semibold">{label}</p>
+      <p>
+        <span className="text-primary">{t('chart.total')}:</span> {total}
+      </p>
+    </div>
+  );
+};
 
 /**
  * How many users there are over time, as a line chart built like the chart of the Plans page: a title and, in the look of the compact toolbar, Week,
@@ -40,6 +40,7 @@ const PointTooltip = ({ label, total }: { label: string; total: number }) => (
  * The periods to come are not drawn. No frame or background.
  */
 export const UsersChart = () => {
+  const { t } = useTranslation('admin');
   const today = dateKeyIn(new Date(), PLAN_ZONE);
   const [range, setRange] = useState<ChartRange>('year');
   const [picked, setPicked] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export const UsersChart = () => {
 
   const renderChart = () => {
     if (query.isPending) return <LoadingState rows={1} />;
-    if (query.isError) return <ErrorState error={query.error} title="Could not load the users chart" onRetry={() => void query.refetch()} />;
+    if (query.isError) return <ErrorState error={query.error} title={t('chart.loadFailed')} onRetry={() => void query.refetch()} />;
     const shown = query.data.range;
     const points = query.data.points;
     const data = points.map((point) => ({ key: point.key, label: axisLabel(shown, point.key), total: point.premium + point.free }));
@@ -56,7 +57,7 @@ export const UsersChart = () => {
     const marks = [0, Math.round(top / 2), top].filter((mark, index, all) => all.indexOf(mark) === index);
     return (
       // The chart takes the height the page leaves it (at least 13rem): the box is positioned, so the chart reads its size from it.
-      <div role="img" aria-label={`Users by ${rangeUnit(shown)}`} className="relative min-h-52 flex-1">
+      <div role="img" aria-label={t('chart.byUnit', { unit: rangeUnit(shown) })} className="relative min-h-52 flex-1">
         <div className="absolute inset-0">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 8, right: 28, bottom: 0, left: 28 }}>
@@ -66,7 +67,7 @@ export const UsersChart = () => {
                 cursor={{ stroke: 'var(--border)' }}
                 content={({ payload }) => (payload?.length ? <PointTooltip label={tooltipTitle(shown, payload[0].payload.key as string)} total={payload[0].payload.total as number} /> : null)}
               />
-              <Line dataKey="total" name="Total users" stroke={LINE_COLOR} strokeWidth={2} type="monotone" dot={false} activeDot={{ r: 4, fill: LINE_COLOR, stroke: LINE_COLOR }} isAnimationActive={false} />
+              <Line dataKey="total" name={t('chart.total')} stroke={LINE_COLOR} strokeWidth={2} type="monotone" dot={false} activeDot={{ r: 4, fill: LINE_COLOR, stroke: LINE_COLOR }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -75,9 +76,9 @@ export const UsersChart = () => {
   };
 
   return (
-    <section aria-label="Users chart" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label={t('chart.region')} className="flex min-h-0 flex-1 flex-col">
       <Panel
-        title="Total users"
+        title={t('chart.title')}
         bare
         fill
         titleClassName={sectionTitleClass}
@@ -85,10 +86,10 @@ export const UsersChart = () => {
         actions={
           <CompactToolbar
             menus={[
-              ...RANGE_OPTIONS.map(({ value: menuRange, label }) => {
+              ...RANGES.map((menuRange) => {
                 const active = menuRange === range;
                 return {
-                  label,
+                  label: t(`progress:range.${menuRange}`),
                   icon: ICONS[menuRange],
                   valueLabel: periodLabel(menuRange, date),
                   active,

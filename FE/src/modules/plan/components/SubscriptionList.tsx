@@ -1,5 +1,6 @@
 import { History } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ExpandButton } from '@/shared/components/expand-button';
@@ -19,27 +20,24 @@ const PAGE_SIZE = 3;
 // The Expand button under the list shows 10 rows a page.
 const EXPANDED_PAGE_SIZE = 10;
 
+// The options of the toolbar: a value and the key (namespace `store`) of its words.
 const SORT_OPTIONS = [
-  { value: '-createdAt', label: 'Newest' },
-  { value: 'createdAt', label: 'Oldest' },
-  { value: '-expiresAt', label: 'Expires last' },
-  { value: 'expiresAt', label: 'Expires first' },
+  { value: '-createdAt', key: 'adminPlans.list.sort.newest' },
+  { value: 'createdAt', key: 'adminPlans.list.sort.oldest' },
+  { value: '-expiresAt', key: 'adminPlans.list.sort.expiresLast' },
+  { value: 'expiresAt', key: 'adminPlans.list.sort.expiresFirst' },
 ];
+// The plan names stay as they are in every language.
 const PLAN_OPTIONS = [
-  { value: 'free', label: 'Free' },
-  { value: 'premium', label: 'Premium' },
+  { value: 'free', key: 'plan.free' },
+  { value: 'premium', key: 'plan.premium' },
 ];
 // The payment methods (VNPay, MoMo...) are added here when the payments record them.
-const SOURCE_OPTIONS = [{ value: 'none', label: 'None' }];
-const STATUS_OPTIONS = [
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'active', label: 'Active' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'ended', label: 'Ended' },
-];
+const SOURCE_OPTIONS = [{ value: 'none', key: 'adminPlans.sources.none' }];
+const STATUS_OPTIONS = (['upcoming', 'active', 'cancelled', 'ended'] as const).map((value) => ({ value, key: `adminPlans.statuses.${value}` }));
 const BY_OPTIONS = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'system', label: 'System' },
+  { value: 'admin', key: 'adminPlans.changedBy.admin' },
+  { value: 'system', key: 'adminPlans.changedBy.system' },
 ];
 
 /**
@@ -47,6 +45,8 @@ const BY_OPTIONS = [
  * a list of cards (`SubscriptionCard`) and pages. No frame or background. With `onSwitch` a button next to the title shows the plans in its place (`PanelTitleSwitch`).
  */
 export const SubscriptionList = ({ onSwitch }: { onSwitch?: () => void } = {}) => {
+  const { t } = useTranslation('store');
+  const words = (options: { value: string; key: string }[]) => options.map(({ value, key }) => ({ value, label: t(key) }));
   const list = useListParams({ sort: '-createdAt', prefix: 'subscriptions' });
   const [expanded, setExpanded] = useState(false);
   const plan = list.get('plan') as PlanId | '';
@@ -78,39 +78,39 @@ export const SubscriptionList = ({ onSwitch }: { onSwitch?: () => void } = {}) =
     if (rows.data.items.length === 0) {
       if (rows.data.totalPages > 0 && rows.data.page > rows.data.totalPages) return <LoadingState rows={3} />;
       return list.q || plan || method || by || status ? (
-        <EmptyState icon={History} title="No matching plan changes" description="Try another search or filter." />
+        <EmptyState icon={History} title={t('adminPlans.list.emptyFilteredTitle')} description={t('adminPlans.list.emptyFilteredHint')} />
       ) : (
-        <EmptyState icon={History} title="No plan changes yet" description="Every time a user's plan changes, it shows here." />
+        <EmptyState icon={History} title={t('adminPlans.list.emptyTitle')} description={t('adminPlans.list.emptyHint')} />
       );
     }
     return null;
   };
 
   return (
-    <section aria-label="Subscriptions">
+    <section aria-label={t('adminPlans.list.region')}>
       <Panel
-        title="Subscription list"
-        titleAction={onSwitch && <PanelTitleSwitch other="Plans" onClick={onSwitch} />}
+        title={t('adminPlans.list.title')}
+        titleAction={onSwitch && <PanelTitleSwitch other={t('adminPlans.title')} onClick={onSwitch} />}
         bare
         titleClassName={sectionTitleClass}
         className="space-y-3"
         actions={
           <CompactToolbar
             showWords
-            search={{ label: 'Search users', placeholder: 'User name', defaultValue: list.q, onSearch: (value) => list.set('q', value) }}
-            sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
+            search={{ label: t('adminPlans.list.searchLabel'), placeholder: t('adminPlans.list.searchPlaceholder'), defaultValue: list.q, onSearch: (value) => list.set('q', value) }}
+            sort={{ value: list.sort, options: words(SORT_OPTIONS), onChange: (value) => list.set('sort', value) }}
             filters={[
-              { label: 'Plan', value: plan, options: PLAN_OPTIONS, onChange: (value) => list.set('plan', value) },
-              { label: 'Source', value: method, options: SOURCE_OPTIONS, onChange: (value) => list.set('method', value) },
-              { label: 'Status', value: status, options: STATUS_OPTIONS, onChange: (value) => list.set('status', value) },
-              { label: 'By', value: by, options: BY_OPTIONS, onChange: (value) => list.set('by', value) },
+              { label: t('adminPlans.list.plan'), value: plan, options: words(PLAN_OPTIONS), onChange: (value) => list.set('plan', value) },
+              { label: t('adminPlans.list.source'), value: method, options: words(SOURCE_OPTIONS), onChange: (value) => list.set('method', value) },
+              { label: t('adminPlans.list.status'), value: status, options: words(STATUS_OPTIONS), onChange: (value) => list.set('status', value) },
+              { label: t('adminPlans.list.by'), value: by, options: words(BY_OPTIONS), onChange: (value) => list.set('by', value) },
             ]}
-            count={{ icon: History, value: rows.data?.total ?? '…', label: 'Changes' }}
+            count={{ icon: History, value: rows.data?.total ?? '…', label: t('adminPlans.list.changes') }}
           />
         }
       >
         {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar. */}
-        <div className="-mx-4 space-y-3" aria-label="Subscription cards">
+        <div className="-mx-4 space-y-3" aria-label={t('adminPlans.list.cards')}>
           {rows.data && rows.data.items.length > 0
             ? rows.data.items.map((row) => (
                 <SubscriptionCard key={row._id} row={row} />

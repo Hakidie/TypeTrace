@@ -1,6 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle2, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
@@ -10,21 +12,29 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
+import { monthShort } from '@/shared/lib/local-date';
 import { currentStreak } from '@/shared/lib/streak';
 import { cn } from '@/shared/lib/utils';
 import { useSetUserStatus, useUpdateUser } from '../hooks/use-admin';
 import type { UserSessionDay, UserStatus, UserTypingStats } from '../types/admin.types';
 
-// Mirrors `adminUpdateUserSchema` in BE/src/validators/admin-user.validator.ts.
-const schema = z.object({
-  displayName: z.string().trim().min(1, 'Name is required').max(100, 'Max 100 characters'),
-  bio: z.string().trim().max(200, 'Max 200 characters'),
-  role: z.enum(['user', 'admin']),
-  isEmailVerified: z.boolean(),
-  loginOtpEnabled: z.boolean(),
-});
+// Mirrors `adminUpdateUserSchema` in BE/src/validators/admin-user.validator.ts; the messages in the language of the interface.
+const schemaOf = (t: TFunction<'admin'>) =>
+  z.object({
+    displayName: z.string().trim().min(1, t('form.nameRequired')).max(100, t('form.max', { max: 100 })),
+    bio: z.string().trim().max(200, t('form.max', { max: 200 })),
+    role: z.enum(['user', 'admin']),
+    isEmailVerified: z.boolean(),
+    loginOtpEnabled: z.boolean(),
+  });
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof schemaOf>>;
+
+/** "05 Dec 2026" on this device's calendar, the month in the language of the interface. */
+const formatDay = (iso: string) => {
+  const date = new Date(iso);
+  return `${String(date.getDate()).padStart(2, '0')} ${monthShort(date.getMonth() + 1)} ${date.getFullYear()}`;
+};
 
 // The numbers of the profile header (`ProfileHeader`): labels on the line of the role, values on the line of the name.
 // On a phone everything is stacked and the numbers come last, in three columns; from `lg` they sit on the right.
@@ -81,6 +91,8 @@ interface UserFormProps {
 
 /** Edits one user, laid out like the passage form. Mount it with `key={user?._id}` to switch user. */
 export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active', isSelf, onDone }: UserFormProps) => {
+  const { t } = useTranslation('admin');
+  const schema = useMemo(() => schemaOf(t), [t]);
   const updateUser = useUpdateUser();
   const setStatus = useSetUserStatus();
   const isPending = updateUser.isPending || setStatus.isPending;
@@ -109,9 +121,9 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
 
   const role = useWatch({ control, name: 'role' });
   const statList = [
-    { label: 'Wpm', value: stats ? String(Math.round(stats.wpm)) : '0000' },
-    { label: 'Accuracy', value: stats ? `${Math.round(stats.accuracy)}%` : '000%' },
-    { label: 'Streak', value: sessions ? `${String(currentStreak(sessions)).padStart(3, '0')}D` : user ? '—' : '000D' },
+    { key: 'wpm', label: t('form.stats.wpm'), value: stats ? String(Math.round(stats.wpm)) : '0000' },
+    { key: 'accuracy', label: t('form.stats.accuracy'), value: stats ? `${Math.round(stats.accuracy)}%` : '000%' },
+    { key: 'streak', label: t('form.stats.streak'), value: sessions ? `${String(currentStreak(sessions)).padStart(3, '0')}D` : user ? '—' : '000D' },
   ];
 
   return (
@@ -120,9 +132,9 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
       {/* The user's avatar on the left, as tall as the form: the uploaded picture (unless the account chose its pixel avatar) fills the column, else the pixel avatar, centered. */}
       <div className="hidden w-40 shrink-0 items-center justify-center self-stretch overflow-hidden lg:flex" aria-hidden={user ? undefined : true}>
         {user?.avatarUrl && user.avatarSource !== 'pixel' ? (
-          <img src={user.avatarUrl} alt={`Avatar of ${user.displayName}`} className="size-full object-cover" />
+          <img src={user.avatarUrl} alt={t('form.avatarOf', { name: user.displayName })} className="size-full object-cover" />
         ) : (
-          <AvatarSprite look={user?.avatar ?? DEFAULT_AVATAR} scale={3.25} label={`Avatar of ${user?.displayName ?? 'the user'}`} />
+          <AvatarSprite look={user?.avatar ?? DEFAULT_AVATAR} scale={3.25} label={t('form.avatarOf', { name: user?.displayName ?? t('form.theUser') })} />
         )}
       </div>
       <form className="flex min-w-0 flex-1 flex-col gap-4" onSubmit={(event) => void save(event).catch(() => undefined)}>
@@ -130,17 +142,17 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
             description under it, the numbers on the right (labels on the line of the role, values on the line of the name).
             The grid takes the height left on the screen: the description grows with it. */}
         <section
-          aria-label="User info"
+          aria-label={t('form.info')}
           className="grid grid-cols-3 content-start gap-y-3 text-primary lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_auto_auto_auto] lg:gap-y-0"
         >
-          <p className={cn(fieldLabelClass, 'col-span-3 lg:col-span-1 lg:col-start-1 lg:row-start-1')}>{!user ? 'Role' : role === 'admin' ? 'Admin' : 'User'}</p>
+          <p className={cn(fieldLabelClass, 'col-span-3 lg:col-span-1 lg:col-start-1 lg:row-start-1')}>{!user ? t('form.role') : t(`roles.${role}`)}</p>
 
           {/* The email is under the name; `pb` on the email is the gap of the passage form (its 1rem gap + 0.375rem under the title). */}
           <div className="col-span-3 min-w-0 lg:col-span-1 lg:col-start-1 lg:row-start-2">
             <Input
               className="h-auto w-full min-w-0 border-0 bg-transparent px-0 py-0 text-[2rem] leading-snug text-primary placeholder:text-primary focus-visible:ring-0 lg:field-sizing-content lg:w-auto lg:max-w-full"
-              aria-label="Display name"
-              placeholder="Display name"
+              aria-label={t('form.displayName')}
+              placeholder={t('form.displayName')}
               disabled={!user}
               {...register('displayName')}
             />
@@ -154,7 +166,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
           {/* The email is read only (the backend does not let an admin change it), in the look of the name. */}
           <p
             className="col-span-3 min-w-0 truncate self-start px-0 text-[1.25rem] leading-snug text-primary/70 lg:col-span-2 lg:col-start-1 lg:row-start-3 lg:pb-[1.375rem]"
-            aria-label="Email address"
+            aria-label={t('form.emailAddress')}
           >
             {user?.email ?? 'name@example.com'}
           </p>
@@ -168,8 +180,8 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
                 // 3.0625rem = one line of 1.5rem text (leading-snug) and the padding.
                 'min-h-0 h-[3.0625rem] overflow-hidden focus:h-auto focus:max-h-[60vh] focus:overflow-auto focus:[field-sizing:content]',
               )}
-              aria-label="Description"
-              placeholder="No description"
+              aria-label={t('form.description')}
+              placeholder={t('form.noDescription')}
               maxLength={200}
               disabled={!user}
               {...register('bio')}
@@ -181,13 +193,13 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
             )}
           </div>
 
-          {statList.map(({ label }, i) => (
-            <span key={label} className={cn(statLabelClass, statColumn[i])}>
+          {statList.map(({ key, label }, i) => (
+            <span key={key} className={cn(statLabelClass, statColumn[i])}>
               {label}
             </span>
           ))}
-          {statList.map(({ label, value }, i) => (
-            <div key={label} className={cn(statValueClass, statColumn[i])}>
+          {statList.map(({ key, value }, i) => (
+            <div key={key} className={cn(statValueClass, statColumn[i])}>
               {value}
             </div>
           ))}
@@ -196,7 +208,7 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
         {/* As in the passage form: the date on the left, the switches and the buttons on the right (on a second line when the row is too narrow). */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
-            Joined {user ? new Date(user.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '00 Mon 0000'}
+            {t('form.joined', { day: user ? formatDay(user.createdAt) : t('form.noDay') })}
           </p>
 
           <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
@@ -205,11 +217,11 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
               name="role"
               render={({ field }) => (
                 <SwitchButton
-                  label="Admin role"
+                  label={t('form.adminRole')}
                   on={field.value === 'admin'}
-                  onLabel="Admin"
-                  offLabel="User"
-                  tip={isSelf ? 'You cannot change your own role.' : 'Admins can open this area.'}
+                  onLabel={t('roles.admin')}
+                  offLabel={t('roles.user')}
+                  tip={isSelf ? t('form.ownRole') : t('form.adminsOpen')}
                   disabled={isSelf || !user}
                   onToggle={() => field.onChange(field.value === 'admin' ? 'user' : 'admin')}
                 />
@@ -220,22 +232,22 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
               name="isEmailVerified"
               render={({ field }) => (
                 <SwitchButton
-                  label="Email verified"
+                  label={t('form.emailVerified')}
                   on={field.value}
-                  onLabel="Verified"
-                  offLabel="Unverified"
-                  tip="Whether the email address is confirmed."
+                  onLabel={t('columns.verified')}
+                  offLabel={t('columns.unverified')}
+                  tip={t('form.verifiedTip')}
                   disabled={!user}
                   onToggle={() => field.onChange(!field.value)}
                 />
               )}
             />
             <SwitchButton
-              label="Account active"
+              label={t('form.accountActive')}
               on={status === 'active'}
-              onLabel="Active"
-              offLabel="Locked"
-              tip={statusLocked ? 'Admins and your own account cannot be disabled.' : 'A locked account cannot log in.'}
+              onLabel={t('form.active')}
+              offLabel={t('form.locked')}
+              tip={statusLocked ? t('form.cannotDisable') : t('form.lockedTip')}
               disabled={statusLocked || !user}
               onToggle={() => setStatusChoice(status === 'locked' ? 'active' : 'locked')}
             />
@@ -244,22 +256,22 @@ export const UserForm = ({ user, stats, sessions, status: savedStatus = 'active'
               name="loginOtpEnabled"
               render={({ field }) => (
                 <SwitchButton
-                  label="Email code at login"
+                  label={t('form.emailCode')}
                   on={field.value}
-                  onLabel="Email code at login"
-                  offLabel="No email code"
-                  tip="Asks for a code sent by email when logging in."
+                  onLabel={t('form.emailCode')}
+                  offLabel={t('form.noEmailCode')}
+                  tip={t('form.emailCodeTip')}
                   disabled={!user}
                   onToggle={() => field.onChange(!field.value)}
                 />
               )}
             />
             <Button type="button" variant="outline" disabled={!user} onClick={onDone}>
-              Cancel
+              {t('common:actions.cancel')}
             </Button>
             <Button type="submit" disabled={!user || isPending}>
               {isPending && <Loader2 className="size-4 animate-spin" />}
-              Update user
+              {t('form.update')}
             </Button>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { termDaysText, termProgress } from '../lib/term-progress';
 import type { SubscriptionRow } from '../types/plan.types';
@@ -12,6 +13,7 @@ const formatShort = (iso: string) => new Date(iso).toLocaleDateString('en-GB', {
  * the user's email (28px), the day it starts on the left and the day it ends on the right (`Now` while it has no end). Hovering the bar says the days left. The admin who made the change shows between the two days (`by Boss`).
  */
 export const SubscriptionPeriod = ({ row }: { row: Pick<SubscriptionRow, 'startsAt' | 'endsAt' | 'changedByName'> }) => {
+  const { t } = useTranslation('store');
   const percent = termProgress(row.startsAt, row.endsAt);
   return (
     <div className="flex h-[61px] w-full min-w-0 flex-col justify-center pl-24">
@@ -20,7 +22,7 @@ export const SubscriptionPeriod = ({ row }: { row: Pick<SubscriptionRow, 'starts
           <TooltipTrigger asChild>
             <div
               role="progressbar"
-              aria-label="Term progress"
+              aria-label={t('adminPlans.period.progress')}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={percent}
@@ -35,9 +37,9 @@ export const SubscriptionPeriod = ({ row }: { row: Pick<SubscriptionRow, 'starts
       </TooltipProvider>
       <div className="flex justify-between gap-3 text-lg leading-7 text-muted-foreground">
         <span className="shrink-0">{formatShort(row.startsAt)}</span>
-        <span className="sr-only">to</span>
-        {row.changedByName && <span className="min-w-0 truncate">{`by ${row.changedByName}`}</span>}
-        <span className="shrink-0">{row.endsAt ? formatShort(row.endsAt) : 'Now'}</span>
+        <span className="sr-only">{t('adminPlans.period.to')}</span>
+        {row.changedByName && <span className="min-w-0 truncate">{t('adminPlans.period.by', { name: row.changedByName })}</span>}
+        <span className="shrink-0">{row.endsAt ? formatShort(row.endsAt) : t('adminPlans.period.now')}</span>
       </div>
     </div>
   );

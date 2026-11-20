@@ -1,5 +1,6 @@
 import { CalendarCheck, CalendarClock } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { ConfirmDialog } from "@/shared/components/confirm-dialog";
 import { EmptyState } from "@/shared/components/empty-state";
@@ -31,24 +32,14 @@ import {
 // Three rows a page.
 const PAGE_SIZE = 3;
 
-// The first option is the default one.
-const SORT_OPTIONS = [
-  { value: "-createdAt", label: "Newest" },
-  { value: "createdAt", label: "Oldest" },
-  { value: "-updatedAt", label: "Recently updated" },
-  { value: "title", label: "Title A–Z" },
-  { value: "-title", label: "Title Z–A" },
-];
-
-const TYPE_OPTIONS = DAILY_TASK_TYPES.map((type) => ({
-  value: type,
-  label: DAILY_TASK_TYPE_INFO[type].label,
-}));
-
-const STATUS_OPTIONS = [
-  { value: "true", label: "Active" },
-  { value: "false", label: "Inactive" },
-];
+// The first option is the default one; the labels are `dailyTasks:sort.<key>`.
+const SORT_KEYS = [
+  { value: "-createdAt", key: "newest" },
+  { value: "createdAt", key: "oldest" },
+  { value: "-updatedAt", key: "updated" },
+  { value: "title", key: "titleAZ" },
+  { value: "-title", key: "titleZA" },
+] as const;
 
 /**
  * Daily tasks (SCRUM-210), laid out like the learner's Passages page: the list (the chart of the learners who completed tasks
@@ -60,6 +51,14 @@ const STATUS_OPTIONS = [
  * menu, and pagination.
  */
 export const AdminDailyTasksPage = () => {
+  const { t } = useTranslation("dailyTasks");
+  // Built here, not when the module loads, so they are in the language of the interface.
+  const sortOptions = SORT_KEYS.map(({ value, key }) => ({ value, label: t(`sort.${key}`) }));
+  const typeOptions = DAILY_TASK_TYPES.map((value) => ({ value, label: DAILY_TASK_TYPE_INFO[value].label }));
+  const statusOptions = [
+    { value: "true", label: t("status.active") },
+    { value: "false", label: t("status.inactive") },
+  ];
   const list = useListParams({ sort: "-createdAt" });
   const type = list.get("type") as DailyTaskListParams["type"];
   const isActive = list.get("isActive") as DailyTaskListParams["isActive"];
@@ -134,20 +133,20 @@ export const AdminDailyTasksPage = () => {
       return isFiltered ? (
         <EmptyState
           icon={CalendarCheck}
-          title="No matching tasks"
-          description="Try another search or filter."
+          title={t("page.noMatch")}
+          description={t("page.noMatchHint")}
         />
       ) : (
         <EmptyState
           icon={CalendarCheck}
-          title="No daily tasks yet"
-          description="Add the first task with the form above."
+          title={t("page.none")}
+          description={t("page.noneHint")}
         />
       );
     }
     return (
       <>
-        <div className="space-y-2" aria-label="Daily task cards">
+        <div className="space-y-2" aria-label={t("page.cards")}>
           {tasks.data.items.map((task) => (
             <DailyTaskRow
               key={task._id}
@@ -186,7 +185,7 @@ export const AdminDailyTasksPage = () => {
           {/* No visible title (the form says what it is); screen readers still get one. */}
           {/* PANEL Task form */}
           <Panel bare fill>
-            <h2 className="sr-only">{editing ? "Edit task" : "New task"}</h2>
+            <h2 className="sr-only">{editing ? t("page.editTask") : t("page.newTask")}</h2>
             {/* `key` remounts the form, so it starts from the task being edited (or empty). */}
             <DailyTaskForm
               key={editing?._id ?? "new"}
@@ -203,10 +202,10 @@ export const AdminDailyTasksPage = () => {
                   <CompactToolbar
                     menus={[
                       {
-                        label: "Tasks per day",
+                        label: t("perDay.label"),
                         icon: CalendarClock,
                         valueLabel:
-                          perDay === undefined ? "— a day" : `${perDay} a day`,
+                          perDay === undefined ? t("perDay.unknown") : t("perDay.value", { count: perDay }),
                         options: [],
                         value: "",
                         onChange: () => {},
@@ -219,7 +218,7 @@ export const AdminDailyTasksPage = () => {
             />
             <div className="mt-3 flex shrink-0 items-center justify-center">
               <PanelTitleSwitch
-                other="Task list"
+                other={t("page.taskList")}
                 showLabel
                 onClick={() => setShowForm(false)}
               />
@@ -234,7 +233,7 @@ export const AdminDailyTasksPage = () => {
           {/* PANEL Tasks */}
           <div className="flex flex-col gap-3">
             <Panel
-              title="Task list"
+              title={t("page.taskList")}
               bare
               titleClassName={sectionTitleClass}
               className="flex flex-col gap-3"
@@ -242,34 +241,34 @@ export const AdminDailyTasksPage = () => {
                 <CompactToolbar
                   showWords
                   search={{
-                    label: "Search tasks",
-                    placeholder: "Search title or description…",
+                    label: t("page.search"),
+                    placeholder: t("page.searchPlaceholder"),
                     defaultValue: list.q,
                     onSearch: (value) => list.set("q", value),
                   }}
                   sort={{
                     value: list.sort,
-                    options: SORT_OPTIONS,
+                    options: sortOptions,
                     onChange: (value) => list.set("sort", value),
                   }}
                   filters={[
                     {
-                      label: "Type",
+                      label: t("page.type"),
                       value: type ?? "",
-                      options: TYPE_OPTIONS,
+                      options: typeOptions,
                       onChange: (value) => list.set("type", value),
                     },
                     {
-                      label: "Status",
+                      label: t("status.label"),
                       value: isActive ?? "",
-                      options: STATUS_OPTIONS,
+                      options: statusOptions,
                       onChange: (value) => list.set("isActive", value),
                     },
                   ]}
                   count={{
                     icon: CalendarCheck,
                     value: tasks.data?.total ?? "…",
-                    label: "Tasks",
+                    label: t("page.count"),
                   }}
                 />
               }
@@ -279,7 +278,7 @@ export const AdminDailyTasksPage = () => {
             {/* Apart from the panel, 12px under it (`gap-3` of this wrapper, not the page's `gap-8`). */}
             <div className="flex shrink-0 items-center justify-center">
               <PanelTitleSwitch
-                other={editing ? "Edit task" : "Daily task"}
+                other={editing ? t("page.editTask") : t("page.dailyTask")}
                 showLabel
                 onClick={() => setShowForm(true)}
               />
@@ -291,13 +290,13 @@ export const AdminDailyTasksPage = () => {
       <ConfirmDialog
         open={deleting !== undefined}
         onOpenChange={(open) => !open && setDeleting(undefined)}
-        title="Delete this task?"
+        title={t("page.deleteTitle")}
         description={
           deleting
-            ? `"${deleting.title}" is deleted for good. Deactivate it instead to keep it for later.`
+            ? t("page.deleteText", { title: deleting.title })
             : undefined
         }
-        confirmLabel="Delete"
+        confirmLabel={t("common:actions.delete")}
         destructive
         pending={deleteTask.isPending}
         onConfirm={confirmDelete}

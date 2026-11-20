@@ -1,8 +1,10 @@
 import { ArrowLeft, Keyboard, LogOut, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import type { NavItem } from '@/app/module.types';
 import { useCurrentUser, useLogout } from '@/modules/auth/hooks/use-current-user';
+import { useAdminPageName } from '@/shared/hooks/use-admin-page-name';
 import { shownPictureUrl } from '@/modules/auth/utils/avatar-picture';
 import { Avatar, AvatarFallback, AvatarImage } from '@/shared/components/ui/avatar';
 import { Button } from '@/shared/components/ui/button';
@@ -81,6 +83,8 @@ const CompactFlyout = ({
  * Footer: the signed-in admin and Logout.
  */
 export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSidebarProps) => {
+  const { t } = useTranslation();
+  const nameOf = useAdminPageName();
   const { data: user } = useCurrentUser();
   const handleLogout = useLogout();
   const { pathname } = useLocation();
@@ -92,7 +96,7 @@ export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSid
 
   return (
     <TooltipProvider delayDuration={200}>
-    <nav aria-label="Admin" className="flex h-full flex-col">
+    <nav aria-label={t('admin.nav')} className="flex h-full flex-col">
       {/* Same height as BrandHeader (py-3 + 36px logo + 1px border = 61px). */}
       <div className={cn('flex h-[61px] shrink-0 items-center border-b px-4', compact && 'justify-center px-0')}>
         <CompactTip compact={compact} label="TypeTrace">
@@ -106,7 +110,7 @@ export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSid
 
       <div className="flex flex-1 flex-col gap-1 p-3">
         {navItems.map((item) => (
-          <CompactFlyout key={item.to} compact={compact} label={item.label} icon={item.icon} active={pathname === item.to || (item.to !== ADMIN_HOME && pathname.startsWith(`${item.to}/`))}>
+          <CompactFlyout key={item.to} compact={compact} label={nameOf(item)} icon={item.icon} active={pathname === item.to || (item.to !== ADMIN_HOME && pathname.startsWith(`${item.to}/`))}>
             <NavLink
               to={item.to}
               // The admin home would otherwise stay highlighted on every admin page.
@@ -121,14 +125,14 @@ export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSid
               }
             >
               <item.icon className={iconClass} />
-              <span className={labelClass}>{item.label}</span>
+              <span className={labelClass}>{nameOf(item)}</span>
             </NavLink>
           </CompactFlyout>
         ))}
-        <CompactFlyout compact={compact} label="Back to app" icon={ArrowLeft} className="mt-auto">
+        <CompactFlyout compact={compact} label={t('admin.backToApp')} icon={ArrowLeft} className="mt-auto">
           <Link to="/" onClick={onNavigate} className={cn(itemClass, 'mt-auto text-muted-foreground hover:bg-muted hover:text-foreground')}>
             <ArrowLeft className={iconClass} />
-            <span className={labelClass}>Back to app</span>
+            <span className={labelClass}>{t('admin.backToApp')}</span>
           </Link>
         </CompactFlyout>
       </div>
@@ -143,10 +147,10 @@ export const AdminSidebar = ({ navItems, onNavigate, compact = false }: AdminSid
             <span className={cn('min-w-0 flex-1 truncate text-sm text-muted-foreground', compact && 'sr-only')}>{user?.email}</span>
           </div>
         </CompactTip>
-        <CompactTip compact={compact} label="Logout">
+        <CompactTip compact={compact} label={t('menu.logout')}>
           <Button variant="ghost" onClick={handleLogout} className={cn('justify-start gap-2 text-muted-foreground hover:text-foreground', compact && 'justify-center px-0')}>
             <LogOut className={iconClass} />
-            <span className={labelClass}>Logout</span>
+            <span className={labelClass}>{t('menu.logout')}</span>
           </Button>
         </CompactTip>
       </div>

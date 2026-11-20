@@ -120,4 +120,28 @@ export const rankedEn = {
     lives_one: '{{who}}: {{count}} life left',
     lives_other: '{{who}}: {{count}} lives left',
   },
+  /** The admin Seasons page (SCRUM-336). */
+  adminSeasons: {
+    mode: 'Mode: {{mode}}',
+    players_one: '{{count}} player',
+    players_other: '{{count}} players',
+    ongoing: 'ON GOING',
+    closed: 'CLOSED',
+    status: 'Status',
+    close: 'Close season',
+    none: 'No seasons yet',
+    closeTitle: 'Close season {{number}}?',
+    closeDescription: 'The next season opens at once. Every player starts it halfway back to 1000.',
+  },
+  /** The placement leaderboard setting of the admin Settings page (SCRUM-336). */
+  placementSettings: {
+    minAccuracy: 'Minimum accuracy (%)',
+    save: 'Save',
+    hint: 'Lowest accuracy for a 3-minute placement session to be on the leaderboard. Saving it updates the board.',
+    enterNumber: 'Enter a number',
+    wholeNumber: 'Use a whole number',
+    atLeast: 'At least {{min}}',
+    atMost: 'At most {{max}}',
+    saved: 'Placement settings saved.',
+  },
 };

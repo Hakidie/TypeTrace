@@ -21,7 +21,7 @@ export const paymentsModule: AppModule = {
   ],
   // Admins: every payment of every user, with a new check of an open payOS payment (`/api/admin/payments`).
   adminRoutes: [{ path: '/admin/payments', Component: AdminPaymentsPage }],
-  adminNavItems: [{ to: '/admin/payments', label: 'Payments', icon: CreditCard }],
+  adminNavItems: [{ to: '/admin/payments', label: 'Payments', labelKey: 'admin.pages.payments', icon: CreditCard }],
   menuItems: [
     { label: 'Store', labelKey: 'menu.store', icon: ShoppingBag, to: '/store' },
     { label: 'Payment', labelKey: 'menu.payment', icon: Receipt, to: '/store/history' },

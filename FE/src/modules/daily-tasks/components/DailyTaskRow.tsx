@@ -1,4 +1,5 @@
 import { Ban, CircleCheck, Pencil, Power, PowerOff, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { LabeledTag } from '@/shared/components/labeled-tag';
 import { ListRow, ListRowMenu, ListRowStat } from '@/shared/components/list-row';
 import { RowContextMenu } from '@/shared/components/row-context-menu';
@@ -38,6 +39,7 @@ interface DailyTaskRowProps {
  * and in the same menu on a right click (`RowContextMenu`). Under them the type as a `LabeledTag` and the status as a badge with an icon, as on the user rows (no date).
  */
 export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTaskRowProps) => {
+  const { t } = useTranslation('dailyTasks');
   const { label, stat, icon: Icon } = DAILY_TASK_TYPE_INFO[task.type];
   const subtitle = task.description || goalOf(task);
 
@@ -46,15 +48,15 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
     <>
     <DropdownMenuItem className="gap-2" onClick={() => onEdit(task)}>
                   <Pencil className="size-4" />
-                  Edit
+                  {t('row.edit')}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2" onClick={() => onToggleActive(task)}>
                   {task.isActive ? <PowerOff className="size-4" /> : <Power className="size-4" />}
-                  {task.isActive ? 'Deactivate' : 'Activate'}
+                  {task.isActive ? t('row.deactivate') : t('row.activate')}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2 text-destructive" onClick={() => onDelete(task)}>
                   <Trash2 className="size-4" />
-                  Delete
+                  {t('common:actions.delete')}
                 </DropdownMenuItem>
 
     </>
@@ -64,7 +66,7 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
     // No background, like a session of the profile: the card's padding goes outside, so its text lines up with the title above.
     <RowContextMenu
       className="-mr-3 -ml-4"
-      label={`Actions for ${task.title}`}
+      label={t('row.actions', { title: task.title })}
       menu={actions}
     >
       <ListRow
@@ -89,18 +91,18 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
         extra={
           // One width per column (the widest value fits), so they line up from row to row, like the stats of a session card.
           <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-8">
-            <ListRowStat className="w-20" label="COINS" value={String(task.coins)} />
-            <ListRowStat className="w-20" label="DONE" value={String(task.completions.learners)} />
+            <ListRowStat className="w-20" label={t('stats.coins')} value={String(task.coins)} />
+            <ListRowStat className="w-20" label={t('stats.done')} value={String(task.completions.learners)} />
             <ListRowStat className="w-28" label={stat} value={formatTarget(task)} />
           </div>
         }
-        action={<ListRowMenu label={`Actions for ${task.title}`}>{actions}</ListRowMenu>}
+        action={<ListRowMenu label={t('row.actions', { title: task.title })}>{actions}</ListRowMenu>}
         tags={
           <>
-            <LabeledTag icon={Icon} text={label} hint="The kind of task" />
+            <LabeledTag icon={Icon} text={label} hint={t('row.typeHint')} />
             <Badge variant={task.isActive ? 'default' : 'outline'} className={task.isActive ? undefined : 'border-primary text-primary'}>
               {task.isActive ? <CircleCheck className="mr-1.5 size-4" aria-hidden /> : <Ban className="mr-1.5 size-4" aria-hidden />}
-              {task.isActive ? 'Active' : 'Inactive'}
+              {task.isActive ? t('status.active') : t('status.inactive')}
             </Badge>
           </>
         }

@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { cn } from '@/shared/lib/utils';
 
@@ -64,6 +65,7 @@ export const DataTable = <T,>({
   emptyState,
   label,
 }: DataTableProps<T>) => {
+  const { t } = useTranslation();
   const selectable = Boolean(selectedIds && onSelectedIdsChange);
   const selectableIds = rows.filter(isRowSelectable).map(getRowId);
   const allSelected = selectable && selectableIds.length > 0 && selectableIds.every((id) => selectedIds!.includes(id));
@@ -87,7 +89,7 @@ export const DataTable = <T,>({
       return (
         <tr>
           <td colSpan={columnCount} className="p-6">
-            {emptyState ?? <p className="text-center text-base text-muted-foreground">No data.</p>}
+            {emptyState ?? <p className="text-center text-base text-muted-foreground">{t('table.noData')}</p>}
           </td>
         </tr>
       );
@@ -101,7 +103,7 @@ export const DataTable = <T,>({
             <td className="w-10 px-4 py-3">
               <input
                 type="checkbox"
-                aria-label={`Select row ${id}`}
+                aria-label={t('table.selectRow', { id })}
                 className={checkboxClass}
                 checked={checked}
                 disabled={!isRowSelectable(row)}
@@ -130,7 +132,7 @@ export const DataTable = <T,>({
               <th className="w-10 px-4 py-3">
                 <input
                   type="checkbox"
-                  aria-label="Select all rows"
+                  aria-label={t('table.selectAll')}
                   className={checkboxClass}
                   checked={allSelected}
                   disabled={selectableIds.length === 0 || isLoading}

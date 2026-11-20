@@ -1,5 +1,6 @@
 import { FileText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { ConfirmDialog } from "@/shared/components/confirm-dialog";
 import { EmptyState } from "@/shared/components/empty-state";
@@ -24,37 +25,6 @@ import type {
 // Three rows of three cards, like the learner's Passages page.
 const PAGE_SIZE = 9;
 
-// The first option is the default one.
-const SORT_OPTIONS = [
-  { value: "-createdAt", label: "Newest" },
-  { value: "createdAt", label: "Oldest" },
-  { value: "-updatedAt", label: "Recently updated" },
-  { value: "title", label: "Title A–Z" },
-  { value: "-title", label: "Title Z–A" },
-  { value: "wordCount", label: "Shortest" },
-  { value: "-wordCount", label: "Longest" },
-];
-
-const STATUS_OPTIONS = [
-  { value: "draft", label: "Draft" },
-  { value: "published", label: "Published" },
-  { value: "archived", label: "Archived" },
-];
-
-// `?language=vi|en` in the URL.
-const LANGUAGE_OPTIONS = [
-  { value: "vi", label: "Vietnamese" },
-  { value: "en", label: "English" },
-];
-
-// `?type=placement|practice|ranked` in the URL, like the Rank / Placement / Practice kinds of the cards: Placement is
-// `isPlacement`, Ranked is `isRanked`, Practice is neither (what the Practice tab offers).
-const TYPE_OPTIONS = [
-  { value: "placement", label: "Placement" },
-  { value: "practice", label: "Practice" },
-  { value: "ranked", label: "Ranked" },
-];
-
 /** The second panel is the passage bank or the review queue, switched by the button next to its title (`?view=pending`). */
 type View = "passages" | "pending";
 
@@ -76,6 +46,34 @@ const PassageBank = ({
   showList: boolean;
   onShowList: (show: boolean) => void;
 }) => {
+  const { t } = useTranslation("passages");
+  // The first option is the default one.
+  const sortOptions = [
+    { value: "-createdAt", label: t("sort.newest") },
+    { value: "createdAt", label: t("admin.sort.oldest") },
+    { value: "-updatedAt", label: t("admin.sort.recentlyUpdated") },
+    { value: "title", label: t("sort.titleAZ") },
+    { value: "-title", label: t("sort.titleZA") },
+    { value: "wordCount", label: t("sort.shortest") },
+    { value: "-wordCount", label: t("sort.longest") },
+  ];
+  const statusOptions = [
+    { value: "draft", label: t("status.draft") },
+    { value: "published", label: t("status.published") },
+    { value: "archived", label: t("status.archived") },
+  ];
+  // `?language=vi|en` in the URL.
+  const languageOptions = [
+    { value: "vi", label: t("admin.languages.vi") },
+    { value: "en", label: t("admin.languages.en") },
+  ];
+  // `?type=placement|practice|ranked` in the URL, like the Rank / Placement / Practice kinds of the cards: Placement is
+  // `isPlacement`, Ranked is `isRanked`, Practice is neither (what the Practice tab offers).
+  const typeOptions = [
+    { value: "placement", label: t("admin.types.placement") },
+    { value: "practice", label: t("admin.types.practice") },
+    { value: "ranked", label: t("admin.types.ranked") },
+  ];
   const list = useListParams({ sort: "-createdAt" });
   const status = list.get("status") as PassageStatus | "";
   const type = list.get("type");
@@ -137,14 +135,14 @@ const PassageBank = ({
       return isFiltered ? (
         <EmptyState
           icon={FileText}
-          title="No matching passages"
-          description="Try another search or filter."
+          title={t("admin.bank.noMatch")}
+          description={t("admin.bank.noMatchHint")}
         />
       ) : (
         <EmptyState
           icon={FileText}
-          title="No passages yet"
-          description="Add the first passage with the form above."
+          title={t("admin.bank.none")}
+          description={t("admin.bank.noneHint")}
         />
       );
     }
@@ -153,7 +151,7 @@ const PassageBank = ({
         {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar above and the pages below. From `lg` up the grid takes the height of the panel: three rows of cards that show as many lines of text as fit. */}
         <div
           className="-mx-4 grid gap-4 sm:grid-cols-2 lg:min-h-0 lg:flex-1 lg:grid-cols-3 lg:grid-rows-[repeat(3,minmax(0,1fr))]"
-          aria-label="Passage cards"
+          aria-label={t("admin.bank.cards")}
         >
           {passages.data.items.map((passage) => (
             <PassageCard
@@ -183,7 +181,9 @@ const PassageBank = ({
     <div ref={formPanelRef} className="flex scroll-mt-4 flex-col lg:flex-1">
       {/* PANEL Passage form: no visible title (the form says what it is); screen readers still get one. */}
       <Panel bare fill>
-        <h2 className="sr-only">{editing ? "Edit passage" : "New passage"}</h2>
+        <h2 className="sr-only">
+          {editing ? t("admin.bank.editPassage") : t("admin.bank.newPassage")}
+        </h2>
         {/* `key` remounts the form, so it starts from the passage being edited (or empty). */}
         <PassageForm
           key={editing?._id ?? "new"}
@@ -199,7 +199,7 @@ const PassageBank = ({
       {/* Apart from the panel, 12px under it; the panel takes the height the screen leaves. */}
       <div className="mt-3 flex shrink-0 items-center justify-center">
         <PanelTitleSwitch
-          other="Passage list"
+          other={t("admin.bank.title")}
           showLabel
           onClick={() => onShowList(true)}
         />
@@ -209,7 +209,9 @@ const PassageBank = ({
   const backToForm = (
     <div className="flex shrink-0 items-center justify-center">
       <PanelTitleSwitch
-        other={editing ? "Edit passage" : "New passage"}
+        other={
+          editing ? t("admin.bank.editPassage") : t("admin.bank.newPassage")
+        }
         showLabel
         onClick={() => onShowList(false)}
       />
@@ -231,9 +233,12 @@ const PassageBank = ({
           {/* PANEL Passages */}
           <Panel
             fill
-            title="Passage list"
+            title={t("admin.bank.title")}
             titleAction={
-              <PanelTitleSwitch other="Pending review" onClick={onSwitchView} />
+              <PanelTitleSwitch
+                other={t("admin.pending.title")}
+                onClick={onSwitchView}
+              />
             }
             bare
             titleClassName={sectionTitleClass}
@@ -242,40 +247,40 @@ const PassageBank = ({
               <CompactToolbar
                 showWords
                 search={{
-                  label: "Search passages",
-                  placeholder: "Search title or source…",
+                  label: t("admin.bank.searchLabel"),
+                  placeholder: t("admin.bank.searchPlaceholder"),
                   defaultValue: list.q,
                   onSearch: (value) => list.set("q", value),
                 }}
                 sort={{
                   value: list.sort,
-                  options: SORT_OPTIONS,
+                  options: sortOptions,
                   onChange: (value) => list.set("sort", value),
                 }}
                 filters={[
                   {
-                    label: "Status",
+                    label: t("admin.filters.status"),
                     value: status,
-                    options: STATUS_OPTIONS,
+                    options: statusOptions,
                     onChange: (value) => list.set("status", value),
                   },
                   {
-                    label: "Type",
+                    label: t("admin.filters.type"),
                     value: type,
-                    options: TYPE_OPTIONS,
+                    options: typeOptions,
                     onChange: (value) => list.set("type", value),
                   },
                   {
-                    label: "Language",
+                    label: t("admin.filters.language"),
                     value: language,
-                    options: LANGUAGE_OPTIONS,
+                    options: languageOptions,
                     onChange: (value) => list.set("language", value),
                   },
                 ]}
                 count={{
                   icon: FileText,
                   value: passages.data?.total ?? "…",
-                  label: "Passages",
+                  label: t("admin.bank.count"),
                 }}
               />
             }
@@ -289,13 +294,13 @@ const PassageBank = ({
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
-        title="Delete this passage for good?"
+        title={t("admin.delete.title")}
         description={
           deleting
-            ? `"${deleting.title}" is removed for good. A passage learners have typed cannot be deleted.`
+            ? t("admin.delete.description", { title: deleting.title })
             : undefined
         }
-        confirmLabel="Delete"
+        confirmLabel={t("admin.delete.confirm")}
         destructive
         pending={deletePassage.isPending}
         onConfirm={() =>

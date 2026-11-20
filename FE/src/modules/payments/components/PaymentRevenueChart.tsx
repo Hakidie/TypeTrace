@@ -1,5 +1,6 @@
 import { Calendar, CalendarDays, CalendarRange, Landmark, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { anchorFor, periodLabel, periodOptions, periodValue } from '@/modules/profile/lib/chart-period';
 import { axisLabel, rangeUnit, tooltipTitle } from '@/modules/profile/lib/month-label';
@@ -14,12 +15,8 @@ import { usePaymentRevenue } from '../hooks/use-payments';
 import { formatVnd, PROVIDER_NAMES } from '../lib/store';
 import type { PaymentProvider, PaymentRevenuePoint } from '../types/payments.types';
 
-// Week, Month, Year: the smallest first, as on the Progress page and the Plans page.
-const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
-  { value: 'year', label: 'Year' },
-];
+// Week, Month, Year: the smallest first, as on the Progress page and the Plans page (and with their words, `progress:range.*`).
+const RANGES: ChartRange[] = ['week', 'month', 'year'];
 const ICONS: Record<ChartRange, LucideIcon> = { year: Calendar, month: CalendarRange, week: CalendarDays };
 
 /** The days of the admin charts are Vietnam days (the backend cuts them there too). */
@@ -27,7 +24,6 @@ const ADMIN_ZONE = 'Asia/Ho_Chi_Minh';
 
 type GatewayFilter = 'all' | PaymentProvider;
 const GATEWAYS: PaymentProvider[] = ['payos', 'vnpay', 'momo'];
-const GATEWAY_OPTIONS: { value: GatewayFilter; label: string }[] = [{ value: 'all', label: 'All' }, ...GATEWAYS.map((value) => ({ value, label: PROVIDER_NAMES[value] }))];
 
 // Theme tokens only, as the chart of the Plans page: payOS is the main red bar, VNPay the muted text color, MoMo a lighter red.
 const COLORS: Record<PaymentProvider, { fill: string; opacity: number }> = {
@@ -63,6 +59,9 @@ const PointTooltip = ({ point, range, shown }: { point: PaymentRevenuePoint; ran
  * on the same Y axis (all in VND). Only payments that are paid and given count. The periods to come are not drawn. No frame or background. It takes the height the list under it leaves (at least 20rem), so both fit the screen.
  */
 export const PaymentRevenueChart = () => {
+  const { t } = useTranslation('store');
+  // All, then the gateways by their own names.
+  const gatewayOptions: { value: GatewayFilter; label: string }[] = [{ value: 'all', label: t('common:toolbar.all') }, ...GATEWAYS.map((value) => ({ value, label: PROVIDER_NAMES[value] }))];
   const today = dateKeyIn(new Date(), ADMIN_ZONE);
   const [range, setRange] = useState<ChartRange>('year');
   const [picked, setPicked] = useState<string | null>(null);
@@ -73,7 +72,7 @@ export const PaymentRevenueChart = () => {
 
   const renderChart = () => {
     if (query.isPending) return <LoadingState rows={1} />;
-    if (query.isError) return <ErrorState error={query.error} title="Could not load the revenue chart" onRetry={() => void query.refetch()} />;
+    if (query.isError) return <ErrorState error={query.error} title={t('adminPayments.chart.couldNotLoad')} onRetry={() => void query.refetch()} />;
     const rangeShown = query.data.range;
     const points = query.data.points;
     const top = Math.max(1, ...points.map((point) => Math.max(...shown.map((name) => point[name]))));
@@ -81,7 +80,7 @@ export const PaymentRevenueChart = () => {
     const data = points.map((point) => ({ ...point, label: axisLabel(rangeShown, point.key) }));
     return (
       // The box is positioned, so the chart reads its size from it.
-      <div role="img" aria-label={`Money taken by each gateway by ${rangeUnit(rangeShown)}`} className="relative min-h-80 flex-1">
+      <div role="img" aria-label={t('adminPayments.chart.img', { unit: rangeUnit(rangeShown) })} className="relative min-h-80 flex-1">
         <div className="absolute inset-0">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} barGap={4} barCategoryGap="25%" margin={{ top: 8, right: 28, bottom: 0, left: 28 }}>
@@ -102,9 +101,9 @@ export const PaymentRevenueChart = () => {
   };
 
   return (
-    <section aria-label="Revenue by gateway" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label={t('adminPayments.chart.region')} className="flex min-h-0 flex-1 flex-col">
       <Panel
-        title="Revenue"
+        title={t('adminPayments.chart.title')}
         bare
         fill
         titleClassName={sectionTitleClass}
@@ -112,10 +111,10 @@ export const PaymentRevenueChart = () => {
         actions={
           <CompactToolbar
             menus={[
-              ...RANGE_OPTIONS.map(({ value: menuRange, label }) => {
+              ...RANGES.map((menuRange) => {
                 const active = menuRange === range;
                 return {
-                  label,
+                  label: t(`progress:range.${menuRange}`),
                   icon: ICONS[menuRange],
                   valueLabel: periodLabel(menuRange, date),
                   active,
@@ -129,10 +128,10 @@ export const PaymentRevenueChart = () => {
               }),
               // Next to Year: which gateways the chart draws.
               {
-                label: 'Gateway',
+                label: t('adminPayments.gateway'),
                 icon: Landmark,
-                valueLabel: GATEWAY_OPTIONS.find((option) => option.value === gateway)!.label,
-                options: GATEWAY_OPTIONS,
+                valueLabel: gatewayOptions.find((option) => option.value === gateway)!.label,
+                options: gatewayOptions,
                 value: gateway,
                 onChange: (value: string) => setGateway(value as GatewayFilter),
               },

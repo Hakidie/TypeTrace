@@ -10,7 +10,7 @@ export const adminModule: AppModule = {
     { path: '/admin/users', Component: AdminUsersPage },
   ],
   adminNavItems: [
-    { to: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/admin/users', label: 'Users', icon: Users },
+    { to: '/admin', label: 'Dashboard', labelKey: 'admin.pages.dashboard', icon: LayoutDashboard },
+    { to: '/admin/users', label: 'Users', labelKey: 'admin.pages.users', icon: Users },
   ],
 };
