@@ -1,5 +1,7 @@
 import userEvent from '@testing-library/user-event';
 import { act, screen, waitFor, within } from '@testing-library/react';
+import { Fragment, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -119,6 +121,12 @@ const renderPage = () =>
 
 /** Shows the query string of the URL, to check what the page leaves in it. */
 const UrlSearch = () => <p aria-label="URL search">{useLocation().search}</p>;
+
+/** As `AppLayout`: the page is drawn again when the language of the interface changes, which the language button does (SCRUM-319). */
+const Redrawn = ({ children }: { children: ReactNode }) => {
+  const { i18n: instance } = useTranslation();
+  return <Fragment key={instance.language}>{children}</Fragment>;
+};
 
 beforeEach(() => {
   vi.mocked(toast.info).mockClear();
@@ -1089,8 +1097,8 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
 });
 
 describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
-  // One button: it shows the language being typed and switches to the other one.
-  const switcher = () => screen.getByRole('button', { name: /^Typing language:/ });
+  // One button: it shows the language being typed and switches to the other one (and the interface with it, SCRUM-319).
+  const switcher = () => screen.getByRole('button', { name: /^(Typing language|Ngôn ngữ gõ):/ });
   const imeHint = 'Turn off Vietnamese input (Unikey, EVKey) to type English.';
 
   it('switches Practice to English with the language button: saved first, then a new passage of that language', async () => {
@@ -1104,7 +1112,9 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     await user.click(switcher());
 
     await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
-    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'en' });
+    // The language of the interface follows the button (SCRUM-319), in the same request; it is English already here.
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'en', uiLanguage: 'en' });
+    expect(i18n.language).toBe('en');
     // The server starts a session in the saved language: the save comes first.
     expect(updateSettings.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[1]);
     expect(start).toHaveBeenLastCalledWith({ mode: 'practice' });
@@ -1142,9 +1152,14 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
     expect(screen.getByRole('radio', { name: 'Manual' })).toBeChecked();
   });
 
-  it('opens an English learner on English, with every mode tab, and switches back to Vietnamese', async () => {
+  it('opens an English learner on English, with every mode tab, and switches back to Vietnamese, the interface with it', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<TypingPage />, { route: '/typing', queryClient: clientFor('en') });
+    renderWithProviders(
+      <Redrawn>
+        <TypingPage />
+      </Redrawn>,
+      { route: '/typing', queryClient: clientFor('en') },
+    );
     await screen.findByRole('textbox', { name: 'Typing area' });
     expect(switcher()).toHaveTextContent('English');
     expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
@@ -1152,11 +1167,37 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
 
     await user.click(switcher());
 
+    // Saved in one request, then the interface turns Vietnamese, kept in the browser for the first paint too.
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi', uiLanguage: 'vi' });
+    await waitFor(() => expect(i18n.language).toBe('vi'));
+    expect(localStorage.getItem('typetrace.uiLanguage')).toBe('vi');
+    // The page drawn again in Vietnamese starts the new passage itself: one new session, not two.
     await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
-    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' });
-    expect(screen.getByRole('radio', { name: 'Placement' })).toBeInTheDocument();
+    expect(start).toHaveBeenLastCalledWith({ mode: 'practice' });
+    expect(await screen.findByRole('textbox')).toBeInTheDocument();
+    expect(switcher()).toHaveTextContent('Tiếng Việt');
+    expect(screen.getByRole('radio', { name: 'Kiểm tra' })).toBeInTheDocument();
     // Back on Vietnamese the notification is taken back.
     expect(toast.dismiss).toHaveBeenCalledWith('ime-hint');
+  });
+
+  it('starts the new passage on the page itself when the interface is in that language already', async () => {
+    const user = userEvent.setup();
+    await act(() => i18n.changeLanguage('vi'));
+    renderWithProviders(
+      <Redrawn>
+        <TypingPage />
+      </Redrawn>,
+      { route: '/typing', queryClient: clientFor('en') },
+    );
+    await screen.findByRole('textbox');
+
+    await user.click(switcher());
+
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi', uiLanguage: 'vi' });
+    expect(i18n.language).toBe('vi');
+    expect(switcher()).toHaveTextContent('Tiếng Việt');
   });
 
   it('keeps an English learner in English in the placement test, with the language button and the input notification (SCRUM-305)', async () => {
@@ -1174,17 +1215,23 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
   it('switches the placement test to the other language with the button: saved first, then a new test of 1 minute', async () => {
     const user = userEvent.setup();
     start.mockResolvedValue({ ...session, mode: 'placement', language: 'en' });
-    renderWithProviders(<TypingPage />, { route: '/typing?mode=placement', queryClient: clientFor('en') });
+    renderWithProviders(
+      <Redrawn>
+        <TypingPage />
+      </Redrawn>,
+      { route: '/typing?mode=placement', queryClient: clientFor('en') },
+    );
     await screen.findByRole('textbox', { name: 'Typing area' });
 
     await user.click(switcher());
 
     await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
-    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' });
+    expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi', uiLanguage: 'vi' });
     expect(updateSettings.mock.invocationCallOrder[0]).toBeLessThan(start.mock.invocationCallOrder[1]);
     expect(start).toHaveBeenLastCalledWith({ mode: 'placement', timeLimitSeconds: 60 });
-    expect(switcher()).toHaveTextContent('Vietnamese');
-    expect(screen.getByRole('radio', { name: 'Placement' })).toHaveAttribute('aria-checked', 'true');
+    expect(i18n.language).toBe('vi');
+    expect(await screen.findByRole('radio', { name: 'Kiểm tra' })).toHaveAttribute('aria-checked', 'true');
+    expect(switcher()).toHaveTextContent('Tiếng Việt');
   });
 
   it('says in the interface language that a language has no placement passage yet, and keeps the way out (404)', async () => {
@@ -1235,7 +1282,7 @@ describe('TypingPage: the typing language of Practice (SCRUM-219)', () => {
 
 describe('TypingPage: Train in the typing language (SCRUM-319)', () => {
   const PREMIUM_PLAN = { ...FREE_PLAN, plan: 'premium', canUsePublicPassages: true, canCreateErrorPractice: true };
-  const switcher = () => screen.getByRole('button', { name: /^Typing language:/ });
+  const switcher = () => screen.getByRole('button', { name: /^(Typing language|Ngôn ngữ gõ):/ });
   const imeHint = 'Turn off Vietnamese input (Unikey, EVKey) to type English.';
   /** The English error profile: capitals and punctuation the two highest rates, the swaps without enough data yet. */
   const ENGLISH_PROFILE = {
@@ -1304,17 +1351,31 @@ describe('TypingPage: Train in the typing language (SCRUM-319)', () => {
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted&focus=CASE_WRONG');
   });
 
-  it('switches the cards to the other language with the button: saved, the cards of that profile, and no lesson started', async () => {
+  it('switches the cards and the interface to the other language with the button: saved, the cards of that profile, and no lesson started', async () => {
     const user = userEvent.setup();
-    renderAt('/typing?mode=targeted', 'en');
+    renderWithProviders(
+      <Redrawn>
+        <UrlSearch />
+        <TypingPage />
+      </Redrawn>,
+      { route: '/typing?mode=targeted', queryClient: clientFor('en') },
+    );
     await screen.findByRole('button', { name: 'Practice your weak spots' });
+    // "Practice on one error" sits above the language button.
+    const oneError = screen.getByRole('button', { name: 'Practice on one error' });
+    expect(oneError.compareDocumentPosition(switcher()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     await user.click(switcher());
 
-    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Practice your weak spots' })).toHaveTextContent('Hỏi / ngã confusion25.5%'));
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi', uiLanguage: 'vi' }));
+    await waitFor(() => expect(i18n.language).toBe('vi'));
+    // Drawn again in Vietnamese: the Vietnamese error profile on the cards, and still no lesson.
+    const auto = await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' });
+    await waitFor(() => expect(auto).toHaveTextContent('Nhầm hỏi / ngã25.5%'));
     expect(getErrorProfile).toHaveBeenCalledWith('vi');
-    expect(switcher()).toHaveTextContent('Vietnamese');
+    expect(switcher()).toHaveTextContent('Tiếng Việt');
+    expect(screen.getByRole('button', { name: 'Luyện một loại lỗi' })).toBeInTheDocument();
+    expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted');
     expect(start).not.toHaveBeenCalled();
     expect(toast.dismiss).toHaveBeenCalledWith('ime-hint');
   });

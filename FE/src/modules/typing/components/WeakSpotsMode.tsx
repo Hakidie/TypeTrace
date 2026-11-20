@@ -39,7 +39,7 @@ interface WeakSpotsModeProps {
   locked: boolean;
   /** The language the learner types (SCRUM-319): the cards show its error profile, and its lessons are typed in it. */
   language: TypingLanguage;
-  /** The button that switches the language typed, as in Practice: next to "Practice on one error". */
+  /** The button that switches the language typed (and the interface), as in Practice: under "Practice on one error". */
   languageSwitch?: ReactNode;
   onPick: (focus: WeakSpotsFocus) => void;
 }
@@ -119,8 +119,7 @@ export const WeakSpotsMode = ({ locked, language, languageSwitch, onPick }: Weak
             {t('weakSpots.start')} <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
           </span>
         </button>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {languageSwitch}
+        <div className="flex flex-col items-center gap-2">
           <Button
             variant="ghost"
             className="group h-auto px-4 py-2 text-[1.125rem] text-muted-foreground"
@@ -129,6 +128,7 @@ export const WeakSpotsMode = ({ locked, language, languageSwitch, onPick }: Weak
           >
             {t('weakSpots.oneError')} <ChevronDown className={cn('ml-2 size-5 transition-transform duration-200', showTypes && 'rotate-180')} aria-hidden />
           </Button>
+          {languageSwitch}
         </div>
       </div>
       {showTypes && (

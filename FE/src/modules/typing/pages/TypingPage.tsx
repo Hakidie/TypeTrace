@@ -12,6 +12,7 @@ import { usePlan } from '@/modules/plan/hooks/use-plan';
 import { missingWords } from '@/modules/profile/lib/chance-words';
 import { useErrorProfile, useSaveTypingLanguage, useTypingLanguage } from '@/modules/profile/hooks/use-profile';
 import { getApiErrorStatus } from '@/shared/api/api-error';
+import { storeUiLanguage } from '@/shared/i18n/ui-language';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -127,7 +128,7 @@ const startInputOf = (mode: SessionMode, passageId: string | undefined, seconds:
 // Same look as the login and register pages (shared/lib/red-glass-theme.ts). The passage shows as soon as the page
 // opens; the timer starts at the first key (TypingArea tells the server through `begin`).
 export const TypingPage = () => {
-  const { t } = useTranslation('typing');
+  const { t, i18n } = useTranslation('typing');
   const modeTabs = modeTabsOf(t);
   const passageTabs = passageTabsOf(t);
   const navigate = useNavigate();
@@ -282,24 +283,33 @@ export const TypingPage = () => {
     start.mutate(startInputOf(mode, firstPassage, timeSeconds, errorType));
   }, [mode, game, weakSpotsCards, sessionKey, targeted, errorType, start, passageId, timeSeconds, planPending, weakSpotsLocked, language, saveLanguage, setSearchParams]);
 
-  // VI / EN in Practice and in the placement test: saved on the account first (the server starts a session in the saved
-  // language), then a new random passage of that language, as Random does. The session being typed is left, like on Random.
-  // One language for all: the placement test and the Weak spots lessons of a language are those of the language Practice
-  // types (SCRUM-305, SCRUM-319). On the Weak spots cards it only saves it: the cards show that language's error profile.
+  // VI / EN in Practice, in the placement test and on the Weak spots cards: the language typed and the language of the
+  // interface, which follows the button (SCRUM-319), saved on the account first in one request (the server starts a session
+  // in the saved language). One language for all: the placement test and the Weak spots lessons of a language are those of
+  // the language Practice types (SCRUM-305, SCRUM-319). When the interface changes language, `AppLayout` draws the page again
+  // in it, and the page drawn again starts its own session (a random passage; in Placement a new test of the default time)
+  // or shows the cards of that language. Otherwise a new random passage of that language starts here, as Random does (the
+  // session being typed is left), and on the cards nothing starts: they show that language's error profile.
   const switchLanguage = (next: TypingLanguage) => {
     if (next === language) return;
-    if (weakSpotsCards) {
-      saveLanguage(next);
-      return;
-    }
-    saveLanguage(next, {
-      onSuccess: () => {
-        setChosen(undefined);
-        setManualOn(false);
-        setMenuOpen(false);
-        start.mutate(startInputOf(mode, undefined, timeSeconds));
+    const redrawn = i18n.language !== next;
+    saveLanguage(
+      { typingLanguage: next, uiLanguage: next },
+      {
+        onSuccess: () => {
+          if (redrawn) {
+            storeUiLanguage(next);
+            void i18n.changeLanguage(next);
+            return;
+          }
+          if (weakSpotsCards) return;
+          setChosen(undefined);
+          setManualOn(false);
+          setMenuOpen(false);
+          start.mutate(startInputOf(mode, undefined, timeSeconds));
+        },
       },
-    });
+    );
   };
   // The language switch, in Practice and in the placement test (SCRUM-305): one button, built like Restart, at the bottom center
   // of the page (the middle of the word count / timer row). It shows the language being typed and a click switches to the other

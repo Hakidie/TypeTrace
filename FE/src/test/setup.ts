@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { i18n } from '@/shared/i18n/i18n';
+import { resetGuestTypingLanguage } from '@/modules/typing/hooks/use-guest-typing-language';
 import { resetMinigameLang } from '@/shared/hooks/use-minigame-lang';
 
 /**
@@ -21,6 +22,7 @@ if (!('ResizeObserver' in globalThis)) {
 beforeEach(() => {
   window.localStorage.clear();
   resetMinigameLang();
+  resetGuestTypingLanguage();
   void i18n.changeLanguage('en');
 
   if (!window.matchMedia) {
@@ -44,5 +46,6 @@ afterEach(() => {
   cleanup();
   window.localStorage.clear();
   resetMinigameLang();
+  resetGuestTypingLanguage();
   void i18n.changeLanguage('en');
 });

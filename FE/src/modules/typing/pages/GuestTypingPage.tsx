@@ -19,6 +19,8 @@ import { PassageMenuPanel } from '../components/PassageMenuPanel';
 import { TypingArea } from '../components/TypingArea';
 import type { PassageOption } from '../types/typing.types';
 import { languageNames, modeIcons, modeLabels, timeChoices, unitLabels, type TimeUnit } from '../typing.config';
+import { useChangeUiLanguage } from '@/modules/settings/hooks/use-ui-language';
+import { useGuestTypingLanguage } from '../hooks/use-guest-typing-language';
 
 // The same tabs as the Typing page of a signed-in learner. A guest uses Practice and Minigames (Rain only); the others need an
 // account and lead to the Login page (which links to Register).
@@ -70,9 +72,11 @@ export const GuestTypingPage = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const rain = searchParams.get('mode') === 'minigames';
-  // VI / EN in Practice, as on the signed-in page; a guest's choice is only kept while the page is open (nothing is saved).
-  const [language, setLanguage] = useState<TypingLanguage>('vi');
-  const [passage, setPassage] = useState(() => pickGuestPassage());
+  // VI / EN in Practice, as on the signed-in page; a guest's choice is only kept while the page is open (nothing is saved),
+  // also when the page is drawn again in another interface language.
+  const [language, setLanguage] = useGuestTypingLanguage();
+  const changeUiLanguage = useChangeUiLanguage();
+  const [passage, setPassage] = useState(() => pickGuestPassage(undefined, undefined, language));
   const menuPassages = useMemo(() => menuPassagesOf(language), [language]);
   const [run, setRun] = useState<GuestRun>();
   // Manual: the name of the passage above the text opens the menu of the fixed passages.
@@ -95,9 +99,12 @@ export const GuestTypingPage = () => {
     setRun(undefined);
     setMenuOpen(false);
   };
-  // A new random passage of the other language, as on the signed-in page: Random again, the menu closed.
+  // A new random passage of the other language, as on the signed-in page: Random again, the menu closed. The interface
+  // follows the button (SCRUM-319), kept in this browser as a guest's choice is: when it changes language, the page is drawn
+  // again in it, with a random passage of the language kept above.
   const switchLanguage = (next: TypingLanguage) => {
     setLanguage(next);
+    changeUiLanguage(next);
     setManual(false);
     setMenuOpen(false);
     setPassage(pickGuestPassage(undefined, undefined, next));
