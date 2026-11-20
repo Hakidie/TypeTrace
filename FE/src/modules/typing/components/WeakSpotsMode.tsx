@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shar
 import { LoadingState } from '@/shared/components/loading-state';
 import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
 import { TypingPreview } from './TypingPreview';
-import { errorLabels, WEAK_SPOTS_FOCUS_TYPES } from '../typing.config';
+import { errorLabelIn, WEAK_SPOTS_FOCUS_TYPES } from '../typing.config';
 
 /** What a Weak spots card starts: the learner's error types with the highest error rates (`auto`, US3.2) or one error type (SCRUM-74). */
 export type WeakSpotsFocus = 'auto' | SessionErrorType;
@@ -53,7 +53,7 @@ interface WeakSpotsModeProps {
  * five Vietnamese or the six English types), which the language button under the auto lesson switches.
  */
 export const WeakSpotsMode = ({ locked, language, languageSwitch, onPick }: WeakSpotsModeProps) => {
-  const { t } = useTranslation('typing');
+  const { t, i18n } = useTranslation('typing');
   const errorProfile = useErrorProfile(language);
   // The error types stay under the auto lesson until "Practice on one error" is pressed: the lesson fills the screen on its own.
   const [showTypes, setShowTypes] = useState(false);
@@ -109,7 +109,7 @@ export const WeakSpotsMode = ({ locked, language, languageSwitch, onPick }: Weak
             <span className="flex flex-wrap justify-evenly gap-x-12 gap-y-6">
               {focus.map((item) => (
                 <span key={item.type} className="flex items-start gap-4">
-                  <span className="max-w-40 pt-0.5 text-base leading-tight text-muted-foreground">{errorLabels[item.type]}</span>
+                  <span className="max-w-40 pt-0.5 text-base leading-tight text-muted-foreground">{errorLabelIn(item.type, i18n.language)}</span>
                   <span className="text-5xl font-extrabold tabular-nums leading-none text-primary">{item.rate}%</span>
                 </span>
               ))}
@@ -128,7 +128,6 @@ export const WeakSpotsMode = ({ locked, language, languageSwitch, onPick }: Weak
           >
             {t('weakSpots.oneError')} <ChevronDown className={cn('ml-2 size-5 transition-transform duration-200', showTypes && 'rotate-180')} aria-hidden />
           </Button>
-          {languageSwitch}
         </div>
       </div>
       {showTypes && (
@@ -146,7 +145,7 @@ export const WeakSpotsMode = ({ locked, language, languageSwitch, onPick }: Weak
                     variant="outline"
                     size="sm"
                     className={practiceButtonClass}
-                    aria-label={`${t('weakSpots.practiceThisAria', { type: errorLabels[item.type] })}${locked ? t('weakSpots.premiumSuffix') : ''}`}
+                    aria-label={`${t('weakSpots.practiceThisAria', { type: errorLabelIn(item.type, i18n.language) })}${locked ? t('weakSpots.premiumSuffix') : ''}`}
                     onClick={() => onPick(item.type)}
                   >
                     {locked && <Lock className="size-4" aria-hidden />} {t('weakSpots.practiceThis')}
@@ -157,6 +156,8 @@ export const WeakSpotsMode = ({ locked, language, languageSwitch, onPick }: Weak
           </ul>
         </section>
       )}
+      {/* The language button is always the last thing of the page: at the bottom of the screen, under the cards when they show. */}
+      {languageSwitch && <div className="mt-auto flex justify-center">{languageSwitch}</div>}
     </div>
   );
 };

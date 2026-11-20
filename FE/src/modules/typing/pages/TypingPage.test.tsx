@@ -852,19 +852,19 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Train' }));
 
-    const auto = await screen.findByRole('button', { name: 'Practice your weak spots' });
+    const auto = await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' });
     // The auto card names the two weakest error types and their rates, as the server picks them.
-    expect(auto).toHaveTextContent('Hỏi / ngã confusion25.5%');
-    expect(auto).toHaveTextContent('Missing stroke on đ20%');
+    expect(auto).toHaveTextContent('Nhầm hỏi / ngã25.5%');
+    expect(auto).toHaveTextContent('Thiếu nét ngang của đ20%');
     // The five error types, the cards of the error profile; the auto card comes first (on top on phones).
     // They stay hidden under the auto lesson until "Practice on one error" is pressed.
-    expect(screen.queryByRole('region', { name: 'Error types' })).not.toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
-    const types = screen.getByRole('region', { name: 'Error types' });
-    expect(within(types).getAllByRole('button', { name: /^Practice [^t]/ })).toHaveLength(5);
+    expect(screen.queryByRole('region', { name: 'Các loại lỗi' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Luyện một loại lỗi' }));
+    const types = screen.getByRole('region', { name: 'Các loại lỗi' });
+    expect(within(types).getAllByRole('button', { name: /^Luyện [^l]/ })).toHaveLength(5);
     // Each card also has a "Practice this error" button, floating over it while it is hovered.
-    expect(within(types).getAllByRole('button', { name: /^Practice this error: / })).toHaveLength(5);
-    expect(within(types).getAllByText('Weak')).toHaveLength(2);
+    expect(within(types).getAllByRole('button', { name: /^Luyện lỗi này: / })).toHaveLength(5);
+    expect(within(types).getAllByText('Yếu')).toHaveLength(2);
     expect(auto.compareDocumentPosition(types) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted');
     expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
@@ -875,7 +875,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     const user = userEvent.setup();
     renderAt('/typing?mode=targeted');
 
-    await user.click(await screen.findByRole('button', { name: 'Practice your weak spots' }));
+    await user.click(await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' }));
 
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted' }));
     expect(await screen.findByRole('textbox', { name: 'Typing area' })).toBeInTheDocument();
@@ -892,7 +892,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
 
     await user.click(screen.getByRole('button', { name: 'All weak spots' }));
 
-    expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
   });
 
@@ -900,8 +900,8 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     const user = userEvent.setup();
     renderAt('/typing?mode=targeted');
 
-    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
-    await user.click(await screen.findByRole('button', { name: 'Practice Wrong vowel mark (â ê ô ă ơ ư)' }));
+    await user.click(await screen.findByRole('button', { name: 'Luyện một loại lỗi' }));
+    await user.click(await screen.findByRole('button', { name: 'Luyện Sai dấu mũ/móc (â ê ô ă ơ ư)' }));
 
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'MARK_WRONG' }));
     expect(screen.getByLabelText('URL search')).toHaveTextContent('focus=MARK_WRONG');
@@ -911,9 +911,9 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'MARK_WRONG' });
 
     await user.click(screen.getByRole('button', { name: 'All weak spots' }));
-    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
-    const tone = await screen.findByRole('button', { name: 'Practice Wrong tone' });
-    expect(within(tone.closest('li')!).getByText(/Needs 15 more/)).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Luyện một loại lỗi' }));
+    const tone = await screen.findByRole('button', { name: 'Luyện Sai thanh điệu' });
+    expect(within(tone.closest('li')!).getByText(/Cần thêm 15/)).toBeInTheDocument();
     await user.click(tone);
 
     await waitFor(() => expect(start).toHaveBeenLastCalledWith({ mode: 'targeted', errorType: 'TONE_WRONG' }));
@@ -938,8 +938,8 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     renderAt('/typing?mode=targeted');
 
     // The cards show once the error profile is in, so the lesson has it from its first render.
-    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
-    await user.click(await screen.findByRole('button', { name: 'Practice Wrong vowel mark (â ê ô ă ơ ư)' }));
+    await user.click(await screen.findByRole('button', { name: 'Luyện một loại lỗi' }));
+    await user.click(await screen.findByRole('button', { name: 'Luyện Sai dấu mũ/móc (â ê ô ă ơ ư)' }));
 
     await screen.findByRole('textbox', { name: 'Typing area' });
     expect(screen.getByRole('status')).toHaveTextContent('Training: Wrong vowel mark (â ê ô ă ơ ư)');
@@ -962,9 +962,9 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     });
     renderAt('/typing?mode=targeted');
 
-    const auto = await screen.findByRole('button', { name: 'Practice your weak spots' });
-    expect(auto).toHaveTextContent('Wrong vowel mark (â ê ô ă ơ ư)3%');
-    expect(auto).toHaveTextContent('Wrong letter2%');
+    const auto = await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' });
+    expect(auto).toHaveTextContent('Sai dấu mũ/móc (â ê ô ă ơ ư)3%');
+    expect(auto).toHaveTextContent('Sai chữ cái2%');
     expect(auto).not.toHaveTextContent('random passage');
     await user.click(auto);
 
@@ -977,8 +977,8 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     start.mockResolvedValue({ ...session, mode: 'targeted', passageId: 'p1', passageTitle: 'Hà Nội vào thu', focusErrorTypes: [], lessonSource: 'passage' });
     renderAt('/typing?mode=targeted');
 
-    const auto = await screen.findByRole('button', { name: 'Practice your weak spots' });
-    expect(auto).toHaveTextContent('Your error profile does not have enough data yet, so this starts a random passage.');
+    const auto = await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' });
+    expect(auto).toHaveTextContent('Hồ sơ lỗi của bạn chưa đủ dữ liệu, nên bài này là một đoạn văn ngẫu nhiên.');
     await user.click(auto);
 
     expect(await screen.findByRole('status')).toHaveTextContent('Your error profile does not have enough data yet, so here is a random passage.');
@@ -1000,13 +1000,13 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Train' }));
 
-    expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
     expect(screen.queryByRole('textbox', { name: 'Typing area' })).not.toBeInTheDocument();
 
     // On the cards the tab is already there: a click changes nothing.
     await user.click(screen.getByRole('radio', { name: 'Train' }));
-    expect(screen.getByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Luyện các điểm yếu của bạn' })).toBeInTheDocument();
     expect(start).toHaveBeenCalledTimes(1);
   });
 
@@ -1057,10 +1057,10 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     getPlan.mockResolvedValue(FREE_PLAN);
     renderAt('/typing?mode=targeted');
 
-    expect(await screen.findByRole('button', { name: 'Practice your weak spots (Premium)' })).toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: 'Practice on one error' }));
+    expect(await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn (Premium)' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Luyện một loại lỗi' }));
     expect(screen.getAllByRole('button', { name: /\(Premium\)$/ })).toHaveLength(11);
-    await user.click(screen.getByRole('button', { name: 'Practice this error: Hỏi / ngã confusion (Premium)' }));
+    await user.click(screen.getByRole('button', { name: 'Luyện lỗi này: Nhầm hỏi / ngã (Premium)' }));
 
     expect(await screen.findByRole('group', { name: 'Free plan' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
@@ -1091,7 +1091,7 @@ describe('TypingPage: Weak spots (US3.2, SCRUM-74)', () => {
     await screen.findByText(/Your plan does not include it/);
     await user.click(screen.getByRole('button', { name: 'All weak spots' }));
 
-    expect(await screen.findByRole('button', { name: 'Practice your weak spots (Premium)' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn (Premium)' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
   });
 });
@@ -1351,7 +1351,7 @@ describe('TypingPage: Train in the typing language (SCRUM-319)', () => {
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted&focus=CASE_WRONG');
   });
 
-  it('switches the cards and the interface to the other language with the button: saved, the cards of that profile, and no lesson started', async () => {
+  it('switches only the language of the cards with the button: saved without the interface, the cards of that profile, and no lesson started', async () => {
     const user = userEvent.setup();
     renderWithProviders(
       <Redrawn>
@@ -1367,17 +1367,15 @@ describe('TypingPage: Train in the typing language (SCRUM-319)', () => {
 
     await user.click(switcher());
 
-    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi', uiLanguage: 'vi' }));
-    await waitFor(() => expect(i18n.language).toBe('vi'));
-    // Drawn again in Vietnamese: the Vietnamese error profile on the cards, and still no lesson.
-    const auto = await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' });
-    await waitFor(() => expect(auto).toHaveTextContent('Nhầm hỏi / ngã25.5%'));
-    expect(getErrorProfile).toHaveBeenCalledWith('vi');
-    expect(switcher()).toHaveTextContent('Tiếng Việt');
+    // Only the language typed is saved: the interface keeps its language and the page is not drawn again.
+    await waitFor(() => expect(updateSettings).toHaveBeenCalledWith({ typingLanguage: 'vi' }));
+    await waitFor(() => expect(getErrorProfile).toHaveBeenCalledWith('vi'));
+    expect(i18n.language).toBe('en');
+    // The cards (this page only) are written in the language switched to, the interface elsewhere is not.
+    expect(await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Luyện một loại lỗi' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted');
     expect(start).not.toHaveBeenCalled();
-    expect(toast.dismiss).toHaveBeenCalledWith('ime-hint');
   });
 
   it('keeps the language button out of a lesson: its bottom row leads back to the cards', async () => {
@@ -1419,7 +1417,7 @@ describe('TypingPage: Train in the typing language (SCRUM-319)', () => {
     updateSettings.mockRejectedValue({ response: { status: 500, data: { message: 'Database offline' } } });
     renderAt('/typing?mode=targeted&focus=CASE_WRONG', 'vi');
 
-    expect(await screen.findByRole('button', { name: 'Practice your weak spots' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Luyện các điểm yếu của bạn' })).toBeInTheDocument();
     expect(screen.getByLabelText('URL search')).toHaveTextContent('?mode=targeted');
     expect(screen.getByLabelText('URL search')).not.toHaveTextContent('focus=');
     expect(start).not.toHaveBeenCalled();

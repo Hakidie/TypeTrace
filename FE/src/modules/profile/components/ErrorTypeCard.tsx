@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleCheck, Lock, Minus, TrendingDown, TrendingUp, TriangleAlert, type LucideIcon } from 'lucide-react';
-import { errorLabels } from '@/modules/typing/typing.config';
+import { errorLabelIn } from '@/modules/typing/typing.config';
 import { LabeledTag } from '@/shared/components/labeled-tag';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
@@ -35,9 +35,9 @@ interface ItemProps {
 
 /** Weak (a red tag), OK, or what the type still needs before it has a level. */
 const LevelMark = ({ item, profile }: ItemProps) => {
-  const { t } = useTranslation('profile');
+  const { t, i18n } = useTranslation('profile');
   if (item.level === 'weak') {
-    return <LabeledTag icon={TriangleAlert} text={t('errorCard.weak')} hint={t('errorCard.weakHint', { rate: profile.weakRate, what: chanceWords(item.type) })} />;
+    return <LabeledTag icon={TriangleAlert} text={t('errorCard.weak')} hint={t('errorCard.weakHint', { rate: profile.weakRate, what: chanceWords(item.type, i18n.language) })} />;
   }
   if (item.level === 'ok') {
     return (
@@ -47,16 +47,16 @@ const LevelMark = ({ item, profile }: ItemProps) => {
       </span>
     );
   }
-  return <span className="text-muted-foreground">{t('errorCard.needs', { what: missingWords(item.type, profile.minOpportunities - item.opportunities) })}</span>;
+  return <span className="text-muted-foreground">{t('errorCard.needs', { what: missingWords(item.type, profile.minOpportunities - item.opportunities, i18n.language) })}</span>;
 };
 
 /** The trend against the sessions before, its rates in a tooltip. A type without a level has none: the level says what it needs. */
 const TrendMark = ({ item, profile }: ItemProps) => {
-  const { t } = useTranslation('profile');
+  const { t, i18n } = useTranslation('profile');
   if (item.level === 'insufficient_data') return null;
   if (item.trend === 'insufficient_data') {
     return (
-      <Hint text={t('errorCard.noTrendHint', { min: profile.minOpportunities, what: chanceWords(item.type), window: profile.window })}>
+      <Hint text={t('errorCard.noTrendHint', { min: profile.minOpportunities, what: chanceWords(item.type, i18n.language), window: profile.window })}>
         <span tabIndex={0} className={cn('text-muted-foreground', hintFocusClass)}>
           {t('errorCard.noTrend')}
         </span>
@@ -91,7 +91,7 @@ interface ErrorTypeCardProps extends ItemProps {
  * the Weak spots tab, where `onSelect` makes it a button (one laid over the card, under its hints, so the tooltips still open).
  */
 export const ErrorTypeCard = ({ item, profile, onSelect, locked = false, action }: ErrorTypeCardProps) => {
-  const { t } = useTranslation('profile');
+  const { t, i18n } = useTranslation('profile');
   const hasLevel = item.level !== 'insufficient_data';
   const filled = hasLevel ? Math.min(item.rate / (profile.weakRate * 2), 1) * 100 : 0;
 
@@ -101,12 +101,12 @@ export const ErrorTypeCard = ({ item, profile, onSelect, locked = false, action 
         <button
           type="button"
           onClick={onSelect}
-          aria-label={t('errorCard.practiceNamed', { name: errorLabels[item.type] }) + (locked ? t('errorProfile.premium') : '')}
+          aria-label={t('errorCard.practiceNamed', { name: errorLabelIn(item.type, i18n.language) }) + (locked ? t('errorProfile.premium') : '')}
           className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       )}
       <div className={cn('flex items-baseline justify-between gap-3', onSelect && 'pointer-events-none relative')}>
-        <p className="min-w-0 text-xl font-extrabold text-primary/80">{errorLabels[item.type]}</p>
+        <p className="min-w-0 text-xl font-extrabold text-primary/80">{errorLabelIn(item.type, i18n.language)}</p>
         <p className={cn('inline-flex shrink-0 items-center gap-2 text-xl font-extrabold tabular-nums', hasLevel ? 'text-primary' : 'text-muted-foreground')}>
           {locked && <Lock className="size-4 text-muted-foreground" aria-hidden />}
           {hasLevel ? `${item.rate}%` : '—'}

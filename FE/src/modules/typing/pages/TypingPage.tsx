@@ -1,6 +1,6 @@
 import { ArrowLeft, ClipboardX, Gamepad2, Languages, ListChecks, Lock, RotateCcw, Shuffle, Trophy } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { I18nextProvider, useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -292,6 +292,12 @@ export const TypingPage = () => {
   // session being typed is left), and on the cards nothing starts: they show that language's error profile.
   const switchLanguage = (next: TypingLanguage) => {
     if (next === language) return;
+    // On the Weak spots cards the button changes only the language of the Train page (the error profile and its lessons):
+    // the interface keeps its language and nothing is drawn again.
+    if (weakSpotsCards) {
+      saveLanguage(next);
+      return;
+    }
     const redrawn = i18n.language !== next;
     saveLanguage(
       { typingLanguage: next, uiLanguage: next },
@@ -302,7 +308,6 @@ export const TypingPage = () => {
             void i18n.changeLanguage(next);
             return;
           }
-          if (weakSpotsCards) return;
           setChosen(undefined);
           setManualOn(false);
           setMenuOpen(false);
@@ -318,16 +323,21 @@ export const TypingPage = () => {
   const current = language ?? 'vi';
   const other: TypingLanguage = current === 'vi' ? 'en' : 'vi';
   const showsLanguageSwitch = (mode === 'practice' || mode === 'placement' || weakSpotsCards) && !game;
+  // The Train cards are written in the language typed, whatever the interface says (the button changes only this page): a
+  // copy of the i18n instance fixed to it, which the cards read through a provider. Elsewhere the interface's language.
+  const cardsI18n = useMemo(() => i18n.cloneInstance({ lng: current }), [i18n, current]);
+  const labelT = weakSpotsCards ? cardsI18n.getFixedT(current, 'typing') : t;
+  const nameOf = (language: TypingLanguage) => (weakSpotsCards ? labelT(`languageNames.${language}`) : languageNames[language]);
   const languageSwitch =
     showsLanguageSwitch ? (
       <Button
         variant="ghost"
         className={hoverButtonClass}
-        aria-label={t('page.languageSwitch', { current: languageNames[current], other: languageNames[other] })}
+        aria-label={labelT('page.languageSwitch', { current: nameOf(current), other: nameOf(other) })}
         onClick={() => switchLanguage(other)}
         disabled={language === undefined || savingLanguage || start.isPending || complete.isPending}
       >
-        <Languages className="size-5" /> <span className={hoverWordClass}>{languageNames[current]}</span>
+        <Languages className="size-5" /> <span className={hoverWordClass}>{nameOf(current)}</span>
       </Button>
     ) : undefined;
 
@@ -518,7 +528,9 @@ export const TypingPage = () => {
       ) : ranked ? (
         <RankMode />
       ) : weakSpotsCards ? (
-        <WeakSpotsMode locked={weakSpotsLocked} language={current} languageSwitch={languageSwitch} onPick={pickWeakSpot} />
+        <I18nextProvider i18n={cardsI18n}>
+          <WeakSpotsMode locked={weakSpotsLocked} language={current} languageSwitch={languageSwitch} onPick={pickWeakSpot} />
+        </I18nextProvider>
       ) : targeted && weakSpotsLocked ? (
         <div className="mx-auto my-auto flex max-w-md flex-col items-center gap-4 text-center">
           <Lock className="size-8 text-muted-foreground" aria-hidden />

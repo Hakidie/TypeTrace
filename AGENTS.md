@@ -259,7 +259,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `uiLanguage`, `useSaveTypingLanguage` with a `LanguageChoice`, which empties the per-language profile queries; then
   `i18n.changeLanguage` and the browser's copy). When the interface changes language, `AppLayout` draws the page again in it
   and the page drawn again starts its own session (a random passage; in Placement a new test of the default time) or shows
-  the Train cards; otherwise the page starts a random passage of that language itself (a new test of the time picked in
+  the Train cards; on the Train cards the button changes only the language typed and the language of that page (a `PATCH` with `typingLanguage` alone: the interface keeps its language and nothing is drawn again, but the cards are written in the language switched to, `WeakSpotsMode` inside an `I18nextProvider` with a clone of the i18n instance fixed to it, and show its error profile; helpers read the language with an optional `lng`: `errorLabelIn`, `chanceWords`, `missingWords`); otherwise the page starts a random passage of that language itself (a new test of the time picked in
   Placement), and on the Weak spots cards nothing starts. The automatic switches (a `?passage=` link, a `?focus=` type) change
   the language typed only. In English a
   notification says to turn off Vietnamese input (Practice, Placement and Train). Every mode tab
