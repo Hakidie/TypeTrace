@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { TFunction } from "i18next";
 import {
   CircleCheck,
   CircleOff,
@@ -8,7 +9,8 @@ import {
   Plus,
   type LucideIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/shared/components/ui/button";
@@ -33,40 +35,41 @@ import {
 import { DAILY_TASK_TYPES, type DailyTask } from "../types/daily-task.types";
 
 // Mirrors `createDailyTaskSchema` in BE/src/validators/admin-daily-task.validator.ts, plus the largest target of each
-// type, which the backend model checks.
-const schema = z
-  .object({
-    title: z
-      .string()
-      .trim()
-      .min(1, "Title is required")
-      .max(120, "Max 120 characters"),
-    description: z.string().trim().max(300, "Max 300 characters"),
-    type: z.enum(DAILY_TASK_TYPES),
-    // An empty number field gives NaN, which is not a number for Zod.
-    target: z
-      .number({ error: "Enter a number" })
-      .int("Use a whole number")
-      .min(1, "At least 1"),
-    // The reward for completing it (SCRUM-301); 0 = none.
-    coins: z
-      .number({ error: "Enter a number" })
-      .int("Use a whole number")
-      .min(0, "At least 0")
-      .max(DAILY_TASK_COINS_MAX, `At most ${DAILY_TASK_COINS_MAX}`),
-    isActive: z.boolean(),
-  })
-  .superRefine(({ type, target }, context) => {
-    const { max } = DAILY_TASK_TYPE_INFO[type];
-    if (target > max)
-      context.addIssue({
-        code: "custom",
-        path: ["target"],
-        message: `At most ${max} for this type`,
-      });
-  });
+// type, which the backend model checks. Built with `t`, so its messages follow the language of the interface.
+const schemaOf = (t: TFunction<"dailyTasks">) =>
+  z
+    .object({
+      title: z
+        .string()
+        .trim()
+        .min(1, t("form.titleRequired"))
+        .max(120, t("form.maxChars", { max: 120 })),
+      description: z.string().trim().max(300, t("form.maxChars", { max: 300 })),
+      type: z.enum(DAILY_TASK_TYPES),
+      // An empty number field gives NaN, which is not a number for Zod.
+      target: z
+        .number({ error: t("form.enterNumber") })
+        .int(t("form.wholeNumber"))
+        .min(1, t("form.atLeast", { min: 1 })),
+      // The reward for completing it (SCRUM-301); 0 = none.
+      coins: z
+        .number({ error: t("form.enterNumber") })
+        .int(t("form.wholeNumber"))
+        .min(0, t("form.atLeast", { min: 0 }))
+        .max(DAILY_TASK_COINS_MAX, t("form.atMost", { max: DAILY_TASK_COINS_MAX })),
+      isActive: z.boolean(),
+    })
+    .superRefine(({ type, target }, context) => {
+      const { max } = DAILY_TASK_TYPE_INFO[type];
+      if (target > max)
+        context.addIssue({
+          code: "custom",
+          path: ["target"],
+          message: t("form.atMostForType", { max }),
+        });
+    });
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof schemaOf>>;
 
 const emptyValues: FormValues = {
   title: "",
@@ -106,13 +109,14 @@ const CycleButton = <T extends string>({
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
 }) => {
+  const { t } = useTranslation("dailyTasks");
   const index = Math.max(0, options.findIndex((option) => option.value === value));
   const next = options[(index + 1) % options.length];
   return (
     <button
       type="button"
       aria-label={`${label}: ${options[index].label}`}
-      title={`Click to change to ${next.label}`}
+      title={t("form.nextValue", { name: next.label })}
       onClick={() => onChange(next.value)}
       className="inline-flex h-9 items-center gap-2 bg-transparent px-0 py-1.5 text-[1.125rem] font-normal text-primary transition-colors hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
@@ -122,11 +126,6 @@ const CycleButton = <T extends string>({
   );
 };
 
-const TYPE_OPTIONS = DAILY_TASK_TYPES.map((value) => ({ value, label: DAILY_TASK_TYPE_INFO[value].label }));
-const ACTIVE_OPTIONS = [
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-];
 /** No visible labels on the text fields: the placeholders say what each is, `aria-label` serves screen readers. */
 const FieldError = ({ message }: { message?: string }) =>
   message ? (
@@ -150,6 +149,14 @@ interface DailyTaskFormProps {
  * With `task` it edits that task (Update task and Cancel); remount it (`key`) to switch task.
  */
 export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps) => {
+  const { t } = useTranslation("dailyTasks");
+  const schema = useMemo(() => schemaOf(t), [t]);
+  // Read in the language of the interface, so they are built here, not when the module loads.
+  const typeOptions = DAILY_TASK_TYPES.map((value) => ({ value, label: DAILY_TASK_TYPE_INFO[value].label }));
+  const activeOptions = [
+    { value: "active", label: t("status.active") },
+    { value: "inactive", label: t("status.inactive") },
+  ];
   const createTask = useCreateDailyTask();
   const updateTask = useUpdateDailyTask();
   const saving = createTask.isPending || updateTask.isPending;
@@ -196,7 +203,7 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
     // `noValidate`: the schema checks the number field, with its own messages.
     <form
       className="flex min-h-0 flex-1 flex-col gap-4"
-      aria-label={task ? "Edit task" : "New task"}
+      aria-label={task ? t("page.editTask") : t("page.newTask")}
       noValidate
       onSubmit={submit}
     >
@@ -205,8 +212,8 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
         <div className="min-w-0 max-w-full space-y-2">
           <Input
             className={cn(fieldClass, titleClass)}
-            aria-label="Title"
-            placeholder="Title of The Task"
+            aria-label={t("form.title")}
+            placeholder={t("form.titlePlaceholder")}
             {...register("title")}
           />
           <FieldError message={errors.title?.message} />
@@ -222,8 +229,8 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
             fieldClass,
             "min-h-48 flex-1 resize-none text-[2rem] leading-snug",
           )}
-          aria-label="Description"
-          placeholder="Describe the task for learners (optional)…"
+          aria-label={t("form.description")}
+          placeholder={t("form.descriptionPlaceholder")}
           {...register("description")}
         />
         <FieldError message={errors.description?.message} />
@@ -248,10 +255,10 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
             control={control}
             name="type"
             render={({ field }) => (
-              <CycleButton label="Type"
+              <CycleButton label={t("form.type")}
                 icon={DAILY_TASK_TYPE_INFO[field.value].icon}
                 value={field.value}
-                options={TYPE_OPTIONS}
+                options={typeOptions}
                 onChange={field.onChange} />
             )}
           />
@@ -261,7 +268,7 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
               aria-hidden="true"
             />
             <label htmlFor="daily-task-target" className="text-primary">
-              Target
+              {t("form.target")}
             </label>
             {/* The range is a tooltip, not text beside the field. */}
             <TooltipProvider delayDuration={200}>
@@ -305,7 +312,7 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
               aria-hidden="true"
             />
             <label htmlFor="daily-task-coins" className="text-primary">
-              Coins
+              {t("form.coins")}
             </label>
             <TooltipProvider delayDuration={200}>
               <Tooltip>
@@ -345,10 +352,10 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
             control={control}
             name="isActive"
             render={({ field }) => (
-              <CycleButton label="Active"
+              <CycleButton label={t("form.active")}
                 icon={field.value ? CircleCheck : CircleOff}
                 value={field.value ? "active" : "inactive"}
-                options={ACTIVE_OPTIONS}
+                options={activeOptions}
                 onChange={(value) => field.onChange(value === "active")} />
             )}
           />
@@ -357,7 +364,7 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
         <div className="flex items-center justify-end gap-4">
           {task && (
             <Button type="button" variant="outline" onClick={onDone}>
-              Cancel
+              {t("common:actions.cancel")}
             </Button>
           )}
           <Button type="submit" disabled={saving}>
@@ -366,7 +373,7 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
             ) : (
               !task && <Plus className="size-4" aria-hidden />
             )}
-            {task ? "Update task" : "Add task"}
+            {task ? t("form.update") : t("form.add")}
           </Button>
         </div>
       </div>

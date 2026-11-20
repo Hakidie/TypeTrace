@@ -1,5 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ErrorState } from '@/shared/components/error-state';
@@ -11,21 +13,25 @@ import { usePlacementSettings, useUpdatePlacementSettings } from '../hooks/use-r
 import { MAX_PLACEMENT_MIN_ACCURACY, MIN_PLACEMENT_MIN_ACCURACY } from '../lib/placement-board';
 
 // Mirrors `placementSettingsSchema` in BE/src/validators/placement.validator.ts. An empty number field gives NaN, which is not a number for Zod.
-const schema = z.object({
-  minAccuracy: z
-    .number({ error: 'Enter a number' })
-    .int('Use a whole number')
-    .min(MIN_PLACEMENT_MIN_ACCURACY, `At least ${MIN_PLACEMENT_MIN_ACCURACY}`)
-    .max(MAX_PLACEMENT_MIN_ACCURACY, `At most ${MAX_PLACEMENT_MIN_ACCURACY}`),
-});
+// The messages in the language of the interface (SCRUM-336).
+const schemaOf = (t: TFunction<'ranked'>) =>
+  z.object({
+    minAccuracy: z
+      .number({ error: t('placementSettings.enterNumber') })
+      .int(t('placementSettings.wholeNumber'))
+      .min(MIN_PLACEMENT_MIN_ACCURACY, t('placementSettings.atLeast', { min: MIN_PLACEMENT_MIN_ACCURACY }))
+      .max(MAX_PLACEMENT_MIN_ACCURACY, t('placementSettings.atMost', { max: MAX_PLACEMENT_MIN_ACCURACY })),
+  });
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof schemaOf>>;
 
 /**
  * The admin setting of the placement leaderboard (US10.1), in the admin Settings page: the accuracy a 3-minute placement session needs
  * to be on it. It applies to sessions completed after it is saved.
  */
 export const PlacementMinAccuracySetting = () => {
+  const { t } = useTranslation('ranked');
+  const schema = useMemo(() => schemaOf(t), [t]);
   const settings = usePlacementSettings();
   const save = useUpdatePlacementSettings();
   const {
@@ -48,7 +54,7 @@ export const PlacementMinAccuracySetting = () => {
       {/* The label and the field share a row; the explanation is under them. */}
       <div className="flex items-center justify-between gap-4">
         <Label htmlFor="minAccuracy" className="text-xl font-medium">
-          Minimum accuracy (%)
+          {t('placementSettings.minAccuracy')}
         </Label>
         <div className="flex shrink-0 items-center gap-2">
           <Input
@@ -61,11 +67,11 @@ export const PlacementMinAccuracySetting = () => {
             {...register('minAccuracy', { valueAsNumber: true })}
           />
           <Button type="submit" disabled={!isDirty || save.isPending}>
-            Save
+            {t('placementSettings.save')}
           </Button>
         </div>
       </div>
-      <p className="text-lg text-muted-foreground">Lowest accuracy for a 3-minute placement session to be on the leaderboard. Saving it updates the board.</p>
+      <p className="text-lg text-muted-foreground">{t('placementSettings.hint')}</p>
       {errors.minAccuracy && (
         <p id="minAccuracy-error" role="alert" className="text-sm text-destructive">
           {errors.minAccuracy.message}

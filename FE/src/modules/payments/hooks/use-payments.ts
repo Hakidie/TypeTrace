@@ -3,6 +3,7 @@ import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
 import { avatarKeys } from '@/modules/avatar/hooks/use-avatar';
 import { planKeys } from '@/modules/plan/hooks/use-plan';
 import { toast } from 'sonner';
+import { i18n } from '@/shared/i18n/i18n';
 import { adminPaymentsApi, paymentsApi } from '../api/payments.api';
 import type { ChartRange } from '@/modules/profile/types/profile.types';
 import type { AdminPaymentListParams, PaymentProvider } from '../types/payments.types';
@@ -68,9 +69,8 @@ export const useRecheckPayment = () => {
     mutationFn: adminPaymentsApi.recheck,
     onSuccess: (row) => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'payments'] });
-      toast[row.status === 'paid' && row.granted ? 'success' : 'message'](
-        row.status === 'paid' ? (row.granted ? 'Paid: the learner got what they bought.' : 'Paid, but not given yet.') : row.status === 'failed' ? 'payOS says this payment failed or was cancelled.' : 'payOS still shows this payment as open.',
-      );
+      const result = row.status === 'paid' ? (row.granted ? 'given' : 'notGiven') : row.status === 'failed' ? 'failed' : 'open';
+      toast[row.status === 'paid' && row.granted ? 'success' : 'message'](i18n.t(`store:adminPayments.recheckResult.${result}`));
     },
   });
 };

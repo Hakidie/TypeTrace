@@ -1,5 +1,6 @@
 import { Users } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import { Input } from '@/shared/components/ui/input';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
@@ -25,11 +26,7 @@ const PAGE_SIZE = 3;
 const ALL = 'all';
 const filterValue = (param: string, fallback: string) => (param === '' ? fallback : param === ALL ? '' : param);
 
-const ROLE_OPTIONS = [
-  { value: 'user', label: 'User' },
-  { value: 'admin', label: 'Admin' },
-];
-
+// The plan names are the same in both languages (`planTitle`).
 const PLAN_OPTIONS = [
   { value: 'free', label: 'Free' },
   { value: 'premium', label: 'Premium' },
@@ -37,20 +34,16 @@ const PLAN_OPTIONS = [
 
 const MAX_GRANT_MONTHS = 36;
 
-const SORT_OPTIONS = [
-  { value: '-createdAt', label: 'Newest' },
-  { value: 'createdAt', label: 'Oldest' },
-  { value: 'displayName', label: 'Name A–Z' },
-  { value: '-displayName', label: 'Name Z–A' },
-  { value: 'email', label: 'Email A–Z' },
-  { value: '-email', label: 'Email Z–A' },
-  { value: 'role', label: 'Role A–Z' },
-];
-
-const VERIFIED_OPTIONS = [
-  { value: 'true', label: 'Verified' },
-  { value: 'false', label: 'Unverified' },
-];
+// The values of the sort; the words are the `users.sort.*` keys.
+const SORTS = [
+  ['-createdAt', 'newest'],
+  ['createdAt', 'oldest'],
+  ['displayName', 'nameAsc'],
+  ['-displayName', 'nameDesc'],
+  ['email', 'emailAsc'],
+  ['-email', 'emailDesc'],
+  ['role', 'roleAsc'],
+] as const;
 
 /**
  * Reference admin page for one resource: a toolbar (search, sort, filters), a list of
@@ -58,6 +51,16 @@ const VERIFIED_OPTIONS = [
  * Copy it for other resources.
  */
 export const AdminUsersPage = () => {
+  const { t } = useTranslation('admin');
+  const ROLE_OPTIONS = [
+    { value: 'user', label: t('roles.user') },
+    { value: 'admin', label: t('roles.admin') },
+  ];
+  const VERIFIED_OPTIONS = [
+    { value: 'true', label: t('users.verified') },
+    { value: 'false', label: t('users.unverified') },
+  ];
+  const SORT_OPTIONS = SORTS.map(([value, key]) => ({ value, label: t(`users.sort.${key}`) }));
   const { data: currentUser } = useCurrentUser();
   const list = useListParams({ sort: '-createdAt' });
   // The filters start on Role "User" and Email "Verified". Choosing "All" puts `all` in the URL: an empty value would bring the default back.
@@ -96,14 +99,14 @@ export const AdminUsersPage = () => {
       return (
         <EmptyState
           icon={Users}
-          title={isFiltered ? 'No matching users' : 'No users yet'}
-          description={isFiltered ? 'Try another search or filter.' : undefined}
+          title={isFiltered ? t('users.noMatch') : t('users.none')}
+          description={isFiltered ? t('users.tryAnother') : undefined}
         />
       );
     }
     return (
       <>
-        <div className="space-y-2" aria-label="User cards">
+        <div className="space-y-2" aria-label={t('users.cards')}>
           {users.data.items.map((user) => (
             <UserRow
               key={user._id}
@@ -145,7 +148,7 @@ export const AdminUsersPage = () => {
 
       {/* PANEL Users */}
       <Panel
-        title="User list"
+        title={t('users.listTitle')}
         bare
         titleClassName={sectionTitleClass}
         className="flex flex-col gap-3"
@@ -153,18 +156,18 @@ export const AdminUsersPage = () => {
           <CompactToolbar
             showWords
             search={{
-              label: 'Search users',
-              placeholder: 'Search email or name…',
+              label: t('users.searchLabel'),
+              placeholder: t('users.searchPlaceholder'),
               defaultValue: list.q,
               onSearch: (value) => list.set('q', value),
             }}
             sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
             filters={[
-              { label: 'Role', value: role ?? '', options: ROLE_OPTIONS, onChange: setFilter('role') },
-              { label: 'Email', value: verified ?? '', options: VERIFIED_OPTIONS, onChange: setFilter('verified') },
-              { label: 'Plan', value: plan ?? '', options: PLAN_OPTIONS, onChange: setFilter('plan') },
+              { label: t('users.filters.role'), value: role ?? '', options: ROLE_OPTIONS, onChange: setFilter('role') },
+              { label: t('users.filters.email'), value: verified ?? '', options: VERIFIED_OPTIONS, onChange: setFilter('verified') },
+              { label: t('users.filters.plan'), value: plan ?? '', options: PLAN_OPTIONS, onChange: setFilter('plan') },
             ]}
-            count={{ icon: Users, value: users.data?.total ?? '…', label: 'Users' }}
+            count={{ icon: Users, value: users.data?.total ?? '…', label: t('users.count') }}
           />
         }
       >
@@ -174,7 +177,7 @@ export const AdminUsersPage = () => {
       {/* The edit form (there is no "new user"): a modal in the look of the menus, opened by Edit. */}
       <Dialog open={editing !== undefined} onOpenChange={(open) => !open && setEditing(undefined)}>
         <DialogContent overlay={false} className="border-border bg-background/75 pt-12 shadow-md backdrop-blur-xs sm:max-w-6xl" aria-describedby={undefined}>
-          <DialogTitle className="sr-only">User info</DialogTitle>
+          <DialogTitle className="sr-only">{t('users.editTitle')}</DialogTitle>
           {editing && (
             <UserForm
               key={editing._id}
@@ -192,9 +195,9 @@ export const AdminUsersPage = () => {
       <ConfirmDialog
         open={pendingDelete !== undefined}
         onOpenChange={(open) => !open && setPendingDelete(undefined)}
-        title="Delete this user?"
-        description="The account is deleted for good, with their notes, typing sessions and avatar. This cannot be undone."
-        confirmLabel="Delete"
+        title={t('users.deleteTitle')}
+        description={t('users.deleteDescription')}
+        confirmLabel={t('common:actions.delete')}
         destructive
         pending={deleteUsers.isPending}
         onConfirm={confirmDelete}
@@ -203,9 +206,9 @@ export const AdminUsersPage = () => {
       <ConfirmDialog
         open={granting !== undefined}
         onOpenChange={(open) => !open && setGranting(undefined)}
-        title="Grant Premium"
-        description={`The months become a new term that starts when the Premium of ${granting?.email ?? ''} ends (today if they have none).`}
-        confirmLabel="Grant"
+        title={t('users.grantTitle')}
+        description={t('users.grantDescription', { email: granting?.email ?? '' })}
+        confirmLabel={t('users.grant')}
         pending={grantPremium.isPending}
         confirmDisabled={!monthsValid}
         onConfirm={() => grantPremium.mutate({ id: granting!._id, months: monthsNumber }, { onSuccess: () => setGranting(undefined) })}
@@ -215,20 +218,20 @@ export const AdminUsersPage = () => {
           min={1}
           max={MAX_GRANT_MONTHS}
           step={1}
-          aria-label="Months"
+          aria-label={t('users.months')}
           value={months}
           onChange={(event) => setMonths(event.target.value)}
         />
-        {!monthsValid && <p role="alert" className="text-sm text-destructive">Enter a number of months from 1 to {MAX_GRANT_MONTHS}.</p>}
+        {!monthsValid && <p role="alert" className="text-sm text-destructive">{t('users.monthsInvalid', { max: MAX_GRANT_MONTHS })}</p>}
       </ConfirmDialog>
 
       <ConfirmDialog
         open={cancelling !== undefined}
         onOpenChange={(open) => !open && setCancelling(undefined)}
-        title="Cancel Premium?"
-        description={`${cancelling?.email ?? ''} keeps Premium until the paid time ends, then goes back to the Free plan.`}
-        confirmLabel="Cancel Premium"
-        cancelLabel="Keep"
+        title={t('users.cancelTitle')}
+        description={t('users.cancelDescription', { email: cancelling?.email ?? '' })}
+        confirmLabel={t('users.cancelConfirm')}
+        cancelLabel={t('users.keep')}
         destructive
         pending={cancelPremium.isPending}
         onConfirm={() => cancelPremium.mutate(cancelling!._id, { onSuccess: () => setCancelling(undefined) })}
@@ -237,9 +240,9 @@ export const AdminUsersPage = () => {
       <ConfirmDialog
         open={revoking !== undefined}
         onOpenChange={(open) => !open && setRevoking(undefined)}
-        title="Revoke Premium now?"
-        description={`${revoking?.email ?? ''} goes back to the Free plan now. Passages over the Free limit get locked; nothing is deleted.`}
-        confirmLabel="Revoke"
+        title={t('users.revokeTitle')}
+        description={t('users.revokeDescription', { email: revoking?.email ?? '' })}
+        confirmLabel={t('users.revoke')}
         destructive
         pending={revokePremium.isPending}
         onConfirm={() => revokePremium.mutate(revoking!._id, { onSuccess: () => setRevoking(undefined) })}

@@ -1,5 +1,7 @@
+import { useTranslation } from 'react-i18next';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { ListRow, ListRowStat } from '@/shared/components/list-row';
+import { translatedRecord } from '@/shared/i18n/translated-record';
 import { SOURCE_LABELS } from '../plan.config';
 import { SubscriptionPeriod } from './SubscriptionPeriod';
 import type { SubscriptionRow } from '../types/plan.types';
@@ -20,13 +22,17 @@ const Column = ({ label, value, widest }: { label: string; value: string; widest
   </div>
 );
 
-const STATUS_LABELS: Record<SubscriptionRow['status'], string> = { upcoming: 'Upcoming', active: 'Active', cancelled: 'Cancelled', ended: 'Ended' };
+const STATUS_LABELS: Record<SubscriptionRow['status'], string> = translatedRecord(
+  ['upcoming', 'active', 'cancelled', 'ended'] as const,
+  (status) => `store:adminPlans.statuses.${status}`,
+);
 
 /**
  * One plan change of a user, built like the session card of the profile (`ListRow`, `plain`): the avatar of the user, their name and email under it on the left;
  * the period in the middle (`SubscriptionPeriod`: a progress bar of the term with its start day on the left and its end day on the right under it, `Now` while it has no end; the admin who made the change, `by Boss`, sits between the two days), and the plan, the payment method and the status on the right.
  */
 export const SubscriptionCard = ({ row }: { row: SubscriptionRow }) => {
+  const { t } = useTranslation('store');
   return (
     <ListRow
       plain
@@ -38,7 +44,7 @@ export const SubscriptionCard = ({ row }: { row: SubscriptionRow }) => {
             {row.avatarUrl ? (
               <img src={row.avatarUrl} alt="" className="size-full object-cover" />
             ) : (
-              <AvatarSprite look={row.avatar} crop="head" scale={1.5} label={`Avatar of ${row.userName}`} />
+              <AvatarSprite look={row.avatar} crop="head" scale={1.5} label={t('adminPlans.list.avatarOf', { name: row.userName })} />
             )}
           </div>
           <div className="min-w-0">
@@ -50,9 +56,9 @@ export const SubscriptionCard = ({ row }: { row: SubscriptionRow }) => {
       center={<SubscriptionPeriod row={row} />}
       extra={
         <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-8">
-          <Column label="PLAN" value={row.plan === 'premium' ? 'Premium' : 'Free'} widest="Premium" />
-          <Column label="SOURCE" value={SOURCE_LABELS[row.source] ?? 'None'} widest={longest(Object.values(SOURCE_LABELS))} />
-          <Column label="STATUS" value={STATUS_LABELS[row.status]} widest={longest(Object.values(STATUS_LABELS))} />
+          <Column label={t('adminPlans.list.column.plan')} value={row.plan === 'premium' ? 'Premium' : 'Free'} widest="Premium" />
+          <Column label={t('adminPlans.list.column.source')} value={SOURCE_LABELS[row.source] ?? t('adminPlans.sources.none')} widest={longest(Object.values(SOURCE_LABELS))} />
+          <Column label={t('adminPlans.list.column.status')} value={STATUS_LABELS[row.status]} widest={longest(Object.values(STATUS_LABELS))} />
         </div>
       }
     />

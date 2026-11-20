@@ -1,4 +1,5 @@
 import { Ban, CircleCheck, Crown, Gem, MailCheck, MailQuestion, Pencil, Shield, Trash2, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
@@ -8,6 +9,7 @@ import { ListRow, ListRowMenu, ListRowStat } from '@/shared/components/list-row'
 import { RowContextMenu } from '@/shared/components/row-context-menu';
 import { Badge } from '@/shared/components/ui/badge';
 import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
+import { dateKeyIn, monthShort } from '@/shared/lib/local-date';
 import { currentStreak } from '@/shared/lib/streak';
 import type { UserSessionDay, UserStatus, UserTypingStats } from '../types/admin.types';
 
@@ -38,10 +40,14 @@ interface UserRowProps {
   onRevokePremium?: (user: CurrentUser) => void;
 }
 
-const formatDay = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
+/** "05 Dec 2026" in Vietnam time, the month in the language of the interface. */
+const formatDay = (iso: string) => {
+  const [year, month, day] = dateKeyIn(new Date(iso), 'Asia/Ho_Chi_Minh').split('-');
+  return `${day} ${monthShort(Number(month))} ${year}`;
+};
 
 export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onToggleStatus, onDelete, plan, planExpiresAt, planCancelled, onGrantPremium, onCancelPremium, onRevokePremium }: UserRowProps) => {
+  const { t } = useTranslation('admin');
   // Without a display name: the part of the email before the @.
   const name = user.displayName || user.email.split('@')[0];
   const showPicture = Boolean(user.avatarUrl) && user.avatarSource !== 'pixel';
@@ -52,37 +58,37 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
     {onEdit && (
         <DropdownMenuItem className="gap-2" onClick={() => onEdit(user)}>
           <Pencil className="size-4" />
-          Edit
+          {t('row.edit')}
         </DropdownMenuItem>
       )}
       {onToggleStatus && (
         <DropdownMenuItem className="gap-2" onClick={() => onToggleStatus(user)}>
           {status === 'locked' ? <CircleCheck className="size-4" /> : <Ban className="size-4" />}
-          {status === 'locked' ? 'Enable' : 'Disable'}
+          {status === 'locked' ? t('row.enable') : t('row.disable')}
         </DropdownMenuItem>
       )}
       {onGrantPremium && (
         <DropdownMenuItem className="gap-2" onClick={() => onGrantPremium(user)}>
           <Gem className="size-4" />
-          Grant Premium
+          {t('row.grantPremium')}
         </DropdownMenuItem>
       )}
       {onCancelPremium && plan === 'premium' && !planCancelled && (
         <DropdownMenuItem className="gap-2" onClick={() => onCancelPremium(user)}>
           <Crown className="size-4" />
-          Cancel Premium
+          {t('row.cancelPremium')}
         </DropdownMenuItem>
       )}
       {onRevokePremium && plan === 'premium' && (
         <DropdownMenuItem className="gap-2" onClick={() => onRevokePremium(user)}>
           <Crown className="size-4" />
-          Revoke Premium now
+          {t('row.revokePremium')}
         </DropdownMenuItem>
       )}
       {onDelete && (
         <DropdownMenuItem className="gap-2 text-destructive" onClick={() => onDelete(user)}>
           <Trash2 className="size-4" />
-          Delete
+          {t('row.delete')}
         </DropdownMenuItem>
       )}
 
@@ -93,7 +99,7 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
     // No background, like a session of the profile: the card's padding goes outside, so its text lines up with the title above.
     <RowContextMenu
       className="-mr-3 -ml-4"
-      label={`Actions for ${user.email}`}
+      label={t('row.actionsFor', { email: user.email })}
       menu={actions}
     >
       <ListRow
@@ -106,7 +112,7 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
               {showPicture ? (
                 <img src={user.avatarUrl} alt="" className="size-full object-cover" />
               ) : (
-                <AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} crop="head" scale={1.5} label={`Avatar of ${name}`} />
+                <AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} crop="head" scale={1.5} label={t('row.avatarOf', { name })} />
               )}
             </div>
             <div className="min-w-0">
@@ -115,7 +121,7 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
             </div>
           </div>
         }
-        center={<ActivityHeatmap days={sessions} since={user.createdAt} label={`Completed sessions in the last ${HEATMAP_DAYS} days`} />}
+        center={<ActivityHeatmap days={sessions} since={user.createdAt} label={t('row.heatmap', { days: HEATMAP_DAYS })} />}
         extra={
           <div className="flex w-full justify-between gap-4 xl:w-72">
             <ListRowStat label="STREAK" value={sessions ? `${String(currentStreak(sessions)).padStart(3, '0')}D` : '—'} />
@@ -123,25 +129,25 @@ export const UserRow = ({ user, stats, sessions, status = 'active', onEdit, onTo
             <ListRowStat label="WPM" value={stats ? String(Math.round(stats.wpm)) : '0000'} />
           </div>
         }
-        action={<ListRowMenu label={`Actions for ${user.email}`}>{actions}</ListRowMenu>}
+        action={<ListRowMenu label={t('row.actionsFor', { email: user.email })}>{actions}</ListRowMenu>}
         tags={
           <>
-            <LabeledTag icon={user.role === 'admin' ? Shield : User} text={user.role === 'admin' ? 'Admin' : 'User'} hint={user.role === 'admin' ? 'Can open the admin area' : 'A learner'} />
+            <LabeledTag icon={user.role === 'admin' ? Shield : User} text={t(`roles.${user.role}`)} hint={user.role === 'admin' ? t('row.adminHint') : t('row.userHint')} />
             <LabeledTag
               icon={user.isEmailVerified ? MailCheck : MailQuestion}
-              text={user.isEmailVerified ? 'Verified' : 'Unverified'}
-              hint={user.isEmailVerified ? 'The email address is confirmed' : 'The email address is not confirmed yet'}
+              text={user.isEmailVerified ? t('columns.verified') : t('columns.unverified')}
+              hint={user.isEmailVerified ? t('row.verifiedHint') : t('row.unverifiedHint')}
             />
             {plan && (
               <LabeledTag
                 icon={plan === 'premium' ? Crown : User}
-                text={plan === 'premium' && planExpiresAt ? `${planCancelled ? 'Cancelled' : 'Premium'} · ${formatDay(planExpiresAt)}` : plan === 'premium' ? 'Premium' : 'Free'}
-                hint={plan === 'premium' ? (planCancelled ? 'Premium was cancelled: it ends this day' : 'On Premium until this day') : 'On the Free plan'}
+                text={plan === 'premium' && planExpiresAt ? `${planCancelled ? t('row.cancelled') : 'Premium'} · ${formatDay(planExpiresAt)}` : plan === 'premium' ? 'Premium' : 'Free'}
+                hint={plan === 'premium' ? (planCancelled ? t('row.cancelledHint') : t('row.premiumHint')) : t('row.freeHint')}
               />
             )}
             <Badge variant={status === 'locked' ? 'outline' : 'default'} className={status === 'locked' ? 'border-primary text-primary' : undefined}>
               {status === 'locked' ? <Ban className="mr-1.5 size-4" aria-hidden /> : <CircleCheck className="mr-1.5 size-4" aria-hidden />}
-              {status === 'locked' ? 'Locked' : 'Active'}
+              {status === 'locked' ? t('row.locked') : t('row.active')}
             </Badge>
           </>
         }

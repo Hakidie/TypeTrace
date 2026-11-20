@@ -1,4 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import { Bar, BarChart, ReferenceLine, ResponsiveContainer, Tooltip, YAxis, type TooltipProps } from 'recharts';
+import { i18n } from '@/shared/i18n/i18n';
 import type { HourCompletions, TaskCompletions } from '../types/daily-task.types';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -9,11 +11,11 @@ const clock = (time: number) => new Date(time).toLocaleTimeString('en-GB', { hou
 /** "Today 14:00–15:00", "Yesterday 23:00–00:00": the 24 hours are today's and yesterday's in the admin's own zone. */
 const hourInWords = (hour: string) => {
   const start = new Date(hour).getTime();
-  const day = new Date(start).toDateString() === new Date().toDateString() ? 'Today' : 'Yesterday';
+  const day = i18n.t(new Date(start).toDateString() === new Date().toDateString() ? 'dailyTasks:hours.today' : 'dailyTasks:hours.yesterday');
   return `${day} ${clock(start)}–${clock(start + HOUR_MS)}`;
 };
 
-const learnersInWords = (count: number) => `${count} ${count === 1 ? 'learner' : 'learners'}`;
+const learnersInWords = (count: number) => i18n.t('dailyTasks:hours.learners', { count });
 
 /** The tooltip of the hovered hour, in the look of the heatmap's: the learners first, then the hour. */
 const HourTooltip = ({ active, payload }: TooltipProps<number, string>) => {
@@ -34,8 +36,9 @@ const HourTooltip = ({ active, payload }: TooltipProps<number, string>) => {
  * screen readers get the hours that had some in words. A note instead while nobody completed the task in the 24 hours.
  */
 export const DailyTaskCompletions = ({ completions }: { completions: TaskCompletions }) => {
+  const { t } = useTranslation('dailyTasks');
   if (completions.learners === 0) {
-    return <p className="flex h-[61px] items-center justify-center text-sm text-primary/70">Nobody completed it in the last 24 hours</p>;
+    return <p className="flex h-[61px] items-center justify-center text-sm text-primary/70">{t('hours.nobody')}</p>;
   }
   const busyHours = completions.hours
     .filter((hour) => hour.learners > 0)
@@ -44,7 +47,7 @@ export const DailyTaskCompletions = ({ completions }: { completions: TaskComplet
   return (
     <div
       role="img"
-      aria-label={`Completed by ${learnersInWords(completions.learners)} in the last 24 hours. ${busyHours}`}
+      aria-label={t('hours.aria', { learners: learnersInWords(completions.learners), hours: busyHours })}
       className="h-[61px]"
     >
       <ResponsiveContainer width="100%" height="100%">

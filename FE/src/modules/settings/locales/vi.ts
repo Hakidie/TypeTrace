@@ -96,4 +96,12 @@ export const settingsVi: typeof settingsEn = {
     classic: 'Cổ điển',
     modern: 'Hiện đại',
   },
+  admin: {
+    appearance: 'Giao diện',
+    theme: 'Chế độ',
+    themeHint: 'Chuyển giữa sáng và tối.',
+    compactSidebar: 'Thanh bên thu gọn',
+    compactHint: 'Chỉ hiện các biểu tượng ở thanh bên.',
+    placementBoard: 'Bảng xếp hạng Kiểm tra',
+  },
 };

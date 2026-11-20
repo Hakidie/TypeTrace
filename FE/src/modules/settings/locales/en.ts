@@ -94,4 +94,13 @@ export const settingsEn = {
     classic: 'Classic',
     modern: 'Modern',
   },
+  /** The admin Settings page (SCRUM-336). */
+  admin: {
+    appearance: 'Appearance',
+    theme: 'Theme',
+    themeHint: 'Switch between light and dark.',
+    compactSidebar: 'Compact sidebar',
+    compactHint: 'Show only the icons in the sidebar.',
+    placementBoard: 'Placement leaderboard',
+  },
 };

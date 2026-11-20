@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { i18n } from '@/shared/i18n/i18n';
 import { rankedApi } from '../api/ranked.api';
 import { DEFAULT_PLACEMENT_MIN_ACCURACY } from '../lib/placement-board';
 import type { MatchKind, PlacementRange } from '../types/ranked.types';
@@ -38,7 +39,7 @@ export const useUpdatePlacementSettings = () => {
   return useMutation({
     mutationFn: rankedApi.updatePlacementSettings,
     onSuccess: (settings) => {
-      toast.success('Placement settings saved.');
+      toast.success(i18n.t('ranked:placementSettings.saved'));
       queryClient.setQueryData(rankedKeys.placementSettings(), settings);
     },
   });
