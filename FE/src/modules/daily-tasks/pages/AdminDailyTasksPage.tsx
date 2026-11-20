@@ -16,7 +16,7 @@ import { DailyTaskForm } from "../components/DailyTaskForm";
 import { DailyTaskRow } from "../components/DailyTaskRow";
 import { TaskCompletionsChart } from "../components/TaskCompletionsChart";
 import { TasksPerDayItems } from "../components/TasksPerDayItems";
-import { DAILY_TASK_TYPE_INFO } from "../daily-tasks.config";
+import { DAILY_TASK_TYPE_INFO, shownTaskTitle } from "../daily-tasks.config";
 import {
   useDailyTasks,
   useDailyTaskSettings,
@@ -293,7 +293,7 @@ export const AdminDailyTasksPage = () => {
         title={t("page.deleteTitle")}
         description={
           deleting
-            ? t("page.deleteText", { title: deleting.title })
+            ? t("page.deleteText", { title: shownTaskTitle(deleting) })
             : undefined
         }
         confirmLabel={t("common:actions.delete")}

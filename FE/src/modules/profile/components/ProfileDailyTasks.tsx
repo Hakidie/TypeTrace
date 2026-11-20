@@ -2,7 +2,7 @@ import { CircleCheck, Coins } from 'lucide-react';
 import { useState } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { DAILY_TASK_TYPE_INFO } from '@/modules/daily-tasks/daily-tasks.config';
+import { builtTaskWords, DAILY_TASK_TYPE_INFO, showsBuiltTaskWords } from '@/modules/daily-tasks/daily-tasks.config';
 import { getApiErrorMessage } from '@/shared/api/api-error';
 import { Pagination } from '@/shared/components/pagination';
 import { Panel } from '@/shared/components/panel';
@@ -33,16 +33,10 @@ const oldestFirst = (tasks: DailyTaskProgress[]) => [...tasks].sort((a, b) => (a
 const numbersOf = ({ type, progress, target }: DailyTaskProgress, t: TFunction<'profile'>) =>
   t(type === 'sessions' ? 'dailyTasks.sessions' : 'dailyTasks.minigames', { progress, target, count: target });
 
-/** The short name and the full goal of a task in the interface language, built from its type and target (no translating). */
-const wordsOf = ({ type, target }: DailyTaskProgress, t: TFunction<'profile'>) =>
-  type === 'sessions'
-    ? { title: t('dailyTasks.taskTitle.sessions', { count: target }), description: t('dailyTasks.goal.sessions', { count: target }) }
-    : { title: t('dailyTasks.taskTitle.minigames', { count: target }), description: t('dailyTasks.goal.minigames', { count: target }) };
-
 const DailyTaskItem = ({ task: stored }: { task: DailyTaskProgress }) => {
-  const { t, i18n } = useTranslation('profile');
+  const { t } = useTranslation('profile');
   // The admin's title and description are English: in another interface language the words built from the task take their place.
-  const task = i18n.language.startsWith('en') ? stored : { ...stored, ...wordsOf(stored, t) };
+  const task = showsBuiltTaskWords() ? { ...stored, ...builtTaskWords(stored) } : stored;
   const { icon: Icon } = DAILY_TASK_TYPE_INFO[task.type];
   const numbers = numbersOf(task, t);
   const filled = task.completed ? 100 : Math.min(task.progress / task.target, 1) * 100;

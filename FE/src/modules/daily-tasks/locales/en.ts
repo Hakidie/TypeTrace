@@ -57,6 +57,7 @@ export const dailyTasksEn = {
     activate: 'Activate',
     deactivate: 'Deactivate',
     typeHint: 'The kind of task',
+    written: 'As written (learners see it in English): {{text}}',
   },
   /** The learners who completed a task in each of the last 24 hours, on its row. */
   hours: {

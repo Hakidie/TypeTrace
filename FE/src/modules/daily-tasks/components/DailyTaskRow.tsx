@@ -7,18 +7,21 @@ import { Badge } from '@/shared/components/ui/badge';
 import { DropdownMenuItem } from '@/shared/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
-import { DAILY_TASK_TYPE_INFO, formatTarget, goalOf } from '../daily-tasks.config';
+import { builtTaskWords, DAILY_TASK_TYPE_INFO, formatTarget, goalOf, showsBuiltTaskWords } from '../daily-tasks.config';
 import type { DailyTask, DailyTaskListItem } from '../types/daily-task.types';
 import { DailyTaskCompletions } from './DailyTaskCompletions';
 
-/** One line, cut with an ellipsis when it is long: the whole text shows in the project's tooltip while it is hovered. */
-const CutLine = ({ text, className }: { text: string; className: string }) => (
+/**
+ * One line, cut with an ellipsis when it is long: the whole text shows in the project's tooltip while it is hovered, or `tip`
+ * (what the admin wrote, while the line shows the words built from the task).
+ */
+const CutLine = ({ text, tip = text, className }: { text: string; tip?: string; className: string }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <p className={cn('truncate', className)}>{text}</p>
     </TooltipTrigger>
     {/* A description can be long: the tooltip wraps it instead of running off the screen. */}
-    <TooltipContent className="max-w-sm whitespace-normal">{text}</TooltipContent>
+    <TooltipContent className="max-w-sm whitespace-normal">{tip}</TooltipContent>
   </Tooltip>
 );
 
@@ -33,7 +36,9 @@ interface DailyTaskRowProps {
 
 /**
  * One task, laid out like a session card of the profile (`SessionCard`), with no background and no lines between its tiers:
- * the icon of its type, the title and under it the description (the goal in words, `goalOf`, when it has none); where a
+ * the icon of its type, the title and under it the description (the goal in words, `goalOf`, when it has none; in another
+ * interface language than English the words built from its type and target, as the learner's Profile shows them, with what
+ * the admin wrote in their tooltips: what learners read in English, SCRUM-336); where a
  * session card has its speed line, the learners who completed it in each of the last 24 hours (`DailyTaskCompletions`, from
  * `xl`); then the learners of those 24 hours (DONE) and the target. Its actions are in a kebab menu that shows while the row is hovered,
  * and in the same menu on a right click (`RowContextMenu`). Under them the type as a `LabeledTag` and the status as a badge with an icon, as on the user rows (no date).
@@ -41,7 +46,12 @@ interface DailyTaskRowProps {
 export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTaskRowProps) => {
   const { t } = useTranslation('dailyTasks');
   const { label, stat, icon: Icon } = DAILY_TASK_TYPE_INFO[task.type];
-  const subtitle = task.description || goalOf(task);
+  const written = { title: task.title, description: task.description || goalOf(task) };
+  const built = showsBuiltTaskWords();
+  const { title, description: subtitle } = built ? builtTaskWords(task) : written;
+  // What the admin wrote, while the line shows the built words; a task without a description has nothing more to say.
+  const titleTip = built ? t('row.written', { text: task.title }) : title;
+  const subtitleTip = built && task.description ? t('row.written', { text: task.description }) : subtitle;
 
   // The entries of the menu: the one a right click opens and the one of the kebab button that shows while the row is hovered.
   const actions = (
@@ -66,7 +76,7 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
     // No background, like a session of the profile: the card's padding goes outside, so its text lines up with the title above.
     <RowContextMenu
       className="-mr-3 -ml-4"
-      label={t('row.actions', { title: task.title })}
+      label={t('row.actions', { title })}
       menu={actions}
     >
       <ListRow
@@ -80,9 +90,9 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
             </span>
             <TooltipProvider delayDuration={200}>
               <div className="min-w-0">
-                <CutLine text={task.title} className="text-2xl font-extrabold text-primary/80" />
+                <CutLine text={title} tip={titleTip} className="text-2xl font-extrabold text-primary/80" />
                 {/* One line, like the date of a session card. */}
-                <CutLine text={subtitle} className="text-lg text-muted-foreground" />
+                <CutLine text={subtitle} tip={subtitleTip} className="text-lg text-muted-foreground" />
               </div>
             </TooltipProvider>
           </div>
@@ -96,7 +106,7 @@ export const DailyTaskRow = ({ task, onEdit, onToggleActive, onDelete }: DailyTa
             <ListRowStat className="w-28" label={stat} value={formatTarget(task)} />
           </div>
         }
-        action={<ListRowMenu label={t('row.actions', { title: task.title })}>{actions}</ListRowMenu>}
+        action={<ListRowMenu label={t('row.actions', { title })}>{actions}</ListRowMenu>}
         tags={
           <>
             <LabeledTag icon={Icon} text={label} hint={t('row.typeHint')} />

@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event';
 import { act } from 'react';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { toast } from 'sonner';
@@ -77,7 +78,7 @@ describe('the admin Daily tasks page in Vietnamese (SCRUM-336)', () => {
     vi.useRealTimers();
   });
 
-  it('names the chart, the list, its toolbar and the rows in Vietnamese; the titles the admins wrote stay as they are', async () => {
+  it('names the chart, the list, its toolbar and the rows in Vietnamese; the rows show the words built from each task, as the Profile', async () => {
     renderPage();
 
     const chart = await screen.findByRole('region', { name: 'Lượt hoàn thành nhiệm vụ' });
@@ -89,20 +90,41 @@ describe('the admin Daily tasks page in Vietnamese (SCRUM-336)', () => {
     expect(screen.getByLabelText('Tìm nhiệm vụ').closest('div.flex')).toHaveTextContent('4Nhiệm vụ');
 
     const cards = await screen.findByLabelText('Các thẻ nhiệm vụ hằng ngày');
-    expect(within(cards).getByText('Warm-up')).toBeInTheDocument();
-    expect(within(cards).getByText('Hoàn thành 3 lượt gõ tính điểm')).toBeInTheDocument();
-    expect(within(cards).getByText('Hoàn thành 5 minigame')).toBeInTheDocument();
+    // The titles the admins wrote are English: the rows show the words built from the type and the target instead.
+    expect(within(cards).queryByText('Warm-up')).not.toBeInTheDocument();
+    expect(within(cards).getByText('Luyện gõ 3')).toBeInTheDocument();
+    expect(within(cards).getByText('Hoàn thành 3 lượt gõ tính điểm trong ngày')).toBeInTheDocument();
+    expect(within(cards).getByText('Minigame 5')).toBeInTheDocument();
+    expect(within(cards).getByText('Hoàn thành 5 minigame trong ngày')).toBeInTheDocument();
     expect(within(cards).getAllByText('Đang bật')).toHaveLength(3);
     expect(within(cards).getAllByText('Đã tắt')).toHaveLength(1);
     expect(within(cards).getAllByText('Lượt gõ').length).toBeGreaterThan(0);
     expect(within(cards).getAllByText('Minigame').length).toBeGreaterThan(0);
-    expect(statOf(cardOf('Warm-up'), 'XU')).toBe('0');
-    expect(statOf(cardOf('Warm-up'), 'XONG')).toBe('0');
-    expect(statOf(cardOf('Warm-up'), 'LƯỢT GÕ')).toBe('3');
-    expect(statOf(cardOf('Focus'), 'MINIGAME')).toBe('5');
-    expect(within(cardOf('Warm-up')).getByText('Chưa ai hoàn thành trong 24 giờ qua')).toBeInTheDocument();
+    expect(statOf(cardOf('Luyện gõ 3'), 'XU')).toBe('0');
+    expect(statOf(cardOf('Luyện gõ 3'), 'XONG')).toBe('0');
+    expect(statOf(cardOf('Luyện gõ 3'), 'LƯỢT GÕ')).toBe('3');
+    expect(statOf(cardOf('Minigame 5'), 'MINIGAME')).toBe('5');
+    expect(within(cardOf('Luyện gõ 3')).getByText('Chưa ai hoàn thành trong 24 giờ qua')).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: 'Chuyển sang Nhiệm vụ hằng ngày' })).toBeInTheDocument();
+  });
+
+  // One hover a test: jsdom does not open the next tooltip of the same provider after the first one closes.
+  it.each([
+    ['Luyện gõ 3', 'Daily Practice 2'],
+    ['Hoàn thành 3 lượt gõ tính điểm trong ngày', 'Finish typing session three times'],
+  ])('shows what the admin wrote in the tooltip of "%s": what learners read in English', async (shown, written) => {
+    const user = userEvent.setup();
+    listWith([task('t8', 'Daily Practice 2', { description: 'Finish typing session three times' })]);
+    renderPage();
+
+    await user.hover(await screen.findByText(shown));
+
+    await waitFor(() =>
+      expect(screen.queryAllByRole('tooltip').map((tip) => tip.textContent)).toContain(
+        `Bản admin đã viết (người học thấy khi dùng giao diện tiếng Anh): ${written}`,
+      ),
+    );
   });
 
   it('offers the sort in Vietnamese', async () => {
@@ -142,7 +164,7 @@ describe('the admin Daily tasks page in Vietnamese (SCRUM-336)', () => {
 
     await screen.findByLabelText('Các thẻ nhiệm vụ hằng ngày');
     expect(
-      within(cardOf('Busy')).getByRole('img', {
+      within(cardOf('Luyện gõ 3')).getByRole('img', {
         name: 'Được 3 người học hoàn thành trong 24 giờ qua. Hôm qua 23:00–00:00: 1. Hôm nay 14:00–15:00: 2.',
       }),
     ).toBeInTheDocument();
@@ -153,14 +175,14 @@ describe('the admin Daily tasks page in Vietnamese (SCRUM-336)', () => {
     renderPage();
 
     const cards = await screen.findByLabelText('Các thẻ nhiệm vụ hằng ngày');
-    fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Thao tác cho Focus' }));
+    fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Thao tác cho Minigame 5' }));
     expect(within(cards).getByRole('menuitem', { name: 'Sửa' })).toBeInTheDocument();
     expect(within(cards).getByRole('menuitem', { name: 'Tắt' })).toBeInTheDocument();
     fireEvent.click(within(cards).getByRole('menuitem', { name: 'Xóa' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Xóa nhiệm vụ này?')).toBeInTheDocument();
-    expect(within(dialog).getByText('"Focus" sẽ bị xóa vĩnh viễn. Hãy tắt nhiệm vụ thay vì xóa nếu muốn giữ lại để dùng sau.')).toBeInTheDocument();
+    expect(within(dialog).getByText('"Minigame 5" sẽ bị xóa vĩnh viễn. Hãy tắt nhiệm vụ thay vì xóa nếu muốn giữ lại để dùng sau.')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Xóa' }));
 
     await waitFor(() => expect(remove).toHaveBeenCalledWith('t3'));
@@ -171,7 +193,7 @@ describe('the admin Daily tasks page in Vietnamese (SCRUM-336)', () => {
     renderPage();
 
     const cards = await screen.findByLabelText('Các thẻ nhiệm vụ hằng ngày');
-    fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Thao tác cho Slow day' }));
+    fireEvent.contextMenu(within(cards).getByRole('group', { name: 'Thao tác cho Luyện gõ 10' }));
     expect(within(cards).getByRole('menuitem', { name: 'Bật' })).toBeInTheDocument();
     fireEvent.click(within(cards).getByRole('menuitem', { name: 'Sửa' }));
 

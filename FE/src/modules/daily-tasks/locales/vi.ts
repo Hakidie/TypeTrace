@@ -54,6 +54,7 @@ export const dailyTasksVi: typeof dailyTasksEn = {
     activate: 'Bật',
     deactivate: 'Tắt',
     typeHint: 'Loại nhiệm vụ',
+    written: 'Bản admin đã viết (người học thấy khi dùng giao diện tiếng Anh): {{text}}',
   },
   hours: {
     nobody: 'Chưa ai hoàn thành trong 24 giờ qua',

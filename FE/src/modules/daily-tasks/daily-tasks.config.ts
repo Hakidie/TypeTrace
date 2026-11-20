@@ -40,3 +40,19 @@ export const DAILY_TASK_COINS_MAX = 100;
 
 /** The target as the row shows it. */
 export const formatTarget = ({ target }: Pick<DailyTask, 'target'>) => String(target);
+
+/**
+ * The titles and descriptions of the tasks are written by admins, in English: in another interface language the words built
+ * from the type and the target of a task take their place, on the learner's Profile and on the admin page (SCRUM-336).
+ */
+export const showsBuiltTaskWords = () => !i18n.language.startsWith('en');
+
+/** The short name and the full goal of a task in the interface language, built from its type and target (no translating). */
+export const builtTaskWords = ({ type, target }: Pick<DailyTask, 'type' | 'target'>) => ({
+  title: i18n.t(`profile:dailyTasks.taskTitle.${type}`, { count: target }),
+  description: i18n.t(`profile:dailyTasks.goal.${type}`, { count: target }),
+});
+
+/** The name of a task as the interface shows it: what the admin wrote in English, the built words in another language. */
+export const shownTaskTitle = (task: Pick<DailyTask, 'title' | 'type' | 'target'>) =>
+  showsBuiltTaskWords() ? builtTaskWords(task).title : task.title;
