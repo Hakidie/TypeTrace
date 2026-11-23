@@ -102,5 +102,18 @@ export const settingsEn = {
     compactSidebar: 'Compact sidebar',
     compactHint: 'Show only the icons in the sidebar.',
     placementBoard: 'Placement leaderboard',
+    aiLessons: 'AI lessons',
+  },
+  /** The AI limit of the admin Settings page (SCRUM-153). */
+  aiSettings: {
+    lessonsPerDay: 'AI passages per learner a day',
+    lessonsPerMinute: 'AI passages per learner a minute',
+    save: 'Save',
+    hint: 'How many Weak spots passages the AI may write for one learner. Past the daily limit, a lesson types a passage saved before, or its words (0 a day turns the AI off). Past the minute limit, it types its words.',
+    enterNumber: 'Enter a number',
+    wholeNumber: 'Use a whole number',
+    atLeast: 'At least {{min}}',
+    atMost: 'At most {{max}}',
+    saved: 'AI settings saved.',
   },
 };

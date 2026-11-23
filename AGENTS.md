@@ -49,6 +49,7 @@ A MERN starter for students. Two apps in one repository, each with its own `pack
 | `npm run migrate:placement-board` | Set `isOnPlacementBoard` again, from the rules and the minimum accuracy saved, on every completed placement session (fixes flags saved wrong; saving the minimum in the admin Settings page does the same). Run it after deploying the minimum accuracy setting; safe to run many times |
 | `npm run migrate:ranked-passages` | Mark the published public English passages already in the bank as `isRanked`: ranked duels (races and word rain) play only those. Never the English placement passages (SCRUM-305: a passage is never both) or the English practice ones of `import:passages:en-practice`. Run it once after deploying US6.4; safe to run many times |
 | `npm run migrate:subscriptions` | Give a Free `migration` subscription row to the accounts saved before subscriptions existed (a missing row already reads as Free; this only gives them a history; it also closes the rows written by the first version of US11.1). Run it once after deploying this version of US11.1; safe to run many times |
+| `npm run eval:ai` | Evaluate the Weak spots AI passages (SCRUM-124): 20 real Gemini calls (10 Vietnamese, 10 English, one per case, needs `GEMINI_API_KEY`), no database; rewrites `docs/ai-eval.md` with the share that passes `checkAiPassage` and the common problems. Run it after changing the Weak spots prompts or checks (a run varies a little: Gemini does not answer the same twice) |
 | `npm run dev` | Run backend (http://localhost:5003) and frontend (http://localhost:5173) together |
 | `npm test` | Run backend and frontend tests |
 | `npm run lint` | Lint the frontend |
@@ -165,7 +166,12 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `checkAiPassage` keeps it with 20 to 200 words that use at least 60 % of the practice words (not 60 % of the passage: natural
   text has 11 % words with đ). No key, a timeout, any Gemini error, a refused passage or more than 5 AI lessons a minute for
   the learner (`lessonAiLimiter`, which never answers 429) leave the picked words as the lesson: the learner never sees an AI
-  error, and `lessonSource` (`ai`, `words`, `passage`) records which. The passage lives only in the session (`targetWords`),
+  error, and `lessonSource` (`ai`, `cache`, `words`, `passage`) records which. The AI's cost is capped (SCRUM-153): a learner has
+  `AppSetting.aiLessonsPerDay` (20; 0 turns the AI off; an admin changes it in the AI lessons panel of the admin Settings page, `GET|PUT /api/admin/ai/settings` with `{ lessonsPerDay }`) AI passages per local day in their time zone (`reserveAiLesson`, one conditional
+  update of `AiUsage` that also counts failed tries, never a read then a write), and each passage the AI wrote is kept in
+  `AiLessonCache` (shared by all learners, no user data, keyed by language and sorted error types, at most `weakSpotsAi.cachePerKey` (5) a
+  key, deleted after `weakSpotsAi.cacheDays` (7) days by a TTL index) so that past the day's limit the lesson types one of them
+  (`lessonSource: 'cache'`) before falling back to the picked words. The per-minute limit (`lessonAiLimiter`, `AppSetting.aiLessonsPerMinute`, 5, 1 to 60, read on every lesson request) does not use the cache; an admin changes it in the same panel (`lessonsPerMinute`). The passage lives only in the session (`targetWords`),
   never in the passage bank. The session has no `passageId` and keeps `focusErrorTypes`; with nothing to aim at (no type with
   enough data yet, or no word for it) it types a random practice passage with `focusErrorTypes: []`, which the page explains.
   Weak spots is Vietnamese only (SCRUM-219): its session is always `language: 'vi'` (its random passage too), its focus comes

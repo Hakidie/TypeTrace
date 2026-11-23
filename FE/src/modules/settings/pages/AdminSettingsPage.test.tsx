@@ -8,6 +8,10 @@ vi.mock('@/modules/ranked/api/ranked.api', () => ({
   rankedApi: { placementSettings: async () => ({ minAccuracy: 90 }), updatePlacementSettings: async (settings: unknown) => settings },
 }));
 
+vi.mock('../api/ai-settings.api', () => ({
+  aiSettingsApi: { get: async () => ({ lessonsPerDay: 20, lessonsPerMinute: 5 }), update: async (settings: unknown) => settings },
+}));
+
 describe('AdminSettingsPage', () => {
   beforeEach(() => localStorage.clear());
 
@@ -16,6 +20,13 @@ describe('AdminSettingsPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Placement leaderboard' })).toBeInTheDocument();
     expect(await screen.findByLabelText('Minimum accuracy (%)')).toHaveValue(90);
+  });
+
+  it('has the AI lessons panel with the daily limit in use', async () => {
+    renderWithProviders(<AdminSettingsPage />, { route: '/admin/settings', path: '/admin/settings' });
+
+    expect(screen.getByRole('heading', { name: 'AI lessons' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('AI passages per learner a day')).toHaveValue(20);
   });
 
   it('shows the Appearance panel with the theme above the sidebar option', () => {

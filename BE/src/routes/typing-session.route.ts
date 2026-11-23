@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { weakSpotsAi } from '../config/weak-spots-ai';
 import {
   abandonSession,
   beginSession,
@@ -15,6 +14,7 @@ import {
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
+import { getAppSettings } from '../services/app-setting.service';
 import { idParamsSchema, languageQuerySchema } from '../validators/common.validator';
 import {
   completeSessionSchema,
@@ -27,12 +27,12 @@ export const typingSessionRouter = Router();
 typingSessionRouter.use(authGuard, requireRole('user', 'admin'));
 
 /**
- * Each Weak spots lesson asks the AI for its passage, on the project's key: `weakSpotsAi.perMinute` a minute per learner. Past
+ * Each Weak spots lesson asks the AI for its passage, on the project's key: `AppSetting.aiLessonsPerMinute` (5, an admin changes it) a minute per learner. Past
  * it the request is not refused: it goes on without the AI (`res.locals.aiLimited`) and the lesson is the word list (US3.2).
  */
 const lessonAiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: weakSpotsAi.perMinute,
+  limit: async () => (await getAppSettings()).aiLessonsPerMinute,
   standardHeaders: false,
   legacyHeaders: false,
   keyGenerator: (req) => req.user!.sub,

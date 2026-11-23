@@ -4,6 +4,7 @@ import { Panel } from '@/shared/components/panel';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { useSidebarMode } from '@/shared/hooks/use-sidebar-mode';
+import { AiLessonLimitSetting } from '../components/AiLessonLimitSetting';
 import { ThemeTabs } from '../components/ThemeTabs';
 
 // The panels of this page have no frame and no tint: the title is only red text, and the content sits directly on the page.
@@ -41,6 +42,11 @@ export const AdminSettingsPage = () => {
       {/* PANEL Placement leaderboard: the accuracy a placement session needs to be on it (an app setting, US10.1). */}
       <Panel title={t('admin.placementBoard')} bare titleClassName={titleClass}>
         <PlacementMinAccuracySetting />
+      </Panel>
+
+      {/* PANEL AI lessons: how many passages the AI may write for a learner a day (an app setting, SCRUM-153). */}
+      <Panel title={t('admin.aiLessons')} bare titleClassName={titleClass}>
+        <AiLessonLimitSetting />
       </Panel>
     </div>
   );

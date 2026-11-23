@@ -9,6 +9,11 @@ import { i18n } from '@/shared/i18n/i18n';
 import { renderWithProviders } from '@/test/render-with-providers';
 import { AdminSeasonsPage } from './pages/AdminSeasonsPage';
 
+// The AI lessons panel of the same page (SCRUM-153): answered, so it does not show an error of its own.
+vi.mock('@/modules/settings/api/ai-settings.api', () => ({
+  aiSettingsApi: { get: async () => ({ lessonsPerDay: 20, lessonsPerMinute: 5 }), update: async (settings: unknown) => settings },
+}));
+
 const updatePlacementSettings = vi.fn();
 vi.mock('./api/ranked.api', () => ({
   rankedApi: {
@@ -62,16 +67,19 @@ describe('the admin Seasons and Settings pages in Vietnamese (SCRUM-336)', () =>
     expect(screen.getByRole('heading', { name: 'Giao diện' })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Thanh bên thu gọn' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Bảng xếp hạng Kiểm tra' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Bài học AI' })).toBeInTheDocument();
     const field = await screen.findByLabelText('Độ chính xác tối thiểu (%)');
+    // The page has other Save buttons (the AI lessons panel): this one belongs to the form of the field.
+    const save = within(field.closest('form')!).getByRole('button', { name: 'Lưu' });
 
     await user.clear(field);
     await user.type(field, '20');
-    await user.click(screen.getByRole('button', { name: 'Lưu' }));
+    await user.click(save);
     expect(await screen.findByRole('alert')).toHaveTextContent('Ít nhất 50');
 
     await user.clear(field);
     await user.type(field, '85');
-    await user.click(screen.getByRole('button', { name: 'Lưu' }));
+    await user.click(save);
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Đã lưu cài đặt bài kiểm tra.'));
   });
 });

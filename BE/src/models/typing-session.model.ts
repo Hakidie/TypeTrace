@@ -70,7 +70,7 @@ export interface TypingSessionDocument extends mongoose.Document {
    */
   lessonWords?: string[];
   /** Weak spots only: what is typed: the AI's passage (`ai`), the picked words as they are (`words`), or a random passage (`passage`). */
-  lessonSource?: 'ai' | 'words' | 'passage';
+  lessonSource?: 'ai' | 'cache' | 'words' | 'passage';
   status: SessionStatus;
   words: SessionWord[];
   startedAt: Date;
@@ -132,7 +132,7 @@ const typingSessionSchema = new Schema<TypingSessionDocument>(
     // No default: only Weak spots sessions have the field, so an empty list always means "nothing to aim at".
     focusErrorTypes: { type: [String], enum: sessionErrorTypes, default: undefined },
     lessonWords: { type: [String], default: undefined },
-    lessonSource: { type: String, enum: ['ai', 'words', 'passage'] },
+    lessonSource: { type: String, enum: ['ai', 'cache', 'words', 'passage'] },
     status: { type: String, enum: sessionStatuses, default: 'in_progress' },
     words: { type: [wordSchema], default: [] },
     startedAt: { type: Date, default: Date.now },

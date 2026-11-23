@@ -7,15 +7,20 @@
 // `service-imports.test.ts`).
 import { env } from '../config/env';
 import { weakSpotsAi } from '../config/weak-spots-ai';
+import { AiLessonCacheModel } from '../models/ai-lesson-cache.model';
+import { AiUsageModel } from '../models/ai-usage.model';
 import { PassageModel, passageLanguageFilter, splitWords } from '../models/passage.model';
 import { TypingSessionModel } from '../models/typing-session.model';
 import { WordModel } from '../models/word.model';
 import { badRequest, forbidden } from '../utils/app-error';
 import { EnglishError, tagEnglishWord } from '../utils/english-errors';
+import { localDateKey } from '../utils/local-date';
 import { cleanPassageText } from '../utils/passage-text';
 import { errorTypesOf, type SessionErrorType, sessionsIn, type TypingLanguage } from '../utils/typing-language';
 import { WordError } from '../utils/vietnamese-errors';
 import { generateText } from './ai.service';
+import { getAppSettings } from './app-setting.service';
+import { learnerTimeZone } from './daily-progress.service';
 import { getTopErrorTypes } from './error-profile.service';
 import { getLearnerOwnerIds, getPlanOf } from './passage-lock.service';
 
@@ -267,12 +272,48 @@ export const lessonPrompt = (language: TypingLanguage, practiceWords: readonly s
   return [`${labels.practice}: ${practiceWords.join(', ')}`, ...(otherWords.length ? [`${labels.hints}: ${otherWords.join(', ')}`] : [])].join('\n');
 };
 
+/** The key of the saved passages (`AiLessonCache`) of a lesson: its language and its error types, sorted. */
+export const cacheKeyOf = (language: TypingLanguage, focus: readonly SessionErrorType[]) => `${language}:${[...focus].sort().join('+')}`;
+
+/**
+ * Takes one of the learner's AI passages of the day (SCRUM-153): `true` while they have fewer than `aiLessonsPerDay`
+ * (`AppSetting`), counting failed tries too, since Gemini charges for them. One conditional update, so two lessons asked at
+ * once cannot both take the last place; at the limit the update finds no row to change and the unique index of the new row
+ * refuses it (a duplicate key), which is the answer `false`.
+ */
+export const reserveAiLesson = async (userId: string): Promise<boolean> => {
+  const [{ aiLessonsPerDay }, zone] = await Promise.all([getAppSettings(), learnerTimeZone(userId)]);
+  if (aiLessonsPerDay <= 0) return false;
+  try {
+    await AiUsageModel.findOneAndUpdate(
+      { user: userId, day: localDateKey(new Date(), zone), count: { $lt: aiLessonsPerDay } },
+      { $inc: { count: 1 } },
+      { upsert: true }
+    );
+    return true;
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000) return false;
+    throw error;
+  }
+};
+
+/** A saved passage for the lesson's language and error types, picked at random, or `null` when there is none. */
+const cachedPassage = async (key: string) => {
+  const [saved] = await AiLessonCacheModel.aggregate<{ words: string[] }>([{ $match: { key } }, { $sample: { size: 1 } }, { $project: { _id: 0, words: 1 } }]);
+  return saved?.words ?? null;
+};
+
+/** Saves a passage the AI wrote for other lessons, unless `cachePerKey` are saved already for its key. */
+const cachePassage = async (key: string, words: string[]) => {
+  if ((await AiLessonCacheModel.countDocuments({ key })) >= weakSpotsAi.cachePerKey) return;
+  await AiLessonCacheModel.create({ key, words });
+};
+
 /**
  * The passage the AI writes in `language` from the picked words, or `null` (the lesson stays the word list): no key, over the
- * learner's limit (`aiAllowed`), a failed, slow or refused answer. Nothing is thrown, so the learner never sees an AI error.
+ * per-minute limit (`aiAllowed`), a failed, slow or refused answer. Nothing is thrown, so the learner never sees an AI error.
  */
-const writePassage = async (language: TypingLanguage, practiceWords: string[], otherWords: string[], aiAllowed: boolean) => {
-  if (!aiAllowed || !env.geminiApiKey) return null;
+const askAi = async (language: TypingLanguage, practiceWords: string[], otherWords: string[]) => {
   try {
     const text = await generateText(lessonPrompt(language, practiceWords, otherWords), {
       systemPrompt: weakSpotsAi.systemPrompts[language],
@@ -288,7 +329,36 @@ const writePassage = async (language: TypingLanguage, practiceWords: string[], o
   return null;
 };
 
-export type LessonSource = 'ai' | 'words' | 'passage';
+export type LessonSource = 'ai' | 'cache' | 'words' | 'passage';
+
+/**
+ * The passage of a lesson (SCRUM-153): written by the AI while the learner has places left today (`reserveAiLesson`) and is
+ * under the per-minute limit, and saved for others; past the day's limit, a passage saved before for the same language and
+ * error types; else `null` and the lesson is the picked words. Saving a passage never fails a lesson.
+ */
+const passageFor = async (
+  userId: string,
+  language: TypingLanguage,
+  focus: readonly SessionErrorType[],
+  practiceWords: string[],
+  otherWords: string[],
+  aiAllowed: boolean
+): Promise<{ words: string[]; source: 'ai' | 'cache' } | null> => {
+  const key = cacheKeyOf(language, focus);
+  if (aiAllowed && env.geminiApiKey) {
+    if (await reserveAiLesson(userId)) {
+      const words = await askAi(language, practiceWords, otherWords);
+      if (words) {
+        await cachePassage(key, words).catch((error) => console.warn('Weak spots: AI passage not saved:', error instanceof Error ? error.message : error));
+        return { words, source: 'ai' };
+      }
+      return null;
+    }
+    const words = await cachedPassage(key);
+    return words && { words, source: 'cache' };
+  }
+  return null;
+};
 
 const LANGUAGE_NAMES: Record<TypingLanguage, string> = { vi: 'Vietnamese', en: 'English' };
 
@@ -319,12 +389,12 @@ export const lessonFor = async (
   const trains = (text: string) => lesson.focus.some((type) => trainsErrorType(bank.get(text)!, type));
   const practiceWords = [...new Set(lesson.words.filter(trains))];
   const otherWords = [...new Set(lesson.words.filter((text) => !trains(text)))];
-  const passage = await writePassage(language, practiceWords, otherWords, aiAllowed);
+  const passage = await passageFor(userId, language, lesson.focus, practiceWords, otherWords, aiAllowed);
   return {
     focus: lesson.focus,
     title: lessonTitle(lesson.focus),
     lessonWords: lesson.words,
-    targetWords: passage ?? lesson.words,
-    source: (passage ? 'ai' : 'words') as LessonSource
+    targetWords: passage?.words ?? lesson.words,
+    source: (passage?.source ?? 'words') as LessonSource
   };
 };

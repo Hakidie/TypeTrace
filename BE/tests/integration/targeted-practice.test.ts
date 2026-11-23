@@ -6,6 +6,9 @@ import { ENGLISH_PASSAGE_LIST } from '../../src/data/passages-en';
 import { ENGLISH_PLACEMENT_PASSAGE_LIST } from '../../src/data/passages-en-placement';
 import { ENGLISH_PRACTICE_PASSAGE_LIST } from '../../src/data/passages-en-practice';
 import { WORD_LIST } from '../../src/data/words';
+import { AiLessonCacheModel } from '../../src/models/ai-lesson-cache.model';
+import { AiUsageModel } from '../../src/models/ai-usage.model';
+import { AppSettingModel, DEFAULT_AI_LESSONS_PER_MINUTE } from '../../src/models/app-setting.model';
 import { PassageModel, splitWords } from '../../src/models/passage.model';
 import { SubscriptionModel } from '../../src/models/subscription.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
@@ -396,24 +399,119 @@ describe('the passage the AI writes for a Weak spots lesson (US3.2)', () => {
     }
   });
 
-  it(`asks the AI for ${weakSpotsAi.perMinute} lessons a minute per learner, then types the picked words without an error`, async () => {
+  it(`asks the AI for ${DEFAULT_AI_LESSONS_PER_MINUTE} lessons a minute per learner, then types the picked words without an error`, async () => {
     const learner = await premiumLearner();
     const other = await premiumLearner('other@example.com');
     geminiRecorder.replyWith = writesWith(1);
 
     const sources: string[] = [];
-    for (let i = 0; i <= weakSpotsAi.perMinute; i += 1) {
+    for (let i = 0; i <= DEFAULT_AI_LESSONS_PER_MINUTE; i += 1) {
       const response = await startLesson(learner, { errorType: 'D_MISSING' });
       expect(response.status).toBe(201);
       sources.push(response.body.lessonSource);
     }
 
-    expect(sources).toEqual([...Array(weakSpotsAi.perMinute).fill('ai'), 'words']);
-    expect(geminiRecorder.requests).toHaveLength(weakSpotsAi.perMinute);
+    expect(sources).toEqual([...Array(DEFAULT_AI_LESSONS_PER_MINUTE).fill('ai'), 'words']);
+    expect(geminiRecorder.requests).toHaveLength(DEFAULT_AI_LESSONS_PER_MINUTE);
     // The limit is each learner's own.
     expect((await startLesson(other, { errorType: 'D_MISSING' })).body.lessonSource).toBe('ai');
     // Practice sessions do not count.
     expect((await api().post('/api/sessions').set('Authorization', bearerFor(learner)).send({ mode: 'practice' })).status).toBe(201);
+  });
+});
+
+describe('the AI limit of the day and the saved passages (SCRUM-153)', () => {
+  const setLimit = (aiLessonsPerDay: number) => AppSettingModel.findOneAndUpdate({ key: 'global' }, { $set: { aiLessonsPerDay } }, { upsert: true });
+
+  it('asks the AI for aiLessonsPerDay passages a day, then types a passage saved before, without asking again', async () => {
+    const learner = await premiumLearner();
+    await setLimit(2);
+    geminiRecorder.replyWith = writesWith(1);
+
+    const sources: string[] = [];
+    for (let i = 0; i < 3; i += 1) sources.push((await startLesson(learner, { errorType: 'D_MISSING' })).body.lessonSource);
+
+    expect(sources).toEqual(['ai', 'ai', 'cache']);
+    expect(geminiRecorder.requests).toHaveLength(2);
+    expect(await AiUsageModel.findOne({ user: learner._id })).toMatchObject({ count: 2 });
+  });
+
+  it('types the picked words past the limit when no passage was saved for that error type', async () => {
+    const learner = await premiumLearner();
+    await setLimit(1);
+    geminiRecorder.replyWith = writesWith(1);
+    await startLesson(learner, { errorType: 'D_MISSING' });
+
+    const { body } = await startLesson(learner, { errorType: 'HOI_NGA_CONFUSION' });
+
+    expect(body.lessonSource).toBe('words');
+    expect(geminiRecorder.requests).toHaveLength(1);
+  });
+
+  it('never asks the AI with a limit of 0', async () => {
+    const learner = await premiumLearner();
+    await setLimit(0);
+    geminiRecorder.replyWith = writesWith(1);
+
+    expect((await startLesson(learner, { errorType: 'D_MISSING' })).body.lessonSource).toBe('words');
+    expect(geminiRecorder.requests).toHaveLength(0);
+  });
+
+  it('counts each learner on their own, and shares the saved passages between learners', async () => {
+    const learner = await premiumLearner();
+    const other = await premiumLearner('other@example.com');
+    await setLimit(1);
+    geminiRecorder.replyWith = writesWith(1);
+    const { body: first } = await startLesson(learner, { errorType: 'D_MISSING' });
+
+    // The other learner has a place of their own: the AI answers them too.
+    expect((await startLesson(other, { errorType: 'D_MISSING' })).body.lessonSource).toBe('ai');
+    // Both are over the limit now: the passage saved for đ is typed, whoever it was written for.
+    const { body: again } = await startLesson(learner, { errorType: 'D_MISSING' });
+    expect(again.lessonSource).toBe('cache');
+    expect(await AiLessonCacheModel.countDocuments()).toBe(2);
+    expect(first.lessonSource).toBe('ai');
+  });
+
+  it('uses the per-minute limit an admin saved', async () => {
+    const learner = await premiumLearner();
+    await AppSettingModel.findOneAndUpdate({ key: 'global' }, { $set: { aiLessonsPerMinute: 2 } }, { upsert: true });
+    geminiRecorder.replyWith = writesWith(1);
+
+    const sources: string[] = [];
+    for (let i = 0; i < 3; i += 1) sources.push((await startLesson(learner, { errorType: 'D_MISSING' })).body.lessonSource);
+
+    expect(sources).toEqual(['ai', 'ai', 'words']);
+  });
+
+  it('gives new places on a new day', async () => {
+    const learner = await premiumLearner();
+    await setLimit(1);
+    geminiRecorder.replyWith = writesWith(1);
+    await AiUsageModel.create({ user: learner._id, day: '2000-01-01', count: 1 });
+
+    expect((await startLesson(learner, { errorType: 'D_MISSING' })).body.lessonSource).toBe('ai');
+  });
+
+  it('keeps at most weakSpotsAi.cachePerKey passages for one language and set of error types', async () => {
+    await AiLessonCacheModel.insertMany(Array.from({ length: weakSpotsAi.cachePerKey }, () => ({ key: 'vi:D_MISSING', words: ['đã'] })));
+    const learner = await premiumLearner();
+    geminiRecorder.replyWith = writesWith(1);
+
+    expect((await startLesson(learner, { errorType: 'D_MISSING' })).body.lessonSource).toBe('ai');
+
+    expect(await AiLessonCacheModel.countDocuments({ key: 'vi:D_MISSING' })).toBe(weakSpotsAi.cachePerKey);
+  });
+
+  it('does not save a passage the checks refused, nor count a lesson typed without the AI as a passage', async () => {
+    const learner = await premiumLearner();
+    geminiRecorder.replyWith = () => 'Quá ngắn.';
+
+    expect((await startLesson(learner, { errorType: 'D_MISSING' })).body.lessonSource).toBe('words');
+
+    expect(await AiLessonCacheModel.countDocuments()).toBe(0);
+    // The try was paid for, so it counts.
+    expect(await AiUsageModel.findOne({ user: learner._id })).toMatchObject({ count: 1 });
   });
 });
 
