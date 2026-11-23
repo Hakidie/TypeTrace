@@ -103,5 +103,17 @@ export const settingsVi: typeof settingsEn = {
     compactSidebar: 'Thanh bên thu gọn',
     compactHint: 'Chỉ hiện các biểu tượng ở thanh bên.',
     placementBoard: 'Bảng xếp hạng Kiểm tra',
+    aiLessons: 'Bài học AI',
+  },
+  aiSettings: {
+    lessonsPerDay: 'Số bài AI mỗi người học mỗi ngày',
+    lessonsPerMinute: 'Số bài AI mỗi người học mỗi phút',
+    save: 'Lưu',
+    hint: 'Số bài Weak spots mà AI được viết cho một người học. Quá giới hạn mỗi ngày, bài học dùng một bài đã lưu trước đó, hoặc danh sách từ (0 mỗi ngày là tắt AI). Quá giới hạn mỗi phút, bài học dùng danh sách từ.',
+    enterNumber: 'Nhập một số',
+    wholeNumber: 'Dùng số nguyên',
+    atLeast: 'Ít nhất {{min}}',
+    atMost: 'Nhiều nhất {{max}}',
+    saved: 'Đã lưu cài đặt AI.',
   },
 };

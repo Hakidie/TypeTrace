@@ -16,6 +16,15 @@ export const DEFAULT_PLACEMENT_MIN_ACCURACY = 90;
 export const MIN_PLACEMENT_MIN_ACCURACY = 50;
 export const MAX_PLACEMENT_MIN_ACCURACY = 100;
 
+/** How many Weak spots passages the AI may write for one learner a day (SCRUM-153): the default, and the most an admin may choose. 0 turns the AI off. */
+export const DEFAULT_AI_LESSONS_PER_DAY = 20;
+export const MAX_AI_LESSONS_PER_DAY = 1000;
+
+/** How many Weak spots passages the AI may write for one learner a minute (SCRUM-153): the default, and the most and least an admin may choose. */
+export const DEFAULT_AI_LESSONS_PER_MINUTE = 5;
+export const MIN_AI_LESSONS_PER_MINUTE = 1;
+export const MAX_AI_LESSONS_PER_MINUTE = 60;
+
 /** What one plan gives (US11.1). Admins change it in the admin Plans page. */
 export interface PlanConfig {
   /** Price of one month, in VND. */
@@ -40,6 +49,10 @@ export interface AppSettings {
   dailyTaskCount: number;
   /** The accuracy (in percent) a placement session needs to go on the placement leaderboard. */
   placementMinAccuracy: number;
+  /** How many passages the AI may write for one learner a local day (Weak spots); past it the lesson uses a saved passage, else its words. */
+  aiLessonsPerDay: number;
+  /** How many passages the AI may write for one learner a minute (Weak spots); past it the lesson is its word list. */
+  aiLessonsPerMinute: number;
   /** What the Free and Premium plans give. */
   plans: Record<PlanId, PlanConfig>;
 }
@@ -79,6 +92,22 @@ const appSettingSchema = new Schema<AppSettingDocument>(
       default: DEFAULT_PLACEMENT_MIN_ACCURACY,
       min: MIN_PLACEMENT_MIN_ACCURACY,
       max: MAX_PLACEMENT_MIN_ACCURACY,
+      validate: { validator: Number.isInteger, message: 'Use a whole number' }
+    },
+    aiLessonsPerDay: {
+      type: Number,
+      required: true,
+      default: DEFAULT_AI_LESSONS_PER_DAY,
+      min: 0,
+      max: MAX_AI_LESSONS_PER_DAY,
+      validate: { validator: Number.isInteger, message: 'Use a whole number' }
+    },
+    aiLessonsPerMinute: {
+      type: Number,
+      required: true,
+      default: DEFAULT_AI_LESSONS_PER_MINUTE,
+      min: MIN_AI_LESSONS_PER_MINUTE,
+      max: MAX_AI_LESSONS_PER_MINUTE,
       validate: { validator: Number.isInteger, message: 'Use a whole number' }
     },
     plans: {

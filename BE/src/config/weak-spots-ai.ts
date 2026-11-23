@@ -34,8 +34,10 @@ export const weakSpotsAi = {
   maxOutputTokens: 1024,
   /** A slower answer is dropped: the lesson is the word list. */
   timeoutMs: 8000,
-  /** AI passages a learner may ask for in a minute, in both languages; past it, the lesson is the word list (no 429). */
-  perMinute: 5,
+  /** Passages the AI wrote are kept for others (`AiLessonCache`, SCRUM-153): this many days... */
+  cacheDays: 7,
+  /** ...and at most this many for each language and set of error types. */
+  cachePerKey: 5,
   /** The passage the AI wrote is used only with this many words or fewer... */
   maxWords: 200,
   /** ...and at least this many, so the session can still count (`MIN_COUNTED_WORDS`)... */

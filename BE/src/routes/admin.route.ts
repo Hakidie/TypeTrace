@@ -11,6 +11,7 @@ import {
   setPassageStatus,
   updatePassage
 } from '../controllers/admin-passage.controller';
+import { getAiSettings, updateAiSettings } from '../controllers/admin-ai-setting.controller';
 import {
   createDailyTask,
   deleteDailyTask,
@@ -30,6 +31,7 @@ import { closeSeason, listSeasons } from '../controllers/ranked.controller';
 import { authGuard } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 import { validate } from '../middlewares/validate.middleware';
+import { aiSettingsSchema } from '../validators/admin-ai-setting.validator';
 import {
   bulkRejectPassagesSchema,
   createPassageSchema,
@@ -109,6 +111,10 @@ adminRouter.delete('/themes/:id', validate({ params: idParamsSchema }), deleteTh
 // The placement leaderboard settings (US10.1): the minimum accuracy a session needs to be on it.
 adminRouter.get('/placement/settings', getPlacementSettings);
 adminRouter.put('/placement/settings', validate({ body: placementSettingsSchema }), updatePlacementSettings);
+
+// The AI settings (SCRUM-153): how many passages the AI may write for a learner a day.
+adminRouter.get('/ai/settings', getAiSettings);
+adminRouter.put('/ai/settings', validate({ body: aiSettingsSchema }), updateAiSettings);
 
 // Daily tasks (SCRUM-210). The settings come before `/daily-tasks/:id`, which would take `settings` for an id.
 adminRouter.get('/daily-tasks/settings', getDailyTaskSettings);

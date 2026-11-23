@@ -165,7 +165,12 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `checkAiPassage` keeps it with 20 to 200 words that use at least 60 % of the practice words (not 60 % of the passage: natural
   text has 11 % words with đ). No key, a timeout, any Gemini error, a refused passage or more than 5 AI lessons a minute for
   the learner (`lessonAiLimiter`, which never answers 429) leave the picked words as the lesson: the learner never sees an AI
-  error, and `lessonSource` (`ai`, `words`, `passage`) records which. The passage lives only in the session (`targetWords`),
+  error, and `lessonSource` (`ai`, `cache`, `words`, `passage`) records which. The AI's cost is capped (SCRUM-153): a learner has
+  `AppSetting.aiLessonsPerDay` (20; 0 turns the AI off; an admin changes it in the AI lessons panel of the admin Settings page, `GET|PUT /api/admin/ai/settings` with `{ lessonsPerDay }`) AI passages per local day in their time zone (`reserveAiLesson`, one conditional
+  update of `AiUsage` that also counts failed tries, never a read then a write), and each passage the AI wrote is kept in
+  `AiLessonCache` (shared by all learners, no user data, keyed by language and sorted error types, at most `weakSpotsAi.cachePerKey` (5) a
+  key, deleted after `weakSpotsAi.cacheDays` (7) days by a TTL index) so that past the day's limit the lesson types one of them
+  (`lessonSource: 'cache'`) before falling back to the picked words. The per-minute limit (`lessonAiLimiter`, `AppSetting.aiLessonsPerMinute`, 5, 1 to 60, read on every lesson request) does not use the cache; an admin changes it in the same panel (`lessonsPerMinute`). The passage lives only in the session (`targetWords`),
   never in the passage bank. The session has no `passageId` and keeps `focusErrorTypes`; with nothing to aim at (no type with
   enough data yet, or no word for it) it types a random practice passage with `focusErrorTypes: []`, which the page explains.
   Weak spots is Vietnamese only (SCRUM-219): its session is always `language: 'vi'` (its random passage too), its focus comes
