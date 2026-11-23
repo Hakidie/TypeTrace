@@ -162,6 +162,9 @@ const typingSessionSchema = new Schema<TypingSessionDocument>(
 // Matches the history list (one owner's sessions, newest first) and "find the session in progress".
 typingSessionSchema.index({ owner: 1, createdAt: -1 });
 typingSessionSchema.index({ owner: 1, status: 1 });
+// A learner has at most one session in progress: of two starts at once the database refuses the second, which then abandons the
+// first and tries again (`startSession`). Only sessions in progress are in this index.
+typingSessionSchema.index({ owner: 1 }, { name: 'owner_in_progress_unique', unique: true, partialFilterExpression: { status: 'in_progress' } });
 // One owner's sessions of one mode, newest first: the history filtered by mode, and the last Weak spots lessons, whose words a
 // new lesson leaves out (US3.2). Without it the lessons are looked for among every session of the learner.
 typingSessionSchema.index({ owner: 1, mode: 1, createdAt: -1 });

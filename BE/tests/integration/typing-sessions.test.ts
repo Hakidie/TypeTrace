@@ -110,6 +110,33 @@ describe('POST /api/sessions', () => {
     expect((await TypingSessionModel.findById(second.body._id))!.status).toBe('in_progress');
   });
 
+  it('keeps the running session when the passage is refused', async () => {
+    const auth = bearerFor(await createUser({}));
+    const first = await startSession(auth);
+
+    expect((await startSession(auth, { passageId: '0'.repeat(24) })).status).toBe(400);
+
+    expect((await TypingSessionModel.findById(first.body._id))!.status).toBe('in_progress');
+  });
+
+  it('leaves one in-progress session after starts at once, and every start answers 201', async () => {
+    const user = await createUser({});
+    const auth = bearerFor(user);
+
+    const answers = await Promise.all([startSession(auth), startSession(auth), startSession(auth)]);
+
+    expect(answers.map((answer) => answer.status)).toEqual([201, 201, 201]);
+    expect(await TypingSessionModel.countDocuments({ owner: user._id, status: 'in_progress' })).toBe(1);
+    expect(await TypingSessionModel.countDocuments({ owner: user._id, status: 'abandoned' })).toBe(2);
+  });
+
+  it('stores the words of the passage as targetWords', async () => {
+    const auth = bearerFor(await createUser({}));
+    const session = (await startSession(auth)).body;
+
+    expect(session.targetWords).toEqual(await wordsOfPassage(session.passageId));
+  });
+
   it("does not touch another user's session", async () => {
     const other = await createUser({ email: 'other@example.com' });
     const otherSession = await startSession(bearerFor(other));

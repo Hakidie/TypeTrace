@@ -32,7 +32,7 @@ const isTest = env.nodeEnv === 'test';
 if (env.trustProxy > 0) app.set('trust proxy', env.trustProxy);
 
 app.use(helmet());
-app.use(cors({ origin: env.clientUrl }));
+app.use(cors({ origin: env.clientUrl, maxAge: 86400 }));
 app.use(express.json());
 if (!isTest) app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 // The progress of a ranked duel (several reports a second) has its own limit per player in `match.route.ts`.

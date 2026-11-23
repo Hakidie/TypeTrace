@@ -273,7 +273,7 @@ describe('DELETE /api/admin/passages/:id', () => {
     // The Typing page starts a session as soon as it shows a passage; opening another one abandons it. No key pressed.
     const opened = { owner: learner._id, passageId: passage._id, targetWords: ['Đường'] };
     await TypingSessionModel.create([opened, { ...opened, status: 'abandoned' }]);
-    await TypingSessionModel.create({ ...opened, passageId: other._id });
+    await TypingSessionModel.create({ ...opened, passageId: other._id, status: 'abandoned' }); // one learner has one session in progress
 
     const response = await api().delete(`/api/admin/passages/${passage._id}`).set('Authorization', auth);
 
