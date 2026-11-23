@@ -7,5 +7,5 @@ export const planModule: AppModule = {
   routes: [],
   // Admins: the Free and Premium plans (`/api/admin/plans`).
   adminRoutes: [{ path: '/admin/plans', Component: AdminPlansPage }],
-  adminNavItems: [{ to: '/admin/plans', label: 'Plans', icon: Crown }],
+  adminNavItems: [{ to: '/admin/plans', label: 'Plans', labelKey: 'admin.pages.plans', icon: Crown }],
 };

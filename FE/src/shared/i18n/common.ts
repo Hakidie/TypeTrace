@@ -56,7 +56,9 @@ export const commonEn = {
     next: 'Next',
     tryAgain: 'Try again',
     delete: 'Delete',
+    switchTo: 'Switch to {{name}}',
   },
+  table: { noData: 'No data.', selectAll: 'Select all rows', selectRow: 'Select row {{id}}' },
   pagination: { label: 'Pagination', page: 'Page {{page}} of {{total}}', pagePlain: '{{page}} of {{total}}' },
   state: {
     loading: 'Loading',
@@ -76,6 +78,24 @@ export const commonEn = {
     options: '{{label}} options',
     periods: '{{label}} periods',
     remove: 'Remove {{label}}',
+  },
+  /** The frame of the admin area (SCRUM-336): the sidebar, its pages and the header. */
+  admin: {
+    nav: 'Admin',
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
+    backToApp: 'Back to app',
+    pages: {
+      dashboard: 'Dashboard',
+      users: 'Users',
+      passages: 'Passages',
+      themes: 'Themes',
+      settings: 'Settings',
+      plans: 'Plans',
+      payments: 'Payments',
+      dailyTasks: 'Daily tasks',
+      seasons: 'Seasons',
+    },
   },
 };
 
@@ -136,7 +156,9 @@ export const commonVi: typeof commonEn = {
     next: 'Sau',
     tryAgain: 'Thử lại',
     delete: 'Xóa',
+    switchTo: 'Chuyển sang {{name}}',
   },
+  table: { noData: 'Không có dữ liệu.', selectAll: 'Chọn mọi hàng', selectRow: 'Chọn hàng {{id}}' },
   pagination: { label: 'Phân trang', page: 'Trang {{page}} / {{total}}', pagePlain: '{{page}} / {{total}}' },
   state: {
     loading: 'Đang tải',
@@ -156,5 +178,22 @@ export const commonVi: typeof commonEn = {
     options: 'Tùy chọn {{label}}',
     periods: 'Kỳ của {{label}}',
     remove: 'Bỏ {{label}}',
+  },
+  admin: {
+    nav: 'Quản trị',
+    openMenu: 'Mở menu',
+    closeMenu: 'Đóng menu',
+    backToApp: 'Về ứng dụng',
+    pages: {
+      dashboard: 'Tổng quan',
+      users: 'Người dùng',
+      passages: 'Đoạn văn',
+      themes: 'Chủ đề',
+      settings: 'Cài đặt',
+      plans: 'Gói',
+      payments: 'Thanh toán',
+      dailyTasks: 'Nhiệm vụ hằng ngày',
+      seasons: 'Mùa giải',
+    },
   },
 };

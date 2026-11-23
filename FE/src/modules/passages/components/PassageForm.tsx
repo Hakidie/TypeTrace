@@ -1,6 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { TFunction } from 'i18next';
 import { CheckCircle2, Loader2, Plus } from 'lucide-react';
-import { useState, type BaseSyntheticEvent, type ReactElement } from 'react';
+import { useMemo, useState, type BaseSyntheticEvent, type ReactElement } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/shared/components/ui/button';
@@ -13,23 +15,24 @@ import { countWords, MAX_PASSAGE_WORDS } from '../passages.config';
 import { canHardDelete, nextPassageStatus, type Passage, type PassageStatus } from '../types/passage.types';
 
 // Mirrors the limits of the Passage model (BE/src/models/passage.model.ts).
-const schema = z.object({
-  title: z.string().trim().min(1, 'Title is required').max(120, 'Max 120 characters'),
-  source: z.string().trim().min(1, 'Source is required').max(300, 'Max 300 characters'),
-  content: z
-    .string()
-    .trim()
-    .min(1, 'Content is required')
-    .max(5000, 'Max 5000 characters')
-    .refine((text) => countWords(text) <= MAX_PASSAGE_WORDS, `At most ${MAX_PASSAGE_WORDS} words`),
-  isPlacement: z.boolean(),
-  // Only an edit of a published English passage can turn it on (the backend answers 400 / 409 otherwise).
-  isRanked: z.boolean(),
-  // English passages are for ranked duels; the backend refuses an English placement passage.
-  language: z.enum(['vi', 'en']),
-});
+const schemaOf = (t: TFunction<'passages'>) =>
+  z.object({
+    title: z.string().trim().min(1, t('form.titleRequired')).max(120, t('form.maxChars', { max: 120 })),
+    source: z.string().trim().min(1, t('admin.form.sourceRequired')).max(300, t('form.maxChars', { max: 300 })),
+    content: z
+      .string()
+      .trim()
+      .min(1, t('admin.form.contentRequired'))
+      .max(5000, t('form.maxChars', { max: 5000 }))
+      .refine((text) => countWords(text) <= MAX_PASSAGE_WORDS, t('form.atMostWords', { max: MAX_PASSAGE_WORDS })),
+    isPlacement: z.boolean(),
+    // Only an edit of a published English passage can turn it on (the backend answers 400 / 409 otherwise).
+    isRanked: z.boolean(),
+    // English passages are for ranked duels; the backend refuses an English placement passage.
+    language: z.enum(['vi', 'en']),
+  });
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof schemaOf>>;
 
 // No border (the focus ring stays) and 1.125rem text, placeholders included.
 const fieldClass = 'border-0 px-0 text-[1.125rem]';
@@ -55,9 +58,6 @@ const SwitchHint = ({ label, children }: { label: string; children: ReactElement
 
 const emptyValues: FormValues = { title: '', source: '', content: '', isPlacement: false, isRanked: false, language: 'vi' };
 
-// The same as the learner's passage form (`OwnPassageForm`).
-const CONTENT_PLACEHOLDER = 'Paste or type the text you want to practice…';
-
 /** No visible labels in this form: the placeholders say what each field is, `aria-label` serves screen readers. */
 const FieldError = ({ id, message }: { id: string; message?: string }) =>
   message ? (
@@ -80,6 +80,11 @@ interface PassageFormProps {
 
 /** Form that creates a passage, or edits one when `passage` is given. Remount it (`key`) to switch passage. */
 export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => {
+  // The fields and their placeholders are the same as the learner's passage form (`OwnPassageForm`): its `form.*` words.
+  const { t, i18n } = useTranslation('passages');
+  const schema = useMemo(() => schemaOf(t), [t]);
+  // The status names are lowercase in English and capitalized by CSS, as the raw statuses were; in Vietnamese they show as written.
+  const capitalizeStatus = i18n.language !== 'vi';
   const createPassage = useCreatePassage();
   const updatePassage = useUpdatePassage();
   const setStatus = useSetPassageStatus();
@@ -129,7 +134,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
     <form className="flex min-h-0 flex-1 flex-col gap-4" onSubmit={submit}>
       <div className="flex flex-col gap-4 md:flex-row md:justify-between">
         <div className="min-w-0 max-w-full space-y-2 md:max-w-[calc(50%-0.5rem)]">
-          <Input className={cn(fieldClass, metaFieldClass)} aria-label="Title" placeholder="Title of The Passage" {...register('title')} />
+          <Input className={cn(fieldClass, metaFieldClass)} aria-label={t('form.titleLabel')} placeholder={t('form.titlePlaceholder')} {...register('title')} />
           <FieldError id="passage-title-error" message={errors.title?.message} />
         </div>
         {/* `ml-auto` keeps Source on the right, also when the two fields are stacked on a phone. */}
@@ -137,8 +142,8 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
           <Input
             // `text-right`: the field is at least 6rem wide, so a short text would stop short of the right edge
             className={cn(fieldClass, metaFieldClass, 'text-right')}
-            aria-label="Source"
-            placeholder="Source"
+            aria-label={t('form.sourceLabel')}
+            placeholder={t('form.sourcePlaceholder')}
             {...register('source')}
           />
           <FieldError id="passage-source-error" message={errors.source?.message} />
@@ -149,8 +154,8 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
       <div className="flex min-h-0 flex-1 flex-col gap-2">
         <Textarea
           className={cn(fieldClass, 'min-h-48 flex-1 resize-none text-[2rem] leading-snug')}
-          aria-label="Content"
-          placeholder={CONTENT_PLACEHOLDER}
+          aria-label={t('form.contentLabel')}
+          placeholder={t('form.contentPlaceholder')}
           {...register('content')}
         />
         <FieldError id="passage-content-error" message={errors.content?.message} />
@@ -159,7 +164,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
       <div className="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
         {/* Bottom left: the same look as the learner's passage form. */}
         <p className="w-fit shrink-0 whitespace-nowrap bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
-          {countWords(content)}/{MAX_PASSAGE_WORDS} words
+          {t('form.wordCount', { count: countWords(content), max: MAX_PASSAGE_WORDS })}
         </p>
 
         {/* In the middle: the switches, the status and Delete passage (up to four in edit mode; they wrap when the row is too narrow). */}
@@ -169,12 +174,12 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
             name="language"
             render={({ field }) => (
               // English passages: English Practice, the English placement test (SCRUM-305) and the ranked duels, which are English only.
-              <SwitchHint label="English passages are used in English Practice, the English placement test and the ranked duels.">
+              <SwitchHint label={t('admin.form.englishHint')}>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={field.value === 'en'}
-                  aria-label="English passage"
+                  aria-label={t('admin.form.englishSwitch')}
                   onClick={() => {
                     const english = field.value !== 'en';
                     field.onChange(english ? 'en' : 'vi');
@@ -186,7 +191,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
                   )}
                 >
                   {field.value === 'en' && <CheckCircle2 className="size-5" />}
-                  {field.value === 'en' ? 'English' : 'Vietnamese'}
+                  {field.value === 'en' ? t('admin.languages.en') : t('admin.languages.vi')}
                 </button>
               </SwitchHint>
             )}
@@ -197,12 +202,12 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
             render={({ field }) => (
               // The name stays "Placement passage"; `aria-checked` tells the state, the visible words show it. A passage of either
               // language (the placement test of that language, SCRUM-305), never a ranked test as well.
-              <SwitchHint label={isRanked ? 'A ranked test cannot be a placement passage.' : 'Used for the placement test of its language.'}>
+              <SwitchHint label={isRanked ? t('admin.form.placementBlocked') : t('admin.form.placementHint')}>
                 <button
                   type="button"
                   role="switch"
                   aria-checked={field.value}
-                  aria-label="Placement passage"
+                  aria-label={t('admin.form.placementSwitch')}
                   disabled={isRanked}
                   onClick={() => field.onChange(!field.value)}
                   className={cn(
@@ -211,7 +216,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
                   )}
                 >
                   {field.value && <CheckCircle2 className="size-5" />}
-                  {field.value ? 'Placement passage' : 'Regular passage'}
+                  {field.value ? t('admin.form.placementSwitch') : t('admin.form.regular')}
                 </button>
               </SwitchHint>
             )}
@@ -225,19 +230,19 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
                 <SwitchHint
                   label={
                     isPlacement
-                      ? 'A placement passage cannot be a ranked test.'
+                      ? t('admin.form.rankedBlockedPlacement')
                       : !isEnglish
-                        ? 'Only an English passage can be a ranked test.'
+                        ? t('admin.form.rankedOnlyEnglish')
                         : passage.status === 'published'
-                          ? 'Used for the ranked duels of the season.'
-                          : 'Only a published passage can be a ranked test.'
+                          ? t('admin.form.rankedHint')
+                          : t('admin.form.rankedOnlyPublished')
                   }
                 >
                   <button
                     type="button"
                     role="switch"
                     aria-checked={field.value}
-                    aria-label="Ranked test"
+                    aria-label={t('admin.form.rankedSwitch')}
                     disabled={isPlacement || !isEnglish || passage.status !== 'published' || status !== 'published'}
                     onClick={() => field.onChange(!field.value)}
                     className={cn(
@@ -246,7 +251,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
                     )}
                   >
                     {field.value && <CheckCircle2 className="size-5" />}
-                    {field.value ? 'Ranked test' : 'Not ranked'}
+                    {field.value ? t('admin.form.rankedSwitch') : t('admin.form.notRanked')}
                   </button>
                 </SwitchHint>
               )}
@@ -256,17 +261,18 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
           {passage && (
             <button
               type="button"
-              aria-label={`Status: ${status}`}
+              aria-label={t('admin.form.statusLabel', { status: t(`admin.status.${status}`) })}
               disabled={!next}
-              title={next ? `Click to change to ${next}` : undefined}
+              title={next ? t('admin.form.statusNext', { status: t(`admin.status.${next}`) }) : undefined}
               onClick={() => next && setStatusChoice(next)}
               className={cn(
-                'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed',
+                'flex w-fit items-center gap-2 px-3 py-1.5 text-[1.125rem] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed',
+                capitalizeStatus && 'capitalize',
                 status === 'published' ? 'bg-transparent text-primary' : 'bg-transparent text-muted-foreground hover:text-foreground',
               )}
             >
               {status === 'published' && <CheckCircle2 className="size-5" />}
-              {status}
+              {t(`admin.status.${status}`)}
             </button>
           )}
           {passage && onDelete && canHardDelete(passage) && (
@@ -278,7 +284,7 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
               onClick={() => onDelete(passage)}
               className="text-destructive hover:bg-transparent hover:text-destructive/80"
             >
-              Delete passage
+              {t('admin.form.deletePassage')}
             </Button>
           )}
         </div>
@@ -287,12 +293,12 @@ export const PassageForm = ({ passage, onDone, onDelete }: PassageFormProps) => 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
           {passage && (
             <Button type="button" variant="outline" onClick={onDone}>
-              Cancel
+              {t('form.cancel')}
             </Button>
           )}
           <Button type="submit" disabled={isPending}>
             {isPending ? <Loader2 className="size-4 animate-spin" /> : !passage && <Plus className="size-4" aria-hidden />}
-            {passage ? 'Update passage' : 'Add passage'}
+            {passage ? t('form.update') : t('form.add')}
           </Button>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { TFunction } from 'i18next';
 import { Controller, useForm } from 'react-hook-form';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
@@ -17,19 +19,20 @@ import { HelpLabel } from '../components/HelpLabel';
 import { PlanUsersChart } from '../components/PlanUsersChart';
 import { SubscriptionList } from '../components/SubscriptionList';
 import { useAdminPlans, usePreviewPlans, useSavePlans } from '../hooks/use-admin-plans';
-import { PASSAGE_LIMIT_HELP, PERMISSIONS, PLAN_AVATARS, PLAN_CARDS, type PlanLines } from '../plan.config';
+import { PERMISSIONS, PLAN_AVATARS, PLAN_CARDS, type PlanLines } from '../plan.config';
 import type { LockPreview, PlansConfig } from '../types/plan.types';
 
-const whole = (message: string) => z.number({ error: message }).int('Use a whole number').min(0, 'At least 0');
-
-// Mirrors `updatePlansSchema` of the backend.
-const planSchema = z.object({
-  priceVnd: whole('Enter a number'),
-  maxPassages: whole('Enter a number'),
-  canCreateErrorPractice: z.boolean(),
-  canUsePublicPassages: z.boolean(),
-});
-const schema = z.object({ free: planSchema, premium: planSchema });
+// Mirrors `updatePlansSchema` of the backend; the messages are in the language of the interface.
+const schemaOf = (t: TFunction<'store'>) => {
+  const whole = () => z.number({ error: t('adminPlans.form.enterNumber') }).int(t('adminPlans.form.wholeNumber')).min(0, t('adminPlans.form.atLeastZero'));
+  const planSchema = z.object({
+    priceVnd: whole(),
+    maxPassages: whole(),
+    canCreateErrorPractice: z.boolean(),
+    canUsePublicPassages: z.boolean(),
+  });
+  return z.object({ free: planSchema, premium: planSchema });
+};
 
 // Number fields that look like text: no border, background or focus ring.
 // The label of an option: may wrap, its size follows the width of the card (so the avatar and the switch always have room).
@@ -47,6 +50,8 @@ const PlansForm = ({
   onPickLine: (line: 'free' | 'premium') => void;
   onSwitch: () => void;
 }) => {
+  const { t } = useTranslation('store');
+  const schema = useMemo(() => schemaOf(t), [t]);
   const preview = usePreviewPlans();
   const save = useSavePlans();
   // The saved values waiting for a confirmation, and how many users and passages they would lock.
@@ -74,15 +79,15 @@ const PlansForm = ({
 
   return (
     <Panel
-      title="Plans"
-      titleAction={<PanelTitleSwitch other="Subscription list" onClick={onSwitch} />}
+      title={t('adminPlans.title')}
+      titleAction={<PanelTitleSwitch other={t('adminPlans.list.title')} onClick={onSwitch} />}
       bare
       titleClassName={sectionTitleClass}
       className="space-y-3"
       // The Save button is on the row of the title, outside the form: `form` ties it to it.
       actions={
         <Button type="submit" form="plans-form" disabled={preview.isPending || save.isPending}>
-          Save
+          {t('adminPlans.save')}
         </Button>
       }
     >
@@ -91,7 +96,7 @@ const PlansForm = ({
           {PLAN_CARDS.map(({ key, name }) => (
             <fieldset
             key={key}
-            aria-label={`${name} plan`}
+            aria-label={t('plan.planSuffix', { name })}
             // A click on the card (not on a field, a switch or a "?") shows only its line on the chart; a click again shows both.
             onClick={(event) => !(event.target as HTMLElement).closest('input, button, label, [role="switch"]') && onPickLine(key)}
             className={`group @container min-w-0 cursor-pointer border p-4 ${lines === key ? 'border-primary' : 'border-border'}`}
@@ -104,28 +109,28 @@ const PlansForm = ({
                 <div className="flex flex-col items-start text-left">
                   <Input
                     id={`${key}-price`}
-                    aria-label={`Monthly price (${name})`}
+                    aria-label={t('adminPlans.field', { label: t('adminPlans.monthlyPrice'), name })}
                     type="number"
                     min={0}
                     step={1}
                     className={`${bareInput} w-full !text-left text-[clamp(1.75rem,11cqw,3rem)] font-black leading-none text-primary`}
                     {...register(`${key}.priceVnd`, { valueAsNumber: true })}
                   />
-                  <span className="block text-sm text-muted-foreground">VND/month</span>
+                  <span className="block text-sm text-muted-foreground">{t('adminPlans.perMonth')}</span>
                   {errors[key]?.priceVnd && <p className="text-sm text-destructive">{errors[key]?.priceVnd?.message}</p>}
                 </div>
                 <div className="space-y-3">
                 <div className="flex min-h-9 items-center justify-between gap-4">
                   <HelpLabel
                     htmlFor={`${key}-max`}
-                    text="Passage limit"
-                    help={PASSAGE_LIMIT_HELP}
+                    text={t('adminPlans.passageLimit')}
+                    help={t('plan.passageHelp')}
                     className={optionLabel}
                   />
                   <div className="flex flex-col items-end text-right">
                     <Input
                       id={`${key}-max`}
-                      aria-label={`Passage limit (${name})`}
+                      aria-label={t('adminPlans.field', { label: t('adminPlans.passageLimit'), name })}
                       type="number"
                       min={0}
                       step={1}
@@ -135,14 +140,14 @@ const PlansForm = ({
                     {errors[key]?.maxPassages && <p className="text-sm text-destructive">{errors[key]?.maxPassages?.message}</p>}
                   </div>
                 </div>
-                {PERMISSIONS.map(({ field, label, help }) => (
+                {PERMISSIONS.map(({ field, labelKey, helpKey }) => (
                   <div key={field} className="flex min-h-9 items-center justify-between gap-4">
-                    <HelpLabel htmlFor={`${key}-${field}`} text={label} help={help} className={optionLabel} />
+                    <HelpLabel htmlFor={`${key}-${field}`} text={t(labelKey)} help={t(helpKey)} className={optionLabel} />
                     <Controller
                       control={control}
                       name={`${key}.${field}`}
                       render={({ field: control }) => (
-                        <Switch id={`${key}-${field}`} aria-label={`${label} (${name})`} checked={control.value} onCheckedChange={control.onChange} />
+                        <Switch id={`${key}-${field}`} aria-label={t('adminPlans.field', { label: t(labelKey), name })} checked={control.value} onCheckedChange={control.onChange} />
                       )}
                     />
                   </div>
@@ -151,7 +156,7 @@ const PlansForm = ({
               </div>
               </div>
               {/* Right column: the avatar of the plan, as tall as the left column (from the name to the last permission). */}
-              <FitAvatar look={PLAN_AVATARS[key]} label={`Avatar of the ${name} plan`} />
+              <FitAvatar look={PLAN_AVATARS[key]} label={t('plan.avatarOf', { name })} />
               </div>
             </fieldset>
           ))}
@@ -160,9 +165,12 @@ const PlansForm = ({
         <ConfirmDialog
           open={pending !== undefined}
           onOpenChange={(open) => !open && setPending(undefined)}
-          title="Save changes?"
-          description={`${users} ${users === 1 ? 'user' : 'users'} will have passages locked (${passages} ${passages === 1 ? 'passage' : 'passages'}). Nothing is deleted: passages open again when they buy Premium or when you raise the limit.`}
-          confirmLabel="Save"
+          title={t('adminPlans.confirm.title')}
+          description={t('adminPlans.confirm.text', {
+            users: t('adminPlans.confirm.users', { count: users }),
+            passages: t('adminPlans.confirm.passages', { count: passages }),
+          })}
+          confirmLabel={t('adminPlans.save')}
           pending={save.isPending}
           onConfirm={() => pending && saveValues(pending.values)}
         />
@@ -176,6 +184,7 @@ const PlansForm = ({
  * two permissions; saving first warns how many users would lose access to passages), and, one at a time with the cards, the list of every plan change of every user: a button next to the title of each shows the other (`?show=list`, the cards first); the chart stays above both.
  */
 export const AdminPlansPage = () => {
+  const { t } = useTranslation('store');
   const plans = useAdminPlans();
   // The lines of the users chart: a click on a plan card picks its line (a second click, or the Lines button, brings both back).
   const [lines, setLines] = useState<PlanLines>('all');
@@ -201,7 +210,7 @@ export const AdminPlansPage = () => {
         {plans.data ? (
           <PlansForm plans={plans.data} lines={lines} onPickLine={(line) => setLines(lines === line ? 'all' : line)} onSwitch={() => setShowList(true)} />
         ) : (
-          <Panel title="Plans" titleAction={<PanelTitleSwitch other="Subscription list" onClick={() => setShowList(true)} />} bare titleClassName={sectionTitleClass}>
+          <Panel title={t('adminPlans.title')} titleAction={<PanelTitleSwitch other={t('adminPlans.list.title')} onClick={() => setShowList(true)} />} bare titleClassName={sectionTitleClass}>
             {plans.isPending && <LoadingState rows={3} />}
             {plans.isError && <ErrorState error={plans.error} onRetry={() => void plans.refetch()} />}
           </Panel>

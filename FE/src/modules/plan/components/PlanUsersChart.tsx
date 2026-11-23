@@ -1,5 +1,6 @@
 import { Calendar, CalendarDays, CalendarRange, ChartLine, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { anchorFor, periodLabel, periodOptions, periodValue } from '@/modules/profile/lib/chart-period';
 import { axisLabel, rangeUnit, tooltipTitle } from '@/modules/profile/lib/month-label';
@@ -11,15 +12,11 @@ import { Panel } from '@/shared/components/panel';
 import { dateKeyIn } from '@/shared/lib/local-date';
 import { sectionTitleClass } from '@/shared/lib/panel-styles';
 import { usePlanUsers } from '../hooks/use-admin-plans';
-import { LINES_OPTIONS, PLAN_ZONE, type PlanLines } from '../plan.config';
+import { PLAN_LINES, PLAN_ZONE, type PlanLines } from '../plan.config';
 import type { PlanUsersPoint } from '../types/plan.types';
 
-// Week, Month, Year: the smallest first, as on the Progress page.
-const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
-  { value: 'year', label: 'Year' },
-];
+// Week, Month, Year: the smallest first, as on the Progress page (and with its words, `progress:range.*`).
+const RANGES: ChartRange[] = ['week', 'month', 'year'];
 const ICONS: Record<ChartRange, LucideIcon> = { year: Calendar, month: CalendarRange, week: CalendarDays };
 
 // Theme tokens only, as the chart of the Progress page: Premium is the main red bar, Free the muted text color.
@@ -58,6 +55,9 @@ const PointTooltip = ({ point, range, lines }: { point: PlanUsersPoint; range: C
  * users, so they can be compared). Each point is the count at the end of its period; the periods to come are not drawn. No frame or background.
  */
 export const PlanUsersChart = ({ lines, onLinesChange }: { lines: PlanLines; onLinesChange: (lines: PlanLines) => void }) => {
+  const { t } = useTranslation('store');
+  // All, then the plan names (kept as they are in every language).
+  const linesOptions = PLAN_LINES.map((value) => ({ value, label: value === 'all' ? t('common:toolbar.all') : t(`plan.${value}`) }));
   const today = dateKeyIn(new Date(), PLAN_ZONE);
   const [range, setRange] = useState<ChartRange>('year');
   const [picked, setPicked] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export const PlanUsersChart = ({ lines, onLinesChange }: { lines: PlanLines; onL
 
   const renderChart = () => {
     if (query.isPending) return <LoadingState rows={1} />;
-    if (query.isError) return <ErrorState error={query.error} title="Could not load the users chart" onRetry={() => void query.refetch()} />;
+    if (query.isError) return <ErrorState error={query.error} title={t('adminPlans.chart.couldNotLoad')} onRetry={() => void query.refetch()} />;
     const shown = query.data.range;
     const points = query.data.points;
     const top = Math.max(1, ...points.map((point) => Math.max(lines === 'free' ? 0 : point.premium, lines === 'premium' ? 0 : point.free)));
@@ -75,7 +75,7 @@ export const PlanUsersChart = ({ lines, onLinesChange }: { lines: PlanLines; onL
     const data = points.map((point) => ({ ...point, label: axisLabel(shown, point.key) }));
     return (
       // The chart takes the height the page leaves it (at least 20rem): the box is positioned, so the chart reads its size from it.
-      <div role="img" aria-label={`Users on each plan by ${rangeUnit(shown)}`} className="relative min-h-80 flex-1">
+      <div role="img" aria-label={t('adminPlans.chart.img', { unit: rangeUnit(shown) })} className="relative min-h-80 flex-1">
         <div className="absolute inset-0">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} barGap={4} barCategoryGap="25%" margin={{ top: 8, right: 28, bottom: 0, left: 28 }}>
@@ -95,9 +95,9 @@ export const PlanUsersChart = ({ lines, onLinesChange }: { lines: PlanLines; onL
   };
 
   return (
-    <section aria-label="Users by plan" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label={t('adminPlans.chart.region')} className="flex min-h-0 flex-1 flex-col">
       <Panel
-        title="Subscriptions"
+        title={t('adminPlans.chart.title')}
         bare
         fill
         titleClassName={sectionTitleClass}
@@ -105,10 +105,10 @@ export const PlanUsersChart = ({ lines, onLinesChange }: { lines: PlanLines; onL
         actions={
           <CompactToolbar
             menus={[
-              ...RANGE_OPTIONS.map(({ value: menuRange, label }) => {
+              ...RANGES.map((menuRange) => {
                 const active = menuRange === range;
                 return {
-                  label,
+                  label: t(`progress:range.${menuRange}`),
                   icon: ICONS[menuRange],
                   valueLabel: periodLabel(menuRange, date),
                   active,
@@ -122,10 +122,10 @@ export const PlanUsersChart = ({ lines, onLinesChange }: { lines: PlanLines; onL
               }),
               // Next to Year: which lines the chart draws.
               {
-                label: 'Lines',
+                label: t('progress:lines.label'),
                 icon: ChartLine,
-                valueLabel: LINES_OPTIONS.find((option) => option.value === lines)!.label,
-                options: LINES_OPTIONS,
+                valueLabel: linesOptions.find((option) => option.value === lines)!.label,
+                options: linesOptions,
                 value: lines,
                 onChange: (value: string) => onLinesChange(value as PlanLines),
               },

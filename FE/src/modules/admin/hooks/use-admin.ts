@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { i18n } from '@/shared/i18n/i18n';
 import { themeKeys } from '@/modules/settings/hooks/use-themes';
 import type { ThemeInput } from '@/modules/settings/types/theme.types';
 import { currentUserKey } from '@/modules/auth/hooks/use-current-user';
@@ -38,7 +39,7 @@ export const useUpdateUser = () => {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: AdminUpdateUserInput }) => adminApi.updateUser(id, input),
     onSuccess: () => {
-      toast.success('User updated.');
+      toast.success(i18n.t('admin:toasts.userUpdated'));
       // The admin may have edited their own account.
       void queryClient.invalidateQueries({ queryKey: currentUserKey });
       return queryClient.invalidateQueries({ queryKey: adminKeys.all });
@@ -51,7 +52,7 @@ export const useSetUserStatus = () => {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: UserStatus }) => adminApi.setUserStatus(id, status),
     onSuccess: (_user, { status }) => {
-      toast.success(status === 'locked' ? 'User disabled.' : 'User enabled.');
+      toast.success(i18n.t(status === 'locked' ? 'admin:toasts.userDisabled' : 'admin:toasts.userEnabled'));
       return queryClient.invalidateQueries({ queryKey: adminKeys.all });
     },
   });
@@ -62,7 +63,7 @@ export const useGrantPremium = () => {
   return useMutation({
     mutationFn: ({ id, months }: { id: string; months: number }) => adminApi.grantPremium(id, months),
     onSuccess: () => {
-      toast.success('Premium granted.');
+      toast.success(i18n.t('admin:toasts.premiumGranted'));
       return queryClient.invalidateQueries({ queryKey: adminKeys.all });
     },
   });
@@ -73,7 +74,7 @@ export const useCancelPremium = () => {
   return useMutation({
     mutationFn: (id: string) => adminApi.cancelPremium(id),
     onSuccess: () => {
-      toast.success('Premium cancelled.');
+      toast.success(i18n.t('admin:toasts.premiumCancelled'));
       return queryClient.invalidateQueries({ queryKey: adminKeys.all });
     },
   });
@@ -84,7 +85,7 @@ export const useRevokePremium = () => {
   return useMutation({
     mutationFn: (id: string) => adminApi.revokePremium(id),
     onSuccess: () => {
-      toast.success('Premium revoked.');
+      toast.success(i18n.t('admin:toasts.premiumRevoked'));
       return queryClient.invalidateQueries({ queryKey: adminKeys.all });
     },
   });
@@ -96,7 +97,7 @@ export const useDeleteUsers = () => {
     mutationFn: (ids: string[]) =>
       ids.length === 1 ? adminApi.deleteUser(ids[0]).then(() => ({ deleted: 1 })) : adminApi.bulkDeleteUsers(ids),
     onSuccess: ({ deleted }) => {
-      toast.success(deleted === 1 ? 'User deleted.' : `${deleted} users deleted.`);
+      toast.success(i18n.t('admin:toasts.usersDeleted', { count: deleted }));
       return queryClient.invalidateQueries({ queryKey: adminKeys.all });
     },
   });
@@ -114,7 +115,7 @@ export const useCreateAdminTheme = () => {
   return useMutation({
     mutationFn: (input: AdminThemeInput) => adminApi.createTheme(input),
     onSuccess: () => {
-      toast.success('Theme created.');
+      toast.success(i18n.t('admin:toasts.themeCreated'));
       return refreshThemes(queryClient);
     },
   });
@@ -125,7 +126,7 @@ export const useUpdateAdminTheme = () => {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<ThemeInput> }) => adminApi.updateTheme(id, input),
     onSuccess: () => {
-      toast.success('Theme updated.');
+      toast.success(i18n.t('admin:toasts.themeUpdated'));
       return refreshThemes(queryClient);
     },
   });
@@ -136,7 +137,7 @@ export const useDeleteAdminTheme = () => {
   return useMutation({
     mutationFn: (id: string) => adminApi.deleteTheme(id),
     onSuccess: () => {
-      toast.success('Theme deleted.');
+      toast.success(i18n.t('admin:toasts.themeDeleted'));
       return refreshThemes(queryClient);
     },
   });

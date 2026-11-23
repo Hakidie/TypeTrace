@@ -16,7 +16,7 @@ export const settingsModule: AppModule = {
     { path: '/admin/settings', Component: AdminSettingsPage },
   ],
   adminNavItems: [
-    { to: '/admin/themes', label: 'Themes', icon: Palette },
-    { to: '/admin/settings', label: 'Settings', icon: Settings },
+    { to: '/admin/themes', label: 'Themes', labelKey: 'admin.pages.themes', icon: Palette },
+    { to: '/admin/settings', label: 'Settings', labelKey: 'admin.pages.settings', icon: Settings },
   ],
 };

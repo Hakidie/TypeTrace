@@ -1,5 +1,6 @@
 import { ClipboardCheck } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
 import { CompactToolbar } from '@/shared/components/compact-toolbar';
@@ -18,20 +19,6 @@ import { ReviewDialog } from './ReviewDialog';
 // A page of the card grid, like the Passages panel above.
 const PAGE_SIZE = 9;
 
-const SORT_OPTIONS = [
-  { value: 'updatedAt', label: 'Oldest request' },
-  { value: '-updatedAt', label: 'Newest request' },
-  { value: 'title', label: 'Title A–Z' },
-  { value: 'wordCount', label: 'Shortest' },
-  { value: '-wordCount', label: 'Longest' },
-];
-
-// What waits in the queue: a learner's edit of a public passage (the Edited tag), or a request to make a passage public.
-const KIND_OPTIONS = [
-  { value: 'edited', label: 'Edited' },
-  { value: 'pending', label: 'Pending' },
-];
-
 /**
  * The Pending review panel of the admin passages page, under the Passages panel (SCRUM-176): learners' requests to make
  * a passage public, as cards like the passage bank, oldest first, with search, sort and pages kept in the URL under the
@@ -39,6 +26,19 @@ const KIND_OPTIONS = [
  * passage, then approves it or turns it down with a reason, one at a time or the ticked ones at once.
  */
 export const PendingPassagesPanel = ({ onSwitchView }: { onSwitchView: () => void }) => {
+  const { t } = useTranslation('passages');
+  const sortOptions = [
+    { value: 'updatedAt', label: t('admin.sort.oldestRequest') },
+    { value: '-updatedAt', label: t('admin.sort.newestRequest') },
+    { value: 'title', label: t('sort.titleAZ') },
+    { value: 'wordCount', label: t('sort.shortest') },
+    { value: '-wordCount', label: t('sort.longest') },
+  ];
+  // What waits in the queue: a learner's edit of a public passage (the Edited tag), or a request to make a passage public.
+  const kindOptions = [
+    { value: 'edited', label: t('admin.pending.kinds.edited') },
+    { value: 'pending', label: t('admin.pending.kinds.pending') },
+  ];
   const list = useListParams({ sort: 'updatedAt', prefix: 'pending' });
   const kind = list.get('kind');
   const passages = usePendingPassages({
@@ -68,15 +68,15 @@ export const PendingPassagesPanel = ({ onSwitchView }: { onSwitchView: () => voi
     if (passages.isError) return <ErrorState error={passages.error} onRetry={() => void passages.refetch()} />;
     if (cards.length === 0) {
       return list.q || kind ? (
-        <EmptyState icon={ClipboardCheck} title="No matching requests" description="Try another search or filter." />
+        <EmptyState icon={ClipboardCheck} title={t('admin.pending.noMatch')} description={t('admin.pending.noMatchHint')} />
       ) : (
-        <EmptyState icon={ClipboardCheck} title="Nothing to review" description="Learners' requests to make a passage public show up here." />
+        <EmptyState icon={ClipboardCheck} title={t('admin.pending.none')} description={t('admin.pending.noneHint')} />
       );
     }
     return (
       <div className="space-y-3">
         {/* -mx-4: the 16px padding of the cards goes outside, so their text lines up with the title and the toolbar above and the pages below */}
-        <div className="-mx-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Passages waiting for review">
+        <div className="-mx-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label={t('admin.pending.cards')}>
           {cards.map((passage) => (
             <PassageCard
               key={passage._id}
@@ -98,8 +98,8 @@ export const PendingPassagesPanel = ({ onSwitchView }: { onSwitchView: () => voi
   return (
     // PANEL Pending review
     <Panel
-      title="Pending review"
-      titleAction={<PanelTitleSwitch other="Passage list" onClick={onSwitchView} />}
+      title={t('admin.pending.title')}
+      titleAction={<PanelTitleSwitch other={t('admin.bank.title')} onClick={onSwitchView} />}
       bare
       titleClassName={sectionTitleClass}
       className="space-y-3"
@@ -110,20 +110,20 @@ export const PendingPassagesPanel = ({ onSwitchView }: { onSwitchView: () => voi
           decisions={
             selected.length > 0
               ? [
-                  { label: `Approve ${selected.length}`, onClick: () => startReview('approve', selected) },
-                  { label: `Reject ${selected.length}`, onClick: () => startReview('reject', selected), destructive: true },
+                  { label: t('admin.pending.approveSelected', { count: selected.length }), onClick: () => startReview('approve', selected) },
+                  { label: t('admin.pending.rejectSelected', { count: selected.length }), onClick: () => startReview('reject', selected), destructive: true },
                 ]
               : []
           }
           search={{
-            label: 'Search requests',
-            placeholder: 'Search title or source…',
+            label: t('admin.pending.searchLabel'),
+            placeholder: t('admin.pending.searchPlaceholder'),
             defaultValue: list.q,
             onSearch: (value) => list.set('q', value),
           }}
-          sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
-          filters={[{ label: 'Type', value: kind, options: KIND_OPTIONS, onChange: (value) => list.set('kind', value) }]}
-          count={{ icon: ClipboardCheck, value: passages.data?.total ?? '…', label: 'Waiting' }}
+          sort={{ value: list.sort, options: sortOptions, onChange: (value) => list.set('sort', value) }}
+          filters={[{ label: t('admin.filters.type'), value: kind, options: kindOptions, onChange: (value) => list.set('kind', value) }]}
+          count={{ icon: ClipboardCheck, value: passages.data?.total ?? '…', label: t('admin.pending.count') }}
         />
       }
     >

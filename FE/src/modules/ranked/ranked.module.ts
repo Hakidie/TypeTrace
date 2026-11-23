@@ -13,5 +13,5 @@ export const rankedModule: AppModule = {
 export const seasonsAdminModule: AppModule = {
   routes: [],
   adminRoutes: [{ path: '/admin/seasons', Component: AdminSeasonsPage }],
-  adminNavItems: [{ to: '/admin/seasons', label: 'Seasons', icon: CalendarRange }],
+  adminNavItems: [{ to: '/admin/seasons', label: 'Seasons', labelKey: 'admin.pages.seasons', icon: CalendarRange }],
 };

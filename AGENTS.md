@@ -149,41 +149,33 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `WEAK_RATE`, compared in whole numbers, never with a sum of decimals) and the trend (a two-proportion z-test between the
   windows). Nothing is written in `completeSession`, there is nothing to rebuild or to delete with the user. The thresholds
   are sent with `GET /api/profile/error-profile`: never write them in the frontend. A feature that needs the learner's weak
-  error types reads `getWeakErrorTypes` (Vietnamese; word rain still picks its own way); Weak spots reads
-  `getTopErrorTypes(userId, language)` (every type of that language with enough data, weak or not, highest rate first:
-  `rankedTypes` of the answer).
+  error types reads `getWeakErrorTypes` (word rain still picks its own way); Weak spots reads
+  `getTopErrorTypes` (every type with enough data, weak or not, highest rate first: `rankedTypes` of the answer).
 - The vowel × tone grid (SCRUM-29) is never stored either: `getVowelToneGrid` (`services/vowel-tone.service.ts`) works it out when read, with the pure `computeVowelToneGrid`, from the `words` of the learner's last 10 counted Vietnamese sessions: per vowel (12) and tone (6) the sightings (`seen`) and the errors (`wrong`: another tone, or the vowel typed as another letter or mark in a word of the same length) with up to 3 wrong words; `GET /api/profile/vowel-tone` sends all 72 cells and `minSeen` (`MIN_VOWEL_TONE_SEEN`, 5), so the frontend never writes the threshold. The Progress page shows it as a page of its own (`VowelToneGrid`, a `PanelTitleSwitch showLabel` button under each page).
 - The error rate chart (SCRUM-30) is never stored either: `getErrorTrend` (`services/error-trend.service.ts`) sums the `errorCounts` and `opportunityCounts` of the learner's counted sessions per local day (their time zone) and per error type of one language, and `buildErrorTrend` joins the days into the periods of the WPM chart (`chartKeys`); a rate is errors over chances of the whole period, and `null` (a gap, never 0) where there was no chance. `GET /api/profile/error-trend?range=&date=&language=` (the query of `monthly-progress`) sends the five Vietnamese or the six English types. The Progress page switches its top chart between WPM and Error rate with a `PanelTitleSwitch`, the language button at the bottom left of the Error rate chart is a view only.
 - Weak spots (SCRUM-28, US3.2; one error type: SCRUM-74) is the session mode `targeted` (the Train tab, called Weak spots before, of the Typing
   page): `POST /api/sessions { mode: 'targeted', errorType? }` types a lesson aimed at the learner's errors instead of a
-  passage, built by `lessonFor` (`services/targeted-practice.service.ts`), in the learner's typing language (SCRUM-319, below).
-  The pure `buildLesson` picks 30 to 50 words (`lessonWords`) of the words of that language (`bankWordsOf`: in Vietnamese the
-  active words of the word bank (`isActive`); in English every word of TypeTrace's own English practice passages, as written
-  there, capitals and punctuation included: published, public, neither ranked nor placement, never a learner's passage; there
-  is no English word bank), 60 to 70 % of them training the focus (the type chosen, else the 2 types of that language with the
-  highest error rates among those with enough data, weak or not: `getTopErrorTypes`, so an error profile is enough; taking
-  turns), none of the learner's last 3 lessons' picked words of that language while there are others, repeats once it runs
-  short. Some types are on every word (`tagWord` / `tagEnglishWord` count chances), so `trainsErrorType` (the type says the
-  language: the two sets share no type) takes any word for the letters (`BASE_LETTER`, `LETTER_WRONG`, `LETTER_MISSING`,
-  `LETTER_EXTRA`), a word with a tone mark for the tone, a word with a capital for `CASE_WRONG`, and the word's tags for the
-  others. Then Gemini writes a passage that makes sense from them, in the lesson's language (`generateText`; the prompt of each
-  language, its labels and the limits in `config/weak-spots-ai.ts`); the pure `checkAiPassage` keeps it with 20 to 200 words
-  that use at least 60 % of the practice words, compared in lowercase without the punctuation around them (not 60 % of the
-  passage: natural text has 11 % words with đ). No key, a timeout, any Gemini error, a refused passage or more than 5 AI lessons a minute for
+  passage, built by `lessonFor` (`services/targeted-practice.service.ts`). The pure `buildLesson` picks 30 to 50 words of
+  the bank (`lessonWords`), 60 to 70 % of them training the focus (the type chosen, else the 2 types with the highest error
+  rates among those with enough data, weak or not: `getTopErrorTypes`, so an error profile is enough; taking turns), only
+  active words (`isActive`), none of the learner's last 3 lessons' picked words while the bank has others, repeats once it
+  runs short. `TONE_WRONG` and `BASE_LETTER` are on every word (`tagWord` counts
+  chances), so `trainsErrorType` takes a word with a tone mark for the tone and any word for the letters. Then Gemini writes
+  a passage that makes sense from them (`generateText`, prompt and limits in `config/weak-spots-ai.ts`); the pure
+  `checkAiPassage` keeps it with 20 to 200 words that use at least 60 % of the practice words (not 60 % of the passage: natural
+  text has 11 % words with đ). No key, a timeout, any Gemini error, a refused passage or more than 5 AI lessons a minute for
   the learner (`lessonAiLimiter`, which never answers 429) leave the picked words as the lesson: the learner never sees an AI
   error, and `lessonSource` (`ai`, `words`, `passage`) records which. The passage lives only in the session (`targetWords`),
   never in the passage bank. The session has no `passageId` and keeps `focusErrorTypes`; with nothing to aim at (no type with
-  enough data yet, or no word for it) it types a random practice passage of its language with `focusErrorTypes: []` (never a
-  ranked test), which the page explains. Weak spots has both languages (SCRUM-319): its session is in the learner's
-  `settings.typingLanguage`, its focus comes from the sessions of that language, and an `errorType` of the other language
-  answers 400. On the Typing page the Train tab opens its cards from anywhere, also from a lesson (in either language, without
-  switching it); the cards show the error profile of the language typed (the five Vietnamese or the six English types), and
-  the language button sits on them, under "Practice on one error" (it saves the language, and the interface with it, below;
-  the cards follow; no lesson starts). A lesson keeps its language: its bottom row has the "All weak spots" button instead, between the word count and the
-  timer (`TypingArea`'s `statusCenter`), while Restart stays under the passage. A lesson of one type also opens from the
-  Profile: every error type of its error profile, Vietnamese or English, has a "Practice this error" button (SCRUM-274,
-  SCRUM-319), a link to `/typing?mode=targeted&focus=<type>`, also for a type without enough data yet, whose lesson says what
-  the profile still needs; a type of the other language switches the learner's language (saved) before the lesson starts. The passage menu and `GET /api/passages` take `passageModes` (practice, placement), never `targeted`.
+  enough data yet, or no word for it) it types a random practice passage with `focusErrorTypes: []`, which the page explains.
+  Weak spots is Vietnamese only (SCRUM-219): its session is always `language: 'vi'` (its random passage too), its focus comes
+  from the Vietnamese sessions and its cards show the Vietnamese error profile, whatever the learner types in Practice. On the
+  Typing page the Train tab opens its cards from anywhere, also from a lesson (it stays shown while the learner types
+  English, and opening it switches them back to Vietnamese), and a lesson's other way back is the "All weak spots" button
+  in the bottom row, between the word count and the timer (`TypingArea`'s `statusCenter`), while Restart stays under the passage. A lesson of one type also opens from the Profile: every error type of its Vietnamese
+  error profile has a "Practice this error" button (SCRUM-274; none in the English one), a link to
+  `/typing?mode=targeted&focus=<type>`, also for a type without enough data yet, whose lesson says what the profile still
+  needs. The passage menu and `GET /api/passages` take `passageModes` (practice, placement), never `targeted`.
   `GET /api/passages` also takes `origin` (`system`, `mine`, `others`, SCRUM-304; 400 with `mine=true`) and sends `isSystem` on each
   item. The passage menus of Typing (Practice) and of the placement leaderboard are one `PassageMenuPanel`
   (`modules/typing/components`): one row, without borders or focus rings, with a search box (focused when the menu opens; a magnifier
@@ -240,8 +232,8 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   After changing a `tag…` function, run `npm run rebuild:tag-counts`.
 - Typing language (SCRUM-219): a learner types Practice in Vietnamese or English, `settings.typingLanguage` (`vi` by default,
   saved with `PATCH /api/profile/settings`, which takes any of the settings below). A session keeps its
-  `language`, set by the server when it starts (the learner's language then, `typingLanguageOf`: Practice, the placement test
-  since SCRUM-305 and Weak spots since SCRUM-319), and is graded and counted in its set only (its `errorCounts` / `opportunityCounts` hold the keys of that set).
+  `language`, set by the server when it starts (Practice and the placement test, SCRUM-305: the learner's language then,
+  `typingLanguageOf`; Weak spots: always `vi`), and is graded and counted in its set only (its `errorCounts` / `opportunityCounts` hold the keys of that set).
   A session without `language` (from before) is Vietnamese: filter with `sessionsIn(language)` (`{ language: { $ne: 'en' } }`
   for `vi`), never `{ language: 'vi' }`; there is no migration. Practice and the placement test pick among the passages of the
   learner's language (`passageLanguageFilter`: English = `language: 'en'` and not `isRanked`, so the passages of ranked duels
@@ -252,23 +244,16 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   says which, as `language`; the English chart starts at the first counted English session, also before an English placement
   test). Both languages count for the
   days (streak, daily mission, heatmap) and for the sessions of the daily tasks; word rain's focus,
-  `getWeakErrorTypes` and the admin user list's averages read Vietnamese sessions only (`getTopErrorTypes`, for Weak spots,
-  reads the language it is given). Frontend: the language button sits at the bottom center of the page, in the row of the word count and the timer, in Practice and in the placement test
+  `getWeakErrorTypes`, `getTopErrorTypes` (Weak spots), and the admin user list's averages
+  read Vietnamese sessions only. Frontend: the language button sits at the bottom center of the page, in the row of the word count and the timer, in Practice and in the placement test
   (`TypingPage`, `TypingArea`'s `statusCenter`, also while the passage loads or fails: it shows the language being typed and a click switches to the other one): it saves
-  the language typed and makes it the language of the interface too (SCRUM-319: one `PATCH` with `typingLanguage` and
-  `uiLanguage`, `useSaveTypingLanguage` with a `LanguageChoice`, which empties the per-language profile queries; then
-  `i18n.changeLanguage` and the browser's copy). When the interface changes language, `AppLayout` draws the page again in it
-  and the page drawn again starts its own session (a random passage; in Placement a new test of the default time) or shows
-  the Train cards; on the Train cards the button changes only the language typed and the language of that page (a `PATCH` with `typingLanguage` alone: the interface keeps its language and nothing is drawn again, but the cards are written in the language switched to, `WeakSpotsMode` inside an `I18nextProvider` with a clone of the i18n instance fixed to it, and show its error profile; helpers read the language with an optional `lng`: `errorLabelIn`, `chanceWords`, `missingWords`); otherwise the page starts a random passage of that language itself (a new test of the time picked in
-  Placement), and on the Weak spots cards nothing starts. The automatic switches (a `?passage=` link, a `?focus=` type) change
-  the language typed only. In English a
-  notification says to turn off Vietnamese input (Practice, Placement and Train). Every mode tab
+  the language (`useSaveTypingLanguage`, which empties the per-language profile queries) and then starts a random passage of
+  it (a new test of the time picked in Placement); in English a notification says to turn off Vietnamese input. Every mode tab
   shows in both languages; a placement test of a language without a passage shows "No placement test in English yet" with the
-  way out (the language button), never the server's words. A `?passage=` link of the Passages page (a Vietnamese passage)
-  switches back to Vietnamese and saves it, and a `?mode=targeted&focus=<type>` link switches to the language of the type.
-  `TypingArea`, the replay and the result page check and name errors with the session's `language`; the session cards of
+  way out (the language button), never the server's words. Every way into Weak spots (its tab, a `?mode=targeted`
+  link) and a `?passage=` link of the Passages page (a Vietnamese passage) switch back to Vietnamese and save it. `TypingArea`, the replay and the result page check and name errors with the session's `language`; the session cards of
   the profile say VI or EN. The minigames keep their own language (`useMinigameLang`), and the word bank (`word.model.ts`) is
-  Vietnamese only (word rain, Vietnamese Weak spots; English Weak spots picks from the English practice passages).
+  Vietnamese only.
 - Typing font size and interface font (SCRUM-158): `settings.typingFontSizeRem` (1 to 2.5 rem in steps of 0.125, 2 by default) and
   `settings.fontFamily` (`jetbrains-mono` by default, `inter`, `be-vietnam-pro`, `lexend`, `noto-serif`) of `User`, ids and limits in
   `utils/app-font.ts` (a pure file with an identical copy in `FE/src/shared/lib/app-font.ts`). `GET /api/profile/settings` sends the four
@@ -379,7 +364,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
   `/register`; widgets are not shown). `App.tsx` wraps each route that is not `guest` in `ProtectedRoute` (a guest is sent to `/login`); only `/typing`
   (`TypingRoute`: `TypingPage` for a signed-in learner, `GuestTypingPage` for a guest) and `/leaderboard` and `/wardrobe` are `guest` routes. A `guest` page must not call an API that needs a
   sign-in: the 401 interceptor would send the guest to `/logout`. `GuestTypingPage` is the Typing page without a server: the same mode tabs (Placement, Rank and Train are dimmed with `TabGroup`'s `locked` and lead to `/login`),
-  Practice has the language button (VI / EN, as on the signed-in page: English passages `GUEST_PASSAGES_EN`, graded with the English error set, every tab kept, kept only while the page is open in `useGuestTypingLanguage`, a store outside the page so it survives the page being drawn again; the button changes the interface too, in the browser only (`useChangeUiLanguage`); Rain stays Vietnamese) and the Manual / Random / Train tabs (Manual picks one of the passages of `modules/home/lib/guest-passages.ts` (each has a `title`) from the same `PassageMenuPanel` as the signed-in page, given them as its `passages` prop: searched and sorted in the browser, no API call, Random a new one, Train is locked and leads to `/login`) and the time tabs (`timeChoices` in `typing.config.ts`) and shows `GuestResult` (nothing saved);
+  Practice has the language button (VI / EN, as on the signed-in page: English passages `GUEST_PASSAGES_EN`, graded with the English error set, every tab kept, kept only while the page is open; Rain stays Vietnamese) and the Manual / Random / Train tabs (Manual picks one of the passages of `modules/home/lib/guest-passages.ts` (each has a `title`) from the same `PassageMenuPanel` as the signed-in page, given them as its `passages` prop: searched and sorted in the browser, no API call, Random a new one, Train is locked and leads to `/login`) and the time tabs (`timeChoices` in `typing.config.ts`) and shows `GuestResult` (nothing saved);
   Minigames opens word rain only (`RainMode guest={{ words, roundMs }}`: the fixed list `modules/rain/lib/guest-words.ts`, the round lasts the time picked
   (`RainState.roundMs`), no API call and no play counted for the daily task). On `/leaderboard` a guest reads the real boards: `typingApi.passages('placement', language)` asks the open
   `/api/placement/passages` when there is no token. The wardrobe (SCRUM-251) is open to guests from `GuestMenu` to try items on: `GET /api/avatar/catalog` takes `optionalAuth` (`getGuestCatalog`: the default look, no coins, only free items owned), and both wardrobe pages replace Save, Buy and Get coins with "Sign up to save" / "Sign up to buy" links to `/register` when there is no token. Keep new guest pages free of `useMinigamePlay`, `usePlan`, `useProfile…` and the like.
@@ -400,7 +385,7 @@ Reference for anything not covered here: `BE/src/{models,validators,services,con
 - Styling: Tailwind theme tokens (`bg-background`, `text-muted-foreground`, ...), never raw hex colors. Layouts must work on phones.
 - Imports use the `@/` alias. Components and pages are `PascalCase.tsx` named exports; other files are `kebab-case.ts`.
 
-- Interface language (SCRUM-325, `shared/i18n`, `i18next` + `react-i18next`): Vietnamese and English; English is the fallback, so a string missing in Vietnamese shows in English, never its key. One namespace per module, its words in `modules/<feature>/locales/{en,vi}.ts` (`vi.ts` is typed `typeof xEn`: a key missing in Vietnamese fails the build) and registered in `shared/i18n/i18n.ts` (`common`, `settings`, `auth`, `home`, `typing`, `profile`, `progress`, `passages`, `ranked`, `rain`, `store` (Store, plans, payment pages), `wardrobe`, `chat`). Components read them with `useTranslation('<ns>')`; code outside components (helpers, label maps) uses `i18n.t('<ns>:key')` or `translatedRecord` (`shared/i18n/translated-record.ts`), which is safe because `AppLayout` draws its page again (a `key` of the language) when it changes. Plurals are `key_one` / `key_other` with `count`; zod messages are built with `schemaOf(t)` inside `useMemo`. Never write a user-facing string in a component: add a key to both locale files. The choice is `settings.uiLanguage` for a signed-in learner (`LanguageSettings` in Settings, or the language button of the Typing page, which sets the language typed and the interface together (SCRUM-319); `LanguageSync` applies it after login) and `localStorage` (`typetrace.uiLanguage`) for a guest (`GuestMenu`), read before the first paint; with none chosen the browser's language decides (`vi` → Vietnamese, anything else English). Tests run in English; a Vietnamese test does `await act(() => i18n.changeLanguage('vi'))`. Left in English on purpose (SCRUM-325 scope): the whole `/admin` area (SCRUM-336), what is typed (passages, Weak spots lessons, Nối từ and Rain words, and the minigame tiles' own switch `useMinigameLang`, which only changes the text inside a game), Ping's and the AI chat bot's own words (the chat's frame is translated), item names of the avatar catalog, the titles and descriptions of the daily tasks as admins wrote them (English; the learner's Profile builds Vietnamese ones from the type and target, `dailyTasks.taskTitle` / `dailyTasks.goal`, while the interface is not English), and backend messages (toasts, emails). Keep WPM, ACC, TIME, STREAK and SCORE labels in English in Vietnamese. Shared helpers (`monthShort`/`dayInWords`, `ActivityHeatmap`, the period and month names of the Progress charts, `formatCoins`, `daysLeftText`, `planTitle`) follow the interface language everywhere, so an admin who chose Vietnamese sees them translated in admin charts and lists too.
+- Interface language (SCRUM-325, `shared/i18n`, `i18next` + `react-i18next`): Vietnamese and English; English is the fallback, so a string missing in Vietnamese shows in English, never its key. One namespace per module, its words in `modules/<feature>/locales/{en,vi}.ts` (`vi.ts` is typed `typeof xEn`: a key missing in Vietnamese fails the build) and registered in `shared/i18n/i18n.ts` (`common`, `settings`, `auth`, `home`, `typing`, `profile`, `progress`, `passages`, `ranked`, `rain`, `store` (Store, plans, payment pages), `wardrobe`, `chat`, `admin` (the admin module: dashboard, users, themes), `dailyTasks` (the admin Daily tasks page)). The admin area is translated too (SCRUM-336): its frame in `common:admin.*` (each `adminNavItems` entry names its page with `labelKey: 'admin.pages.<page>'`), the admin pages of other modules in their own namespace (`passages:admin.*`, `store:adminPlans.*` / `adminPayments.*`, `ranked:adminSeasons.*` / `placementSettings.*`, `settings:admin.*`). Components read them with `useTranslation('<ns>')`; code outside components (helpers, label maps, column configs, the toasts of hooks) uses `i18n.t('<ns>:key')` or `translatedRecord` (`shared/i18n/translated-record.ts`), which is safe because `AppLayout` and `AdminLayout` draw their page again (a `key` of the language) when it changes; never read one at module level (a list of options or columns is built in the component). Plurals are `key_one` / `key_other` with `count`; zod messages are built with `schemaOf(t)` inside `useMemo`. Never write a user-facing string in a component: add a key to both locale files. The choice is `settings.uiLanguage` for a signed-in learner or admin (`LanguageSettings` in Settings, `LanguageSync` applies it after login: a widget of `AppLayout`, and rendered by `AdminLayout` too, since an admin lands on `/admin`) and `localStorage` (`typetrace.uiLanguage`) for a guest (`GuestMenu`), read before the first paint; with none chosen the browser's language decides (`vi` → Vietnamese, anything else English). Tests run in English; a Vietnamese test does `await act(() => i18n.changeLanguage('vi'))`. Left in English on purpose (SCRUM-325 scope): what is typed (passages, Weak spots lessons, Nối từ and Rain words, and the minigame tiles' own switch `useMinigameLang`, which only changes the text inside a game), Ping's and the AI chat bot's own words (the chat's frame is translated), item names of the avatar catalog, the titles and descriptions of the daily tasks as admins wrote them (English; while the interface is not English the learner's Profile and the admin Daily tasks page show words built from the type and target instead, `dailyTasks.taskTitle` / `dailyTasks.goal` of `profile` through `builtTaskWords` / `showsBuiltTaskWords` / `shownTaskTitle` of `daily-tasks.config.ts`, the admin page with what was written in the tooltips of a row), what people wrote that admins read (passage texts and sources, user names and emails, review reasons), the names of plans (Free, Premium) and gateways (payOS, VNPay, MoMo), and backend messages (error toasts, emails). Keep WPM, ACC, TIME, STREAK and SCORE labels in English in Vietnamese. Shared helpers (`monthShort`/`dayInWords`, `ActivityHeatmap`, the period and month names of the Progress charts (`progress:range.*`, which the admin charts reuse), `formatCoins`, `daysLeftText`, `planTitle`) and shared components (`DataTable`, `PanelTitleSwitch`) follow the interface language everywhere, the admin area included.
 
 ## Admin area
 
@@ -423,7 +408,8 @@ To add an admin page for a feature module:
 1. Backend: endpoints under `/api/admin/...` in `admin.route.ts`. Lists use `validate({ query })` with `sortSchema`,
    `optionalBooleanQuerySchema` for yes/no filters, and `paginate`. Bulk actions take `bulkIdsSchema` (`{ ids }`).
 2. Frontend: in the module's `<feature>.module.ts` add `adminRoutes: [{ path: '/admin/<plural>', Component }]` and
-   `adminNavItems: [{ to: '/admin/<plural>', label, icon }]`. Build the page like `AdminUsersPage`: a `ListToolbar` (search, sort, filters),
+   `adminNavItems: [{ to: '/admin/<plural>', label, labelKey: 'admin.pages.<name>', icon }]` (the name of the page in both
+   languages in `common`'s `admin.pages`; the page's words in the module's namespace, see "Interface language"). Build the page like `AdminUsersPage`: a `ListToolbar` (search, sort, filters),
    a list of `ListRow` cards (or a `DataTable` with column config for plain tables), `Pagination` (`variant="toolbar"` = right-aligned, styled like the `ListToolbar` buttons; `accent` = red text on transparent buttons), `ConfirmDialog`, and `useListParams`
    to keep search, filters, sort and page in the URL.
 

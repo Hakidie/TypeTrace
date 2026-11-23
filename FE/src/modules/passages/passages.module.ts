@@ -9,5 +9,5 @@ export const passagesModule: AppModule = {
   navItems: [{ to: '/passages', label: 'Passages', labelKey: 'nav.passages', icon: FileText }],
   // Admins: the passage bank (`/api/admin/passages`).
   adminRoutes: [{ path: '/admin/passages', Component: AdminPassagesPage }],
-  adminNavItems: [{ to: '/admin/passages', label: 'Passages', icon: FileText }],
+  adminNavItems: [{ to: '/admin/passages', label: 'Passages', labelKey: 'admin.pages.passages', icon: FileText }],
 };

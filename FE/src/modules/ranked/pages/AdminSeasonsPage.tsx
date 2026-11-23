@@ -1,5 +1,6 @@
 import { CalendarRange, CloudRain, Lock, Swords } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ErrorState } from '@/shared/components/error-state';
@@ -16,9 +17,10 @@ import type { MatchKind, Season } from '../types/ranked.types';
 
 const PAGE_SIZE = 20;
 
-const MODES: Record<MatchKind, { label: string; icon: ReactNode }> = {
-  race: { label: 'Race', icon: <Swords className="size-6" aria-hidden="true" /> },
-  rain: { label: 'Rain', icon: <CloudRain className="size-6" aria-hidden="true" /> },
+// The names of the kinds of match are the `kinds.*` of the `ranked` namespace.
+const ICONS: Record<MatchKind, ReactNode> = {
+  race: <Swords className="size-6" aria-hidden="true" />,
+  rain: <CloudRain className="size-6" aria-hidden="true" />,
 };
 
 /**
@@ -26,6 +28,8 @@ const MODES: Record<MatchKind, { label: string; icon: ReactNode }> = {
  * the next season at once.
  */
 export const AdminSeasonsPage = () => {
+  const { t } = useTranslation('ranked');
+  const kindName = (value: MatchKind) => t(`kinds.${value}`);
   const list = useListParams({ sort: '-number' });
   const seasons = useSeasons({ page: list.page, limit: PAGE_SIZE });
   const close = useCloseSeason();
@@ -35,7 +39,7 @@ export const AdminSeasonsPage = () => {
   const renderList = () => {
     if (seasons.isPending) return <LoadingState rows={3} />;
     if (seasons.isError) return <ErrorState error={seasons.error} onRetry={() => void seasons.refetch()} />;
-    if (seasons.data.items.length === 0) return <EmptyState icon={CalendarRange} title="No seasons yet" />;
+    if (seasons.data.items.length === 0) return <EmptyState icon={CalendarRange} title={t('adminSeasons.none')} />;
     return (
       <div className="space-y-2">
         {seasons.data.items.map((season) => (
@@ -48,17 +52,17 @@ export const AdminSeasonsPage = () => {
             headline={
               <button
                 type="button"
-                aria-label={`Mode: ${MODES[kind].label}`}
+                aria-label={t('adminSeasons.mode', { mode: kindName(kind) })}
                 onClick={() => setKind(kind === 'race' ? 'rain' : 'race')}
                 className="flex items-center gap-2 transition-opacity hover:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {MODES[kind].icon}
-                <span>{MODES[kind].label}</span>
+                {ICONS[kind]}
+                <span>{kindName(kind)}</span>
               </button>
             }
-            subline={`${season.participants[kind]} ${season.participants[kind] === 1 ? 'player' : 'players'}`}
-            value={season.status === 'active' ? 'ON GOING' : 'CLOSED'}
-            valueLabel="Status"
+            subline={t('adminSeasons.players', { count: season.participants[kind] })}
+            value={season.status === 'active' ? t('adminSeasons.ongoing') : t('adminSeasons.closed')}
+            valueLabel={t('adminSeasons.status')}
             actions={<LeaderboardLink />}
             trailing={
               season.status === 'active' && (
@@ -67,7 +71,7 @@ export const AdminSeasonsPage = () => {
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        aria-label="Close season"
+                        aria-label={t('adminSeasons.close')}
                         onClick={() => setClosing(season)}
                         // Hidden it takes no room (no width, and a negative margin for the gap of the panel); it grows in while the
                         // panel is hovered or holds the focus (always there on touch screens, which cannot hover).
@@ -79,7 +83,7 @@ export const AdminSeasonsPage = () => {
                         <Lock className="size-6" aria-hidden="true" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent>Close season</TooltipContent>
+                    <TooltipContent>{t('adminSeasons.close')}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               )
@@ -98,9 +102,9 @@ export const AdminSeasonsPage = () => {
       <ConfirmDialog
         open={closing !== undefined}
         onOpenChange={(open) => !open && setClosing(undefined)}
-        title={`Close season ${closing?.number ?? ''}?`}
-        description="The next season opens at once. Every player starts it halfway back to 1000."
-        confirmLabel="Close season"
+        title={t('adminSeasons.closeTitle', { number: closing?.number ?? '' })}
+        description={t('adminSeasons.closeDescription')}
+        confirmLabel={t('adminSeasons.close')}
         destructive
         pending={close.isPending}
         onConfirm={() => close.mutate(closing!._id, { onSuccess: () => setClosing(undefined) })}

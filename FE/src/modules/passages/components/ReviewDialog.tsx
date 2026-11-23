@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '@/shared/components/confirm-dialog';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { useReviewPassages } from '../hooks/use-passages';
@@ -28,21 +29,24 @@ const isNoLongerWaiting = (error: unknown) => {
  * reason, which the learners see. Mount it with a `key` per decision, so the reason starts empty.
  */
 export const ReviewDialog = ({ decision, passages, onClose, onDone }: ReviewDialogProps) => {
+  const { t } = useTranslation('passages');
   const review = useReviewPassages();
   const [reason, setReason] = useState('');
   const reject = decision === 'reject';
   const one = passages.length === 1;
-  const what = one ? `"${passages[0].pendingEdit?.title ?? passages[0].title}"` : `${passages.length} passages`;
+  const what = one
+    ? t('admin.review.quoted', { title: passages[0].pendingEdit?.title ?? passages[0].title })
+    : t('admin.review.passages', { count: passages.length });
 
   // Edits of public passages are decided here too: approved they replace the text, turned down the approved text stays.
   const edits = passages.every((passage) => passage.pendingEdit !== undefined);
   const description = edits
     ? reject
-      ? `${one ? 'The edit is dropped' : 'The edits are dropped'}, the approved ${one ? 'text stays' : 'texts stay'} public and ${one ? 'its author sees' : 'their authors see'} your reason.`
-      : `${one ? 'The edit replaces' : 'The edits replace'} the public ${one ? 'text' : 'texts'}, shown with the name of ${one ? 'its author' : 'their authors'}.`
+      ? t(one ? 'admin.review.editRejectOne' : 'admin.review.editRejectMany')
+      : t(one ? 'admin.review.editApproveOne' : 'admin.review.editApproveMany')
     : reject
-    ? `${one ? 'It stays private to its author, who sees' : 'They stay private to their authors, who see'} your reason.`
-    : `Every learner will be able to practice ${one ? 'it, shown with the name of its author' : 'them, shown with the names of their authors'}.`;
+    ? t(one ? 'admin.review.rejectOne' : 'admin.review.rejectMany')
+    : t(one ? 'admin.review.approveOne' : 'admin.review.approveMany');
 
   const finish = () => {
     onDone?.();
@@ -65,9 +69,9 @@ export const ReviewDialog = ({ decision, passages, onClose, onDone }: ReviewDial
     <ConfirmDialog
       open
       onOpenChange={(open) => !open && onClose()}
-      title={`${reject ? 'Reject' : 'Approve'} ${what}?`}
+      title={t(reject ? 'admin.review.rejectTitle' : 'admin.review.approveTitle', { what })}
       description={description}
-      confirmLabel={reject ? 'Reject' : 'Approve'}
+      confirmLabel={reject ? t('admin.card.reject') : t('admin.card.approve')}
       destructive={reject}
       pending={review.isPending}
       confirmDisabled={reject && reason.trim() === ''}
@@ -76,8 +80,8 @@ export const ReviewDialog = ({ decision, passages, onClose, onDone }: ReviewDial
       {reject && (
         <div className="space-y-1">
           <Textarea
-            aria-label="Reason"
-            placeholder="Why is it turned down? The learner sees this."
+            aria-label={t('admin.review.reasonLabel')}
+            placeholder={t('admin.review.reasonPlaceholder')}
             maxLength={REVIEW_NOTE_MAX}
             value={reason}
             onChange={(event) => setReason(event.target.value)}

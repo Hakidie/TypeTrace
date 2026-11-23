@@ -1,3 +1,5 @@
+import { i18n } from '@/shared/i18n/i18n';
+
 /** How much of the term has passed, 0 to 100: none before it starts, all of it once it is over; a term without an end (an open Free row) is full. */
 export const termProgress = (startsAt: string, endsAt: string | null, now = Date.now()) => {
   if (!endsAt) return 100;
@@ -8,14 +10,14 @@ export const termProgress = (startsAt: string, endsAt: string | null, now = Date
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const days = (count: number) => `${count} day${count === 1 ? '' : 's'}`;
+const days = (count: number) => i18n.t('store:days', { count });
 
 /** What the tooltip of the bar says: the days left of the term, the days before it starts, that it is over, or that it has no end. */
 export const termDaysText = (startsAt: string, endsAt: string | null, now = Date.now()) => {
-  if (!endsAt) return 'No end date';
+  if (!endsAt) return i18n.t('store:adminPlans.period.noEnd');
   const start = new Date(startsAt).getTime();
   const end = new Date(endsAt).getTime();
-  if (now < start) return `Starts in ${days(Math.ceil((start - now) / DAY_MS))}`;
-  if (now >= end) return 'Ended';
-  return `${days(Math.ceil((end - now) / DAY_MS))} left`;
+  if (now < start) return i18n.t('store:adminPlans.period.startsIn', { days: days(Math.ceil((start - now) / DAY_MS)) });
+  if (now >= end) return i18n.t('store:adminPlans.period.ended');
+  return i18n.t('store:left', { what: days(Math.ceil((end - now) / DAY_MS)) });
 };

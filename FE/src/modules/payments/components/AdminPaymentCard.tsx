@@ -1,12 +1,12 @@
 import { RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { Button } from '@/shared/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { ListRow } from '@/shared/components/list-row';
+import { i18n } from '@/shared/i18n/i18n';
 import { canRecheck, PROVIDER_NAMES, purchaseLabel } from '../lib/store';
 import type { AdminPaymentRow, PaymentProduct } from '../types/payments.types';
-
-const STATUS_NAMES: Record<AdminPaymentRow['status'], string> = { pending: 'Pending', paid: 'Paid', failed: 'Failed' };
 
 const dayFormat = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
 const timeFormat = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'UTC' });
@@ -17,8 +17,11 @@ const timeOf = (iso: string) => `${timeFormat.format(new Date(iso))} UTC`;
 /** What a payment bought: "Premium-6M" for a Premium term, the catalog's label for anything else ("500 coins"). */
 const planName = (productId: string, products?: PaymentProduct[]) => {
   const grant = products?.find((product) => product.id === productId)?.grant;
-  return grant?.kind === 'premium' ? `Premium-${grant.months}M` : purchaseLabel(productId, products);
+  return grant?.kind === 'premium' ? i18n.t('store:adminPayments.premiumShort', { months: grant.months }) : purchaseLabel(productId, products);
 };
+
+/** Whether the learner got what they bought: never for a payment that is not paid, else yes or not yet. */
+const accessOf = (row: AdminPaymentRow) => (row.status !== 'paid' ? 'no' : row.granted ? 'yes' : 'notYet');
 
 /** The four columns of a row share the width left by the buyer equally. */
 const COLUMNS = 'grid w-full grid-cols-4 gap-x-10';
@@ -42,46 +45,49 @@ export const AdminPaymentCard = ({
   products?: PaymentProduct[];
   onRecheck: (row: AdminPaymentRow) => void;
   checking: boolean;
-}) => (
-  <ListRow
-    plain
-    flat
-    stretch
-    identity={
-      <div className="flex min-w-0 items-center gap-3">
-        {/* 61px = the height of the columns. The uploaded picture, or the pixel face of the account. */}
-        <div className="flex size-[61px] shrink-0 items-center justify-center overflow-hidden">
-          {row.avatarUrl ? <img src={row.avatarUrl} alt="" className="size-full object-cover" /> : <AvatarSprite look={row.avatar} crop="head" scale={1.5} label={`Avatar of ${row.userName}`} />}
+}) => {
+  const { t } = useTranslation('store');
+  return (
+    <ListRow
+      plain
+      flat
+      stretch
+      identity={
+        <div className="flex min-w-0 items-center gap-3">
+          {/* 61px = the height of the columns. The uploaded picture, or the pixel face of the account. */}
+          <div className="flex size-[61px] shrink-0 items-center justify-center overflow-hidden">
+            {row.avatarUrl ? <img src={row.avatarUrl} alt="" className="size-full object-cover" /> : <AvatarSprite look={row.avatar} crop="head" scale={1.5} label={t('adminPayments.avatarOf', { name: row.userName })} />}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-2xl font-extrabold text-primary/80">{row.userName}</p>
+            <p className="truncate text-lg text-muted-foreground">{row.email ?? ''}</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-2xl font-extrabold text-primary/80">{row.userName}</p>
-          <p className="truncate text-lg text-muted-foreground">{row.email ?? ''}</p>
+      }
+      extra={
+        <div className={COLUMNS}>
+          <Cell top={planName(row.product, products)} bottom={dayOf(row.createdAt)} />
+          <Cell top={PROVIDER_NAMES[row.provider]} bottom={timeOf(row.createdAt)} />
+          <Cell top={new Intl.NumberFormat('vi-VN').format(row.amount)} bottom="₫" />
+          <Cell top={t(`adminPayments.statuses.${row.status}`)} bottom={t(`adminPayments.access.${accessOf(row)}`)} />
         </div>
-      </div>
-    }
-    extra={
-      <div className={COLUMNS}>
-        <Cell top={planName(row.product, products)} bottom={dayOf(row.createdAt)} />
-        <Cell top={PROVIDER_NAMES[row.provider]} bottom={timeOf(row.createdAt)} />
-        <Cell top={new Intl.NumberFormat('vi-VN').format(row.amount)} bottom="₫" />
-        <Cell top={STATUS_NAMES[row.status]} bottom={`Access: ${row.status !== 'paid' ? 'No' : row.granted ? 'Yes' : 'Not yet'}`} />
-      </div>
-    }
-    action={
-      canRecheck(row) ? (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button type="button" variant="ghost" size="sm" aria-label="Check again with payOS" disabled={checking} onClick={() => onRecheck(row)}>
-                  <RefreshCw className={checking ? 'animate-spin' : ''} aria-hidden="true" />
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>Check again with payOS</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : undefined
-    }
-  />
-);
+      }
+      action={
+        canRecheck(row) ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button type="button" variant="ghost" size="sm" aria-label={t('adminPayments.recheck')} disabled={checking} onClick={() => onRecheck(row)}>
+                    <RefreshCw className={checking ? 'animate-spin' : ''} aria-hidden="true" />
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{t('adminPayments.recheck')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : undefined
+      }
+    />
+  );
+};

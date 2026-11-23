@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { diffWords } from '../lib/text-diff';
@@ -44,6 +45,7 @@ const Diff = ({ before, after }: { before: string; after: string }) => (
  * learner's edit of a public passage it shows what changes (title, source and text) against the approved version.
  */
 export const PassageViewDialog = ({ passage, onClose, onReview }: PassageViewDialogProps) => {
+  const { t } = useTranslation('passages');
   const edit = passage?.pendingEdit;
   return (
   <Dialog open={passage !== undefined} onOpenChange={(open) => !open && onClose()}>
@@ -56,17 +58,17 @@ export const PassageViewDialog = ({ passage, onClose, onReview }: PassageViewDia
               {edit ? <Diff before={passage.title} after={edit.title} /> : passage.title}
             </DialogTitle>
             <DialogDescription>
-              by {passage.ownerName} · {edit ? countWords(edit.content) : passage.wordCount} words
+              {t('admin.view.byline', { owner: passage.ownerName, count: edit ? countWords(edit.content) : passage.wordCount })}
             </DialogDescription>
             {/* Before a passage becomes public, check that its source allows it to be reused. */}
             <p className="break-words text-base text-muted-foreground">
-              Source: {edit ? <Diff before={passage.source} after={edit.source} /> : passage.source}
+              {t('admin.view.source')} {edit ? <Diff before={passage.source} after={edit.source} /> : passage.source}
             </p>
           </DialogHeader>
           {/* An edit of a public passage: what it changes is marked against the approved text, which everyone reads until then. */}
           <p
             role={edit ? 'group' : undefined}
-            aria-label={edit ? 'Changes' : undefined}
+            aria-label={edit ? t('admin.view.changes') : undefined}
             className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap border border-border p-3 text-base"
           >
             {edit ? <Diff before={passage.content} after={edit.content} /> : passage.content}
@@ -74,9 +76,9 @@ export const PassageViewDialog = ({ passage, onClose, onReview }: PassageViewDia
           {onReview && (
             <DialogFooter className="gap-2">
               <Button variant="destructive" onClick={() => onReview(passage, 'reject')}>
-                Reject
+                {t('admin.card.reject')}
               </Button>
-              <Button onClick={() => onReview(passage, 'approve')}>Approve</Button>
+              <Button onClick={() => onReview(passage, 'approve')}>{t('admin.card.approve')}</Button>
             </DialogFooter>
           )}
         </>

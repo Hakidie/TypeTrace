@@ -103,16 +103,18 @@ const statusIcons: Record<string, LucideIcon> = {
   rejected: CircleX,
 };
 
-/** The icon and the name of a state, as the content of the status badge. */
-/** `translate` is for a learner's own passage; the admin lists show the raw status, in English (SCRUM-336). */
-const StatusContent = ({ status, translate = false }: { status: string; translate?: boolean }) => {
+/**
+ * The icon and the name of a state, as the content of the status badge. `own` is a learner's own passage (`status.*`);
+ * the admin lists use `admin.status.*` (SCRUM-336): the raw lowercase status in English, which the badge capitalizes.
+ */
+const StatusContent = ({ status, own = false }: { status: string; own?: boolean }) => {
   const { t } = useTranslation('passages');
   const key = status.toLowerCase();
   const Icon = statusIcons[key] ?? FileText;
   return (
     <>
       <Icon className="mr-1.5 size-4" aria-hidden />
-      {translate ? t(`status.${key}`, { defaultValue: status }) : status}
+      {t(own ? `status.${key}` : `admin.status.${key}`, { defaultValue: status })}
     </>
   );
 };
@@ -172,7 +174,8 @@ const FitText = ({ children }: { children: string }) => {
 const formatDate = (iso: string, locale: string) => new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 
 export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }: PassageCardProps) => {
-  const { t } = useTranslation('passages');
+  const { t, i18n } = useTranslation('passages');
+  const vietnamese = i18n.language === 'vi';
   // The admin's passage has `updatedAt`; the learner's list item has not. `review` and `onEdit` come with the first, `own`
   // with the second.
   const full = 'updatedAt' in passage ? passage : undefined;
@@ -214,7 +217,7 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }:
         },
       })}
     >
-      {review?.selected && <span className="sr-only">Selected</span>}
+      {review?.selected && <span className="sr-only">{t('admin.card.selected')}</span>}
       <CardHeader className={cn('p-4 pb-2', (review || own || onEdit || onDelete) && 'flex-row items-start justify-between gap-2 space-y-0')}>
         <div className="flex min-w-0 items-start gap-2">
           <div className="flex shrink-0 items-center gap-1">
@@ -233,12 +236,17 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }:
           <div className="-mr-1 -mt-1 flex shrink-0 items-center">
             {/* Shown on hover or keyboard focus; always on touch screens, which cannot hover. */}
             <div className="flex items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100">
-              <IconButton icon={Eye} hint="View" label={`View ${shown.title}`} onClick={() => review.onView(full)} />
-              <IconButton icon={Check} hint="Approve" label={`Approve ${shown.title}`} onClick={() => review.onDecide(full, 'approve')} />
+              <IconButton icon={Eye} hint={t('admin.card.view')} label={t('admin.card.viewNamed', { title: shown.title })} onClick={() => review.onView(full)} />
+              <IconButton
+                icon={Check}
+                hint={t('admin.card.approve')}
+                label={t('admin.card.approveNamed', { title: shown.title })}
+                onClick={() => review.onDecide(full, 'approve')}
+              />
               <IconButton
                 icon={X}
-                hint="Reject"
-                label={`Reject ${shown.title}`}
+                hint={t('admin.card.reject')}
+                label={t('admin.card.rejectNamed', { title: shown.title })}
                 onClick={() => review.onDecide(full, 'reject')}
                 className="hover:bg-destructive/20 hover:text-destructive"
               />
@@ -283,7 +291,7 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }:
         {review && full && (
           // A request is a learner's own text: check where it comes from before it becomes public.
           <p className="truncate text-sm text-primary/70" title={shown.source}>
-            by {passage.ownerName} · {shown.source} · asked {formatDate(full.updatedAt, 'en-GB')}
+            {t('admin.card.asked', { owner: passage.ownerName, source: shown.source, date: formatDate(full.updatedAt, vietnamese ? 'vi-VN' : 'en-GB') })}
           </p>
         )}
         {shown.content &&
@@ -296,22 +304,23 @@ export const PassageCard = ({ passage, onEdit, onDelete, review, own, fitText }:
             ) : (
               <LabeledTag icon={Languages} text={t('card.vietnamese')} hint={t('card.vietnameseHint')} />
             )}
-            {review && full?.pendingEdit && <LabeledTag icon={PencilLine} text="Edited" />}
+            {review && full?.pendingEdit && <LabeledTag icon={PencilLine} text={t('admin.card.edited')} />}
             {own && learner.locked && <LabeledTag icon={Lock} text={t('card.locked')} hint={t('card.lockedHint')} />}
             {own ? (
               own.onShowReason && learner.reviewNote ? (
                 <Badge asChild className={chipClass}>
                   <button type="button" onClick={() => own.onShowReason?.(learner)} aria-label={t('card.showReasonNamed', { title: passage.title })} title={t('card.showReason')}>
-                    <StatusContent status={ownStatus(learner)} translate />
+                    <StatusContent status={ownStatus(learner)} own />
                   </button>
                 </Badge>
               ) : (
                 <Badge>
-                  <StatusContent status={ownStatus(learner)} translate />
+                  <StatusContent status={ownStatus(learner)} own />
                 </Badge>
               )
             ) : (
-              <Badge className="capitalize">
+              // Capitalized by CSS in English (the raw lowercase status); the Vietnamese names show as written.
+              <Badge className={cn(!vietnamese && 'capitalize')}>
                 <StatusContent status={passage.status} />
               </Badge>
             )}

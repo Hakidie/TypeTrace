@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { i18n } from '@/shared/i18n/i18n';
 import { adminPlanApi } from '../api/admin-plan.api';
 import type { ChartRange } from '@/modules/profile/types/profile.types';
 import type { SubscriptionListParams } from '../types/plan.types';
@@ -38,7 +39,7 @@ export const useSavePlans = () => {
   return useMutation({
     mutationFn: adminPlanApi.save,
     onSuccess: (saved) => {
-      toast.success('Plans saved.');
+      toast.success(i18n.t('store:adminPlans.saved'));
       queryClient.setQueryData(adminPlanKeys.all, saved);
       // A learner's own plan (limit, permissions) reads the new numbers.
       return queryClient.invalidateQueries({ queryKey: planKeys.all });

@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ChartRange } from '@/modules/profile/types/profile.types';
 import { toast } from 'sonner';
+import { i18n } from '@/shared/i18n/i18n';
 import { dailyTasksApi } from '../api/daily-tasks.api';
 import type { DailyTaskInput, DailyTaskListParams } from '../types/daily-task.types';
 
@@ -48,7 +49,7 @@ export const useCreateDailyTask = () => {
   return useMutation({
     mutationFn: dailyTasksApi.create,
     onSuccess: () => {
-      toast.success('Daily task created.');
+      toast.success(i18n.t('dailyTasks:toasts.created'));
       return queryClient.invalidateQueries({ queryKey: dailyTaskKeys.all });
     },
   });
@@ -59,7 +60,7 @@ export const useUpdateDailyTask = () => {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<DailyTaskInput> }) => dailyTasksApi.update(id, input),
     onSuccess: () => {
-      toast.success('Daily task updated.');
+      toast.success(i18n.t('dailyTasks:toasts.updated'));
       return queryClient.invalidateQueries({ queryKey: dailyTaskKeys.all });
     },
   });
@@ -70,7 +71,7 @@ export const useDeleteDailyTask = () => {
   return useMutation({
     mutationFn: dailyTasksApi.remove,
     onSuccess: () => {
-      toast.success('Daily task deleted.');
+      toast.success(i18n.t('dailyTasks:toasts.deleted'));
       return queryClient.invalidateQueries({ queryKey: dailyTaskKeys.all });
     },
   });
@@ -81,7 +82,7 @@ export const useUpdateDailyTaskSettings = () => {
   return useMutation({
     mutationFn: dailyTasksApi.updateSettings,
     onSuccess: (settings) => {
-      toast.success('Tasks per day saved.');
+      toast.success(i18n.t('dailyTasks:toasts.perDaySaved'));
       // The answer is the saved settings: no need to ask again.
       queryClient.setQueryData(dailyTaskKeys.settings(), settings);
     },

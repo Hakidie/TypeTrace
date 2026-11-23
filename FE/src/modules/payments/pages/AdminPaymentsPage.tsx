@@ -1,5 +1,6 @@
 import { CreditCard } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CompactToolbar } from '@/shared/components/compact-toolbar';
 import { EmptyState } from '@/shared/components/empty-state';
 import { ExpandButton } from '@/shared/components/expand-button';
@@ -17,17 +18,14 @@ import type { AdminPaymentRow, PaymentProvider } from '../types/payments.types';
 // 3 rows a page; the Expand button under the list shows 10.
 const PAGE_SIZE = 3;
 const EXPANDED_PAGE_SIZE = 10;
+// The options of the toolbar: a value and the key (namespace `store`) of its words. The gateways keep their names.
 const SORT_OPTIONS = [
-  { value: '-createdAt', label: 'Newest' },
-  { value: 'createdAt', label: 'Oldest' },
-  { value: '-amount', label: 'Highest amount' },
-  { value: 'amount', label: 'Lowest amount' },
+  { value: '-createdAt', key: 'adminPayments.sort.newest' },
+  { value: 'createdAt', key: 'adminPayments.sort.oldest' },
+  { value: '-amount', key: 'adminPayments.sort.highest' },
+  { value: 'amount', key: 'adminPayments.sort.lowest' },
 ];
-const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'failed', label: 'Failed' },
-];
+const STATUSES = ['pending', 'paid', 'failed'] as const;
 const GATEWAY_OPTIONS = [
   { value: 'payos', label: 'payOS' },
   { value: 'vnpay', label: 'VNPay' },
@@ -39,6 +37,7 @@ const GATEWAY_OPTIONS = [
  * that is still open (or paid but not given) has a button that asks payOS again, for a learner who paid and closed the page.
  */
 export const AdminPaymentsPage = () => {
+  const { t } = useTranslation('store');
   const list = useListParams({ sort: '-createdAt' });
   const [expanded, setExpanded] = useState(false);
   const pageSize = expanded ? EXPANDED_PAGE_SIZE : PAGE_SIZE;
@@ -61,9 +60,9 @@ export const AdminPaymentsPage = () => {
     if (rows.data.items.length === 0) {
       if (rows.data.totalPages > 0 && rows.data.page > rows.data.totalPages) return <LoadingState rows={3} />;
       return list.q || status || provider ? (
-        <EmptyState icon={CreditCard} title="No matching payments" description="Try another search or filter." />
+        <EmptyState icon={CreditCard} title={t('adminPayments.emptyFilteredTitle')} description={t('adminPayments.emptyFilteredHint')} />
       ) : (
-        <EmptyState icon={CreditCard} title="No payments yet" description="Every try to pay shows here." />
+        <EmptyState icon={CreditCard} title={t('adminPayments.emptyTitle')} description={t('adminPayments.emptyHint')} />
       );
     }
     return null;
@@ -74,24 +73,29 @@ export const AdminPaymentsPage = () => {
     <div className="flex min-h-[calc(100svh-61px-4rem)] flex-col gap-8">
       <PaymentRevenueChart />
       <Panel
-        title="Payment list"
+        title={t('adminPayments.title')}
         bare
         titleClassName={sectionTitleClass}
         className="space-y-3"
         actions={
           <CompactToolbar
             showWords
-            search={{ label: 'Search users', placeholder: 'User name', defaultValue: list.q, onSearch: (value) => list.set('q', value) }}
-            sort={{ value: list.sort, options: SORT_OPTIONS, onChange: (value) => list.set('sort', value) }}
+            search={{ label: t('adminPayments.searchLabel'), placeholder: t('adminPayments.searchPlaceholder'), defaultValue: list.q, onSearch: (value) => list.set('q', value) }}
+            sort={{ value: list.sort, options: SORT_OPTIONS.map(({ value, key }) => ({ value, label: t(key) })), onChange: (value) => list.set('sort', value) }}
             filters={[
-              { label: 'Status', value: status, options: STATUS_OPTIONS, onChange: (value) => list.set('status', value) },
-              { label: 'Gateway', value: provider, options: GATEWAY_OPTIONS, onChange: (value) => list.set('provider', value) },
+              {
+                label: t('adminPayments.status'),
+                value: status,
+                options: STATUSES.map((value) => ({ value, label: t(`adminPayments.statuses.${value}`) })),
+                onChange: (value) => list.set('status', value),
+              },
+              { label: t('adminPayments.gateway'), value: provider, options: GATEWAY_OPTIONS, onChange: (value) => list.set('provider', value) },
             ]}
-            count={{ icon: CreditCard, value: rows.data?.total ?? '…', label: 'Payments' }}
+            count={{ icon: CreditCard, value: rows.data?.total ?? '…', label: t('adminPayments.payments') }}
           />
         }
       >
-        <div className="-mx-4 space-y-3" aria-label="Payment cards">
+        <div className="-mx-4 space-y-3" aria-label={t('adminPayments.cards')}>
           {rows.data && rows.data.items.length > 0
             ? rows.data.items.map((row) => (
                 <AdminPaymentCard key={row._id} row={row} products={products.data} checking={recheck.isPending && recheck.variables === row._id} onRecheck={(item) => recheck.mutate(item._id)} />

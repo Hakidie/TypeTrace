@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { i18n } from '@/shared/i18n/i18n';
 import { passagesApi } from '../api/passages.api';
 import type { PassageInput, PassageListParams, PassageStatus, ReviewDecision } from '../types/passage.types';
 import { learnerPassageKeys } from './use-learner-passages';
@@ -36,14 +37,15 @@ export const usePendingPassages = (params: Omit<PassageListParams, 'status'> = {
   });
 };
 
-// Mutations: no `onError` — the shared query client toasts the backend message.
+// Mutations: no `onError` — the shared query client toasts the backend message. The success toasts are the admin
+// Passages page's words (`passages:admin.toast`, SCRUM-336), read when they show.
 
 export const useCreatePassage = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: passagesApi.create,
     onSuccess: () => {
-      toast.success('Passage created as a draft.');
+      toast.success(i18n.t('passages:admin.toast.created'));
       return queryClient.invalidateQueries({ queryKey: passageKeys.all });
     },
   });
@@ -54,7 +56,7 @@ export const useUpdatePassage = () => {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: PassageInput }) => passagesApi.update(id, input),
     onSuccess: () => {
-      toast.success('Passage updated.');
+      toast.success(i18n.t('passages:admin.toast.updated'));
       return queryClient.invalidateQueries({ queryKey: passageKeys.all });
     },
   });
@@ -65,7 +67,7 @@ export const useSetPassageStatus = () => {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: PassageStatus }) => passagesApi.setStatus(id, status),
     onSuccess: (passage) => {
-      toast.success(`Passage ${passage.status}.`);
+      toast.success(i18n.t(`passages:admin.toast.status.${passage.status}`));
       return queryClient.invalidateQueries({ queryKey: passageKeys.all });
     },
   });
@@ -76,7 +78,7 @@ export const useDeletePassage = () => {
   return useMutation({
     mutationFn: passagesApi.remove,
     onSuccess: () => {
-      toast.success('Passage deleted.');
+      toast.success(i18n.t('passages:admin.toast.deleted'));
       return queryClient.invalidateQueries({ queryKey: passageKeys.all });
     },
   });
@@ -109,10 +111,14 @@ export const useReviewPassages = () => {
   return useMutation({
     mutationFn: review,
     onSuccess: (updated, { ids, decision }) => {
-      const done = decision === 'approve' ? 'approved' : 'turned down';
-      if (ids.length === 1) toast.success(`Passage ${done}.`);
-      else if (updated === ids.length) toast.success(`${updated} passages ${done}.`);
-      else toast.success(`${updated} of ${ids.length} passages ${done}: the others were no longer waiting.`);
+      const approved = decision === 'approve';
+      if (ids.length === 1) toast.success(i18n.t(approved ? 'passages:admin.toast.approvedOne' : 'passages:admin.toast.rejectedOne'));
+      else if (updated === ids.length)
+        toast.success(i18n.t(approved ? 'passages:admin.toast.approvedAll' : 'passages:admin.toast.rejectedAll', { count: updated }));
+      else
+        toast.success(
+          i18n.t(approved ? 'passages:admin.toast.approvedSome' : 'passages:admin.toast.rejectedSome', { updated, count: ids.length }),
+        );
     },
     // After a failure too: a 409 or 404 means the queue changed, so the request it was about must leave the screen.
     onSettled: () =>

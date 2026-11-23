@@ -21,7 +21,7 @@ export interface PublicRoute {
 export interface NavItem {
   to: string;
   label: string;
-  /** The key of the name in the `common` namespace (SCRUM-328); `label` is the English fallback the admin sidebar shows. */
+  /** The key of the name in the `common` namespace (SCRUM-328; the admin sidebar's `admin.pages.*`, SCRUM-336); `label` is the English fallback. */
   labelKey?: string;
   icon: LucideIcon;
   roles?: UserRole[];

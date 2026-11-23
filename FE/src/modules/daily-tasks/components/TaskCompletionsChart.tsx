@@ -5,6 +5,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Bar,
   BarChart,
@@ -41,20 +42,13 @@ import type {
 const CHART_ZONE = "Asia/Ho_Chi_Minh";
 
 // Week, Month, Year: the smallest first, as on the Progress and Plans pages.
-const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
-  { value: "week", label: "Week" },
-  { value: "month", label: "Month" },
-  { value: "year", label: "Year" },
-];
+const RANGES: ChartRange[] = ["week", "month", "year"];
 const ICONS: Record<ChartRange, LucideIcon> = {
   year: Calendar,
   month: CalendarRange,
   week: CalendarDays,
 };
 const TICK_SIZE = 16;
-
-const plural = (count: number, word: string) =>
-  `${count} ${word}${count === 1 ? "" : "s"}`;
 
 /** The shade of the bar of the task at `index` of `count`: the theme red, lighter for each next task (theme tokens only). */
 const shadeOf = (index: number, count: number) =>
@@ -69,32 +63,37 @@ const PointTooltip = ({
   point: TaskCompletionsPoint;
   range: ChartRange;
   tasks: TaskCompletionsChartData["tasks"];
-}) => (
-  <div className="border border-border bg-background px-3 py-2 text-base">
-    <p className="font-semibold">{tooltipTitle(range, point.key)}</p>
-    {tasks.map((task, index) => {
-      const learners =
-        point.byTask.find((entry) => entry.taskId === task.taskId)?.learners ??
-        0;
-      return (
-        <p key={task.taskId} className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="inline-block size-3 shrink-0"
-            style={{ backgroundColor: shadeOf(index, tasks.length) }}
-          />
-          <span>
-            {task.title}: {learners}
-          </span>
-        </p>
-      );
-    })}
-    <p className="mt-1 text-muted-foreground">
-      {plural(point.learners, "learner")}, {plural(point.tasks, "task")}{" "}
-      completed
-    </p>
-  </div>
-);
+}) => {
+  const { t } = useTranslation("dailyTasks");
+  return (
+    <div className="border border-border bg-background px-3 py-2 text-base">
+      <p className="font-semibold">{tooltipTitle(range, point.key)}</p>
+      {tasks.map((task, index) => {
+        const learners =
+          point.byTask.find((entry) => entry.taskId === task.taskId)?.learners ??
+          0;
+        return (
+          <p key={task.taskId} className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="inline-block size-3 shrink-0"
+              style={{ backgroundColor: shadeOf(index, tasks.length) }}
+            />
+            <span>
+              {task.title}: {learners}
+            </span>
+          </p>
+        );
+      })}
+      <p className="mt-1 text-muted-foreground">
+        {t("chart.summary", {
+          learners: t("chart.learners", { count: point.learners }),
+          tasks: t("chart.tasks", { count: point.tasks }),
+        })}
+      </p>
+    </div>
+  );
+};
 
 /**
  * How many learners completed daily tasks over time, built like the users chart of the admin Plans page: a title and, in the
@@ -104,6 +103,7 @@ const PointTooltip = ({
  * Each point is a day (week), a block of 7 days (month) or a month (year); the periods to come are not drawn. No frame or background.
  */
 export const TaskCompletionsChart = () => {
+  const { t } = useTranslation("dailyTasks");
   const today = dateKeyIn(new Date(), CHART_ZONE);
   const [range, setRange] = useState<ChartRange>("week");
   const [picked, setPicked] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export const TaskCompletionsChart = () => {
       return (
         <ErrorState
           error={query.error}
-          title="Could not load the completions chart"
+          title={t("chart.couldNotLoad")}
           onRetry={() => void query.refetch()}
         />
       );
@@ -143,7 +143,7 @@ export const TaskCompletionsChart = () => {
       // The box is positioned, so the chart reads its size from it.
       <div
         role="img"
-        aria-label={`Learners who completed tasks by ${rangeUnit(shown)}`}
+        aria-label={t("chart.aria", { unit: rangeUnit(shown) })}
         className="relative min-h-48 flex-1"
       >
         <div className="absolute inset-0">
@@ -204,21 +204,21 @@ export const TaskCompletionsChart = () => {
 
   return (
     <section
-      aria-label="Task completions"
+      aria-label={t("chart.region")}
       className="flex min-h-0 flex-1 flex-col"
     >
       <Panel
-        title="Completions"
+        title={t("chart.title")}
         bare
         fill
         titleClassName={sectionTitleClass}
         className="space-y-3"
         actions={
           <CompactToolbar
-            menus={RANGE_OPTIONS.map(({ value: menuRange, label }) => {
+            menus={RANGES.map((menuRange) => {
               const active = menuRange === range;
               return {
-                label,
+                label: t(`progress:range.${menuRange}`),
                 icon: ICONS[menuRange],
                 valueLabel: periodLabel(menuRange, date),
                 active,
