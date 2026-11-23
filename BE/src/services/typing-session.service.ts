@@ -210,6 +210,9 @@ const contentOf = async (userId: string, input: CreateSessionInput, language: Ty
   return { ...passageContent(await pickPassage(userId, { mode: 'practice' }, language)), focusErrorTypes: [], lessonSource: 'passage' as const };
 };
 
+/** How many times a start tries again after losing a race to another start of the same learner. */
+const MAX_START_ATTEMPTS = 5;
+
 /**
  * Starts a session in its typing language (SCRUM-219), which picks its passage and grades it: the learner's
  * `settings.typingLanguage`, in Practice, in the placement test (SCRUM-305: one test per language) and in Weak spots
@@ -219,8 +222,16 @@ export const startSession = async (userId: string, input: CreateSessionInput, { 
   const language = await typingLanguageOf(userId);
   const content = await contentOf(userId, input, language, aiAllowed);
 
-  await TypingSessionModel.updateMany({ owner: userId, status: 'in_progress' }, { status: 'abandoned' });
-  return TypingSessionModel.create({ owner: userId, mode: input.mode, language, ...content, chosenLimitSeconds: input.timeLimitSeconds });
+  // The unique index lets one session in progress exist: a start that loses a race to another start of the same learner
+  // gets a duplicate key error, abandons the winner's session and tries again (the newest start stays in progress).
+  for (let attempt = 1; ; attempt += 1) {
+    await TypingSessionModel.updateMany({ owner: userId, status: 'in_progress' }, { status: 'abandoned' });
+    try {
+      return await TypingSessionModel.create({ owner: userId, mode: input.mode, language, ...content, chosenLimitSeconds: input.timeLimitSeconds });
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000 || attempt >= MAX_START_ATTEMPTS) throw error;
+    }
+  }
 };
 
 export const getSession = async (userId: string, id: string) => {
