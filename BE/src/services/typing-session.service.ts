@@ -162,10 +162,11 @@ const pickPassage = async (userId: string, { mode, passageId }: CreateSessionInp
   }
   if (mode === 'placement') return samplePlacementPassage<PickedPassage>(language, pickedFields);
   // A plan without `canUsePublicPassages` practices only the system passages (no owner, or an admin's).
-  const onlySystem = (await getPlanOf(userId)).config.canUsePublicPassages
+  // The plan and the locked passages do not depend on each other: read them together.
+  const [plan, locked] = await Promise.all([getPlanOf(userId), getLockedPassageIds()]);
+  const onlySystem = plan.config.canUsePublicPassages
     ? {}
     : { $or: [{ owner: { $exists: false } }, { owner: { $in: await getAdminIds() } }] };
-  const locked = await getLockedPassageIds();
   const random = await samplePassage<PickedPassage>(
     {
       visibility: 'public',
