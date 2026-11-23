@@ -15,6 +15,7 @@
     "import:passages:en-practice": "tsx src/scripts/import-passages-en-practice.ts",
     "import:passages:en-placement": "tsx src/scripts/import-passages-en-placement.ts",
     "import:themes": "tsx src/scripts/import-themes.ts",
+    "eval:ai": "tsx src/scripts/ai-eval.ts",
     "rebuild:progress": "tsx src/scripts/rebuild-progress.ts",
     "rebuild:tag-counts": "tsx src/scripts/rebuild-tag-counts.ts",
     "migrate:rating-kinds": "tsx src/scripts/migrate-rating-kinds.ts",
