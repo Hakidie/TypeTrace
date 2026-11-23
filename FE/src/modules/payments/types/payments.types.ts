@@ -42,7 +42,8 @@ export interface AdminPaymentRow {
   /** In VND. */
   amount: number;
   provider: PaymentProvider;
-  status: 'pending' | 'paid' | 'failed';
+  /** `expired`: still pending in the database but its link is over (it may still be paid by a late webhook). */
+  status: 'pending' | 'paid' | 'failed' | 'expired';
   /** The learner got what they bought. */
   granted: boolean;
   paidAt: string | null;

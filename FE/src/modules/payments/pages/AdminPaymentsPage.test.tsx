@@ -69,6 +69,20 @@ describe('AdminPaymentsPage', () => {
     await waitFor(() => expect(recheck).toHaveBeenCalledWith('p1'));
   });
 
+  it('shows an abandoned payment as Expired, still checkable, and sends the Expired filter', async () => {
+    const user = userEvent.setup();
+    list.mockResolvedValue(page([row({ status: 'expired' })]));
+    renderWithProviders(<AdminPaymentsPage />);
+
+    expect(await screen.findByText('Expired')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check again with payOS' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Filter' }));
+    await user.click(await screen.findByRole('menuitemradio', { name: 'Expired' }));
+
+    await waitFor(() => expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'expired' })));
+  });
+
   it('shows the empty and the error state', async () => {
     list.mockResolvedValue(page([]));
     renderWithProviders(<AdminPaymentsPage />);

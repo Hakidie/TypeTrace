@@ -39,7 +39,7 @@ export type MyPaymentsQuery = z.infer<typeof myPaymentsQuerySchema>;
 export const listPaymentsQuerySchema = paginationQuerySchema.extend({
   /** Text searched in the buyer's display name and email. */
   q: z.string().trim().max(100).optional(),
-  status: z.enum(PAYMENT_STATUSES).optional(),
+  status: z.enum([...PAYMENT_STATUSES, 'expired']).optional(),
   provider: z.enum(PAYMENT_PROVIDERS).optional(),
   sort: sortSchema(['createdAt', 'amount'])
 });

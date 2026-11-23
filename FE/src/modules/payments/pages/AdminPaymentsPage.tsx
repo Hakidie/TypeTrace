@@ -25,7 +25,7 @@ const SORT_OPTIONS = [
   { value: '-amount', key: 'adminPayments.sort.highest' },
   { value: 'amount', key: 'adminPayments.sort.lowest' },
 ];
-const STATUSES = ['pending', 'paid', 'failed'] as const;
+const STATUSES = ['pending', 'expired', 'paid', 'failed'] as const;
 const GATEWAY_OPTIONS = [
   { value: 'payos', label: 'payOS' },
   { value: 'vnpay', label: 'VNPay' },

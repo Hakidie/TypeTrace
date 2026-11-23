@@ -199,7 +199,7 @@ export const storeVi: typeof storeEn = {
     status: 'Trạng thái',
     gateway: 'Cổng',
     payments: 'Thanh toán',
-    statuses: { pending: 'Đang chờ', paid: 'Đã thanh toán', failed: 'Thất bại' },
+    statuses: { pending: 'Đang chờ', expired: 'Hết hạn', paid: 'Đã thanh toán', failed: 'Thất bại' },
     emptyFilteredTitle: 'Không có thanh toán nào phù hợp',
     emptyFilteredHint: 'Hãy thử tìm kiếm hoặc bộ lọc khác.',
     emptyTitle: 'Chưa có thanh toán nào',

@@ -1,6 +1,6 @@
 import type { QueryFilter } from 'mongoose';
 import { DEFAULT_AVATAR } from '../data/avatar-catalog';
-import { PaymentDocument, PaymentModel } from '../models/payment.model';
+import { PAYMENT_EXPIRES_MS, PaymentDocument, PaymentModel, displayStatusOf } from '../models/payment.model';
 import { UserModel } from '../models/user.model';
 import { badRequest, notFound } from '../utils/app-error';
 import { paginate } from '../utils/pagination';
@@ -24,7 +24,8 @@ const rowOf = (payment: PaymentDocument, people: Map<string, Person>) => {
     amount: payment.amount,
     // Payments saved before MoMo have no provider: they are VNPay's.
     provider: payment.provider ?? 'vnpay',
-    status: payment.status,
+    // A pending payment whose link is over reads `expired` (nothing is stored).
+    status: displayStatusOf(payment),
     /** True once the learner got what they bought (`grantPurchase`). */
     granted: Boolean(payment.grantedAt),
     paidAt: payment.paidAt ?? null,
@@ -40,7 +41,11 @@ const peopleOf = async (payments: PaymentDocument[]) => {
 /** The payments of all users, newest first by default. */
 export const listPayments = async ({ q, status, provider, ...pagination }: ListPaymentsQuery) => {
   const filter: QueryFilter<PaymentDocument> = {};
-  if (status) filter.status = status;
+  // `pending` and `expired` are both stored as `pending`: the age of the payment tells them apart (as `displayStatusOf`).
+  const cutoff = new Date(Date.now() - PAYMENT_EXPIRES_MS);
+  if (status === 'pending') Object.assign(filter, { status: 'pending', createdAt: { $gte: cutoff } });
+  else if (status === 'expired') Object.assign(filter, { status: 'pending', createdAt: { $lt: cutoff } });
+  else if (status) filter.status = status;
   // A payment without a provider is VNPay's.
   if (provider) filter.provider = provider === 'vnpay' ? { $in: ['vnpay', null] } : provider;
   if (q) {

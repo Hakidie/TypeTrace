@@ -4,6 +4,16 @@ import { PAYMENT_PRODUCT_IDS, PaymentProduct } from '../config/payment';
 export const PAYMENT_STATUSES = ['pending', 'paid', 'failed'] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
+/** How long a payment link stays open: VNPay, MoMo and payOS all get this as their expiry (SCRUM-337). */
+export const PAYMENT_EXPIRES_MS = 15 * 60 * 1000;
+
+/**
+ * What a payment is shown as: a `pending` one whose link is over reads `expired`. Nothing is stored, so a late webhook or
+ * "Check again with payOS" can still pay it.
+ */
+export const displayStatusOf = (payment: { status: PaymentStatus; createdAt: Date }, now = Date.now()) =>
+  payment.status === 'pending' && payment.createdAt.getTime() + PAYMENT_EXPIRES_MS < now ? ('expired' as const) : payment.status;
+
 export const PAYMENT_PROVIDERS = ['vnpay', 'momo', 'payos'] as const;
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
 
