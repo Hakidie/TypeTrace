@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { env } from '../../src/config/env';
 import { weakSpotsAi } from '../../src/config/weak-spots-ai';
 import { PASSAGE_LIST } from '../../src/data/passages';
+import { ENGLISH_PASSAGE_LIST } from '../../src/data/passages-en';
+import { ENGLISH_PLACEMENT_PASSAGE_LIST } from '../../src/data/passages-en-placement';
+import { ENGLISH_PRACTICE_PASSAGE_LIST } from '../../src/data/passages-en-practice';
 import { WORD_LIST } from '../../src/data/words';
-import { PassageModel } from '../../src/models/passage.model';
+import { PassageModel, splitWords } from '../../src/models/passage.model';
 import { SubscriptionModel } from '../../src/models/subscription.model';
 import { TypingSessionModel } from '../../src/models/typing-session.model';
 import { UserModel } from '../../src/models/user.model';
@@ -11,6 +14,7 @@ import { WordModel } from '../../src/models/word.model';
 import { seedPassages } from '../../src/services/passage-seed.service';
 import { LESSON_MAX_WORDS, LESSON_MIN_WORDS, trainsErrorType } from '../../src/services/targeted-practice.service';
 import { importWords } from '../../src/services/word-import.service';
+import { type EnglishErrorType, tagEnglishWord } from '../../src/utils/english-errors';
 import { tagWord, WordError, type WordErrorType } from '../../src/utils/vietnamese-errors';
 import { api } from '../helpers/api';
 import { geminiRecorder, promptOf } from '../helpers/gemini-recorder';
@@ -148,10 +152,9 @@ describe('POST /api/sessions in Weak spots (targeted, US3.2)', () => {
     expect(response.body).not.toHaveProperty('passageId');
   });
 
-  it('types a Vietnamese lesson from the Vietnamese sessions for a learner who types English in Practice (SCRUM-219)', async () => {
+  it('aims a Vietnamese lesson at the Vietnamese sessions only, even when English ones are newer (SCRUM-319)', async () => {
     const learner = await premiumLearner();
     await makeWeak(learner);
-    await UserModel.updateOne({ _id: learner._id }, { 'settings.typingLanguage': 'en' });
     // A newer English session: its letters never take the place of the Vietnamese types.
     await TypingSessionModel.create({
       owner: learner._id,
@@ -169,16 +172,9 @@ describe('POST /api/sessions in Weak spots (targeted, US3.2)', () => {
     });
 
     const lesson = await startLesson(learner);
-    // Nothing to aim at: the random passage is a Vietnamese one too (no English practice passage is loaded here).
-    const other = await premiumLearner('other@example.com');
-    await UserModel.updateOne({ _id: other._id }, { 'settings.typingLanguage': 'en' });
-    const fallback = await startLesson(other);
 
     expect(lesson.status).toBe(201);
     expect(lesson.body).toMatchObject({ language: 'vi', focusErrorTypes: ['HOI_NGA_CONFUSION', 'D_MISSING'] });
-    expect(fallback.status).toBe(201);
-    expect(fallback.body).toMatchObject({ language: 'vi', focusErrorTypes: [], lessonSource: 'passage' });
-    expect(await PassageModel.findById(fallback.body.passageId)).toMatchObject({ language: 'vi' });
   });
 
   it('practices the one error type the learner chose, weak or not', async () => {
@@ -330,7 +326,7 @@ describe('the passage the AI writes for a Weak spots lesson (US3.2)', () => {
     expect([...practice].sort()).toEqual([...new Set(body.lessonWords.filter(trainsAny(['D_MISSING'])))].sort());
     expect([...promptWords(request, 'Từ gợi ý')].sort()).toEqual([...new Set(body.lessonWords.filter((text: string) => !trainsAny(['D_MISSING'])(text)))].sort());
     expect(request).toMatchObject({
-      systemInstruction: { parts: [{ text: weakSpotsAi.systemPrompt }] },
+      systemInstruction: { parts: [{ text: weakSpotsAi.systemPrompts.vi }] },
       generationConfig: { maxOutputTokens: weakSpotsAi.maxOutputTokens }
     });
     // What is typed is the passage, without its Markdown and quotation marks.
@@ -418,6 +414,186 @@ describe('the passage the AI writes for a Weak spots lesson (US3.2)', () => {
     expect((await startLesson(other, { errorType: 'D_MISSING' })).body.lessonSource).toBe('ai');
     // Practice sessions do not count.
     expect((await api().post('/api/sessions').set('Authorization', bearerFor(learner)).send({ mode: 'practice' })).status).toBe(201);
+  });
+});
+
+describe('Weak spots in English (SCRUM-319)', () => {
+  /** Every word of the English practice passages: what an English lesson picks from. */
+  const PRACTICE_WORDS = new Set(ENGLISH_PRACTICE_PASSAGE_LIST.flatMap((passage) => splitWords(passage.content)));
+  const trainsEn = (focus: readonly string[]) => (text: string) =>
+    focus.some((type) => trainsErrorType({ text, tags: tagEnglishWord(text) }, type as EnglishErrorType));
+
+  /** A Premium learner (unless `plan` is free) who types English. */
+  const englishLearner = async (email = 'english@example.com', plan: 'premium' | 'free' = 'premium') => {
+    const learner = plan === 'premium' ? await premiumLearner(email) : await createUser({ email });
+    await UserModel.updateOne({ _id: learner._id }, { 'settings.typingLanguage': 'en' });
+    return learner;
+  };
+
+  /** A counted English session with capitals wrong 1 time in 4 and punctuation 1 time in 5: the two highest English rates. */
+  const makeWeakEnglish = (learner: Learner) =>
+    TypingSessionModel.create({
+      owner: learner._id,
+      language: 'en',
+      passageId: 'p-en',
+      targetWords: ['a'],
+      status: 'completed',
+      isCounted: true,
+      completedAt: new Date(Date.now() - 60_000),
+      durationMs: 60_000,
+      wpm: 40,
+      accuracy: 90,
+      errorCounts: { LETTER_WRONG: 1, LETTER_MISSING: 1, LETTER_EXTRA: 1, LETTERS_SWAPPED: 1, CASE_WRONG: 10, PUNCTUATION_WRONG: 8 },
+      opportunityCounts: { LETTER_WRONG: 40, LETTER_MISSING: 40, LETTER_EXTRA: 40, LETTERS_SWAPPED: 40, CASE_WRONG: 40, PUNCTUATION_WRONG: 40 }
+    });
+
+  /** Gemini writing an English passage from every practice word it was given. */
+  const writesEnglish = (request: Record<string, unknown>) =>
+    `**"Today ${promptWords(request, weakSpotsAi.promptLabels.en.practice).join(' ')} and then we all went home."**`;
+
+  // Every kind of English passage: the ranked duels' own, the practice ones and the placement ones.
+  beforeEach(async () => {
+    await seedPassages(ENGLISH_PASSAGE_LIST);
+    await seedPassages(ENGLISH_PRACTICE_PASSAGE_LIST);
+    await seedPassages(ENGLISH_PLACEMENT_PASSAGE_LIST);
+  });
+
+  it('types an English lesson aimed at the English sessions, from the words of the English practice passages', async () => {
+    const learner = await englishLearner();
+    await makeWeak(learner);
+    await makeWeakEnglish(learner);
+
+    const response = await startLesson(learner);
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      mode: 'targeted',
+      language: 'en',
+      focusErrorTypes: ['CASE_WRONG', 'PUNCTUATION_WRONG'],
+      passageTitle: 'Weak spots: capitals, punctuation'
+    });
+    const words: string[] = response.body.lessonWords;
+    expect(words.length).toBeGreaterThanOrEqual(LESSON_MIN_WORDS);
+    expect(words.length).toBeLessThanOrEqual(LESSON_MAX_WORDS);
+    expect(words.every((text) => PRACTICE_WORDS.has(text))).toBe(true);
+    const trained = words.filter(trainsEn(['CASE_WRONG', 'PUNCTUATION_WRONG'])).length;
+    expect(trained).toBeGreaterThanOrEqual(Math.ceil(words.length * 0.6));
+    expect(trained).toBeLessThanOrEqual(Math.floor(words.length * 0.7));
+  });
+
+  it('practices the English error type chosen, weak or not', async () => {
+    const learner = await englishLearner();
+
+    const response = await startLesson(learner, { errorType: 'LETTERS_SWAPPED' });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({ language: 'en', focusErrorTypes: ['LETTERS_SWAPPED'], passageTitle: 'Weak spots: swapped letters' });
+  });
+
+  it('answers 400 to an error type of the other language, and starts nothing', async () => {
+    const english = await englishLearner();
+    const vietnamese = await premiumLearner('vietnamese@example.com');
+
+    const wrongForEnglish = await startLesson(english, { errorType: 'D_MISSING' });
+    const wrongForVietnamese = await startLesson(vietnamese, { errorType: 'CASE_WRONG' });
+
+    expect(wrongForEnglish.status).toBe(400);
+    expect(wrongForEnglish.body.message).toBe('This is not one of the English error types');
+    expect(wrongForVietnamese.status).toBe(400);
+    expect(wrongForVietnamese.body.message).toBe('This is not one of the Vietnamese error types');
+    expect(await TypingSessionModel.countDocuments({ mode: 'targeted' })).toBe(0);
+  });
+
+  it("never picks the words of a ranked test, a placement passage or a learner's passage", async () => {
+    const learner = await englishLearner();
+    const author = await createUser({ email: 'author@example.com' });
+    // One small practice passage of TypeTrace's left, so a lesson takes its words again and again.
+    await PassageModel.deleteMany({ language: 'en', isRanked: { $ne: true }, isPlacement: { $ne: true } });
+    await PassageModel.create({ title: 'Tiny', content: 'Lan, the cat sat. "Hi," said Minh.', source: 'TypeTrace', language: 'en', status: 'published', visibility: 'public' });
+    await PassageModel.create({
+      title: 'Mine',
+      content: 'Zebras quietly juggle violet umbrellas.',
+      source: 'Me',
+      language: 'en',
+      status: 'published',
+      visibility: 'public',
+      owner: author._id,
+      ownerName: 'Author'
+    });
+
+    const { status, body } = await startLesson(learner, { errorType: 'LETTER_WRONG' });
+
+    expect(status).toBe(201);
+    expect(new Set(body.lessonWords)).toEqual(new Set(['Lan,', 'the', 'cat', 'sat.', '"Hi,"', 'said', 'Minh.']));
+  });
+
+  it('types a random English practice passage, never a ranked test or a placement passage, when there is nothing to aim at', async () => {
+    const learner = await englishLearner();
+    // A Vietnamese profile is no English one.
+    await makeWeak(learner);
+
+    for (let i = 0; i < 5; i += 1) {
+      const { status, body } = await startLesson(learner);
+      expect(status).toBe(201);
+      expect(body).toMatchObject({ language: 'en', focusErrorTypes: [], lessonSource: 'passage' });
+      expect(await PassageModel.findById(body.passageId)).toMatchObject({ language: 'en', isRanked: false, isPlacement: false });
+    }
+    expect(geminiRecorder.requests).toHaveLength(0);
+  });
+
+  it('asks the AI for an English passage, with the English prompt, and types it', async () => {
+    const learner = await englishLearner();
+    geminiRecorder.replyWith = writesEnglish;
+
+    const { status, body } = await startLesson(learner, { errorType: 'CASE_WRONG' });
+
+    expect(status).toBe(201);
+    expect(body).toMatchObject({ language: 'en', lessonSource: 'ai', focusErrorTypes: ['CASE_WRONG'] });
+    const [request] = geminiRecorder.requests;
+    expect(request).toMatchObject({ systemInstruction: { parts: [{ text: weakSpotsAi.systemPrompts.en }] } });
+    const practice = promptWords(request, 'Practice words');
+    expect([...practice].sort()).toEqual([...new Set(body.lessonWords.filter(trainsEn(['CASE_WRONG'])))].sort());
+    expect(practice.every((text) => /\p{Lu}/u.test(text))).toBe(true);
+    expect(promptOf(request)).not.toContain('Từ cần luyện');
+    expect(body.targetWords).toEqual(['Today', ...practice, 'and', 'then', 'we', 'all', 'went', 'home.']);
+  });
+
+  it('types the picked English words, capitals and punctuation kept, when the AI fails', async () => {
+    const learner = await englishLearner();
+    geminiRecorder.errorStatus = 500;
+
+    const { body } = await startLesson(learner, { errorType: 'PUNCTUATION_WRONG' });
+
+    expect(body).toMatchObject({ language: 'en', lessonSource: 'words', focusErrorTypes: ['PUNCTUATION_WRONG'] });
+    expect(body.targetWords).toEqual(body.lessonWords);
+    expect(body.targetWords.filter(trainsEn(['PUNCTUATION_WRONG'])).length).toBeGreaterThanOrEqual(Math.ceil(body.targetWords.length * 0.6));
+  });
+
+  it('keeps English Weak spots for the plans that have it', async () => {
+    const learner = await englishLearner('free@example.com', 'free');
+    await makeWeakEnglish(learner);
+
+    const response = await startLesson(learner);
+
+    expect(response.status).toBe(403);
+    expect(await TypingSessionModel.countDocuments({ mode: 'targeted' })).toBe(0);
+  });
+
+  it('grades and counts a finished English lesson with the English error set', async () => {
+    const learner = await englishLearner();
+    const { body: started } = await startLesson(learner, { errorType: 'CASE_WRONG' });
+    await TypingSessionModel.findByIdAndUpdate(started._id, { startedAt: new Date(Date.now() - 120_000) });
+    // The first word with a capital is typed in small letters.
+    const wrong = started.targetWords.findIndex((text: string) => /\p{Lu}/u.test(text));
+    const typed = started.targetWords.map((text: string, index: number) => (index === wrong ? text.toLowerCase() : text));
+
+    const response = await api().patch(`/api/sessions/${started._id}/complete`).set('Authorization', bearerFor(learner)).send({ typedWords: typed });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ status: 'completed', language: 'en', isCounted: true });
+    expect(response.body.errorCounts.CASE_WRONG).toBe(1);
+    expect(response.body.errorCounts).not.toHaveProperty('TONE_WRONG');
+    expect(response.body.words[wrong].errorTypes).toContain('CASE_WRONG');
   });
 });
 

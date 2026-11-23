@@ -56,7 +56,8 @@ export interface UserDocument extends mongoose.Document {
     timezone: string;
     /**
      * The language the learner types in Practice (SCRUM-219, US2.7), `vi` until they switch: it picks the passages and the
-     * error set of their practice sessions and of the stats they see. The placement test is always Vietnamese.
+     * error set of their sessions (Practice, the placement test since SCRUM-305, Weak spots since SCRUM-319) and of the
+     * stats they see.
      */
     typingLanguage: TypingLanguage;
     /** The language of the interface (SCRUM-326, US8.3). Missing until chosen: the frontend then follows the browser. */

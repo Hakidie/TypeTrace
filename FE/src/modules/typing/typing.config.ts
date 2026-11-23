@@ -1,4 +1,5 @@
 import { CalendarDays, ClipboardCheck, Dumbbell, Keyboard, type LucideIcon } from 'lucide-react';
+import { i18n } from '@/shared/i18n/i18n';
 import { translatedRecord } from '@/shared/i18n/translated-record';
 import type { SessionErrorType, TypingLanguage } from '@/shared/lib/typing-language';
 import type { SessionMode } from './types/typing.types';
@@ -19,6 +20,9 @@ const ERROR_TYPES: SessionErrorType[] = [
 ];
 
 export const errorLabels: Record<SessionErrorType, string> = translatedRecord(ERROR_TYPES, (type) => `typing:errors.${type}`);
+
+/** The name of an error type in a language of its own, for a page drawn in another language than the interface (the Train cards). */
+export const errorLabelIn = (type: SessionErrorType, lng: string) => i18n.t(`typing:errors.${type}`, { lng });
 
 /** The languages a learner types in (SCRUM-219): the short code of the switch on the Typing page and of the session cards. */
 export const languageCodes: Record<TypingLanguage, string> = { vi: 'VI', en: 'EN' };

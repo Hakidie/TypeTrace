@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { ENGLISH_PRACTICE_PASSAGE_LIST } from '../../src/data/passages-en-practice';
 import { WORD_LIST } from '../../src/data/words';
 import { weakSpotsAi } from '../../src/config/weak-spots-ai';
+import { splitWords } from '../../src/models/passage.model';
 import {
   type BankWord,
   buildLesson,
@@ -14,9 +16,10 @@ import {
   lessonTitle,
   trainsErrorType
 } from '../../src/services/targeted-practice.service';
+import { EnglishError, type EnglishErrorType, tagEnglishWord } from '../../src/utils/english-errors';
 import { tagWord, WordError, type WordErrorType } from '../../src/utils/vietnamese-errors';
 
-const word = (text: string): BankWord => ({ text, tags: tagWord(text) });
+const word =(text: string): BankWord => ({ text, tags: tagWord(text) });
 
 /** The starter word list (`npm run import:words`), as the bank reads it. */
 const BANK = [...new Set(WORD_LIST)].map(word);
@@ -235,8 +238,25 @@ describe('the passage the AI writes (US3.2)', () => {
   });
 
   it('asks for the practice words, and offers the other picked words when there are some', () => {
-    expect(lessonPrompt(['đỏ', 'đi'], ['em', 'anh'])).toBe('Từ cần luyện: đỏ, đi\nTừ gợi ý: em, anh');
-    expect(lessonPrompt(['đỏ', 'đi'], [])).toBe('Từ cần luyện: đỏ, đi');
+    expect(lessonPrompt('vi', ['đỏ', 'đi'], ['em', 'anh'])).toBe('Từ cần luyện: đỏ, đi\nTừ gợi ý: em, anh');
+    expect(lessonPrompt('vi', ['đỏ', 'đi'], [])).toBe('Từ cần luyện: đỏ, đi');
+  });
+
+  it('asks in English for an English lesson, with the labels its system prompt names (SCRUM-319)', () => {
+    expect(lessonPrompt('en', ['Lan,', "don't"], ['the', 'cat'])).toBe("Practice words: Lan,, don't\nSuggested words: the, cat");
+    for (const language of ['vi', 'en'] as const) {
+      const { practice, hints } = weakSpotsAi.promptLabels[language];
+      expect(weakSpotsAi.systemPrompts[language]).toContain(`"${practice}"`);
+      expect(weakSpotsAi.systemPrompts[language]).toContain(`"${hints}"`);
+    }
+  });
+
+  it('counts an English practice word in any case and with any punctuation around it, but keeps the apostrophe inside', () => {
+    const practice = ['Lan,', "don't", 'Saturday.', 'well-known'];
+    const check = checkAiPassage(`On saturday LAN said: "Don't worry." It was well-known. ${passage([], 24)}`, practice);
+
+    expect(check).toMatchObject({ ok: true, used: 4, wanted: 4 });
+    expect(checkAiPassage(`Lan said dont ${passage([], 27)}`, practice)).toMatchObject({ used: 1 });
   });
 });
 
@@ -245,5 +265,69 @@ describe('lessonTitle', () => {
     expect(lessonTitle([WordError.HOI_NGA_CONFUSION, WordError.D_MISSING])).toBe('Weak spots: hỏi / ngã, đ');
     expect(lessonTitle([WordError.TONE_WRONG])).toBe('Weak spots: tones');
     expect(lessonTitle([WordError.BASE_LETTER, WordError.MARK_WRONG])).toBe('Weak spots: letters, vowel marks');
+  });
+
+  it('names the English error types (SCRUM-319)', () => {
+    expect(lessonTitle([EnglishError.CASE_WRONG, EnglishError.PUNCTUATION_WRONG])).toBe('Weak spots: capitals, punctuation');
+    expect(lessonTitle([EnglishError.LETTERS_SWAPPED, EnglishError.LETTER_MISSING])).toBe('Weak spots: swapped letters, missing letters');
+    expect(lessonTitle([EnglishError.LETTER_WRONG, EnglishError.LETTER_EXTRA])).toBe('Weak spots: wrong letters, extra letters');
+  });
+});
+
+describe('an English lesson (SCRUM-319)', () => {
+  /** Every word of the English practice passages, as the server reads them for an English lesson. */
+  const EN_BANK = [...new Set(ENGLISH_PRACTICE_PASSAGE_LIST.flatMap((item) => splitWords(item.content)))].map(
+    (text): BankWord => ({ text, tags: tagEnglishWord(text) })
+  );
+  const trainsEn = (focus: readonly EnglishErrorType[]) => (text: string) =>
+    focus.some((type) => trainsErrorType({ text, tags: tagEnglishWord(text) }, type));
+
+  it('trains the case only with a word that has a capital, though every word with letters is tagged with CASE_WRONG', () => {
+    const en = (text: string): BankWord => ({ text, tags: tagEnglishWord(text) });
+
+    expect(tagEnglishWord('market')).toContain(EnglishError.CASE_WRONG);
+    expect(trainsErrorType(en('market'), EnglishError.CASE_WRONG)).toBe(false);
+    for (const capital of ['Lan', 'Saturday.', '"Hello,', 'TV']) expect(trainsErrorType(en(capital), EnglishError.CASE_WRONG)).toBe(true);
+  });
+
+  it('trains punctuation and swapped letters with the words tagged with them, and the other letters with any word', () => {
+    const en = (text: string): BankWord => ({ text, tags: tagEnglishWord(text) });
+
+    expect(trainsErrorType(en("don't"), EnglishError.PUNCTUATION_WRONG)).toBe(true);
+    expect(trainsErrorType(en('door,'), EnglishError.PUNCTUATION_WRONG)).toBe(true);
+    expect(trainsErrorType(en('door'), EnglishError.PUNCTUATION_WRONG)).toBe(false);
+    expect(trainsErrorType(en('a'), EnglishError.LETTERS_SWAPPED)).toBe(false);
+    expect(trainsErrorType(en('the'), EnglishError.LETTERS_SWAPPED)).toBe(true);
+    for (const type of [EnglishError.LETTER_WRONG, EnglishError.LETTER_MISSING, EnglishError.LETTER_EXTRA]) {
+      expect(EN_BANK.every((item) => trainsErrorType(item, type))).toBe(true);
+    }
+  });
+
+  it('never trains a type of the other language', () => {
+    expect(trainsErrorType(word('đường'), EnglishError.PUNCTUATION_WRONG)).toBe(false);
+    expect(trainsErrorType({ text: 'Lan,', tags: tagEnglishWord('Lan,') }, WordError.D_MISSING)).toBe(false);
+  });
+
+  it.each([[[EnglishError.CASE_WRONG]], [[EnglishError.PUNCTUATION_WRONG]], [[EnglishError.CASE_WRONG, EnglishError.PUNCTUATION_WRONG]]])(
+    'gives %j 30 to 50 words of the English practice passages, 60 to 70 %% of them training it',
+    (focus) => {
+      for (const seed of SEEDS) {
+        const lesson = buildLesson({ focus, words: EN_BANK, recentWords: new Set(), random: seeded(seed) })!;
+        const trained = lesson.words.filter(trainsEn(focus)).length;
+
+        expect(lesson.focus).toEqual(focus);
+        expect(lesson.words.length).toBeGreaterThanOrEqual(LESSON_MIN_WORDS);
+        expect(lesson.words.length).toBeLessThanOrEqual(LESSON_MAX_WORDS);
+        expect(trained).toBeGreaterThanOrEqual(Math.ceil((lesson.words.length * LESSON_MIN_FOCUS_PERCENT) / 100));
+        expect(trained).toBeLessThanOrEqual(Math.floor((lesson.words.length * LESSON_MAX_FOCUS_PERCENT) / 100));
+        expect(lesson.words.every((text) => EN_BANK.some((item) => item.text === text))).toBe(true);
+      }
+    }
+  );
+
+  it('makes a lesson of the letters of any English words, every one training them', () => {
+    const lesson = buildLesson({ focus: [EnglishError.LETTER_MISSING], words: EN_BANK, recentWords: new Set(), random: seeded(7) })!;
+
+    expect(lesson.words.every(trainsEn([EnglishError.LETTER_MISSING]))).toBe(true);
   });
 });

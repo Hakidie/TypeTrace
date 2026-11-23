@@ -188,14 +188,15 @@ const passageContent = (passage: { _id: unknown; title: string; content: string 
 });
 
 /**
- * What a new session types: a passage of `language`, or in Weak spots (`targeted`, US3.2) a lesson aimed at the learner's
- * errors (the AI's passage written from words of the bank, or those words; `aiAllowed` is false past the learner's AI limit).
- * With nothing to aim at (no type with enough data in the error profile yet, or no word for it), Weak spots types a random
- * Vietnamese passage, as Random in Practice, with no focus: the page tells the learner why.
+ * What a new session types: a passage of `language`, or in Weak spots (`targeted`, US3.2) a lesson in `language` aimed at the
+ * learner's errors (the AI's passage written from picked words, or those words; `aiAllowed` is false past the learner's AI
+ * limit). With nothing to aim at (no type with enough data in the error profile yet, or no word for it), Weak spots types a
+ * random practice passage of `language` (never a ranked test, SCRUM-319), as Random in Practice, with no focus: the page
+ * tells the learner why.
  */
 const contentOf = async (userId: string, input: CreateSessionInput, language: TypingLanguage, aiAllowed: boolean) => {
   if (input.mode !== 'targeted') return passageContent(await pickPassage(userId, input, language));
-  const lesson = await lessonFor(userId, input.errorType, { aiAllowed });
+  const lesson = await lessonFor(userId, language, input.errorType, { aiAllowed });
   if (lesson) {
     return {
       passageTitle: lesson.title,
@@ -210,11 +211,11 @@ const contentOf = async (userId: string, input: CreateSessionInput, language: Ty
 
 /**
  * Starts a session in its typing language (SCRUM-219), which picks its passage and grades it: the learner's
- * `settings.typingLanguage` in Practice and in the placement test (SCRUM-305: one test per language), always Vietnamese in
- * Weak spots, whose word bank and lessons are Vietnamese. A session the learner left in progress becomes `abandoned`.
+ * `settings.typingLanguage`, in Practice, in the placement test (SCRUM-305: one test per language) and in Weak spots
+ * (SCRUM-319: a lesson of that language's errors). A session the learner left in progress becomes `abandoned`.
  */
 export const startSession = async (userId: string, input: CreateSessionInput, { aiAllowed = true }: { aiAllowed?: boolean } = {}) => {
-  const language: TypingLanguage = input.mode === 'targeted' ? 'vi' : await typingLanguageOf(userId);
+  const language = await typingLanguageOf(userId);
   const content = await contentOf(userId, input, language, aiAllowed);
 
   await TypingSessionModel.updateMany({ owner: userId, status: 'in_progress' }, { status: 'abandoned' });

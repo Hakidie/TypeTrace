@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { currentUserKey, useCurrentUser, useSetCurrentUser } from '@/modules/auth/hooks/use-current-user';
 import type { CurrentUser } from '@/modules/auth/types/auth.types';
+import type { UiLanguage } from '@/shared/i18n/ui-language';
 import type { TypingLanguage } from '@/shared/lib/typing-language';
 import { profileApi } from '../api/profile.api';
 import type { ChartCompare, ChartRange, SessionListParams } from '../types/profile.types';
@@ -65,7 +66,7 @@ export const useDailyTasks = () => useQuery({ queryKey: profileKeys.dailyTasks()
  * The learner's error profile (SCRUM-27): rate, level and trend of each error type of their typing language (SCRUM-219) in
  * their last counted sessions of it, worked out by the backend when asked; asked again each time the profile page opens,
  * like the streak, so it has the sessions just typed. With `language`, the profile of that language whatever the learner
- * types: Weak spots asks for `vi`, since its lessons are Vietnamese. Its key starts with `errorProfile()`, so changing the
+ * types: the Weak spots cards and lessons ask for the language they are in (SCRUM-319). Its key starts with `errorProfile()`, so changing the
  * typing language or finishing a session refreshes it too.
  */
 export const useErrorProfile = (language?: TypingLanguage) =>
@@ -123,17 +124,25 @@ export const useTypingLanguage = (): TypingLanguage | undefined => {
   return user ? (user.settings?.typingLanguage ?? 'vi') : undefined;
 };
 
+/** What the language button of the Typing page saves (SCRUM-319): the language typed and, with it, the language of the interface. */
+export interface LanguageChoice {
+  typingLanguage: TypingLanguage;
+  uiLanguage?: UiLanguage;
+}
+
 /**
- * Saves the language the learner types in Practice (SCRUM-219, `PATCH /api/profile/settings`) and keeps the user it
- * returns: the next Practice session is typed in it. The figures of the other language are emptied (`resetQueries`, not
- * only marked old), so the profile never shows them again while it asks for the new ones. A failure shows the backend
- * message (no `onError`). An answer that comes after the learner signed out is dropped, as in `useSaveTimezone`.
+ * Saves the language the learner types (SCRUM-219, `PATCH /api/profile/settings`), and with a `LanguageChoice` the language
+ * of the interface in the same request, and keeps the user it returns: the next session is typed in it. The figures of the
+ * other language are emptied (`resetQueries`, not only marked old), so the profile never shows them again while it asks for
+ * the new ones. A failure shows the backend message (no `onError`). An answer that comes after the learner signed out is
+ * dropped, as in `useSaveTimezone`. The caller shows the new interface language (`i18n.changeLanguage`).
  */
 export const useSaveTypingLanguage = () => {
   const queryClient = useQueryClient();
   const setCurrentUser = useSetCurrentUser();
   return useMutation({
-    mutationFn: (typingLanguage: TypingLanguage) => profileApi.updateSettings({ typingLanguage }),
+    mutationFn: (choice: TypingLanguage | LanguageChoice) =>
+      profileApi.updateSettings(typeof choice === 'string' ? { typingLanguage: choice } : choice),
     onSuccess: (user) => {
       if (queryClient.getQueryData<CurrentUser>(currentUserKey)?._id !== user._id) return;
       setCurrentUser(user);

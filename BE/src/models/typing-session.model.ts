@@ -46,9 +46,9 @@ export interface TypingSessionDocument extends mongoose.Document {
   owner: Types.ObjectId;
   mode: SessionMode;
   /**
-   * What the learner typed in (SCRUM-219): their language in Practice (`settings.typingLanguage`), always Vietnamese in the
-   * placement test and in Weak spots, whose word bank is Vietnamese. It picks the error set that grades and counts the
-   * session. Sessions saved before the field read `vi`.
+   * What the learner typed in (SCRUM-219): their `settings.typingLanguage` when it started, in Practice, in the placement
+   * test (SCRUM-305) and in Weak spots (SCRUM-319). It picks the error set that grades and counts the session. Sessions
+   * saved before the field read `vi`.
    */
   language: TypingLanguage;
   /** The passage typed. A Weak spots lesson types words of the word bank and has none (US3.2). */
@@ -58,14 +58,15 @@ export interface TypingSessionDocument extends mongoose.Document {
   /** Copy of the passage words taken when the session started, or the words of a Weak spots lesson. */
   targetWords: string[];
   /**
-   * Weak spots only (US3.2): the error types the lesson trains, the highest error rate first. Empty when there was nothing to
-   * aim at (no type with enough data in the error profile yet, or no word for it) and the session types a random passage
-   * instead, which the page tells the learner.
+   * Weak spots only (US3.2): the error types the lesson trains, the highest error rate first, all of the session's `language`
+   * (SCRUM-319). Empty when there was nothing to aim at (no type with enough data in the error profile yet, or no word for it)
+   * and the session types a random passage instead, which the page tells the learner.
    */
-  focusErrorTypes?: WordErrorType[];
+  focusErrorTypes?: SessionErrorType[];
   /**
-   * Weak spots only: the words of the bank picked for the lesson. The AI writes its passage (`targetWords`) from them, and the
-   * next lessons leave them out (US3.2). Lessons saved before the AI passages have none: their `targetWords` are the picked words.
+   * Weak spots only: the words picked for the lesson (of the word bank in Vietnamese, of the English practice passages in
+   * English). The AI writes its passage (`targetWords`) from them, and the next lessons leave them out (US3.2). Lessons saved
+   * before the AI passages have none: their `targetWords` are the picked words.
    */
   lessonWords?: string[];
   /** Weak spots only: what is typed: the AI's passage (`ai`), the picked words as they are (`words`), or a random passage (`passage`). */
@@ -97,7 +98,7 @@ export interface TypingSessionDocument extends mongoose.Document {
 }
 
 /** Every error type of both sets: a session's words and counts hold the types of its language. */
-const sessionErrorTypes = [...Object.values(WordError), ...Object.values(EnglishError)];
+export const sessionErrorTypes = [...Object.values(WordError), ...Object.values(EnglishError)];
 
 // The types of both languages, without defaults: `countErrors` writes every type of the session's language (0 included),
 // so the other language's types stay out of the document.
@@ -129,7 +130,7 @@ const typingSessionSchema = new Schema<TypingSessionDocument>(
     passageTitle: String,
     targetWords: { type: [String], required: true },
     // No default: only Weak spots sessions have the field, so an empty list always means "nothing to aim at".
-    focusErrorTypes: { type: [String], enum: Object.values(WordError), default: undefined },
+    focusErrorTypes: { type: [String], enum: sessionErrorTypes, default: undefined },
     lessonWords: { type: [String], default: undefined },
     lessonSource: { type: String, enum: ['ai', 'words', 'passage'] },
     status: { type: String, enum: sessionStatuses, default: 'in_progress' },
