@@ -11,7 +11,7 @@
 - **Validation**: Zod 4 (requests and environment)
 - **Media**: Cloudinary (images via Multer memory storage), optional
 - **Email**: Nodemailer (SMTP), printed to the console when SMTP is not configured
-- **Security**: helmet, CORS locked to `CLIENT_URL`, rate limits · **Logging**: morgan
+- **Security**: helmet, CORS locked to `CLIENT_URL` (preflight cached for a day, `maxAge`), rate limits · **Logging**: morgan
 - **Dev**: `tsx watch` · **Build**: `tsc` → `build/` · **Start**: `node build/server.js` · **Test**: Vitest + supertest + mongodb-memory-server
 
 ## Layered (Clean) Architecture
