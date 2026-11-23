@@ -74,7 +74,7 @@ export const timeLeftDetail = (until: string, now = new Date()) => {
 export const PROVIDER_NAMES: Record<AdminPaymentRow['provider'], string> = { payos: 'payOS', vnpay: 'VNPay', momo: 'MoMo' };
 
 /** Only an open payOS payment, or a paid one that was not given yet, has something to check with payOS. */
-export const canRecheck = (row: AdminPaymentRow) => row.provider === 'payos' && (row.status === 'pending' || (row.status === 'paid' && !row.granted));
+export const canRecheck = (row: AdminPaymentRow) => row.provider === 'payos' && (row.status === 'pending' || row.status === 'expired' || (row.status === 'paid' && !row.granted));
 
 /** Premium that ends in this many days or fewer asks the learner whether to extend it (the banner). */
 export const RENEWAL_BANNER_DAYS = 3;

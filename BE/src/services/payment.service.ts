@@ -1,6 +1,6 @@
 import { env } from '../config/env';
 import { PAYMENT_PRODUCTS, PaymentProduct, productAmount } from '../config/payment';
-import { PaymentDocument, PaymentModel } from '../models/payment.model';
+import { PAYMENT_EXPIRES_MS, PaymentDocument, PaymentModel, displayStatusOf } from '../models/payment.model';
 import { UserModel } from '../models/user.model';
 import { AppError, badRequest } from '../utils/app-error';
 import { MomoParams, signMomoCreate, signMomoResult, verifyMomo } from '../utils/momo';
@@ -12,7 +12,6 @@ import { objectIdSchema } from '../validators/common.validator';
 import { getPlanConfig } from './app-setting.service';
 import { recordPaidMonth } from './subscription.service';
 
-const PAYMENT_EXPIRES_MS = 15 * 60 * 1000;
 const MOMO_TIMEOUT_MS = 15_000;
 const PAYOS_TIMEOUT_MS = 15_000;
 
@@ -179,7 +178,7 @@ export const listMyPayments = async (ownerId: string, query: MyPaymentsQuery) =>
       amount: payment.amount,
       // Payments saved before MoMo have no provider: they are VNPay's.
       provider: payment.provider ?? 'vnpay',
-      status: payment.status === 'pending' && payment.createdAt.getTime() + PAYMENT_EXPIRES_MS < now ? ('expired' as const) : payment.status,
+      status: displayStatusOf(payment, now),
       paidAt: payment.paidAt ?? null,
       createdAt: payment.createdAt
     }))

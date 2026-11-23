@@ -49,6 +49,56 @@ describe('GET /api/admin/payments', () => {
   });
 });
 
+describe('pending payments whose link is over (SCRUM-337)', () => {
+  const old = () => new Date(Date.now() - 20 * 60 * 1000);
+
+  it('reads an abandoned pending payment as expired and keeps a fresh one pending, nothing stored', async () => {
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
+    const an = await createUser({ email: 'an@example.com', displayName: 'An' });
+    const abandoned = await PaymentModel.create({ ...base, owner: an._id, provider: 'payos', payosOrderCode: 11, status: 'pending' });
+    await PaymentModel.collection.updateOne({ _id: abandoned._id }, { $set: { createdAt: old() } });
+    await PaymentModel.create({ ...base, owner: an._id, provider: 'payos', payosOrderCode: 12, status: 'pending' });
+
+    const res = await list(bearerFor(admin));
+
+    expect(res.body.items.map((item: { status: string }) => item.status)).toEqual(['pending', 'expired']);
+    expect((await PaymentModel.findById(abandoned._id))?.status).toBe('pending');
+  });
+
+  it('filters pending as not over yet and expired as over', async () => {
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
+    const an = await createUser({ email: 'an@example.com', displayName: 'An' });
+    const abandoned = await PaymentModel.create({ ...base, owner: an._id, provider: 'payos', payosOrderCode: 13, status: 'pending' });
+    await PaymentModel.collection.updateOne({ _id: abandoned._id }, { $set: { createdAt: old() } });
+    await PaymentModel.create({ ...base, owner: an._id, provider: 'payos', payosOrderCode: 14, status: 'pending' });
+    const paid = await PaymentModel.create({ ...base, owner: an._id, status: 'paid' });
+    await PaymentModel.collection.updateOne({ _id: paid._id }, { $set: { createdAt: old() } });
+    const auth = bearerFor(admin);
+
+    const pending = (await list(auth, '?status=pending')).body.items;
+    const expired = (await list(auth, '?status=expired')).body.items;
+
+    expect(pending).toHaveLength(1);
+    expect(pending[0].status).toBe('pending');
+    expect(expired).toHaveLength(1);
+    expect(expired[0]).toMatchObject({ _id: String(abandoned._id), status: 'expired' });
+    expect((await list(auth, '?status=paid')).body.items).toHaveLength(1);
+  });
+
+  it('still lets an admin check an expired payOS payment again', async () => {
+    const admin = await createUser({ email: 'admin@example.com', role: 'admin' });
+    const an = await createUser({ email: 'an@example.com', displayName: 'An' });
+    const abandoned = await PaymentModel.create({ ...base, owner: an._id, provider: 'payos', payosOrderCode: 15, status: 'pending' });
+    await PaymentModel.collection.updateOne({ _id: abandoned._id }, { $set: { createdAt: old() } });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ code: '00', data: { status: 'PAID', amount: 20_000, paymentLinkId: 'l1' } }));
+
+    const res = await recheck(bearerFor(admin), abandoned._id);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'paid', granted: true });
+  });
+});
+
 describe('POST /api/admin/payments/:id/recheck', () => {
   const payosSays = (status: string, amount: number) =>
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ code: '00', data: { status, amount, paymentLinkId: 'l1' } }));

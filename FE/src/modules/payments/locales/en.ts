@@ -200,7 +200,7 @@ export const storeEn = {
     status: 'Status',
     gateway: 'Gateway',
     payments: 'Payments',
-    statuses: { pending: 'Pending', paid: 'Paid', failed: 'Failed' },
+    statuses: { pending: 'Pending', expired: 'Expired', paid: 'Paid', failed: 'Failed' },
     emptyFilteredTitle: 'No matching payments',
     emptyFilteredHint: 'Try another search or filter.',
     emptyTitle: 'No payments yet',
