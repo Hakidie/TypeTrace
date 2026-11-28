@@ -2,7 +2,9 @@ import { Outlet } from "react-router-dom";
 import type { NavItem, NavWidget } from "@/app/module.types";
 import { BrandFooter } from "@/shared/components/layout/BrandFooter";
 import { BrandHeader } from "@/shared/components/layout/BrandHeader";
+import { MobileTabBar } from "@/shared/components/layout/MobileTabBar";
 import { NavLinks } from "@/shared/components/layout/NavLinks";
+import { useIsPhone } from "@/shared/hooks/use-is-phone";
 import { redGlassTheme } from "@/shared/lib/red-glass-theme";
 import { AuthBrandPanel } from "./AuthBrandPanel";
 import { GuestMenu } from "./GuestMenu";
@@ -15,14 +17,17 @@ interface AuthLayoutProps {
   navItems?: (NavItem | NavWidget)[];
 }
 
-export const AuthLayout = ({ navItems = [] }: AuthLayoutProps) => (
-  <div className={`flex min-h-screen flex-col ${redGlassTheme}`}>
+export const AuthLayout = ({ navItems = [] }: AuthLayoutProps) => {
+  const phone = useIsPhone();
+  const guestItems = navItems.filter((item) => !item.roles);
+  return (
+  <div className={`flex min-h-screen flex-col ${redGlassTheme} ${phone ? "pb-14" : ""}`}>
     {/* The header of the signed-in pages (sticky, see-through), with the guest menu in place of the user menu. */}
     <div className="sticky top-0 z-50 bg-background/75 backdrop-blur-xs">
       <BrandHeader
         to="/login"
         themeToggle={false}
-        nav={<NavLinks items={navItems.filter((item) => !item.roles)} guest />}
+        nav={phone ? undefined : <NavLinks items={guestItems} guest />}
       >
         <GuestMenu />
       </BrandHeader>
@@ -41,5 +46,7 @@ export const AuthLayout = ({ navItems = [] }: AuthLayoutProps) => (
     </main>
 
     <BrandFooter />
+    <MobileTabBar items={guestItems} guest />
   </div>
-);
+  );
+};

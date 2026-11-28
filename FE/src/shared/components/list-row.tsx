@@ -19,6 +19,8 @@ interface ListRowProps {
   plain?: boolean;
   /** No lines between the tiers and before `meta`: the tags and the date sit under the top tier without separators. */
   flat?: boolean;
+  /** `extra` sits beside the identity from `sm` up (a leaderboard row: the numbers on the line of the name), instead of under it until `xl`. */
+  extraBeside?: boolean;
   /** `extra` takes all the room between the identity and the action (from `xl` up), for columns that share the row equally; `center` is not shown. */
   stretch?: boolean;
 }
@@ -28,7 +30,7 @@ interface ListRowProps {
  * Top: identity | center | extra | action. Bottom (when given): tags | meta.
  * Below `xl` the top tier stacks (identity and action, then extra) and `center` is hidden.
  */
-export const ListRow = ({ identity, center, extra, action, tags, meta, plain, flat, stretch }: ListRowProps) => (
+export const ListRow = ({ identity, center, extra, action, tags, meta, plain, flat, stretch, extraBeside }: ListRowProps) => (
   <article
     className={cn(
       'group border-0 text-primary',
@@ -38,6 +40,7 @@ export const ListRow = ({ identity, center, extra, action, tags, meta, plain, fl
     <div
       className={cn(
         'grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-3 py-3 pr-3 pl-4 xl:gap-x-0',
+        extraBeside && 'sm:grid-cols-[minmax(0,1fr)_auto_auto]',
         stretch ? 'xl:grid-cols-[minmax(0,300px)_0_0_0_minmax(0,1fr)_auto]' : 'xl:grid-cols-[minmax(0,300px)_minmax(16px,1fr)_minmax(0,50%)_minmax(16px,1fr)_auto_auto]',
       )}
     >
@@ -45,8 +48,8 @@ export const ListRow = ({ identity, center, extra, action, tags, meta, plain, fl
       <span className="hidden xl:block" aria-hidden />
       <div className="hidden xl:block">{center}</div>
       <span className="hidden xl:block" aria-hidden />
-      <div className={cn('col-span-2 xl:col-span-1', stretch && 'xl:pl-8')}>{extra}</div>
-      <div className="col-start-2 row-start-1 self-start xl:col-start-auto xl:row-start-auto">{action}</div>
+      <div className={cn('col-span-2 xl:col-span-1', extraBeside && 'sm:col-span-1 sm:col-start-2 sm:row-start-1 xl:col-start-auto xl:row-start-auto', stretch && 'xl:pl-8')}>{extra}</div>
+      <div className={cn('col-start-2 row-start-1 self-start xl:col-start-auto xl:row-start-auto', extraBeside && 'sm:col-start-3')}>{action}</div>
     </div>
 
     {(tags || meta) && (
@@ -63,11 +66,14 @@ export const ListRow = ({ identity, center, extra, action, tags, meta, plain, fl
   </article>
 );
 
-/** One label/value pair for the `extra` slot of a `ListRow`, e.g. `WPM` over `64`; 61px high, like the heatmap and the avatar. A `className` such as `w-20` gives the columns of a list one width, so they line up from row to row. */
-export const ListRowStat = ({ label, value, className }: { label: string; value: string; className?: string }) => (
-  <div className={cn('flex h-[61px] flex-col text-right', className)}>
+/**
+ * One label/value pair for the `extra` slot of a `ListRow`, e.g. `WPM` over `64`; 61px high, like the heatmap and the avatar. A `className` such as `w-20` gives the columns of a list one width, so they line up from row to row.
+ * `compactOnPhones` (the leaderboards) is for the stacked row of a phone held upright (below `sm`, 640px): a size smaller and no fixed height, so the pairs sit in equal columns under the name, still right-aligned unless `startOnPhones` (left-aligned there); from `sm` it is the full-size, right-aligned pair.
+ */
+export const ListRowStat = ({ label, value, className, compactOnPhones, startOnPhones }: { label: string; value: string; className?: string; compactOnPhones?: boolean; startOnPhones?: boolean }) => (
+  <div className={cn('flex h-[61px] flex-col text-right', compactOnPhones && 'max-sm:h-auto max-sm:gap-1', startOnPhones && 'max-sm:text-left', className)}>
     <span className="text-base font-semibold leading-none tracking-widest text-primary/70">{label}</span>
-    <span className="flex flex-1 items-end justify-end text-3xl font-black leading-none text-primary">{value}</span>
+    <span className={cn('flex flex-1 items-end justify-end text-3xl font-black leading-none text-primary', compactOnPhones && 'max-sm:text-2xl', startOnPhones && 'max-sm:justify-start')}>{value}</span>
   </div>
 );
 

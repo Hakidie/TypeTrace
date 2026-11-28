@@ -181,6 +181,7 @@ export const PassagesPage = () => {
             title={t('view.myPassages')}
             bare
             fill
+            actionsBesideTitle
             titleClassName={sectionTitleClass}
             className="flex min-h-0 flex-1 flex-col gap-3"
             actions={

@@ -43,7 +43,7 @@ export const PremiumRenewalBanner = () => {
     <aside
       role="region"
       aria-label={t('banner.label')}
-      className="fixed inset-x-0 bottom-0 z-40 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t bg-background/90 px-4 py-3 backdrop-blur-xs"
+      className="fixed inset-x-0 bottom-14 z-40 flex flex-wrap md:bottom-0 items-center justify-center gap-x-4 gap-y-2 border-t bg-background/90 px-4 py-3 backdrop-blur-xs"
     >
       <p className="flex items-center gap-2 text-sm">
         <Crown className="size-4 text-primary" aria-hidden="true" />

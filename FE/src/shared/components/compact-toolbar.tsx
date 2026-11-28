@@ -86,7 +86,7 @@ interface CompactToolbarProps {
 }
 
 // Every part is an icon in the red of the theme, with no background color (also not while hovered or active).
-const partClass = 'group inline-flex h-10 items-center whitespace-nowrap bg-transparent px-4 text-base font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const partClass = 'group inline-flex h-10 items-center whitespace-nowrap bg-transparent px-3 text-base sm:px-4 font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** The word of a part: it grows from nothing next to the icon while the part (a `group`) is hovered or focused, or is always there (`always`). */
 const Word = ({ children, always, className }: { children: ReactNode; always?: boolean; className?: string }) => (

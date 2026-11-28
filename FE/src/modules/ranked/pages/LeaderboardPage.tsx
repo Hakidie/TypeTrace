@@ -70,10 +70,11 @@ export const LeaderboardPage = () => {
       <div className="space-y-2">
         {board.data.items.map((row) => (
           <ListRow
+            extraBeside
             key={row.userId}
             identity={
               <div className="flex min-w-0 items-center gap-3">
-                <span className="w-12 shrink-0 text-2xl font-black">#{row.rank}</span>
+                <span className="w-16 shrink-0 text-3xl font-black xl:w-12 xl:text-2xl">#{row.rank}</span>
                 <AvatarSprite look={row.avatar} crop="head" scale={1} label={t('avatarOf', { name: row.displayName })} />
                 <div className="min-w-0">
                   <p className="truncate text-lg font-semibold">
@@ -85,10 +86,11 @@ export const LeaderboardPage = () => {
               </div>
             }
             extra={
-              <div className="flex justify-end gap-6">
-                <ListRowStat label={t('leaderboard.matches')} value={String(row.matches)} className="w-20" />
-                <ListRowStat label={t('leaderboard.winRate')} value={`${Math.round(row.winRate * 100)}%`} className="w-24" />
-                <ListRowStat label={t('leaderboard.rating')} value={String(row.rating)} className="w-24" />
+              // Stacked on a phone held upright: three equal right-aligned columns under the name; from `sm` one line at the right of the name.
+              <div className="grid grid-cols-3 gap-2 sm:flex sm:justify-end sm:gap-6">
+                <ListRowStat compactOnPhones label={t('leaderboard.matches')} value={String(row.matches)} className="sm:w-20" />
+                <ListRowStat compactOnPhones label={t('leaderboard.winRate')} value={`${Math.round(row.winRate * 100)}%`} className="sm:w-24" />
+                <ListRowStat compactOnPhones label={t('leaderboard.rating')} value={String(row.rating)} className="sm:w-24" />
               </div>
             }
           />
@@ -110,9 +112,10 @@ export const LeaderboardPage = () => {
 
   return (
     <div className="w-full space-y-6">
-      {/* Same tabs as the mode tabs of the Typing page, in the center of the page; on the Placement tab the passage is on their left and the range on their right. */}
-      <div className="relative flex flex-col items-center gap-2 md:grid md:grid-cols-[1fr_auto_1fr] md:gap-x-2">
-        <div className="flex min-w-0 max-w-full md:justify-self-end">
+      {/* Same tabs as the mode tabs of the Typing page, in the center of the page; on the Placement tab the passage is on their left and the range on their right.
+          Below `lg` (phones, tablets held upright) they stack: the tabs first, then the passage (or the game), then the range. */}
+      <div className="relative flex flex-col items-center gap-2 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-x-2">
+        <div className="order-2 flex min-w-0 max-w-full lg:order-none lg:justify-self-end">
           {tab === 'placement' && <PlacementPassageMenu passages={passageList} selectedId={passage?._id} onSelect={(id) => list.set('passage', id)} />}
           {/* ponytail: a fixed label while Nối từ is the only minigame with a board; make it a game menu like the passage one when another gets its own. */}
           {tab === 'minigames' && (
@@ -123,8 +126,8 @@ export const LeaderboardPage = () => {
             </div>
           )}
         </div>
-        <TabGroup label={t('leaderboard.aria')} tabs={tabs} value={tab} onChange={(value) => setTab(value as LeaderboardTab)} />
-        <div className="md:justify-self-start">
+        <TabGroup label={t('leaderboard.aria')} tabs={tabs} value={tab} onChange={(value) => setTab(value as LeaderboardTab)} iconsOnPhones className="order-1 lg:order-none" />
+        <div className="order-3 lg:order-none lg:justify-self-start">
           {(tab === 'placement' || tab === 'minigames') && (
             <TabGroup label={t('leaderboard.timeRange')} tabs={rangeTabs} value={range} onChange={(value) => list.set('range', value === 'all' ? 'all' : '')} />
           )}

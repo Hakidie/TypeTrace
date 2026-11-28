@@ -16,6 +16,26 @@ describe('Panel', () => {
     expect(screen.getByText('content here')).toBeInTheDocument();
   });
 
+  it('keeps the actions on the title row of a phone when asked to', () => {
+    render(
+      <Panel title="My Passages" actionsBesideTitle actions={<button type="button">Tools</button>}>
+        content
+      </Panel>,
+    );
+    const header = screen.getByRole('heading', { name: 'My Passages' }).parentElement?.parentElement;
+    expect(header).toHaveClass('flex-row');
+    expect(header).not.toHaveClass('flex-col');
+  });
+
+  it('stacks the actions under the title of a phone by default', () => {
+    render(
+      <Panel title="List" actions={<button type="button">Tools</button>}>
+        content
+      </Panel>,
+    );
+    expect(screen.getByRole('heading', { name: 'List' }).parentElement?.parentElement).toHaveClass('flex-col');
+  });
+
   it('has no header row without a title', () => {
     render(<Panel>only content</Panel>);
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();

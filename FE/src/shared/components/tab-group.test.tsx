@@ -55,4 +55,19 @@ describe('TabGroup', () => {
     await user.hover(screen.getByRole('radio', { name: 'Practice' }));
     expect((await screen.findAllByText('Practice: About Practice')).length).toBeGreaterThan(0);
   });
+
+  it('adds the classes it is given to the row', () => {
+    render(<TabGroup label="Mode" tabs={tabs} value="rank" onChange={() => {}} className="order-1" />);
+
+    expect(screen.getByRole('radiogroup', { name: 'Mode' })).toHaveClass('order-1');
+  });
+
+  it('hides the words of the unselected tabs up to lg with iconsOnPhones="tablets", and up to sm with true', () => {
+    const { rerender } = render(<TabGroup label="Mode" tabs={tabs} value="rank" onChange={() => {}} iconsOnPhones="tablets" />);
+    expect(screen.getByText('Practice')).toHaveClass('max-lg:sr-only');
+    expect(screen.getByText('Rank')).not.toHaveClass('max-lg:sr-only');
+
+    rerender(<TabGroup label="Mode" tabs={tabs} value="rank" onChange={() => {}} iconsOnPhones />);
+    expect(screen.getByText('Practice')).toHaveClass('max-sm:sr-only');
+  });
 });

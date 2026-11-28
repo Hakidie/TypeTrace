@@ -208,7 +208,7 @@ export const SettingsPage = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-center">
-        <TabGroup label={t('title')} tabs={tabItems} value={tab} onChange={(value) => setParams({ tab: value }, { replace: true })} iconsOnPhones />
+        <TabGroup label={t('title')} tabs={tabItems} value={tab} onChange={(value) => setParams({ tab: value }, { replace: true })} iconsOnPhones="tablets" />
       </div>
 
       {tab === 'appearance' && (

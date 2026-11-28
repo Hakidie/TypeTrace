@@ -25,7 +25,9 @@ export const commonEn = {
     progress: 'Progress',
     locked: '(locked)',
     createAccount: 'Create an account',
+    main: 'Main navigation',
   },
+  desktopNotice: { text: 'TypeTrace is best on a desktop with a keyboard.', dismiss: 'Dismiss' },
   menu: {
     account: 'Account menu',
     guest: 'Guest menu',
@@ -125,7 +127,9 @@ export const commonVi: typeof commonEn = {
     progress: 'Tiến trình',
     locked: '(đã khóa)',
     createAccount: 'Tạo tài khoản',
+    main: 'Điều hướng chính',
   },
+  desktopNotice: { text: 'TypeTrace dùng tốt nhất trên máy tính có bàn phím.', dismiss: 'Đóng' },
   menu: {
     account: 'Menu tài khoản',
     guest: 'Menu khách',

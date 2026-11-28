@@ -17,10 +17,11 @@ interface StatsProps {
 }
 
 const Stats = ({ wpm, accuracy, durationMs }: StatsProps) => (
-  <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-8">
-    <ListRowStat label="WPM" value={String(wpm)} className="w-24" />
-    <ListRowStat label="ACC" value={`${accuracy}%`} className="w-24" />
-    <ListRowStat label="TIME" value={formatBoardTime(durationMs)} className="w-24" />
+  // Stacked on a phone held upright: three equal right-aligned columns under the name; from `sm` one line at the right of the name.
+  <div className="grid grid-cols-3 gap-2 sm:flex sm:justify-end sm:gap-8">
+    <ListRowStat compactOnPhones label="WPM" value={String(wpm)} className="sm:w-24" />
+    <ListRowStat compactOnPhones label="ACC" value={`${accuracy}%`} className="sm:w-24" />
+    <ListRowStat compactOnPhones label="TIME" value={formatBoardTime(durationMs)} className="sm:w-24" />
   </div>
 );
 
@@ -48,10 +49,11 @@ export const PlacementBoard = ({ passageId, range }: { passageId: string; range:
       {items.map((row) => (
         <ListRow
           plain
+          extraBeside
           key={row.rank}
           identity={
             <div className="flex min-w-0 items-center gap-3">
-              <span className="w-12 shrink-0 text-2xl font-black">#{row.rank}</span>
+              <span className="w-16 shrink-0 text-3xl font-black xl:w-12 xl:text-2xl">#{row.rank}</span>
               <AvatarSprite look={row.avatar} crop="head" scale={1} label={t('avatarOf', { name: row.displayName })} />
               <p className="min-w-0 truncate text-lg font-semibold">
                 {row.displayName}
@@ -67,9 +69,10 @@ export const PlacementBoard = ({ passageId, range }: { passageId: string; range:
         <section aria-label={t('board.yourPlace')} className="pt-4">
           <ListRow
             plain
+            extraBeside
             identity={
               <div className="flex min-w-0 items-center gap-3">
-                <span className="w-12 shrink-0 text-2xl font-black">#{me.rank}</span>
+                <span className="w-16 shrink-0 text-3xl font-black xl:w-12 xl:text-2xl">#{me.rank}</span>
                 <p className="text-lg font-semibold">{t('board.you')}</p>
               </div>
             }

@@ -42,7 +42,7 @@ export const UserMenu = ({ user, menuItems = [] }: { user?: CurrentUser; menuIte
   return (
     <div className="flex items-center gap-3">
     {menuPage && (
-      <span className="hidden items-center gap-2 text-sm font-semibold text-primary md:flex">
+      <span className="hidden items-center gap-2 text-sm font-semibold text-primary lg:flex">
         <menuPage.icon className="size-4" aria-hidden="true" />
         {menuPage.labelKey ? t(menuPage.labelKey) : menuPage.label}
       </span>
