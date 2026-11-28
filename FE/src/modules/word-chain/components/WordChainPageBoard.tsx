@@ -9,8 +9,9 @@ import type { BoardRange } from '../api/word-chain.api';
 import { useWordChainBoard } from '../hooks/use-word-chain';
 
 const Score = ({ score }: { score: number }) => (
-  <div className="flex w-full justify-end xl:w-auto">
-    <ListRowStat label="SCORE" value={String(score)} className="w-24" />
+  // Stacked on a phone held upright: under the name, at the right; from `sm` at the right of the row.
+  <div className="sm:flex sm:justify-end">
+    <ListRowStat compactOnPhones label="SCORE" value={String(score)} className="sm:w-24" />
   </div>
 );
 
@@ -35,10 +36,11 @@ export const WordChainPageBoard = ({ range }: { range: BoardRange }) => {
       {items.map((row) => (
         <ListRow
           plain
+          extraBeside
           key={row.rank}
           identity={
             <div className="flex min-w-0 items-center gap-3">
-              <span className="w-12 shrink-0 text-2xl font-black">#{row.rank}</span>
+              <span className="w-16 shrink-0 text-3xl font-black xl:w-12 xl:text-2xl">#{row.rank}</span>
               <AvatarSprite look={row.avatar} crop="head" scale={1} label={t('avatarOf', { name: row.displayName })} />
               <p className="min-w-0 truncate text-lg font-semibold">
                 {row.displayName}
@@ -53,9 +55,10 @@ export const WordChainPageBoard = ({ range }: { range: BoardRange }) => {
         <section aria-label={t('board.yourPlace')} className="pt-4">
           <ListRow
             plain
+            extraBeside
             identity={
               <div className="flex min-w-0 items-center gap-3">
-                <span className="w-12 shrink-0 text-2xl font-black">#{me.rank}</span>
+                <span className="w-16 shrink-0 text-3xl font-black xl:w-12 xl:text-2xl">#{me.rank}</span>
                 <p className="text-lg font-semibold">{t('board.you')}</p>
               </div>
             }

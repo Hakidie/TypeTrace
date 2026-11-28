@@ -13,6 +13,7 @@ import type { CurrentUser } from '@/modules/auth/types/auth.types';
 import { AvatarSprite } from '@/modules/avatar/components/AvatarSprite';
 import { DEFAULT_AVATAR } from '@/modules/avatar/types/avatar.types';
 import { languageNames } from '@/modules/typing/typing.config';
+import { useMediaQuery } from '@/shared/hooks/use-media-query';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
 import { Input } from '@/shared/components/ui/input';
 import { cn } from '@/shared/lib/utils';
@@ -165,7 +166,7 @@ const EditableBio = ({ user }: { user: CurrentUser }) => {
   );
 };
 
-// Three layouts. Phones: everything stacked, the picture, the name, the email and bio, then the labels with the values
+// The values sit as far under their labels as the name under the role (USER): 13px more than the row gap on phones, 12px from `sm` (the role's line is 1.5 times its font taller than the labels'). Three layouts. The numbers are left-aligned (right-aligned from `lg`) and, below `lg`, the chart and the Joined date take the whole width of the header, under the avatar. Phones: everything stacked, the picture, the name, the email and bio, then the labels with the values
 // under them in three columns. From `sm`: the picture on the left, the name, email and bio on its right with the labels
 // and values under them. From `lg`: the numbers on the right of the name, row 1 of the grid holding the labels (on the
 // line of the name) and row 2 the values (from the top of the email row); below `lg` the name would be squeezed out.
@@ -173,8 +174,8 @@ const EditableBio = ({ user }: { user: CurrentUser }) => {
 // into ACC.
 const statColumn = ['sm:col-start-2 lg:col-start-3', 'sm:col-start-3 lg:col-start-4', 'sm:col-start-4 lg:col-start-5'];
 const statLabelClass =
-  'self-baseline text-right text-xl font-semibold leading-none tracking-widest text-primary/70 sm:row-start-3 sm:text-2xl lg:row-start-1 lg:pl-14';
-const statValueClass = 'self-start text-right text-[1.875rem] font-black leading-none text-primary sm:row-start-4 sm:text-[2.25rem] lg:row-start-2 lg:pl-14';
+  'self-baseline text-left text-xl font-semibold leading-none tracking-widest text-primary/70 sm:row-start-3 sm:text-2xl lg:row-start-1 lg:pl-14 lg:text-right';
+const statValueClass = 'self-start pt-[13px] text-left text-[1.875rem] font-black leading-none text-primary sm:row-start-4 sm:pt-3 lg:pt-0 sm:text-[2.25rem] lg:row-start-2 lg:pl-14 lg:text-right';
 
 const formatDate = (iso: string, locale: string) => new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -213,6 +214,8 @@ interface ProfileHeaderProps {
 export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }: ProfileHeaderProps) => {
   const { t, i18n } = useTranslation('profile');
   const name = user.displayName || user.email;
+  // A phone, held upright (narrow) or on its side (short): the avatar is a third smaller (2x the sprite pixels, a 152px tile) so it does not fill the header.
+  const compact = useMediaQuery('(max-width: 639px), (max-height: 500px)');
   const stats = activity.data?.stats;
   // The averages are the ones of the learner's typing language (SCRUM-219): the tooltip names it.
   const averagesTip = activity.data && t('header.averages', { language: languageNames[activity.data.language ?? 'vi'] });
@@ -231,13 +234,13 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
       className="grid grid-cols-3 gap-y-3 text-primary sm:grid-cols-[auto_repeat(3,minmax(0,1fr))] lg:grid-cols-[auto_minmax(0,1fr)_repeat(3,auto)] lg:grid-rows-[auto_auto_1fr_auto] lg:gap-y-0"
     >
       <div className="col-span-3 flex flex-col items-start gap-2 sm:col-span-1 sm:row-span-4 sm:mr-3 lg:row-span-3">
-        {/* Without an uploaded picture, or when the account chose its pixel avatar, the pixel avatar shows (228px = the 76px frame at 3x, filling the 228px tile, about as high as the header). */}
+        {/* Without an uploaded picture, or when the account chose its pixel avatar, the pixel avatar shows (228px = the 76px frame at 3x, filling the 228px tile, about as high as the header; 152px at 2x on a phone). */}
         <AvatarUpload avatarUrl={user.avatarUrl} avatarSource={user.avatarSource} userInitials={name.slice(0, 2).toUpperCase()} onUploadSuccess={onAvatarChange}
           onSourceChange={() => onAvatarChange(user.avatarUrl ?? '')}
           outfitTo="/wardrobe"
-          className="size-[228px]"
-          initialsClassName="text-6xl"
-          fallback={<AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} scale={3} label={t('header.avatar')} />}
+          className={compact ? 'size-[152px]' : 'size-[228px]'}
+          initialsClassName={compact ? 'text-4xl' : 'text-6xl'}
+          fallback={<AvatarSprite look={user.avatar ?? DEFAULT_AVATAR} scale={compact ? 2 : 3} label={t('header.avatar')} />}
         />
       </div>
       {/* `lg:col-span-1` sets `grid-column`, which drops the column start: `lg:col-start-2` gives it back. */}
@@ -268,13 +271,13 @@ export const ProfileHeader = ({ user, activity, streak, onAvatarChange, chart }:
       {/* The chart under everything else, from the name column to the right edge of the header (and under the numbers). From `lg` its row takes
           what is left of the avatar's height (the avatar spans the three rows above the Joined date), so the bottom of the chart is level with the bottom of the avatar and the Joined date is the line under both. */}
       {chart && (
-        <div className="col-span-3 sm:col-start-2 sm:row-start-6 lg:relative lg:col-span-4 lg:col-start-2 lg:row-start-3 lg:min-h-[68px]">
+        <div className="col-span-3 sm:col-span-4 sm:col-start-1 sm:row-start-6 lg:relative lg:col-span-4 lg:col-start-2 lg:row-start-3 lg:min-h-[68px]">
           {/* From `lg` the chart is laid over its row (it does not make the row taller): the row is what is left of the avatar's height, but at least 68px: 60px of lines under 8px of margin. The chart hangs 24px below its row: the bottom of the lines is level with the bottom of the avatar, and the month names (shown on hover) sit in the 24px that the Joined line leaves free above it (`lg:pt-6`). */}
           <div className="lg:absolute lg:inset-x-0 lg:-bottom-6 lg:top-0">{chart}</div>
         </div>
       )}
       {/* The bottom right of the header: under the chart (under the numbers when there is none). */}
-      <p className="col-span-3 text-right text-base text-muted-foreground sm:col-start-2 sm:row-start-7 lg:col-span-4 lg:col-start-2 lg:row-start-4 lg:pt-6">
+      <p className="col-span-3 text-right text-base text-muted-foreground sm:col-span-4 sm:col-start-1 sm:row-start-7 lg:col-span-4 lg:col-start-2 lg:row-start-4 lg:pt-6">
         {t('header.joined', { date: formatDate(user.createdAt, i18n.language === 'vi' ? 'vi-VN' : 'en-GB') })}
       </p>
     </section>

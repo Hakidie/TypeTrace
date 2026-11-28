@@ -17,6 +17,8 @@ interface PanelProps {
   titleTip?: string;
   /** A control next to the title, outside its tooltip (e.g. the switch to another panel, `PanelTitleSwitch`). */
   titleAction?: ReactNode;
+  /** The actions stay on the title's row on a phone too (they wrap below it only when the two do not fit), instead of under it. */
+  actionsBesideTitle?: boolean;
   /** The title and the description are centered in the header instead of left-aligned. */
   centerTitle?: boolean;
   /** Grows to the height the layout gives it (in a flex column) and passes it on to the content, which can then fill it. */
@@ -30,12 +32,13 @@ interface PanelProps {
 }
 
 /** A block of content in a page: a bordered card with an optional header (title, description, actions) and the content below. */
-export const Panel = ({ title, titleTip, titleAction, description, actions, transparent, bare, centerTitle, fill, titleClassName, className, children }: PanelProps) => (
+export const Panel = ({ title, titleTip, titleAction, description, actions, actionsBesideTitle, transparent, bare, centerTitle, fill, titleClassName, className, children }: PanelProps) => (
   <Card className={cn((transparent || bare) && 'bg-transparent shadow-none', bare && 'border-0', fill && 'flex min-h-0 flex-1 flex-col')}>
     {(title || actions) && (
       <div
         className={cn(
-          'flex flex-col gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between',
+          'flex gap-3 border-b px-5 py-4 sm:flex-row sm:items-center sm:justify-between',
+          actionsBesideTitle ? 'flex-row flex-wrap items-center justify-between' : 'flex-col',
           bare && 'border-b-0 px-0 pt-0',
           centerTitle && 'text-center sm:justify-center',
         )}

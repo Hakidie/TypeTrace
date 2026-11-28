@@ -220,4 +220,23 @@ describe('ProfileHeader: pixel avatar (ranked duel, phase 2)', () => {
 
     expect(screen.getByRole('link', { name: 'Change outfit' })).toHaveAttribute('href', '/wardrobe');
   });
+
+  it('draws the pixel avatar at 3x on a big screen and at 2x on a phone, held upright or on its side', async () => {
+    const original = window.matchMedia;
+    const setPhone = (phone: boolean) => {
+      window.matchMedia = ((query: string) => ({ matches: phone, media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
+    };
+    try {
+      setPhone(false);
+      const { unmount } = renderHeader();
+      expect(await screen.findByRole('img', { name: 'Your avatar' })).toHaveStyle({ width: '228px', height: '228px' });
+      unmount();
+
+      setPhone(true);
+      renderHeader();
+      expect(await screen.findByRole('img', { name: 'Your avatar' })).toHaveStyle({ width: '152px', height: '152px' });
+    } finally {
+      window.matchMedia = original;
+    }
+  });
 });

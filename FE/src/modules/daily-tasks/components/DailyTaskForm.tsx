@@ -240,8 +240,8 @@ export const DailyTaskForm = ({ task, onDone, titleAction }: DailyTaskFormProps)
       <div className="flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
         <div className="space-y-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            {/* The goal in words, in the look of the word count of a passage. */}
-            <p className="w-fit bg-transparent px-0 py-1.5 text-[1.125rem] text-primary">
+            {/* The goal in words, in the look of the word count of a passage. Not drawn on a tablet or a phone (`max-lg:sr-only`: the row has no room for it, the fields say the same); screen readers still read it. */}
+            <p className="w-fit bg-transparent px-0 py-1.5 text-[1.125rem] text-primary max-lg:sr-only">
               {goal}
             </p>
           </div>

@@ -46,7 +46,7 @@ const emptyValues: FormValues = { title: '', source: '', content: '' };
 // The same as the admin passage form (`PassageForm`): no borders, Title and Source in the red tint of the typing status
 // bar, as wide as their text (`field-sizing-content`), Title on the left and Source on the right.
 const fieldClass = 'border-0 px-0 text-[1.125rem] focus-visible:ring-0';
-const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-0 py-1.5 text-[1.5rem] text-primary placeholder:text-primary';
+const metaFieldClass = 'field-sizing-content h-12 w-auto min-w-24 max-w-full bg-transparent focus-visible:ring-0 px-0 py-1.5 text-xl text-primary placeholder:text-primary sm:text-[1.5rem]';
 
 /** No visible labels: the placeholders say what each field is, `aria-label` serves screen readers. */
 const FieldError = ({ message }: { message?: string }) =>
@@ -109,7 +109,7 @@ export const OwnPassageForm = ({ ownCount, maxCount, passage, onDone }: OwnPassa
 
       <div className="flex min-h-0 flex-1 flex-col gap-2">
         <Textarea
-          className={cn(fieldClass, 'min-h-48 flex-1 resize-none text-[2rem] leading-snug lg:min-h-20')}
+          className={cn(fieldClass, 'min-h-48 flex-1 resize-none text-2xl leading-snug sm:text-[2rem] lg:min-h-20')}
           aria-label={t('form.contentLabel')}
           placeholder={t('form.contentPlaceholder')}
           {...register('content')}

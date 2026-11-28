@@ -72,6 +72,20 @@ function DropdownMenuContent({ children, className, align = 'start', ...props }:
     return () => document.removeEventListener('mousedown', handler);
   }, [open, setOpen]);
 
+  // Keep the menu on the screen: a menu pinned to the edge of a button near the other edge of a phone would run off it
+  // (`translate` is separate from the `transform` of the opening animation).
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!open || !el) return;
+    el.style.translate = '';
+    const { left, right } = el.getBoundingClientRect();
+    const margin = 8;
+    const width = document.documentElement.clientWidth;
+    let shift = right > width - margin ? width - margin - right : 0;
+    if (left + shift < margin) shift = margin - left;
+    if (shift) el.style.translate = `${shift}px`;
+  }, [open]);
+
   if (!open) return null;
 
   return (

@@ -41,6 +41,7 @@ export const PaymentHistoryPage = () => {
                   key={row._id}
                   plain
                   flat
+                  extraBeside
                   identity={
                     <div className="min-w-0">
                       <p className="truncate text-2xl font-extrabold text-primary/80">{purchaseLabel(row.product, products.data)}</p>
@@ -48,10 +49,11 @@ export const PaymentHistoryPage = () => {
                     </div>
                   }
                   extra={
-                    <div className="flex w-full justify-between gap-4 xl:w-auto xl:justify-end xl:gap-0">
-                      <ListRowStat className="w-32" label={t('history.amount')} value={formatVnd(row.amount)} />
-                      <ListRowStat className="w-28" label={t('history.gateway')} value={PROVIDER_NAMES[row.provider]} />
-                      <ListRowStat className="w-28" label={t('history.status')} value={t(`history.${row.status}`)} />
+                    // A phone held upright: the three under the name, left-aligned with it (a value never breaks across lines); from `sm` on the line of the name, in columns wide enough for the amount.
+                    <div className="flex w-full justify-start gap-5 whitespace-nowrap sm:w-auto sm:justify-end sm:gap-8">
+                      <ListRowStat compactOnPhones startOnPhones className="sm:w-40" label={t('history.amount')} value={formatVnd(row.amount)} />
+                      <ListRowStat compactOnPhones startOnPhones className="sm:w-28" label={t('history.gateway')} value={PROVIDER_NAMES[row.provider]} />
+                      <ListRowStat compactOnPhones startOnPhones className="sm:w-28" label={t('history.status')} value={t(`history.${row.status}`)} />
                     </div>
                   }
                 />

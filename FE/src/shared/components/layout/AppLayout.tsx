@@ -4,7 +4,10 @@ import { Outlet } from 'react-router-dom';
 import type { MenuItem, NavItem, NavWidget } from '@/app/module.types';
 import { BrandFooter } from '@/shared/components/layout/BrandFooter';
 import { BrandHeader } from '@/shared/components/layout/BrandHeader';
+import { DesktopNotice } from '@/shared/components/layout/DesktopNotice';
+import { MobileTabBar } from '@/shared/components/layout/MobileTabBar';
 import { NavLinks } from '@/shared/components/layout/NavLinks';
+import { useIsPhone } from '@/shared/hooks/use-is-phone';
 import { UserMenu } from '@/shared/components/layout/UserMenu';
 import { GuestMenu } from '@/modules/auth/components/GuestMenu';
 import { useCurrentUser } from '@/modules/auth/hooks/use-current-user';
@@ -25,22 +28,24 @@ export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] 
   const { data: user } = useCurrentUser();
   const { i18n } = useTranslation();
   useThemeSync();
+  const phone = useIsPhone();
 
   // A guest (no token, SCRUM-251) sees the pages open to guests; the other tabs show locked. No widget: they call APIs that need a sign-in.
   const guest = !tokenStore.get();
   const navItems = allNavItems.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-clip bg-background">
+    <div className={`flex min-h-screen flex-col overflow-x-clip bg-background ${phone ? 'pb-14' : ''}`}>
       {/* The same header and footer as the login pages: logo, navigation in the center, then the user menu (Mode, Logout). */}
       <div className="sticky top-0 z-50 bg-background/75 backdrop-blur-xs">
         <BrandHeader
           themeToggle={false}
-          nav={<NavLinks items={navItems} guest={guest} />}
+          nav={phone ? undefined : <NavLinks items={navItems} guest={guest} />}
         >
           {guest ? <GuestMenu /> : <UserMenu user={user} menuItems={menuItems} />}
         </BrandHeader>
       </div>
+      <DesktopNotice />
 
       {/* At least one screen tall below the header (about 61px), so the footer is only seen after scrolling down. */}
       <main className="mx-auto flex min-h-[calc(100vh-61px)] w-full max-w-7xl flex-col px-4 pb-8 pt-12">
@@ -51,6 +56,7 @@ export const AppLayout = ({ navItems: allNavItems, menuItems = [], widgets = [] 
       </main>
 
       <BrandFooter />
+      <MobileTabBar items={navItems} guest={guest} />
 
       {!guest && widgets.map((Widget, index) => (
         <Widget key={index} />
